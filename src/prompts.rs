@@ -127,9 +127,76 @@ mod tests {
     }
 
     #[test]
+    fn test_to_snake_case_multiple_hyphens() {
+        assert_eq!(to_snake_case("my-cool-project"), "my_cool_project");
+    }
+
+    #[test]
+    fn test_to_snake_case_empty() {
+        assert_eq!(to_snake_case(""), "");
+    }
+
+    #[test]
+    fn test_to_snake_case_single_char() {
+        assert_eq!(to_snake_case("A"), "a");
+    }
+
+    #[test]
     fn test_to_pascal_case() {
         assert_eq!(to_pascal_case("my-project"), "MyProject");
         assert_eq!(to_pascal_case("my_project"), "MyProject");
         assert_eq!(to_pascal_case("single"), "Single");
+    }
+
+    #[test]
+    fn test_to_pascal_case_multiple_segments() {
+        assert_eq!(to_pascal_case("my-cool-project"), "MyCoolProject");
+    }
+
+    #[test]
+    fn test_to_pascal_case_mixed_separators() {
+        assert_eq!(to_pascal_case("my-cool_project"), "MyCoolProject");
+    }
+
+    #[test]
+    fn test_to_pascal_case_empty() {
+        assert_eq!(to_pascal_case(""), "");
+    }
+
+    #[test]
+    fn test_to_pascal_case_single_char() {
+        assert_eq!(to_pascal_case("a"), "A");
+    }
+
+    #[test]
+    fn render_default_plain_string() {
+        let ctx = tera::Context::new();
+        assert_eq!(render_default("hello world", &ctx).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn render_default_with_variable() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name", "my-app");
+        assert_eq!(
+            render_default("A {{ project_name }} project", &ctx).unwrap(),
+            "A my-app project"
+        );
+    }
+
+    #[test]
+    fn render_default_no_braces_passthrough() {
+        let ctx = tera::Context::new();
+        assert_eq!(
+            render_default("no variables here", &ctx).unwrap(),
+            "no variables here"
+        );
+    }
+
+    #[test]
+    fn render_default_missing_var_errors() {
+        let ctx = tera::Context::new();
+        let result = render_default("{{ missing }}", &ctx);
+        assert!(result.is_err());
     }
 }

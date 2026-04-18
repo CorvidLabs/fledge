@@ -136,3 +136,101 @@ fn init_git(dir: &Path) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn make_test_templates(dir: &Path) -> PathBuf {
+        let tpl_dir = dir.join("templates");
+        fs::create_dir_all(&tpl_dir).unwrap();
+
+        let test_tpl = tpl_dir.join("test-tpl");
+        fs::create_dir(&test_tpl).unwrap();
+        fs::write(
+            test_tpl.join("template.toml"),
+            r#"
+[template]
+name = "test-tpl"
+description = "Test template"
+
+[files]
+render = ["**/*.md"]
+ignore = ["template.toml"]
+"#,
+        )
+        .unwrap();
+        fs::write(test_tpl.join("README.md"), "# {{ project_name }}").unwrap();
+        fs::write(test_tpl.join("plain.txt"), "no rendering").unwrap();
+
+        tpl_dir
+    }
+
+    #[test]
+    fn resolve_template_by_name() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = make_test_templates(tmp.path());
+        let templates = templates::discover_templates(&[tpl_dir]).unwrap();
+
+        let result = resolve_template(&templates, Some("test-tpl"));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name, "test-tpl");
+    }
+
+    #[test]
+    fn resolve_template_unknown_name_errors() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = make_test_templates(tmp.path());
+        let templates = templates::discover_templates(&[tpl_dir]).unwrap();
+
+        let result = resolve_template(&templates, Some("nonexistent"));
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("nonexistent"));
+        assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn resolve_template_error_lists_available() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = make_test_templates(tmp.path());
+        let templates = templates::discover_templates(&[tpl_dir]).unwrap();
+
+        let err = resolve_template(&templates, Some("missing"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("test-tpl"));
+    }
+
+    #[test]
+    fn init_git_creates_repo() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("my-project");
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("file.txt"), "hello").unwrap();
+
+        let result = init_git(&dir);
+        assert!(result.is_ok());
+        assert!(dir.join(".git").exists());
+    }
+
+    #[test]
+    fn init_git_makes_initial_commit() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("my-project");
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("file.txt"), "hello").unwrap();
+
+        init_git(&dir).unwrap();
+
+        let output = std::process::Command::new("git")
+            .args(["log", "--oneline"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let log = String::from_utf8(output.stdout).unwrap();
+        assert!(log.contains("Initial commit from fledge"));
+    }
+}
