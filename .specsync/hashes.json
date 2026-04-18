@@ -1,0 +1,28 @@
+{
+  "hashes": {
+    "specs/prompts/tasks.md": "28ed8ed0bc3b057be31a02766e450351cd54c4bde076384ea563f816692b96da",
+    "specs/prompts/testing.md": "05175969d8fc5af02fb20e34442bc9b580f5cabf2ca1d5eee7b0440b8efd3722",
+    "src/prompts.rs": "53fa60ec6eef9e7a38a6827113241b1ded5f07bfd3393b3cdf1147c67403069a",
+    "specs/templates/requirements.md": "2fed0944a5f89f8327dbdc6a21aea9fa9a93696bf43eecbc2105ad72cae38072",
+    "specs/templates/testing.md": "2e2bfedfe67566d9f1bedcc8954444244449216b1216a09dad45f669784b9f7e",
+    "specs/init/context.md": "600bff4cddbcada7cb7fe2f0fbd0f2e0156230b677cb89cf7266b3b6cf06dc9c",
+    "specs/config/tasks.md": "bd27822c14e605e44addba72d449925e605dd9f95adae60b8dec1d15bc9188b6",
+    "specs/init/tasks.md": "20bb9635ffe4ba83bda0e9c9671414cb6e26cab0a80f4498b484aea7740ed038",
+    "src/config.rs": "8b91555789f437bfaca41b0c6aef8bc45d39f6e55cc9f3df0dcbc88881b2e523",
+    "src/templates.rs": "c163cec54773bb316dbaddb81fd8738b413fbfa4cc6ffd2e73ba3175777bec67",
+    "specs/config/context.md": "dab020a7a72602f12d732136e262a3e0758ead9c1aa73566750bc14d775fbe9b",
+    "specs/templates/templates.spec.md": "088ce8d2a6705ab0f084f75a567a71a5b37876265ac187bb5fc96e049abeb6fe",
+    "specs/templates/context.md": "026dde023f6035c3a2dc03bc776ad0988eb33354b9464c47a3dcf20717b13287",
+    "specs/templates/tasks.md": "2f93b24552eb8d0a6fb8a713f97be4bb22745b22f8ba2d08a95b81aa9445f2b3",
+    "specs/prompts/requirements.md": "e494f8a32cf00658f7a9f918841910ac5ebd48fcedb529a8d3c43e58111d5079",
+    "specs/config/requirements.md": "71435691b51d2e7d33e483725fa20387afee7ce80897ef59cd985ae8892070ef",
+    "specs/init/init.spec.md": "f4b492b0b53c3e300c4e66612557ec5ac9dde1cb41c857038b723eb413eed721",
+    "src/init.rs": "3c6c35808073ffa660cb49e61555078e96122ac665e06361cee4164a8404a2dc",
+    "specs/init/testing.md": "e04186c39e1dcf308a7fefc725adb956bfcd8a07ef571426e7616b9cba239a4a",
+    "specs/config/testing.md": "b6938160283d6da43b024146cfab66a3b0338294f1343f60502f38228a34f5ed",
+    "specs/config/config.spec.md": "4104d45a26000157009b4d56e21acd7578ca2269f15a1cdb7f86f8d545d8d4cc",
+    "specs/prompts/context.md": "8e05fe2c74263538931dd29f907a802d4a5da66ea45d49066797ee9d01cc7cb2",
+    "specs/init/requirements.md": "d685e7e1992428eda5eab83b38b4e71f04698b6b297cffc6a8bd9c63ed59c3ff",
+    "specs/prompts/prompts.spec.md": "c6657be595e89bf4e854f56c2c60f08c4e1042be555341a2d0b4ab60d1275079"
+  }
+}
