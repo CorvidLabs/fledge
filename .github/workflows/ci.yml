@@ -59,14 +59,14 @@ jobs:
       - name: Run spec-check
         id: spec-check
         run: |
-          BODY=$(spec-sync comment 2>/dev/null) || true
+          BODY=$(specsync comment 2>/dev/null) || true
           echo "$BODY"
           {
             echo 'body<<EOF'
             echo "$BODY"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-          spec-sync check --strict
+          specsync check --strict
 
   corvid-pet:
     runs-on: ubuntu-latest
