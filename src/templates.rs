@@ -68,6 +68,51 @@ pub fn discover_templates(extra_paths: &[PathBuf]) -> Result<Vec<Template>> {
     Ok(templates)
 }
 
+pub fn discover_templates_with_repos(
+    extra_paths: &[PathBuf],
+    repos: &[String],
+    token: Option<&str>,
+) -> Result<Vec<Template>> {
+    let mut templates = discover_templates(extra_paths)?;
+
+    for repo_ref in repos {
+        if !crate::remote::is_remote_ref(repo_ref) {
+            continue;
+        }
+        let (owner, repo, subpath) = crate::remote::parse_remote_ref(repo_ref);
+        match crate::remote::resolve_template_dir(owner, repo, subpath, token) {
+            Ok(dir) => {
+                if dir.join("template.toml").exists() {
+                    load_single_template(&dir, &mut templates)?;
+                } else {
+                    load_templates_from_dir(&dir, &mut templates)?;
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: failed to fetch {}: {}", repo_ref, e);
+            }
+        }
+    }
+
+    templates.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(templates)
+}
+
+fn load_single_template(path: &Path, templates: &mut Vec<Template>) -> Result<()> {
+    let manifest_path = path.join("template.toml");
+    let content = std::fs::read_to_string(&manifest_path)
+        .with_context(|| format!("reading {}", manifest_path.display()))?;
+    let manifest: TemplateManifest =
+        toml::from_str(&content).with_context(|| format!("parsing {}", manifest_path.display()))?;
+    templates.push(Template {
+        name: manifest.template.name.clone(),
+        description: manifest.template.description.clone(),
+        path: path.to_path_buf(),
+        manifest,
+    });
+    Ok(())
+}
+
 fn builtin_template_dir() -> PathBuf {
     // When running from cargo, use the manifest dir; otherwise use exe-relative path
     let exe = std::env::current_exe().unwrap_or_default();

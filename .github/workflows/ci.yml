@@ -50,9 +50,12 @@ jobs:
 
   spec-check:
     runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.specsync.outputs.body }}
     steps:
       - uses: actions/checkout@v4
       - name: Run spec-sync
+        id: specsync
         uses: CorvidLabs/spec-sync@v4.3.1
         with:
           strict: true
@@ -74,6 +77,7 @@ jobs:
           CHECK_FMT: "Format Check=${{ needs.fmt.result }}"
           CHECK_SPEC: "Spec Validation=${{ needs.spec-check.result }}"
           CHECK_AUDIT: "Dependency Audit=${{ needs.audit.result }}"
+          REPORT_SPEC: ${{ needs.spec-check.outputs.body }}
         run: |
           OVERALL="success"
           TABLE="| Check | Status |\n|-------|--------|\n"

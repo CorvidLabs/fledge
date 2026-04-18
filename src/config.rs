@@ -8,6 +8,8 @@ pub struct Config {
     pub defaults: Defaults,
     #[serde(default)]
     pub templates: TemplatesConfig,
+    #[serde(default)]
+    pub github: GitHubConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,6 +33,13 @@ impl Default for Defaults {
 pub struct TemplatesConfig {
     #[serde(default)]
     pub paths: Vec<String>,
+    #[serde(default)]
+    pub repos: Vec<String>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct GitHubConfig {
+    pub token: Option<String>,
 }
 
 impl Config {
@@ -80,6 +89,17 @@ impl Config {
             .license
             .clone()
             .unwrap_or_else(|| "MIT".to_string())
+    }
+
+    pub fn github_token(&self) -> Option<String> {
+        std::env::var("FLEDGE_GITHUB_TOKEN")
+            .or_else(|_| std::env::var("GITHUB_TOKEN"))
+            .ok()
+            .or_else(|| self.github.token.clone())
+    }
+
+    pub fn template_repos(&self) -> &[String] {
+        &self.templates.repos
     }
 
     pub fn extra_template_paths(&self) -> Vec<PathBuf> {
@@ -185,6 +205,7 @@ author = "Partial"
         let config = Config {
             templates: TemplatesConfig {
                 paths: vec!["~/my-templates".to_string()],
+                ..TemplatesConfig::default()
             },
             ..Config::default()
         };
@@ -199,6 +220,7 @@ author = "Partial"
         let config = Config {
             templates: TemplatesConfig {
                 paths: vec!["/opt/templates".to_string()],
+                ..TemplatesConfig::default()
             },
             ..Config::default()
         };
@@ -244,5 +266,60 @@ author = "Partial"
     fn load_returns_defaults_when_no_file() {
         let config = Config::load().unwrap();
         assert_eq!(config.license(), "MIT");
+    }
+
+    #[test]
+    fn github_token_from_config_field() {
+        let config = Config {
+            github: GitHubConfig {
+                token: Some("ghp_test123".to_string()),
+            },
+            ..Config::default()
+        };
+        // If env vars are set, they take precedence; otherwise config field is used
+        let token = config.github_token();
+        assert!(token.is_some());
+    }
+
+    #[test]
+    fn github_config_default_has_no_token() {
+        let config = Config::default();
+        assert!(config.github.token.is_none());
+    }
+
+    #[test]
+    fn template_repos_from_config() {
+        let toml_str = r#"
+[templates]
+repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.template_repos().len(), 2);
+        assert_eq!(config.template_repos()[0], "CorvidLabs/fledge-templates");
+    }
+
+    #[test]
+    fn template_repos_default_empty() {
+        let config = Config::default();
+        assert!(config.template_repos().is_empty());
+    }
+
+    #[test]
+    fn full_config_with_github_section() {
+        let toml_str = r#"
+[defaults]
+author = "Leif"
+
+[github]
+token = "ghp_secret"
+
+[templates]
+paths = ["/opt/tpl"]
+repos = ["CorvidLabs/templates"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.defaults.author.as_deref(), Some("Leif"));
+        assert_eq!(config.github.token.as_deref(), Some("ghp_secret"));
+        assert_eq!(config.template_repos(), &["CorvidLabs/templates"]);
     }
 }

@@ -1,6 +1,6 @@
 ---
 module: templates
-version: 2
+version: 3
 status: active
 files:
   - src/templates.rs
@@ -27,6 +27,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `FileRules` | Glob patterns controlling which files are rendered, copied, or ignored |
 | `Template` | A discovered template combining its name, description, directory path, and parsed manifest |
 | `discover_templates` | Scans built-in and extra directories for valid templates |
+| `discover_templates_with_repos` | Discovers templates from local paths and remote GitHub repos |
 | `render_template` | Renders a template's files into a target directory using Tera variable substitution |
 
 ### Structs & Enums
@@ -49,6 +50,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `discover_templates` | `(&[PathBuf]) -> Result<Vec<Template>>` | Find all templates from built-in and extra paths |
+| `discover_templates_with_repos` | `(&[PathBuf], &[String], Option<&str>) -> Result<Vec<Template>>` | Find templates from local paths and remote GitHub repos |
 | `render_template` | `(&Template, &Path, &tera::Context) -> Result<Vec<PathBuf>>` | Render template files into target directory |
 
 ## Invariants
@@ -143,3 +145,4 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 |------|--------|--------|
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: Fill in export descriptions, add invariants for sort order and directory resolution, expand behavioral examples and error cases |
+| 2026-04-18 | CorvidAgent | v3: Add discover_templates_with_repos for remote GitHub template support |

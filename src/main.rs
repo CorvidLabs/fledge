@@ -6,6 +6,7 @@ use std::path::PathBuf;
 mod config;
 mod init;
 mod prompts;
+mod remote;
 mod templates;
 
 #[derive(Parser)]
@@ -68,7 +69,12 @@ fn main() -> Result<()> {
 fn list_templates() -> Result<()> {
     let config = config::Config::load()?;
     let extra_paths = config.extra_template_paths();
-    let available = templates::discover_templates(&extra_paths)?;
+    let token = config.github_token();
+    let available = templates::discover_templates_with_repos(
+        &extra_paths,
+        config.template_repos(),
+        token.as_deref(),
+    )?;
 
     if available.is_empty() {
         println!("No templates found.");

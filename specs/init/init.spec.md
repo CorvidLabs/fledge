@@ -1,6 +1,6 @@
 ---
 module: init
-version: 2
+version: 3
 status: active
 files:
   - src/init.rs
@@ -8,6 +8,7 @@ files:
 db_tables: []
 depends_on:
   - templates
+  - remote
 ---
 
 # Init
@@ -57,6 +58,12 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 - **When** `run()` is called
 - **Then** uses `rust-cli` without prompting, renders files, inits git
 
+### Scenario: Remote template via owner/repo
+
+- **Given** `--template CorvidLabs/fledge-templates/rust-cli` is passed
+- **When** `run()` is called
+- **Then** clones the GitHub repo, finds the template, renders files, inits git
+
 ### Scenario: Directory already exists
 
 - **Given** target directory `./my-project` already exists
@@ -85,8 +92,9 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Crate/Module | What is used |
 |-------------|-------------|
-| `config` | `Config::load()`, `extra_template_paths()` |
-| `templates` | `discover_templates()`, `render_template()` |
+| `config` | `Config::load()`, `extra_template_paths()`, `github_token()`, `template_repos()` |
+| `templates` | `discover_templates_with_repos()`, `render_template()` |
+| `remote` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()` |
 | `prompts` | `select_template()`, `prompt_variables()` |
 | `console` | `style()` for colored output |
 | `anyhow` | Error handling |
@@ -103,3 +111,4 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 |------|--------|--------|
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: fill in export descriptions, re-validate against source |
+| 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |

@@ -18,7 +18,21 @@ pub struct InitOptions {
 pub fn run(opts: InitOptions) -> Result<()> {
     let config = Config::load().context("loading config")?;
     let extra_paths = config.extra_template_paths();
-    let available = templates::discover_templates(&extra_paths)?;
+    let token = config.github_token();
+    let token_ref = token.as_deref();
+
+    // If template looks like a remote ref, fetch it directly
+    if opts
+        .template
+        .as_deref()
+        .is_some_and(crate::remote::is_remote_ref)
+    {
+        let tpl_name = opts.template.as_ref().unwrap().clone();
+        return run_remote(opts, &tpl_name, &config, token_ref);
+    }
+
+    let available =
+        templates::discover_templates_with_repos(&extra_paths, config.template_repos(), token_ref)?;
 
     if available.is_empty() {
         bail!("No templates found. Add templates to the templates/ directory.");
@@ -77,6 +91,101 @@ pub fn run(opts: InitOptions) -> Result<()> {
         println!("  git repo initialized with initial commit");
     }
 
+    println!();
+    println!("  cd {} && get started!", style(&opts.name).cyan());
+
+    Ok(())
+}
+
+fn run_remote(
+    opts: InitOptions,
+    remote_ref: &str,
+    config: &Config,
+    token: Option<&str>,
+) -> Result<()> {
+    let (owner, repo, subpath) = crate::remote::parse_remote_ref(remote_ref);
+
+    println!(
+        "{} Fetching template from {}/{}{}...",
+        style("*").cyan().bold(),
+        owner,
+        repo,
+        subpath.map(|s| format!("/{}", s)).unwrap_or_default()
+    );
+
+    let template_dir = crate::remote::resolve_template_dir(owner, repo, subpath, token)?;
+
+    // The remote dir might be a single template or a collection
+    let mut found = Vec::new();
+    if template_dir.join("template.toml").exists() {
+        // Single template
+        let content = std::fs::read_to_string(template_dir.join("template.toml"))?;
+        let manifest: templates::TemplateManifest = toml::from_str(&content)?;
+        found.push(templates::Template {
+            name: manifest.template.name.clone(),
+            description: manifest.template.description.clone(),
+            path: template_dir.clone(),
+            manifest,
+        });
+    } else {
+        // Collection — discover templates within
+        let extra = vec![template_dir.clone()];
+        found = templates::discover_templates(&extra)?;
+    }
+
+    if found.is_empty() {
+        bail!("No templates found in {}", remote_ref);
+    }
+
+    let template = if found.len() == 1 {
+        &found[0]
+    } else {
+        let idx = prompts::select_template(&found)?;
+        &found[idx]
+    };
+
+    println!(
+        "{} Using template: {}",
+        style("*").cyan().bold(),
+        style(&template.name).green()
+    );
+
+    let target_dir = opts.output.join(&opts.name);
+    if target_dir.exists() {
+        bail!(
+            "Directory '{}' already exists. Choose a different name or remove it first.",
+            target_dir.display()
+        );
+    }
+
+    let variables = prompts::prompt_variables(template, &opts.name, config)?;
+
+    std::fs::create_dir_all(&target_dir)
+        .with_context(|| format!("creating directory {}", target_dir.display()))?;
+
+    println!("{} Scaffolding project...", style("*").cyan().bold());
+    let created_files = templates::render_template(template, &target_dir, &variables)?;
+
+    if !opts.no_git {
+        init_git(&target_dir)?;
+    }
+
+    println!();
+    println!(
+        "{} Created {} in {}",
+        style("✓").green().bold(),
+        style(&opts.name).cyan().bold(),
+        style(target_dir.display()).dim()
+    );
+    println!();
+    for file in &created_files {
+        println!("  {}", style(file.display()).dim());
+    }
+    println!();
+    println!("  {} files created", created_files.len());
+    if !opts.no_git {
+        println!("  git repo initialized with initial commit");
+    }
     println!();
     println!("  cd {} && get started!", style(&opts.name).cyan());
 
