@@ -230,6 +230,31 @@ fn init_git(dir: &Path) -> Result<()> {
         bail!("git init failed");
     }
 
+    // Ensure git has a user configured (needed in CI / fresh environments)
+    let has_user = std::process::Command::new("git")
+        .args(["config", "user.name"])
+        .current_dir(dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    if !has_user {
+        std::process::Command::new("git")
+            .args(["config", "user.name", "fledge"])
+            .current_dir(dir)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .ok();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "fledge@localhost"])
+            .current_dir(dir)
+            .stdout(std::process::Stdio::null())
+            .status()
+            .ok();
+    }
+
     // Stage all files
     std::process::Command::new("git")
         .args(["add", "."])
