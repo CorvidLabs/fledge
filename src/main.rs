@@ -8,6 +8,7 @@ mod init;
 mod prompts;
 mod remote;
 mod templates;
+#[cfg(feature = "tui")]
 mod tui;
 
 #[derive(Parser)]
@@ -38,7 +39,8 @@ enum Commands {
     },
     /// List available templates
     List,
-    /// Interactive TUI for browsing and scaffolding templates
+    /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
+    #[cfg(feature = "tui")]
     Tui {
         /// Parent directory for the project
         #[arg(short, long, default_value = ".")]
@@ -71,6 +73,7 @@ fn main() -> Result<()> {
         Commands::List => {
             list_templates()?;
         }
+        #[cfg(feature = "tui")]
         Commands::Tui { output, no_git } => {
             tui::run(output, no_git)?;
         }

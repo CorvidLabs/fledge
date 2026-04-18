@@ -212,6 +212,7 @@ fn resolve_template<'a>(
     }
 }
 
+#[cfg(feature = "tui")]
 pub fn init_git_for_tui(dir: &Path) -> Result<()> {
     init_git(dir)
 }
