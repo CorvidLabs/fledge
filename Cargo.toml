@@ -2,9 +2,13 @@
 name = "fledge"
 version = "0.1.0"
 edition = "2024"
+authors = ["CorvidLabs <corvidlabs@proton.me>"]
 description = "Corvid-themed project scaffolding CLI — get your projects ready to fly."
+readme = "README.md"
 license = "MIT"
+homepage = "https://github.com/CorvidLabs/fledge"
 repository = "https://github.com/CorvidLabs/fledge"
+rust-version = "1.85"
 keywords = ["cli", "scaffold", "template", "project-init"]
 categories = ["command-line-utilities", "development-tools"]
 
