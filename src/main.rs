@@ -8,6 +8,7 @@ mod init;
 mod prompts;
 mod remote;
 mod templates;
+mod tui;
 
 #[derive(Parser)]
 #[command(name = "fledge", version, about = "Get your projects ready to fly.")]
@@ -37,6 +38,15 @@ enum Commands {
     },
     /// List available templates
     List,
+    /// Interactive TUI for browsing and scaffolding templates
+    Tui {
+        /// Parent directory for the project
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        /// Skip git init and initial commit
+        #[arg(long)]
+        no_git: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -60,6 +70,9 @@ fn main() -> Result<()> {
         }
         Commands::List => {
             list_templates()?;
+        }
+        Commands::Tui { output, no_git } => {
+            tui::run(output, no_git)?;
         }
     }
 

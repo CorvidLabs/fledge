@@ -212,6 +212,10 @@ fn resolve_template<'a>(
     }
 }
 
+pub fn init_git_for_tui(dir: &Path) -> Result<()> {
+    init_git(dir)
+}
+
 fn init_git(dir: &Path) -> Result<()> {
     let status = std::process::Command::new("git")
         .args(["init"])
