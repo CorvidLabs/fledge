@@ -1,0 +1,17 @@
+# {{ project_name_pascal }}
+
+{{ description }}
+
+## Installation
+
+Add to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/{{ github_org }}/{{ project_name }}", from: "0.1.0"),
+]
+```
+
+## License
+
+{{ license }}

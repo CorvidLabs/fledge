@@ -1,0 +1,10 @@
+# {{ project_name_pascal }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+swift build
+swift test
+```

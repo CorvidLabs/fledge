@@ -1,0 +1,17 @@
+{
+  "name": "{{ project_name }}",
+  "version": "0.1.0",
+  "description": "{{ description }}",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "test": "bun test",
+    "lint": "bunx biome check src/",
+    "format": "bunx biome format --write src/"
+  },
+  "license": "{{ license }}",
+  "devDependencies": {
+    "@biomejs/biome": "latest"
+  }
+}

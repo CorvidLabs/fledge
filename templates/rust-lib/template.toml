@@ -1,0 +1,12 @@
+[template]
+name = "rust-lib"
+description = "Rust library crate with docs and publishing workflow"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new Rust library" }
+
+[files]
+render = ["**/*.rs", "**/*.toml", "**/*.md", "**/*.yml"]
+copy = []
+ignore = ["template.toml"]

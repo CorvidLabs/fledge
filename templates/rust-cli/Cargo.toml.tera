@@ -1,0 +1,12 @@
+[package]
+name = "{{ project_name }}"
+version = "0.1.0"
+edition = "2024"
+description = "{{ description }}"
+license = "{{ license }}"
+repository = "https://github.com/{{ github_org }}/{{ project_name }}"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+anyhow = "1"

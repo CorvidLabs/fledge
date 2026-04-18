@@ -1,0 +1,13 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+cargo build
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --check
+cargo doc --no-deps
+```

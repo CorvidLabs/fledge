@@ -1,0 +1,16 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Getting Started
+
+```bash
+bun install
+bun run start
+```
+
+Open http://localhost:4200 in your browser.
+
+## License
+
+{{ license }}

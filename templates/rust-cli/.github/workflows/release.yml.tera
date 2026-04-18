@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build {% raw %}${{ matrix.target }}{% endraw %}
+    runs-on: {% raw %}${{ matrix.os }}{% endraw %}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: {% raw %}${{ matrix.target }}{% endraw %}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --target {% raw %}${{ matrix.target }}{% endraw %}
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/{% raw %}${{ matrix.target }}{% endraw %}/release
+          tar czf ../../../{{ project_name }}-{% raw %}${{ matrix.target }}{% endraw %}.tar.gz {{ project_name }}
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/{% raw %}${{ matrix.target }}{% endraw %}/release
+          7z a ../../../{{ project_name }}-{% raw %}${{ matrix.target }}{% endraw %}.zip {{ project_name }}.exe
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            {{ project_name }}-*.tar.gz
+            {{ project_name }}-*.zip

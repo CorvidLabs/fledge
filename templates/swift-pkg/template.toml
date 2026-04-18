@@ -1,0 +1,12 @@
+[template]
+name = "swift-pkg"
+description = "Swift package with Package.swift, CI, and coding conventions"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new Swift package" }
+
+[files]
+render = ["**/*.swift", "**/*.md", "**/*.yml"]
+copy = []
+ignore = ["template.toml"]

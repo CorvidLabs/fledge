@@ -1,0 +1,12 @@
+[template]
+name = "rust-cli"
+description = "Rust CLI application with clap, CI, and release automation"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new Rust CLI" }
+
+[files]
+render = ["**/*.rs", "**/*.toml", "**/*.md", "**/*.yml"]
+copy = ["**/*.png", "**/*.ico"]
+ignore = ["template.toml"]
