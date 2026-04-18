@@ -12,6 +12,14 @@ pub struct TemplateManifest {
     pub prompts: HashMap<String, PromptDef>,
     #[serde(default)]
     pub files: FileRules,
+    #[serde(default)]
+    pub hooks: Hooks,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct Hooks {
+    #[serde(default)]
+    pub post_create: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -371,6 +379,22 @@ render = ["**/*.rs"]
         assert_eq!(manifest.files.render, vec!["**/*.rs"]);
         assert!(manifest.files.ignore.is_empty());
         assert!(manifest.prompts.is_empty());
+        assert!(manifest.hooks.post_create.is_empty());
+    }
+
+    #[test]
+    fn parse_manifest_with_hooks() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "A test template"
+
+[hooks]
+post_create = ["npm install", "echo done"]
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.hooks.post_create.len(), 2);
+        assert_eq!(manifest.hooks.post_create[0], "npm install");
     }
 
     #[test]

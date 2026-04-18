@@ -25,6 +25,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `TemplateInfo` | Metadata about a template: name, description, and optional minimum version |
 | `PromptDef` | Definition for a user-facing prompt with message text and optional default value |
 | `FileRules` | Glob patterns controlling which files are rendered, copied, or ignored |
+| `Hooks` | Post-create hook commands defined in `[hooks]` section of template.toml |
 | `Template` | A discovered template combining its name, description, directory path, and parsed manifest |
 | `discover_templates` | Scans built-in and extra directories for valid templates |
 | `discover_templates_with_repos` | Discovers templates from local paths and remote GitHub repos |
@@ -39,6 +40,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `TemplateInfo` | Template name, description, and min version |
 | `PromptDef` | Custom prompt definition with message and optional default |
 | `FileRules` | Glob patterns for render, copy, and ignore |
+| `Hooks` | Post-create lifecycle hooks (e.g., `npm install`, `bun install`) |
 
 ### Traits
 

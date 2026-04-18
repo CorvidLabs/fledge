@@ -1,6 +1,6 @@
 ---
 module: init
-version: 3
+version: 4
 status: active
 files:
   - src/init.rs
@@ -30,7 +30,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Type | Description |
 |------|-------------|
-| `InitOptions` | Options for project creation: name, template, output, no_git, no_install |
+| `InitOptions` | Options for project creation: name, template, output, no_git, no_install, refresh |
 
 ### Traits
 
@@ -76,6 +76,24 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 - **When** `run()` completes
 - **Then** project directory has no `.git` folder
 
+### Scenario: Post-create hooks
+
+- **Given** template has `[hooks] post_create = ["npm install"]`
+- **When** `run()` completes without `--no-install`
+- **Then** `npm install` is executed in the project directory
+
+### Scenario: Skip post-create hooks
+
+- **Given** template has post-create hooks defined
+- **When** `--no-install` flag is set
+- **Then** hooks are skipped entirely
+
+### Scenario: Refresh remote cache
+
+- **Given** `--refresh` flag is set with a remote template
+- **When** `run()` is called
+- **Then** cached repo is deleted and re-cloned from GitHub
+
 ## Error Cases
 
 | Condition | Behavior |
@@ -85,6 +103,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | Target directory exists | Bails with exit code 3 |
 | Git init fails | Bails with "git init failed" |
 | Template rendering fails | Propagates Tera error |
+| Post-create hook fails | Bails with exit code and command |
 
 ## Dependencies
 

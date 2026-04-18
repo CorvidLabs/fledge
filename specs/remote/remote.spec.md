@@ -1,6 +1,6 @@
 ---
 module: remote
-version: 1
+version: 2
 status: active
 files:
   - src/remote.rs
@@ -25,6 +25,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 | `is_remote_ref` | Checks if a string looks like a GitHub `owner/repo` reference |
 | `parse_remote_ref` | Splits a remote reference into owner, repo, and optional subpath |
 | `fetch_repo` | Clones or updates a GitHub repo in the local cache |
+| `clear_cache` | Removes a cached repo directory to force re-clone |
 | `resolve_template_dir` | Fetches a repo and returns the path to the template directory |
 
 ### Structs & Enums
@@ -45,6 +46,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 | `is_remote_ref` | `(&str) -> bool` | Returns true if string contains `/` with non-empty segments |
 | `parse_remote_ref` | `(&str) -> (&str, &str, Option<&str>)` | Splits into (owner, repo, optional subpath) |
 | `fetch_repo` | `(&str, &str, Option<&str>) -> Result<PathBuf>` | Clone or pull repo, returns local path |
+| `clear_cache` | `(&str, &str) -> Result<()>` | Remove cached repo dir for owner/repo |
 | `resolve_template_dir` | `(&str, &str, Option<&str>, Option<&str>) -> Result<PathBuf>` | Fetch repo and resolve optional subpath |
 
 ## Invariants
@@ -104,7 +106,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 
 | Module | What is used |
 |--------|-------------|
-| `init` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()` |
+| `init` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()`, `clear_cache()` |
 | `templates` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()` |
 
 ## Change Log

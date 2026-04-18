@@ -33,9 +33,12 @@ enum Commands {
         /// Skip git init and initial commit
         #[arg(long)]
         no_git: bool,
-        /// Skip dependency installation
+        /// Skip dependency installation (post-create hooks)
         #[arg(long)]
         no_install: bool,
+        /// Force re-clone of cached remote templates
+        #[arg(long)]
+        refresh: bool,
     },
     /// List available templates
     List,
@@ -61,6 +64,7 @@ fn main() -> Result<()> {
             output,
             no_git,
             no_install,
+            refresh,
         } => {
             init::run(init::InitOptions {
                 name,
@@ -68,6 +72,7 @@ fn main() -> Result<()> {
                 output,
                 no_git,
                 no_install,
+                refresh,
             })?;
         }
         Commands::List => {

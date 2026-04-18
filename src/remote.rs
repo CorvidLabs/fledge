@@ -23,6 +23,15 @@ pub fn parse_remote_ref(name: &str) -> (&str, &str, Option<&str>) {
     (owner, repo, subpath)
 }
 
+pub fn clear_cache(owner: &str, repo: &str) -> Result<()> {
+    let repo_dir = cache_dir().join(owner).join(repo);
+    if repo_dir.exists() {
+        std::fs::remove_dir_all(&repo_dir)
+            .with_context(|| format!("removing cached repo at {}", repo_dir.display()))?;
+    }
+    Ok(())
+}
+
 pub fn fetch_repo(owner: &str, repo: &str, token: Option<&str>) -> Result<PathBuf> {
     let cache = cache_dir();
     let repo_dir = cache.join(owner).join(repo);
@@ -191,5 +200,22 @@ mod tests {
     fn cache_dir_ends_with_expected_path() {
         let dir = cache_dir();
         assert!(dir.ends_with("fledge/templates"));
+    }
+
+    #[test]
+    fn clear_cache_removes_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let fake_cache = tmp.path().join("owner").join("repo");
+        std::fs::create_dir_all(&fake_cache).unwrap();
+        std::fs::write(fake_cache.join("file.txt"), "data").unwrap();
+        assert!(fake_cache.exists());
+        std::fs::remove_dir_all(&fake_cache).unwrap();
+        assert!(!fake_cache.exists());
+    }
+
+    #[test]
+    fn clear_cache_nonexistent_is_ok() {
+        let result = clear_cache("nonexistent-owner", "nonexistent-repo");
+        assert!(result.is_ok());
     }
 }

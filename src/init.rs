@@ -11,8 +11,8 @@ pub struct InitOptions {
     pub template: Option<String>,
     pub output: PathBuf,
     pub no_git: bool,
-    #[allow(dead_code)]
     pub no_install: bool,
+    pub refresh: bool,
 }
 
 pub fn run(opts: InitOptions) -> Result<()> {
@@ -72,27 +72,13 @@ pub fn run(opts: InitOptions) -> Result<()> {
         init_git(&target_dir)?;
     }
 
+    // Post-create hooks
+    if !opts.no_install {
+        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir)?;
+    }
+
     // Print summary
-    println!();
-    println!(
-        "{} Created {} in {}",
-        style("✓").green().bold(),
-        style(&opts.name).cyan().bold(),
-        style(target_dir.display()).dim()
-    );
-    println!();
-    for file in &created_files {
-        println!("  {}", style(file.display()).dim());
-    }
-    println!();
-    println!("  {} files created", created_files.len());
-
-    if !opts.no_git {
-        println!("  git repo initialized with initial commit");
-    }
-
-    println!();
-    println!("  cd {} && get started!", style(&opts.name).cyan());
+    print_summary(&opts.name, &target_dir, &created_files, opts.no_git);
 
     Ok(())
 }
@@ -104,6 +90,10 @@ fn run_remote(
     token: Option<&str>,
 ) -> Result<()> {
     let (owner, repo, subpath) = crate::remote::parse_remote_ref(remote_ref);
+
+    if opts.refresh {
+        crate::remote::clear_cache(owner, repo)?;
+    }
 
     println!(
         "{} Fetching template from {}/{}{}...",
@@ -170,24 +160,60 @@ fn run_remote(
         init_git(&target_dir)?;
     }
 
+    if !opts.no_install {
+        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir)?;
+    }
+
+    print_summary(&opts.name, &target_dir, &created_files, opts.no_git);
+
+    Ok(())
+}
+
+fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_git: bool) {
     println!();
     println!(
         "{} Created {} in {}",
         style("✓").green().bold(),
-        style(&opts.name).cyan().bold(),
+        style(name).cyan().bold(),
         style(target_dir.display()).dim()
     );
     println!();
-    for file in &created_files {
+    for file in created_files {
         println!("  {}", style(file.display()).dim());
     }
     println!();
     println!("  {} files created", created_files.len());
-    if !opts.no_git {
+    if !no_git {
         println!("  git repo initialized with initial commit");
     }
     println!();
-    println!("  cd {} && get started!", style(&opts.name).cyan());
+    println!("  cd {} && get started!", style(name).cyan());
+}
+
+fn run_post_create_hooks(hooks: &[String], project_dir: &Path) -> Result<()> {
+    if hooks.is_empty() {
+        return Ok(());
+    }
+
+    println!("{} Running post-create hooks...", style("*").cyan().bold());
+
+    for cmd in hooks {
+        println!("  {} {}", style("$").dim(), style(cmd).dim());
+
+        let status = std::process::Command::new("sh")
+            .args(["-c", cmd])
+            .current_dir(project_dir)
+            .status()
+            .with_context(|| format!("running hook: {}", cmd))?;
+
+        if !status.success() {
+            bail!(
+                "Post-create hook failed (exit {}): {}",
+                status.code().unwrap_or(-1),
+                cmd
+            );
+        }
+    }
 
     Ok(())
 }
@@ -371,5 +397,38 @@ ignore = ["template.toml"]
             .unwrap();
         let log = String::from_utf8(output.stdout).unwrap();
         assert!(log.contains("Initial commit from fledge"));
+    }
+
+    #[test]
+    fn run_post_create_hooks_runs_commands() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("project");
+        fs::create_dir(&dir).unwrap();
+
+        let hooks = vec!["touch hook-ran.txt".to_string()];
+        run_post_create_hooks(&hooks, &dir).unwrap();
+
+        assert!(dir.join("hook-ran.txt").exists());
+    }
+
+    #[test]
+    fn run_post_create_hooks_empty_is_noop() {
+        let tmp = TempDir::new().unwrap();
+        let result = run_post_create_hooks(&[], tmp.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn run_post_create_hooks_failing_command_errors() {
+        let tmp = TempDir::new().unwrap();
+        let hooks = vec!["false".to_string()];
+        let result = run_post_create_hooks(&hooks, tmp.path());
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Post-create hook failed")
+        );
     }
 }

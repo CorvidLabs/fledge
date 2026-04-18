@@ -10,3 +10,6 @@ description = { message = "Project description", default = "A new Angular applic
 render = ["**/*.ts", "**/*.json", "**/*.md", "**/*.yml", "**/*.html"]
 copy = ["**/*.css"]
 ignore = ["template.toml"]
+
+[hooks]
+post_create = ["npm install"]

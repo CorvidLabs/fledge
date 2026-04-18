@@ -10,3 +10,6 @@ description = { message = "Project description", default = "A new TypeScript pro
 render = ["**/*.ts", "**/*.json", "**/*.md", "**/*.yml"]
 copy = []
 ignore = ["template.toml"]
+
+[hooks]
+post_create = ["bun install"]
