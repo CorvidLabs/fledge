@@ -1,0 +1,131 @@
+name: CI
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --verbose
+      - run: cargo test --verbose
+      - run: cargo clippy -- -D warnings
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  spec-check:
+    runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.spec-check.outputs.body }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install spec-sync
+        run: cargo install spec-sync --version 4.3.1
+      - name: Run spec-check
+        id: spec-check
+        run: |
+          BODY=$(spec-sync comment 2>/dev/null) || true
+          echo "$BODY"
+          {
+            echo 'body<<EOF'
+            echo "$BODY"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          spec-sync check --strict
+
+  corvid-pet:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && always()
+    needs: [test, fmt, audit, spec-check]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine combined status
+        id: status
+        env:
+          CHECK_TEST: "Tests (build, test, clippy)=${{ needs.test.result }}"
+          CHECK_FMT: "Format Check=${{ needs.fmt.result }}"
+          CHECK_SPEC: "Spec Validation=${{ needs.spec-check.result }}"
+          CHECK_AUDIT: "Dependency Audit=${{ needs.audit.result }}"
+          REPORT_SPEC: ${{ needs.spec-check.outputs.body }}
+        run: |
+          OVERALL="success"
+          TABLE="| Check | Status |\n|-------|--------|\n"
+          DETAILS=""
+
+          while IFS= read -r line; do
+            VAR_NAME="${line%%=*}"
+            VAR_VALUE="${!VAR_NAME}"
+            LABEL="${VAR_VALUE%%=*}"
+            RESULT="${VAR_VALUE##*=}"
+
+            if [ "$RESULT" = "success" ]; then
+              ICON="✅ Passed"
+            else
+              ICON="❌ ${RESULT}"
+              OVERALL="failure"
+            fi
+            TABLE+="| **${LABEL}** | ${ICON} |\n"
+
+            SUFFIX="${VAR_NAME#CHECK_}"
+            REPORT_VAR="REPORT_${SUFFIX}"
+            REPORT_VALUE="${!REPORT_VAR}"
+            if [ -n "$REPORT_VALUE" ]; then
+              DETAILS+="\n<details>\n<summary>📋 ${LABEL} Details</summary>\n\n${REPORT_VALUE}\n\n</details>\n"
+            fi
+          done < <(env | grep '^CHECK_' | sort)
+
+          echo "result=${OVERALL}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "context<<CONTEXT_EOF"
+            echo "### CI Summary"
+            echo ""
+            echo -e "$TABLE"
+            if [ -n "$DETAILS" ]; then
+              echo -e "$DETAILS"
+            fi
+            echo "CONTEXT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: CorvidLabs/corvid-pet@v1.0.0
+        with:
+          mode: pr-comment
+          event: auto
+          pet-name: Corvin
+          review-on-pr: "true"
+          context: ${{ steps.status.outputs.context }}
+          job-status: ${{ steps.status.outputs.result }}
