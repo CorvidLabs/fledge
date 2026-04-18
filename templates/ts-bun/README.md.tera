@@ -1,0 +1,14 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Getting Started
+
+```bash
+bun install
+bun run dev
+```
+
+## License
+
+{{ license }}

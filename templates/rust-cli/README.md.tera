@@ -1,0 +1,19 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+```bash
+cargo install {{ project_name }}
+```
+
+## Usage
+
+```bash
+{{ project_name }} hello --name world
+```
+
+## License
+
+{{ license }}

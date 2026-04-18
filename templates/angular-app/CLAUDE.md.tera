@@ -1,0 +1,12 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+bun install
+bun run start     # dev server
+bun run build     # production build
+bun run lint      # biome lint
+```

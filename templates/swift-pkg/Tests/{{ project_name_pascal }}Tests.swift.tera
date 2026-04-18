@@ -1,0 +1,9 @@
+import Testing
+@testable import {{ project_name_pascal }}
+
+@Suite("{{ project_name_pascal }} Tests")
+struct {{ project_name_pascal }}Tests {
+    @Test func creation() {
+        let _ = {{ project_name_pascal }}()
+    }
+}

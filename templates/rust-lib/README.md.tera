@@ -1,0 +1,26 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+{{ project_name }} = "0.1"
+```
+
+## Usage
+
+```rust
+use {{ project_name_snake }}::add;
+
+fn main() {
+    println!("{}", add(2, 3));
+}
+```
+
+## License
+
+{{ license }}

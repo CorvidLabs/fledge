@@ -42,6 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo generate-lockfile
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -49,22 +51,17 @@ jobs:
   spec-check:
     runs-on: ubuntu-latest
     outputs:
-      body: ${{ steps.spec-check.outputs.body }}
+      body: ${{ steps.specsync.outputs.body }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install spec-sync
-        run: cargo install spec-sync --version 4.3.1
-      - name: Run spec-check
-        id: spec-check
-        run: |
-          BODY=$(spec-sync comment 2>/dev/null) || true
-          echo "$BODY"
-          {
-            echo 'body<<EOF'
-            echo "$BODY"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-          spec-sync check --strict
+      - name: Run spec-sync
+        id: specsync
+        uses: CorvidLabs/spec-sync@v4.3.1
+        with:
+          strict: true
+          comment: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   corvid-pet:
     runs-on: ubuntu-latest

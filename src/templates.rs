@@ -1,0 +1,809 @@
+use anyhow::{Context, Result};
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tera::Tera;
+use walkdir::WalkDir;
+
+#[derive(Debug, Deserialize)]
+pub struct TemplateManifest {
+    pub template: TemplateInfo,
+    #[serde(default)]
+    pub prompts: HashMap<String, PromptDef>,
+    #[serde(default)]
+    pub files: FileRules,
+    #[serde(default)]
+    pub hooks: Hooks,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct Hooks {
+    #[serde(default)]
+    pub post_create: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TemplateInfo {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub min_fledge_version: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PromptDef {
+    pub message: String,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct FileRules {
+    #[serde(default)]
+    pub render: Vec<String>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub copy: Vec<String>,
+    #[serde(default)]
+    pub ignore: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct Template {
+    pub name: String,
+    pub description: String,
+    pub path: PathBuf,
+    pub manifest: TemplateManifest,
+}
+
+pub fn discover_templates(extra_paths: &[PathBuf]) -> Result<Vec<Template>> {
+    let mut templates = Vec::new();
+
+    // Built-in templates bundled with fledge
+    let builtin_dir = builtin_template_dir();
+    if builtin_dir.exists() {
+        load_templates_from_dir(&builtin_dir, &mut templates)?;
+    }
+
+    // Extra template directories from config
+    for path in extra_paths {
+        if path.exists() {
+            load_templates_from_dir(path, &mut templates)?;
+        }
+    }
+
+    templates.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(templates)
+}
+
+pub fn discover_templates_with_repos(
+    extra_paths: &[PathBuf],
+    repos: &[String],
+    token: Option<&str>,
+) -> Result<Vec<Template>> {
+    let mut templates = discover_templates(extra_paths)?;
+
+    for repo_ref in repos {
+        if !crate::remote::is_remote_ref(repo_ref) {
+            continue;
+        }
+        let (owner, repo, subpath) = crate::remote::parse_remote_ref(repo_ref);
+        match crate::remote::resolve_template_dir(owner, repo, subpath, token) {
+            Ok(dir) => {
+                if dir.join("template.toml").exists() {
+                    load_single_template(&dir, &mut templates)?;
+                } else {
+                    load_templates_from_dir(&dir, &mut templates)?;
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: failed to fetch {}: {}", repo_ref, e);
+            }
+        }
+    }
+
+    templates.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(templates)
+}
+
+fn load_single_template(path: &Path, templates: &mut Vec<Template>) -> Result<()> {
+    let manifest_path = path.join("template.toml");
+    let content = std::fs::read_to_string(&manifest_path)
+        .with_context(|| format!("reading {}", manifest_path.display()))?;
+    let manifest: TemplateManifest =
+        toml::from_str(&content).with_context(|| format!("parsing {}", manifest_path.display()))?;
+    templates.push(Template {
+        name: manifest.template.name.clone(),
+        description: manifest.template.description.clone(),
+        path: path.to_path_buf(),
+        manifest,
+    });
+    Ok(())
+}
+
+fn builtin_template_dir() -> PathBuf {
+    // When running from cargo, use the manifest dir; otherwise use exe-relative path
+    let exe = std::env::current_exe().unwrap_or_default();
+    let exe_dir = exe.parent().unwrap_or(Path::new("."));
+
+    // Check for templates next to binary first
+    let beside_exe = exe_dir.join("templates");
+    if beside_exe.exists() {
+        return beside_exe;
+    }
+
+    // Development: look relative to CARGO_MANIFEST_DIR
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let dev_path = PathBuf::from(manifest_dir).join("templates");
+        if dev_path.exists() {
+            return dev_path;
+        }
+    }
+
+    // Fallback: current directory
+    PathBuf::from("templates")
+}
+
+fn load_templates_from_dir(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let manifest_path = path.join("template.toml");
+        if !manifest_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&manifest_path)
+            .with_context(|| format!("reading {}", manifest_path.display()))?;
+        let manifest: TemplateManifest = toml::from_str(&content)
+            .with_context(|| format!("parsing {}", manifest_path.display()))?;
+
+        templates.push(Template {
+            name: manifest.template.name.clone(),
+            description: manifest.template.description.clone(),
+            path: path.to_path_buf(),
+            manifest,
+        });
+    }
+    Ok(())
+}
+
+pub fn render_template(
+    template: &Template,
+    target_dir: &Path,
+    variables: &tera::Context,
+) -> Result<Vec<PathBuf>> {
+    let mut created_files = Vec::new();
+    let template_dir = &template.path;
+    let ignore_set: Vec<&str> = template
+        .manifest
+        .files
+        .ignore
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+
+    for entry in WalkDir::new(template_dir).min_depth(1) {
+        let entry = entry?;
+        let rel_path = entry.path().strip_prefix(template_dir)?;
+        let rel_str = rel_path.to_string_lossy();
+
+        // Skip ignored files
+        if ignore_set.iter().any(|ig| matches_glob(ig, &rel_str)) {
+            continue;
+        }
+
+        if entry.file_type().is_dir() {
+            let dir_name = rel_str.to_string();
+            let rendered_name = render_path_string(&dir_name, variables)?;
+            let target = target_dir.join(&rendered_name);
+            std::fs::create_dir_all(&target)?;
+            continue;
+        }
+
+        let rel_string = rel_str.to_string();
+
+        // Check if file is a .tera file (always rendered, extension stripped)
+        let (is_tera_ext, output_rel) = if rel_string.ends_with(".tera") {
+            (true, rel_string.trim_end_matches(".tera").to_string())
+        } else {
+            (false, rel_string.clone())
+        };
+
+        // Render the path itself (handles {{ project_name_pascal }} in paths)
+        let rendered_rel = render_path_string(&output_rel, variables)?;
+        let target_path = target_dir.join(&rendered_rel);
+
+        // Ensure parent directory exists
+        if let Some(parent) = target_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let should_render = is_tera_ext
+            || template
+                .manifest
+                .files
+                .render
+                .iter()
+                .any(|g| matches_glob(g, &rel_string));
+
+        if should_render {
+            let content = std::fs::read_to_string(entry.path())
+                .with_context(|| format!("reading template file {}", entry.path().display()))?;
+            let mut tera = Tera::default();
+            tera.add_raw_template("__file__", &content)
+                .with_context(|| format!("parsing template {}", rel_string))?;
+            let rendered = tera
+                .render("__file__", variables)
+                .with_context(|| format!("rendering {}", rel_string))?;
+            std::fs::write(&target_path, rendered)?;
+        } else {
+            std::fs::copy(entry.path(), &target_path)?;
+        }
+
+        created_files.push(PathBuf::from(&rendered_rel));
+    }
+
+    created_files.sort();
+    Ok(created_files)
+}
+
+fn render_path_string(path: &str, ctx: &tera::Context) -> Result<String> {
+    if !path.contains("{{") {
+        return Ok(path.to_string());
+    }
+    let mut tera = Tera::default();
+    tera.add_raw_template("__path__", path)?;
+    Ok(tera.render("__path__", ctx)?)
+}
+
+fn matches_glob(pattern: &str, path: &str) -> bool {
+    if pattern == path {
+        return true;
+    }
+    let pattern = pattern.replace(".", r"\.");
+    let pattern = pattern.replace("**/*", "\x00ANY\x00");
+    let pattern = pattern.replace("**", "\x00ANY\x00");
+    let pattern = pattern.replace('*', "[^/]*");
+    let pattern = pattern.replace("\x00ANY\x00", ".*");
+    let re = regex_lite::Regex::new(&format!("^{pattern}$"));
+    match re {
+        Ok(r) => r.is_match(path),
+        Err(_) => pattern == path,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // --- matches_glob tests ---
+
+    #[test]
+    fn glob_exact_match() {
+        assert!(matches_glob("template.toml", "template.toml"));
+    }
+
+    #[test]
+    fn glob_exact_no_match() {
+        assert!(!matches_glob("template.toml", "other.toml"));
+    }
+
+    #[test]
+    fn glob_star_matches_within_segment() {
+        assert!(matches_glob("*.rs", "main.rs"));
+        assert!(matches_glob("*.rs", "lib.rs"));
+        assert!(!matches_glob("*.rs", "src/main.rs"));
+    }
+
+    #[test]
+    fn glob_double_star_matches_any_path() {
+        assert!(matches_glob("**/*.rs", "src/main.rs"));
+        assert!(matches_glob("**/*.rs", "src/nested/deep/main.rs"));
+        assert!(matches_glob("**/*.rs", "main.rs"));
+    }
+
+    #[test]
+    fn glob_double_star_matches_dirs() {
+        assert!(matches_glob("**/*.yml", ".github/workflows/ci.yml"));
+    }
+
+    #[test]
+    fn glob_dots_escaped() {
+        assert!(matches_glob("*.rs", "main.rs"));
+        assert!(!matches_glob("*.rs", "mainXrs"));
+    }
+
+    #[test]
+    fn glob_star_does_not_cross_dirs() {
+        assert!(!matches_glob("*.rs", "src/main.rs"));
+    }
+
+    // --- render_path_string tests ---
+
+    #[test]
+    fn render_path_no_vars_passthrough() {
+        let ctx = tera::Context::new();
+        assert_eq!(
+            render_path_string("src/main.rs", &ctx).unwrap(),
+            "src/main.rs"
+        );
+    }
+
+    #[test]
+    fn render_path_with_variable() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name", "my-app");
+        assert_eq!(
+            render_path_string("src/{{ project_name }}/lib.rs", &ctx).unwrap(),
+            "src/my-app/lib.rs"
+        );
+    }
+
+    #[test]
+    fn render_path_with_pascal_case() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name_pascal", "MyApp");
+        assert_eq!(
+            render_path_string("{{ project_name_pascal }}.swift", &ctx).unwrap(),
+            "MyApp.swift"
+        );
+    }
+
+    #[test]
+    fn render_path_missing_variable_errors() {
+        let ctx = tera::Context::new();
+        let result = render_path_string("{{ missing_var }}", &ctx);
+        assert!(result.is_err());
+    }
+
+    // --- Template manifest parsing ---
+
+    #[test]
+    fn parse_minimal_manifest() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "A test template"
+
+[files]
+render = ["**/*.rs"]
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.template.name, "test");
+        assert_eq!(manifest.template.description, "A test template");
+        assert_eq!(manifest.files.render, vec!["**/*.rs"]);
+        assert!(manifest.files.ignore.is_empty());
+        assert!(manifest.prompts.is_empty());
+        assert!(manifest.hooks.post_create.is_empty());
+    }
+
+    #[test]
+    fn parse_manifest_with_hooks() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "A test template"
+
+[hooks]
+post_create = ["npm install", "echo done"]
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.hooks.post_create.len(), 2);
+        assert_eq!(manifest.hooks.post_create[0], "npm install");
+    }
+
+    #[test]
+    fn parse_manifest_with_prompts() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "A test template"
+
+[prompts.description]
+message = "Project description"
+default = "A {{ project_name }} project"
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.prompts.len(), 1);
+        let desc = manifest.prompts.get("description").unwrap();
+        assert_eq!(desc.message, "Project description");
+        assert_eq!(
+            desc.default.as_deref(),
+            Some("A {{ project_name }} project")
+        );
+    }
+
+    #[test]
+    fn parse_manifest_with_ignore_rules() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "Test"
+
+[files]
+render = ["**/*.rs"]
+ignore = ["template.toml", "**/*.bak"]
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.files.ignore, vec!["template.toml", "**/*.bak"]);
+    }
+
+    #[test]
+    fn parse_invalid_manifest_errors() {
+        let result: Result<TemplateManifest, _> = toml::from_str("not valid toml");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_manifest_missing_required_fields_errors() {
+        let result: Result<TemplateManifest, _> = toml::from_str("[template]\nname = \"x\"");
+        assert!(result.is_err());
+    }
+
+    // --- discover_templates tests ---
+
+    #[test]
+    fn discover_from_empty_extra_paths() {
+        let templates = discover_templates(&[]).unwrap();
+        // Should at least find built-in templates during dev
+        assert!(!templates.is_empty());
+    }
+
+    #[test]
+    fn discover_ignores_nonexistent_extra_paths() {
+        let templates = discover_templates(&[PathBuf::from("/nonexistent/path")]).unwrap();
+        assert!(!templates.is_empty()); // built-ins still found
+    }
+
+    #[test]
+    fn discover_templates_sorted_alphabetically() {
+        let templates = discover_templates(&[]).unwrap();
+        let names: Vec<&str> = templates.iter().map(|t| t.name.as_str()).collect();
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn discover_from_extra_dir() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("my-tpl");
+        fs::create_dir(&tpl_dir).unwrap();
+        fs::write(
+            tpl_dir.join("template.toml"),
+            r#"
+[template]
+name = "my-tpl"
+description = "Custom template"
+
+[files]
+render = ["**/*.txt"]
+"#,
+        )
+        .unwrap();
+        fs::write(tpl_dir.join("hello.txt"), "Hello {{ project_name }}").unwrap();
+
+        let templates = discover_templates(&[tmp.path().to_path_buf()]).unwrap();
+        assert!(templates.iter().any(|t| t.name == "my-tpl"));
+    }
+
+    #[test]
+    fn discover_skips_dirs_without_manifest() {
+        let tmp = TempDir::new().unwrap();
+        let no_manifest = tmp.path().join("no-manifest");
+        fs::create_dir(&no_manifest).unwrap();
+        fs::write(no_manifest.join("file.txt"), "hello").unwrap();
+
+        let templates = discover_templates(&[tmp.path().to_path_buf()]).unwrap();
+        assert!(!templates.iter().any(|t| t.name == "no-manifest"));
+    }
+
+    // --- render_template tests ---
+
+    fn make_test_template(dir: &Path, name: &str, files: &[(&str, &str)], manifest: &str) {
+        let tpl_dir = dir.join(name);
+        fs::create_dir_all(&tpl_dir).unwrap();
+        fs::write(tpl_dir.join("template.toml"), manifest).unwrap();
+        for (path, content) in files {
+            let file_path = tpl_dir.join(path);
+            if let Some(parent) = file_path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(file_path, content).unwrap();
+        }
+    }
+
+    fn load_test_template(dir: &Path, name: &str) -> Template {
+        let mut templates = Vec::new();
+        load_templates_from_dir(dir, &mut templates).unwrap();
+        templates.into_iter().find(|t| t.name == name).unwrap()
+    }
+
+    #[test]
+    fn render_tera_file_strips_extension_and_renders() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "test-tpl",
+            &[("README.md.tera", "# {{ project_name }}\nBy {{ author }}")],
+            r#"
+[template]
+name = "test-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "test-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name", "my-app");
+        ctx.insert("author", "Leif");
+
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("README.md")));
+        assert!(!files.iter().any(|f| f.to_string_lossy().contains(".tera")));
+
+        let content = fs::read_to_string(target.join("README.md")).unwrap();
+        assert_eq!(content, "# my-app\nBy Leif");
+    }
+
+    #[test]
+    fn render_glob_matched_files() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "glob-tpl",
+            &[("src/main.rs", "fn main() { // {{ project_name }} }")],
+            r#"
+[template]
+name = "glob-tpl"
+description = "Test"
+
+[files]
+render = ["**/*.rs"]
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "glob-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name", "cool-app");
+
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("src/main.rs")));
+
+        let content = fs::read_to_string(target.join("src/main.rs")).unwrap();
+        assert!(content.contains("cool-app"));
+    }
+
+    #[test]
+    fn render_copies_non_matched_files() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "copy-tpl",
+            &[("image.png", "binary-data-here")],
+            r#"
+[template]
+name = "copy-tpl"
+description = "Test"
+
+[files]
+render = ["**/*.rs"]
+copy = ["**/*.png"]
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "copy-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("image.png")));
+
+        let content = fs::read_to_string(target.join("image.png")).unwrap();
+        assert_eq!(content, "binary-data-here");
+    }
+
+    #[test]
+    fn render_ignores_matching_files() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "ignore-tpl",
+            &[("keep.txt", "visible"), ("secret.bak", "hidden")],
+            r#"
+[template]
+name = "ignore-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml", "**/*.bak"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "ignore-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("keep.txt")));
+        assert!(!files.iter().any(|f| f.to_string_lossy().contains("secret")));
+        assert!(!target.join("secret.bak").exists());
+    }
+
+    #[test]
+    fn render_path_variables_in_dirs() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "path-tpl",
+            &[("{{ project_name_pascal }}/mod.rs", "// module")],
+            r#"
+[template]
+name = "path-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "path-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name_pascal", "MyApp");
+
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("MyApp/mod.rs")));
+        assert!(target.join("MyApp/mod.rs").exists());
+    }
+
+    #[test]
+    fn render_output_is_sorted() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "sort-tpl",
+            &[
+                ("z_file.txt", "z"),
+                ("a_file.txt", "a"),
+                ("m_file.txt", "m"),
+            ],
+            r#"
+[template]
+name = "sort-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "sort-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let files = render_template(&template, &target, &ctx).unwrap();
+        let file_strs: Vec<String> = files
+            .iter()
+            .map(|f| f.to_string_lossy().to_string())
+            .collect();
+        let mut sorted = file_strs.clone();
+        sorted.sort();
+        assert_eq!(file_strs, sorted);
+    }
+
+    #[test]
+    fn discover_builtin_templates_finds_all_five() {
+        let templates = discover_templates(&[]).unwrap();
+        let names: Vec<&str> = templates.iter().map(|t| t.name.as_str()).collect();
+        assert!(names.contains(&"rust-cli"), "missing rust-cli");
+        assert!(names.contains(&"rust-lib"), "missing rust-lib");
+        assert!(names.contains(&"ts-bun"), "missing ts-bun");
+        assert!(names.contains(&"angular-app"), "missing angular-app");
+        assert!(names.contains(&"swift-pkg"), "missing swift-pkg");
+    }
+
+    #[test]
+    fn render_template_creates_parent_dirs() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "nested-tpl",
+            &[("src/deeply/nested/file.txt", "content")],
+            r#"
+[template]
+name = "nested-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "nested-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("src/deeply/nested/file.txt")));
+        assert!(target.join("src/deeply/nested/file.txt").exists());
+    }
+
+    #[test]
+    fn render_template_with_missing_var_errors() {
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "err-tpl",
+            &[("file.txt.tera", "Hello {{ nonexistent }}")],
+            r#"
+[template]
+name = "err-tpl"
+description = "Test"
+
+[files]
+render = []
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "err-tpl");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let result = render_template(&template, &target, &ctx);
+        assert!(result.is_err());
+    }
+}

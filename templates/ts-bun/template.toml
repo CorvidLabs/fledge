@@ -1,0 +1,15 @@
+[template]
+name = "ts-bun"
+description = "TypeScript project with Bun runtime"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new TypeScript project" }
+
+[files]
+render = ["**/*.ts", "**/*.json", "**/*.md", "**/*.yml"]
+copy = []
+ignore = ["template.toml"]
+
+[hooks]
+post_create = ["bun install"]
