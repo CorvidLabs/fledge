@@ -50,24 +50,15 @@ jobs:
 
   spec-check:
     runs-on: ubuntu-latest
-    outputs:
-      body: ${{ steps.comment.outputs.body }}
     steps:
       - uses: actions/checkout@v4
       - name: Run spec-sync
         uses: CorvidLabs/spec-sync@v4.3.1
         with:
           strict: true
-      - name: Capture comment body
-        id: comment
-        if: always()
-        run: |
-          BODY=$(specsync comment 2>/dev/null) || true
-          {
-            echo 'body<<EOF'
-            echo "$BODY"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+          comment: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   corvid-pet:
     runs-on: ubuntu-latest
@@ -83,7 +74,6 @@ jobs:
           CHECK_FMT: "Format Check=${{ needs.fmt.result }}"
           CHECK_SPEC: "Spec Validation=${{ needs.spec-check.result }}"
           CHECK_AUDIT: "Dependency Audit=${{ needs.audit.result }}"
-          REPORT_SPEC: ${{ needs.spec-check.outputs.body }}
         run: |
           OVERALL="success"
           TABLE="| Check | Status |\n|-------|--------|\n"
