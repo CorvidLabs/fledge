@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-04-19
+
+### Added
+
+- Install script (`curl -fsSL .../install.sh | sh`) — detects OS/arch, downloads the right binary
+- Homebrew formula (`brew install CorvidLabs/tap/fledge`)
+- Nix flake (`nix run github:CorvidLabs/fledge`)
+- `fledge completions --install` — auto-installs shell completions for bash, zsh, or fish
+- SHA256 checksums in GitHub releases
+
 ## [Unreleased]
 
 ### Added
