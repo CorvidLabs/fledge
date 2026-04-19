@@ -34,5 +34,4 @@ spec: init.spec.md
 ## Out of Scope
 
 - Merging into an existing directory
-- Updating a previously scaffolded project
-- Template versioning or pinning
+- Template versioning or pinning (handled by `versioning` module)

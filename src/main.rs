@@ -14,6 +14,7 @@ mod search;
 mod templates;
 #[cfg(feature = "tui")]
 mod tui;
+mod update;
 mod versioning;
 
 #[derive(Parser)]
@@ -82,6 +83,18 @@ enum Commands {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// Update project from its source template
+    Update {
+        /// Show what would change without writing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// Force re-clone of cached remote templates
+        #[arg(long)]
+        refresh: bool,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Publish a template to GitHub
     Publish {
@@ -189,6 +202,17 @@ fn run() -> Result<()> {
         }
         Commands::CreateTemplate { name, output } => {
             create_template::run(create_template::CreateTemplateOptions { name, output })?;
+        }
+        Commands::Update {
+            dry_run,
+            refresh,
+            yes,
+        } => {
+            update::run(update::UpdateOptions {
+                dry_run,
+                refresh,
+                yes,
+            })?;
         }
         Commands::Search { query, limit, json } => {
             search::run(search::SearchOptions { query, limit, json })?;

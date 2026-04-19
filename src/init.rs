@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::config::Config;
 use crate::prompts;
 use crate::templates::{self, Template};
+use crate::update;
 
 pub struct InitOptions {
     pub name: String,
@@ -80,6 +81,17 @@ pub fn run(opts: InitOptions) -> Result<()> {
     // Render template
     println!("{} Scaffolding project...", style("*").cyan().bold());
     let created_files = templates::render_template(template, &target_dir, &variables)?;
+
+    // Write .fledge.toml for future `fledge update`
+    update::write_project_meta(
+        &target_dir,
+        &template.name,
+        None,
+        None,
+        template.manifest.template.version.as_deref(),
+        &variables,
+        &created_files,
+    )?;
 
     // Git init
     if !opts.no_git {
@@ -189,6 +201,17 @@ fn run_remote(
 
     println!("{} Scaffolding project...", style("*").cyan().bold());
     let created_files = templates::render_template(template, &target_dir, &variables)?;
+
+    // Write .fledge.toml for future `fledge update`
+    update::write_project_meta(
+        &target_dir,
+        &template.name,
+        Some(remote_ref),
+        git_ref,
+        template.manifest.template.version.as_deref(),
+        &variables,
+        &created_files,
+    )?;
 
     if !opts.no_git {
         init_git(&target_dir)?;
