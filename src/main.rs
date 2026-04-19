@@ -5,6 +5,7 @@ use console::style;
 use std::path::PathBuf;
 
 mod config;
+mod create_template;
 mod init;
 mod prompts;
 mod remote;
@@ -59,6 +60,14 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+    /// Scaffold a new fledge template
+    CreateTemplate {
+        /// Template name
+        name: String,
+        /// Parent directory for the template
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
     },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
@@ -148,6 +157,9 @@ fn run() -> Result<()> {
         }
         Commands::Config { action } => {
             handle_config(action)?;
+        }
+        Commands::CreateTemplate { name, output } => {
+            create_template::run(create_template::CreateTemplateOptions { name, output })?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
