@@ -25,18 +25,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --verbose
       - run: cargo test --verbose
-      - run: cargo clippy -- -D warnings
 
-  fmt:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
+      - run: cargo clippy -- -D warnings
 
   audit:
     runs-on: ubuntu-latest
@@ -59,22 +59,22 @@ jobs:
         uses: CorvidLabs/spec-sync@v4.3.1
         with:
           strict: true
-          comment: true
+          comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   corvid-pet:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && always()
-    needs: [test, fmt, audit, spec-check]
+    needs: [test, lint, audit, spec-check]
     steps:
       - uses: actions/checkout@v4
 
       - name: Determine combined status
         id: status
         env:
-          CHECK_TEST: "Tests (build, test, clippy)=${{ needs.test.result }}"
-          CHECK_FMT: "Format Check=${{ needs.fmt.result }}"
+          CHECK_TEST: "Tests (3 OS)=${{ needs.test.result }}"
+          CHECK_LINT: "Lint (fmt + clippy)=${{ needs.lint.result }}"
           CHECK_SPEC: "Spec Validation=${{ needs.spec-check.result }}"
           CHECK_AUDIT: "Dependency Audit=${{ needs.audit.result }}"
           REPORT_SPEC: ${{ needs.spec-check.outputs.body }}
