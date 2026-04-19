@@ -7,7 +7,7 @@ files:
 
 db_tables: []
 depends_on:
-  - config
+  - specs/config/config.spec.md
 ---
 
 # Search
