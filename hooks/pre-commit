@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+# Ensure cargo is available
+if [ -f "$HOME/.cargo/env" ]; then
+    . "$HOME/.cargo/env"
+fi
+
+echo "Running pre-commit checks..."
+
+# spec-sync check — specs must be valid before committing
+echo "  Checking specs..."
+if ! cargo run --quiet -- spec check > /dev/null 2>&1; then
+    echo ""
+    echo "✗ Spec check failed. Run 'cargo run -- spec check' to see details."
+    echo "  Fix spec issues before committing."
+    exit 1
+fi
+echo "  ✓ Specs OK"
+
+# Format check
+echo "  Checking formatting..."
+if ! cargo fmt --check > /dev/null 2>&1; then
+    echo ""
+    echo "✗ Formatting check failed. Run 'cargo fmt' to fix."
+    exit 1
+fi
+echo "  ✓ Formatting OK"
+
+# Clippy
+echo "  Running clippy..."
+if ! cargo clippy --quiet -- -D warnings 2>/dev/null; then
+    echo ""
+    echo "✗ Clippy found warnings. Run 'cargo clippy -- -D warnings' to see details."
+    exit 1
+fi
+echo "  ✓ Clippy OK"
+
+echo "All pre-commit checks passed."
