@@ -2,9 +2,9 @@
 
 Fledge is evolving from a project scaffolding tool into a full dev-lifecycle CLI — scaffold, spec, build, ship, monitor — all from one opinionated Rust binary.
 
-## Current State (v0.2.1)
+## Current State (v0.3.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `completions`, TUI (feature-gated). 5 built-in templates, hook security, dry-run support.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `completions`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax.
 
 ---
 
@@ -12,10 +12,10 @@ Shipped: `init`, `list`, `config`, `create-template`, `search`, `completions`, T
 
 Complete the template story: discovery, publishing, versioning, and more built-in templates.
 
-- [ ] `fledge search` improvements (#4) — already functional, polish UX
-- [ ] `fledge publish` — publish templates to GitHub with `fledge-template` topic (#6)
-- [ ] Template versioning and compatibility checks (#13)
-- [ ] Additional built-in templates: Python, Go, monorepo (#9)
+- [x] `fledge search` improvements (#4) — GitHub template discovery with topic-based search
+- [x] `fledge publish` — publish templates to GitHub with `fledge-template` topic (#6)
+- [x] Template versioning and compatibility checks (#13)
+- [x] Additional built-in templates: Python, Go, monorepo (#9)
 - [ ] CorvidLabs template collection and org defaults (#8)
 - [ ] Publish to crates.io (#2)
 
