@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -173,8 +173,7 @@ fn extract_embedded_templates() -> PathBuf {
 }
 
 fn extract_dir_recursive(dir: &Dir, target: &Path) -> Result<()> {
-    std::fs::create_dir_all(target)
-        .with_context(|| format!("creating {}", target.display()))?;
+    std::fs::create_dir_all(target).with_context(|| format!("creating {}", target.display()))?;
 
     for file in dir.files() {
         let file_path = target.join(file.path().file_name().unwrap_or_default());
