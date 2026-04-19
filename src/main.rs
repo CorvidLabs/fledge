@@ -1,5 +1,6 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::Shell;
 use console::style;
 use std::path::PathBuf;
 
@@ -48,6 +49,12 @@ enum Commands {
     },
     /// List available templates
     List,
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
     Tui {
@@ -60,7 +67,14 @@ enum Commands {
     },
 }
 
-fn main() -> Result<()> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("{} {:#}", style("error:").red().bold(), e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -87,6 +101,9 @@ fn main() -> Result<()> {
         }
         Commands::List => {
             list_templates()?;
+        }
+        Commands::Completions { shell } => {
+            clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
         }
         #[cfg(feature = "tui")]
         Commands::Tui { output, no_git } => {
