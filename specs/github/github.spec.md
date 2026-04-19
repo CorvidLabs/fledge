@@ -55,17 +55,26 @@ detect_repo() -> Ok(("CorvidLabs", "fledge"))
 detect_repo() -> Ok(("CorvidLabs", "fledge"))
 ```
 
+### detect_repo — token-authenticated URL
+```
+# Given remote: https://ghp_abc@github.com/CorvidLabs/fledge.git
+detect_repo() -> Ok(("CorvidLabs", "fledge"))
+```
+
 ### github_api_get — authenticated request
 ```
 github_api_get("/repos/CorvidLabs/fledge/issues", Some(token), &[("state", "open")])
   -> GET https://api.github.com/repos/CorvidLabs/fledge/issues?state=open
-  -> Authorization: token <token>
+  -> Authorization: Bearer <token>
 ```
 
 ### format_relative_time
 ```
 format_relative_time("2026-04-19T10:00:00Z")  // now is 10:05
   -> "5m ago"
+
+format_relative_time("not-a-date")
+  -> "not-a-date"
 ```
 
 ## Error Cases
