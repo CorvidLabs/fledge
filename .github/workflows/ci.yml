@@ -59,7 +59,7 @@ jobs:
         uses: CorvidLabs/spec-sync@v4.3.1
         with:
           strict: true
-          comment: true
+          comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
