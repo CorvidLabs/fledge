@@ -14,6 +14,7 @@ mod search;
 mod templates;
 #[cfg(feature = "tui")]
 mod tui;
+mod versioning;
 
 #[derive(Parser)]
 #[command(name = "fledge", version, about = "Get your projects ready to fly.")]

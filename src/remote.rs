@@ -15,12 +15,18 @@ pub fn is_remote_ref(name: &str) -> bool {
         && name.split('/').all(|s| !s.is_empty())
 }
 
-pub fn parse_remote_ref(name: &str) -> (&str, &str, Option<&str>) {
-    let parts: Vec<&str> = name.splitn(3, '/').collect();
+pub fn parse_remote_ref(name: &str) -> (&str, &str, Option<&str>, Option<&str>) {
+    // Split off @ref first: owner/repo@ref or owner/repo/subpath@ref
+    let (name_part, git_ref) = match name.rsplit_once('@') {
+        Some((before, after)) if !after.is_empty() => (before, Some(after)),
+        _ => (name, None),
+    };
+
+    let parts: Vec<&str> = name_part.splitn(3, '/').collect();
     let owner = parts[0];
     let repo = parts[1];
     let subpath = parts.get(2).copied();
-    (owner, repo, subpath)
+    (owner, repo, subpath, git_ref)
 }
 
 pub fn clear_cache(owner: &str, repo: &str) -> Result<()> {
@@ -32,26 +38,51 @@ pub fn clear_cache(owner: &str, repo: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn fetch_repo(owner: &str, repo: &str, token: Option<&str>) -> Result<PathBuf> {
+pub fn fetch_repo(
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+    git_ref: Option<&str>,
+) -> Result<PathBuf> {
     let cache = cache_dir();
-    let repo_dir = cache.join(owner).join(repo);
+    let ref_suffix = git_ref.unwrap_or("HEAD");
+    let repo_dir = if git_ref.is_some() {
+        cache.join(owner).join(format!("{}@{}", repo, ref_suffix))
+    } else {
+        cache.join(owner).join(repo)
+    };
 
     if repo_dir.exists() {
-        update_repo(&repo_dir)?;
+        if git_ref.is_none() {
+            update_repo(&repo_dir)?;
+        }
     } else {
-        clone_repo(owner, repo, token, &repo_dir)?;
+        clone_repo(owner, repo, token, &repo_dir, git_ref)?;
     }
 
     Ok(repo_dir)
 }
 
-fn clone_repo(owner: &str, repo: &str, token: Option<&str>, target: &Path) -> Result<()> {
+fn clone_repo(
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+    target: &Path,
+    git_ref: Option<&str>,
+) -> Result<()> {
     std::fs::create_dir_all(target.parent().unwrap_or(target))?;
 
     let url = repo_url(owner, repo, token);
 
+    let mut args = vec!["clone", "--depth", "1"];
+    if let Some(r) = git_ref {
+        args.push("--branch");
+        args.push(r);
+    }
+    args.push(&url);
+
     let status = std::process::Command::new("git")
-        .args(["clone", "--depth", "1", &url])
+        .args(&args)
         .arg(target)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
@@ -59,6 +90,14 @@ fn clone_repo(owner: &str, repo: &str, token: Option<&str>, target: &Path) -> Re
         .context("running git clone")?;
 
     if !status.success() {
+        if let Some(r) = git_ref {
+            bail!(
+                "Failed to clone {}/{}@{}. Check the ref exists.",
+                owner,
+                repo,
+                r
+            );
+        }
         bail!(
             "Failed to clone {}/{}. Check the repo exists and you have access.",
             owner,
@@ -115,8 +154,9 @@ pub fn resolve_template_dir(
     repo: &str,
     subpath: Option<&str>,
     token: Option<&str>,
+    git_ref: Option<&str>,
 ) -> Result<PathBuf> {
-    let repo_dir = fetch_repo(owner, repo, token)?;
+    let repo_dir = fetch_repo(owner, repo, token, git_ref)?;
 
     match subpath {
         Some(sub) => {
@@ -162,26 +202,56 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_owner_repo() {
-        let (owner, repo, sub) = parse_remote_ref("CorvidLabs/fledge-templates");
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/fledge-templates");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-templates");
         assert!(sub.is_none());
+        assert!(git_ref.is_none());
     }
 
     #[test]
     fn parse_remote_ref_with_subpath() {
-        let (owner, repo, sub) = parse_remote_ref("CorvidLabs/fledge-templates/rust-cli");
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/fledge-templates/rust-cli");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-templates");
         assert_eq!(sub, Some("rust-cli"));
+        assert!(git_ref.is_none());
     }
 
     #[test]
     fn parse_remote_ref_deep_subpath() {
-        let (owner, repo, sub) = parse_remote_ref("CorvidLabs/templates/lang/rust-cli");
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/templates/lang/rust-cli");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "templates");
         assert_eq!(sub, Some("lang/rust-cli"));
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_remote_ref_with_version_tag() {
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/my-template@v1.2.0");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "my-template");
+        assert!(sub.is_none());
+        assert_eq!(git_ref, Some("v1.2.0"));
+    }
+
+    #[test]
+    fn parse_remote_ref_with_branch() {
+        let (owner, repo, sub, git_ref) = parse_remote_ref("user/repo@main");
+        assert_eq!(owner, "user");
+        assert_eq!(repo, "repo");
+        assert!(sub.is_none());
+        assert_eq!(git_ref, Some("main"));
+    }
+
+    #[test]
+    fn parse_remote_ref_subpath_with_ref() {
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/templates/rust-cli@v2.0");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "templates");
+        assert_eq!(sub, Some("rust-cli"));
+        assert_eq!(git_ref, Some("v2.0"));
     }
 
     #[test]
