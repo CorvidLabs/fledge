@@ -60,6 +60,54 @@ impl Config {
             .join("config.toml")
     }
 
+    pub fn save(&self) -> Result<()> {
+        let path = Self::config_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
+    pub fn get(&self, key: &str) -> Option<String> {
+        match key {
+            "defaults.author" => self.defaults.author.clone(),
+            "defaults.github_org" => self.defaults.github_org.clone(),
+            "defaults.license" => self.defaults.license.clone(),
+            "github.token" => self.github.token.clone(),
+            _ => None,
+        }
+    }
+
+    pub fn set(&mut self, key: &str, value: &str) -> Result<()> {
+        match key {
+            "defaults.author" => self.defaults.author = Some(value.to_string()),
+            "defaults.github_org" => self.defaults.github_org = Some(value.to_string()),
+            "defaults.license" => self.defaults.license = Some(value.to_string()),
+            "github.token" => self.github.token = Some(value.to_string()),
+            _ => anyhow::bail!(
+                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
+                key
+            ),
+        }
+        Ok(())
+    }
+
+    pub fn unset(&mut self, key: &str) -> Result<()> {
+        match key {
+            "defaults.author" => self.defaults.author = None,
+            "defaults.github_org" => self.defaults.github_org = None,
+            "defaults.license" => self.defaults.license = None,
+            "github.token" => self.github.token = None,
+            _ => anyhow::bail!(
+                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
+                key
+            ),
+        }
+        Ok(())
+    }
+
     pub fn author_or_git(&self) -> Option<String> {
         if let Some(ref author) = self.defaults.author {
             return Some(author.clone());

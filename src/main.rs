@@ -55,6 +55,11 @@ enum Commands {
         #[arg(value_enum)]
         shell: Shell,
     },
+    /// Manage global configuration
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
     Tui {
@@ -65,6 +70,31 @@ enum Commands {
         #[arg(long)]
         no_git: bool,
     },
+}
+
+#[derive(clap::Subcommand)]
+enum ConfigAction {
+    /// Get a config value
+    Get {
+        /// Config key (e.g. defaults.github_org)
+        key: String,
+    },
+    /// Set a config value
+    Set {
+        /// Config key (e.g. defaults.github_org)
+        key: String,
+        /// Value to set
+        value: String,
+    },
+    /// Remove a config value
+    Unset {
+        /// Config key (e.g. defaults.github_org)
+        key: String,
+    },
+    /// Show all config values
+    List,
+    /// Show config file path
+    Path,
 }
 
 fn main() {
@@ -102,6 +132,9 @@ fn run() -> Result<()> {
         Commands::List => {
             list_templates()?;
         }
+        Commands::Config { action } => {
+            handle_config(action)?;
+        }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
         }
@@ -112,6 +145,91 @@ fn run() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn handle_config(action: ConfigAction) -> Result<()> {
+    match action {
+        ConfigAction::Get { key } => {
+            let config = config::Config::load()?;
+            match config.get(&key) {
+                Some(value) => println!("{}", value),
+                None => {
+                    if matches!(
+                        key.as_str(),
+                        "defaults.author"
+                            | "defaults.github_org"
+                            | "defaults.license"
+                            | "github.token"
+                    ) {
+                        println!("{} {} is not set", style("*").cyan().bold(), key);
+                    } else {
+                        anyhow::bail!(
+                            "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
+                            key
+                        );
+                    }
+                }
+            }
+        }
+        ConfigAction::Set { key, value } => {
+            let mut config = config::Config::load()?;
+            config.set(&key, &value)?;
+            config.save()?;
+            println!(
+                "{} Set {} = {}",
+                style("✓").green().bold(),
+                style(&key).cyan(),
+                style(&value).green()
+            );
+        }
+        ConfigAction::Unset { key } => {
+            let mut config = config::Config::load()?;
+            config.unset(&key)?;
+            config.save()?;
+            println!("{} Unset {}", style("✓").green().bold(), style(&key).cyan());
+        }
+        ConfigAction::List => {
+            let config = config::Config::load()?;
+            let path = config::Config::config_path();
+            println!(
+                "{} Config: {}\n",
+                style("*").cyan().bold(),
+                style(path.display()).dim()
+            );
+            print_config_entry("defaults.author", &config.defaults.author);
+            print_config_entry("defaults.github_org", &config.defaults.github_org);
+            print_config_entry("defaults.license", &config.defaults.license);
+            print_config_entry(
+                "github.token",
+                &config.github.token.as_ref().map(|_| "***".to_string()),
+            );
+            if !config.templates.paths.is_empty() {
+                println!(
+                    "  {:<24} {}",
+                    style("templates.paths").cyan(),
+                    config.templates.paths.join(", ")
+                );
+            }
+            if !config.templates.repos.is_empty() {
+                println!(
+                    "  {:<24} {}",
+                    style("templates.repos").cyan(),
+                    config.templates.repos.join(", ")
+                );
+            }
+        }
+        ConfigAction::Path => {
+            println!("{}", config::Config::config_path().display());
+        }
+    }
+    Ok(())
+}
+
+fn print_config_entry(key: &str, value: &Option<impl std::fmt::Display>) {
+    match value {
+        Some(v) => println!("  {:<24} {}", style(key).cyan(), v),
+        None => println!("  {:<24} {}", style(key).cyan(), style("(not set)").dim()),
+    }
 }
 
 fn list_templates() -> Result<()> {

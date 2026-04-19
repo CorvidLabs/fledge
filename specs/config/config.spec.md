@@ -1,6 +1,6 @@
 ---
 module: config
-version: 3
+version: 4
 status: active
 files:
   - src/config.rs
@@ -27,6 +27,10 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `GitHubConfig` | Struct holding optional GitHub token for authenticated access |
 | `load` | Loads config from disk or returns defaults if file is missing |
 | `config_path` | Returns the platform-appropriate path to the config file |
+| `save` | Serializes config to TOML and writes to disk, creating parent directories if needed |
+| `get` | Returns a config value by dotted key (e.g. `defaults.author`), or `None` if unset/unknown |
+| `set` | Sets a config value by dotted key; errors on unknown key |
+| `unset` | Removes a config value by dotted key; errors on unknown key |
 | `author_or_git` | Returns author from config, falling back to `git config user.name` |
 | `github_org` | Returns the configured GitHub org, if any |
 | `license` | Returns the configured license, defaulting to "MIT" |
@@ -54,6 +58,10 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 |----------|-----------|-------------|
 | `Config::load` | `() -> Result<Self>` | Load config from disk or return defaults |
 | `Config::config_path` | `() -> PathBuf` | Returns path to config file |
+| `Config::save` | `(&self) -> Result<()>` | Serialize config to TOML and write to disk, creating parent dirs if needed |
+| `Config::get` | `(&self, key: &str) -> Option<String>` | Get a config value by dotted key (e.g. `defaults.author`) |
+| `Config::set` | `(&mut self, key: &str, value: &str) -> Result<()>` | Set a config value by dotted key, errors on unknown key |
+| `Config::unset` | `(&mut self, key: &str) -> Result<()>` | Remove a config value by dotted key, errors on unknown key |
 | `Config::author_or_git` | `(&self) -> Option<String>` | Author from config, falling back to `git config user.name` |
 | `Config::github_org` | `(&self) -> Option<String>` | GitHub org from config |
 | `Config::license` | `(&self) -> String` | License from config, defaulting to "MIT" |
@@ -68,6 +76,9 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 3. `~/` prefix in template paths is expanded to the user's home directory
 4. GitHub token resolution order: `FLEDGE_GITHUB_TOKEN` env → `GITHUB_TOKEN` env → config file
 5. Template repos default to empty list
+6. `save` creates parent directories if they don't exist
+7. `get`/`set`/`unset` accept dotted keys: `defaults.author`, `defaults.github_org`, `defaults.license`, `github.token`
+8. `set`/`unset` return an error for unknown keys
 
 ## Behavioral Examples
 
@@ -83,6 +94,30 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 - **When** `author_or_git()` is called
 - **Then** runs `git config user.name` and returns the result
 
+### Scenario: Set a config value
+
+- **Given** config exists with default values
+- **When** `set("defaults.author", "Leif")` is called followed by `save()`
+- **Then** config file is updated with `author = "Leif"` under `[defaults]`
+
+### Scenario: Get a config value
+
+- **Given** config has `defaults.github_org = "CorvidLabs"`
+- **When** `get("defaults.github_org")` is called
+- **Then** returns `Some("CorvidLabs")`
+
+### Scenario: Unset a config value
+
+- **Given** config has `defaults.author = "Leif"`
+- **When** `unset("defaults.author")` is called followed by `save()`
+- **Then** `defaults.author` is `None` in the saved config
+
+### Scenario: Unknown key error
+
+- **Given** any config state
+- **When** `set("invalid.key", "value")` is called
+- **Then** returns an error listing valid keys
+
 ## Error Cases
 
 | Condition | Behavior |
@@ -90,6 +125,8 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | Malformed TOML | Returns parse error |
 | File not readable | Returns IO error |
 | `git config user.name` fails | `author_or_git()` returns `None` |
+| Unknown key passed to `set`/`unset` | Returns error with list of valid keys |
+| Config directory doesn't exist on `save` | Creates parent directories automatically |
 
 ## Dependencies
 
@@ -116,3 +153,4 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: filled in exported function descriptions, re-validated against source |
 | 2026-04-18 | CorvidAgent | v3: add GitHubConfig, github_token(), template_repos(), templates.repos field |
+| 2026-04-19 | CorvidAgent | v4: add save(), get(), set(), unset() for CLI config management |
