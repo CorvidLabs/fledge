@@ -24,5 +24,5 @@ cargo fmt --check
 ## Conventions
 
 - Specs are the source of truth — read before modifying code
-- Run `spec-sync check` before committing
+- Run `cargo run -- spec check` before committing
 - No direct commits to main — use feature branches

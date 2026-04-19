@@ -2,9 +2,9 @@
 
 Fledge is evolving from a project scaffolding tool into a full dev-lifecycle CLI — scaffold, spec, build, ship, monitor — all from one opinionated Rust binary.
 
-## Current State (v0.4.0)
+## Current State (v0.5.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A.
 
 ---
 
@@ -32,9 +32,9 @@ Move beyond scaffolding. Fledge stays with you after `init`.
 
 Bring GitHub ops and AI assistance into the CLI.
 
-- [ ] `fledge issues` / `fledge prs` — list and manage GitHub issues and PRs
-- [ ] `fledge review` — AI-powered code review
-- [ ] `fledge ask` — ask questions about your codebase
+- [x] `fledge issues` / `fledge prs` — list and manage GitHub issues and PRs (#34)
+- [x] `fledge review` — AI-powered code review (#35)
+- [x] `fledge ask` — ask questions about your codebase (#35)
 
 ## 0.6 — Distribution & Polish
 
