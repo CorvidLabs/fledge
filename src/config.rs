@@ -519,9 +519,7 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     #[test]
     fn add_to_list_repos() {
         let mut config = Config::default();
-        config
-            .add_to_list("templates.repos", "user/repo")
-            .unwrap();
+        config.add_to_list("templates.repos", "user/repo").unwrap();
         assert_eq!(config.templates.repos, vec!["user/repo"]);
     }
 
@@ -562,9 +560,7 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     #[test]
     fn remove_from_list_nonexistent_returns_false() {
         let mut config = Config::default();
-        let removed = config
-            .remove_from_list("templates.paths", "/nope")
-            .unwrap();
+        let removed = config.remove_from_list("templates.paths", "/nope").unwrap();
         assert!(!removed);
     }
 
