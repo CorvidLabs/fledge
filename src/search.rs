@@ -162,7 +162,7 @@ pub fn format_stars(count: u64) -> String {
     }
 }
 
-fn urlencod(s: &str) -> String {
+pub fn urlencod(s: &str) -> String {
     s.bytes()
         .map(|b| match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {

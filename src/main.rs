@@ -4,12 +4,17 @@ use clap_complete::Shell;
 use console::style;
 use std::path::PathBuf;
 
+mod ask;
 mod config;
 mod create_template;
+mod github;
 mod init;
+mod issues;
 mod prompts;
+mod prs;
 mod publish;
 mod remote;
+mod review;
 mod search;
 mod spec;
 mod templates;
@@ -123,6 +128,51 @@ enum Commands {
         #[command(subcommand)]
         action: WorkSubcommand,
     },
+    /// List and view GitHub issues
+    Issues {
+        #[command(subcommand)]
+        action: Option<IssuesSubcommand>,
+        /// Filter by state (open, closed, all)
+        #[arg(short, long, default_value = "open", global = true)]
+        state: String,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20", global = true)]
+        limit: usize,
+        /// Output results as JSON
+        #[arg(long, global = true)]
+        json: bool,
+        /// Filter by label
+        #[arg(long, global = true)]
+        label: Option<String>,
+    },
+    /// List and view GitHub pull requests
+    Prs {
+        #[command(subcommand)]
+        action: Option<PrsSubcommand>,
+        /// Filter by state (open, closed, all)
+        #[arg(short, long, default_value = "open", global = true)]
+        state: String,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20", global = true)]
+        limit: usize,
+        /// Output results as JSON
+        #[arg(long, global = true)]
+        json: bool,
+    },
+    /// AI-powered code review of current changes
+    Review {
+        /// Base branch to diff against (default: auto-detect)
+        #[arg(short, long)]
+        base: Option<String>,
+        /// Review only a specific file
+        #[arg(short, long)]
+        file: Option<String>,
+    },
+    /// Ask a question about your codebase
+    Ask {
+        /// The question to ask
+        question: Vec<String>,
+    },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
     Tui {
@@ -179,6 +229,24 @@ enum WorkSubcommand {
     },
     /// Show current branch and PR status
     Status,
+}
+
+#[derive(clap::Subcommand)]
+enum IssuesSubcommand {
+    /// View a specific issue
+    View {
+        /// Issue number
+        number: u64,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum PrsSubcommand {
+    /// View a specific pull request
+    View {
+        /// PR number
+        number: u64,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -313,6 +381,49 @@ fn run() -> Result<()> {
                 WorkSubcommand::Status => work::WorkAction::Status,
             };
             work::run(action)?;
+        }
+        Commands::Issues {
+            action,
+            state,
+            limit,
+            json,
+            label,
+        } => {
+            let action = match action {
+                Some(IssuesSubcommand::View { number }) => {
+                    issues::IssuesAction::View { number, json }
+                }
+                None => issues::IssuesAction::List {
+                    state,
+                    limit,
+                    json,
+                    label,
+                },
+            };
+            issues::run(action)?;
+        }
+        Commands::Prs {
+            action,
+            state,
+            limit,
+            json,
+        } => {
+            let action = match action {
+                Some(PrsSubcommand::View { number }) => prs::PrsAction::View { number, json },
+                None => prs::PrsAction::List { state, limit, json },
+            };
+            prs::run(action)?;
+        }
+        Commands::Review { base, file } => {
+            review::run(review::ReviewOptions { base, file })?;
+        }
+        Commands::Ask { question } => {
+            if question.is_empty() {
+                anyhow::bail!("Please provide a question. Usage: fledge ask <question>");
+            }
+            ask::run(ask::AskOptions {
+                question: question.join(" "),
+            })?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
