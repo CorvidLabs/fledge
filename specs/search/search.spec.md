@@ -8,7 +8,6 @@ files:
 db_tables: []
 depends_on:
   - config
-  - remote
 ---
 
 # Search
@@ -24,7 +23,13 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 | Export | Description |
 |--------|-------------|
 | `SearchOptions` | Options struct for the search command |
+| `SearchResult` | A single matching repository with metadata |
 | `run` | Entry point that queries GitHub and displays matching templates |
+| `full_name` | Method on `SearchResult` returning `owner/repo` string |
+| `build_search_query` | Constructs GitHub search query string with `fledge-template` topic |
+| `search_github` | Executes GitHub search API call and parses results |
+| `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
+| `format_stars` | Formats star count with `k` suffix for thousands |
 
 ### Structs & Enums
 
@@ -43,7 +48,11 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(SearchOptions) -> Result<()>` | Search GitHub API for fledge-template repos, display results |
-| `search_github` | `(query: Option<&str>, token: Option<&str>, limit: usize) -> Result<Vec<SearchResult>>` | Execute GitHub search API call and parse results |
+| `full_name` | `(&self) -> String` | Returns `owner/repo` format string for a `SearchResult` |
+| `build_search_query` | `(keyword: Option<&str>) -> String` | Constructs GitHub search query with `fledge-template` topic filter |
+| `search_github` | `(keyword: Option<&str>, token: Option<&str>, limit: usize) -> Result<Vec<SearchResult>>` | Execute GitHub search API call and parse results |
+| `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parse GitHub API JSON into search results |
+| `format_stars` | `(count: u64) -> String` | Format star count with `k` suffix for thousands |
 
 ## Invariants
 
