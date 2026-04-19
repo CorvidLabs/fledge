@@ -21,14 +21,8 @@ cargo fmt --check
 - `specs/` — spec-sync specifications (source of truth)
 - `templates/` — Built-in project templates
 
-## Setup
-
-```bash
-sh hooks/install.sh   # Install pre-commit hook (required)
-```
-
 ## Conventions
 
 - Specs are the source of truth — read before modifying code
-- Run `cargo run -- spec check` before committing (enforced by pre-commit hook)
+- Run `cargo run -- spec check` before committing
 - No direct commits to main — use feature branches
