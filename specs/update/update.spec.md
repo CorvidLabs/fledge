@@ -7,9 +7,9 @@ files:
 
 db_tables: []
 depends_on:
-  - init
-  - templates
-  - remote
+  - specs/init/init.spec.md
+  - specs/templates/templates.spec.md
+  - specs/remote/remote.spec.md
 ---
 
 # Update
@@ -25,7 +25,12 @@ Re-applies a template to an existing project that was scaffolded with `fledge in
 | Export | Description |
 |--------|-------------|
 | `UpdateOptions` | Configuration struct for update command passed from CLI |
+| `ProjectMeta` | Deserialized `.fledge.toml` — source template, variables, file hashes |
+| `SourceInfo` | Template source: name, remote ref, git ref, fledge version |
+| `UpdateAction` | Enum: Add, Update, Skip (user-modified), Remove (template-deleted) |
 | `run` | Main entry point that drives the update workflow |
+| `compute_file_hash` | SHA-256 hash of file contents for change detection |
+| `write_project_meta` | Writes `.fledge.toml` with template source info, variables, and file hashes |
 
 ### Structs & Enums
 
@@ -41,9 +46,8 @@ Re-applies a template to an existing project that was scaffolded with `fledge in
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(UpdateOptions) -> Result<()>` | Main entry point for `fledge update` |
-| `load_project_meta` | `(Path) -> Result<ProjectMeta>` | Reads and parses `.fledge.toml` |
 | `compute_file_hash` | `(&[u8]) -> String` | SHA-256 hash of file contents |
-| `diff_files` | `(ProjectMeta, Template, Context) -> Result<Vec<UpdateAction>>` | Computes what changed between old and new template |
+| `write_project_meta` | `(&Path, &str, Option<&str>, Option<&str>, Option<&str>, &Context, &[PathBuf]) -> Result<()>` | Writes `.fledge.toml` with template metadata and file hashes |
 
 ## Invariants
 

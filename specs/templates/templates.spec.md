@@ -30,6 +30,8 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `discover_templates` | Scans built-in and extra directories for valid templates |
 | `discover_templates_with_repos` | Discovers templates from local paths and remote GitHub repos |
 | `render_template` | Renders a template's files into a target directory using Tera variable substitution |
+| `load_templates_from_dir_pub` | Loads templates from a specific directory into a mutable vector |
+| `matches_glob_pub` | Tests whether a file path matches a glob pattern |
 
 ### Structs & Enums
 
@@ -54,6 +56,8 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `discover_templates` | `(&[PathBuf]) -> Result<Vec<Template>>` | Find all templates from built-in and extra paths |
 | `discover_templates_with_repos` | `(&[PathBuf], &[String], Option<&str>) -> Result<Vec<Template>>` | Find templates from local paths and remote GitHub repos |
 | `render_template` | `(&Template, &Path, &tera::Context) -> Result<Vec<PathBuf>>` | Render template files into target directory |
+| `load_templates_from_dir_pub` | `(&Path, &mut Vec<Template>) -> Result<()>` | Load templates from a directory into a vector |
+| `matches_glob_pub` | `(&str, &str) -> bool` | Test if a path matches a glob pattern |
 
 ## Invariants
 
