@@ -1,0 +1,13 @@
+[template]
+name = "go-cli"
+description = "Go CLI application with cobra, CI, and goreleaser"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new Go CLI" }
+go_module = { message = "Go module path", default = "github.com/{{ github_org }}/{{ project_name }}" }
+
+[files]
+render = ["**/*.go", "**/*.mod", "**/*.md", "**/*.yml", "**/*.yaml"]
+copy = ["**/*.png", "**/*.ico"]
+ignore = ["template.toml"]

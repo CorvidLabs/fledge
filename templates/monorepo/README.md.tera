@@ -1,0 +1,33 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Structure
+
+```
+{{ project_name }}/
+  packages/          # Individual packages/services
+  docs/              # Documentation
+  scripts/           # Shared build and dev scripts
+  .github/workflows/ # CI/CD
+```
+
+## Getting Started
+
+Add a new package:
+
+```bash
+mkdir packages/my-package
+cd packages/my-package
+# Initialize your package here
+```
+
+## Conventions
+
+- Each package is self-contained with its own build/test setup
+- Shared configuration lives at the repo root
+- CI runs tests for all packages on every PR
+
+## License
+
+{{ license }}

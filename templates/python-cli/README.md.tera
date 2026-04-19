@@ -1,0 +1,26 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Usage
+
+```bash
+{{ project_name }} hello --name world
+```
+
+## Development
+
+```bash
+pytest
+ruff check .
+```
+
+## License
+
+{{ license }}

@@ -1,0 +1,40 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+)
+
+var version = "0.1.0"
+
+func Execute() error {
+	if len(os.Args) < 2 {
+		fmt.Println("{{ project_name }} - {{ description }}")
+		fmt.Println()
+		fmt.Println("Usage:")
+		fmt.Println("  {{ project_name }} hello [--name NAME]")
+		fmt.Println("  {{ project_name }} version")
+		return nil
+	}
+
+	switch os.Args[1] {
+	case "hello":
+		return runHello()
+	case "version":
+		fmt.Printf("{{ project_name }} %s\n", version)
+		return nil
+	default:
+		return fmt.Errorf("unknown command: %s", os.Args[1])
+	}
+}
+
+func runHello() error {
+	name := "world"
+	for i, arg := range os.Args[2:] {
+		if arg == "--name" && i+3 < len(os.Args) {
+			name = os.Args[i+3]
+		}
+	}
+	fmt.Printf("Hello, %s!\n", name)
+	return nil
+}
