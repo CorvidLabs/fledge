@@ -184,15 +184,13 @@ fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
                     );
                 }
                 "status" => status = Some(val.to_string()),
-                "files" => {
-                    if val.starts_with('[') && val.ends_with(']') {
-                        let inner = &val[1..val.len() - 1];
-                        files = inner
-                            .split(',')
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty())
-                            .collect();
-                    }
+                "files" if val.starts_with('[') && val.ends_with(']') => {
+                    let inner = &val[1..val.len() - 1];
+                    files = inner
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
                 }
                 _ => {}
             }

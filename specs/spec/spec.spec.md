@@ -22,6 +22,8 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
+| `SpecAction` | Enum of subcommands: Check, Init, New |
+| `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 
 ### Structs & Enums
 
