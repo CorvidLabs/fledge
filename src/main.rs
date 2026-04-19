@@ -16,6 +16,7 @@ mod templates;
 mod tui;
 mod update;
 mod versioning;
+mod work;
 
 #[derive(Parser)]
 #[command(name = "fledge", version, about = "Get your projects ready to fly.")]
@@ -111,6 +112,11 @@ enum Commands {
         #[arg(long)]
         description: Option<String>,
     },
+    /// Feature branch and PR workflow
+    Work {
+        #[command(subcommand)]
+        action: WorkSubcommand,
+    },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
     Tui {
@@ -121,6 +127,35 @@ enum Commands {
         #[arg(long)]
         no_git: bool,
     },
+}
+
+#[derive(clap::Subcommand)]
+enum WorkSubcommand {
+    /// Start a new feature branch
+    Start {
+        /// Feature name (will be sanitized and prefixed with feat/)
+        name: String,
+        /// Base branch to branch from (default: main)
+        #[arg(long)]
+        base: Option<String>,
+    },
+    /// Create a pull request from the current branch
+    Pr {
+        /// PR title (auto-generated from branch name if omitted)
+        #[arg(short, long)]
+        title: Option<String>,
+        /// PR body/description
+        #[arg(short, long)]
+        body: Option<String>,
+        /// Create as a draft PR
+        #[arg(long)]
+        draft: bool,
+        /// Target base branch for the PR
+        #[arg(long)]
+        base: Option<String>,
+    },
+    /// Show current branch and PR status
+    Status,
 }
 
 #[derive(clap::Subcommand)]
@@ -229,6 +264,24 @@ fn run() -> Result<()> {
                 private,
                 description,
             })?;
+        }
+        Commands::Work { action } => {
+            let action = match action {
+                WorkSubcommand::Start { name, base } => work::WorkAction::Start { name, base },
+                WorkSubcommand::Pr {
+                    title,
+                    body,
+                    draft,
+                    base,
+                } => work::WorkAction::Pr {
+                    title,
+                    body,
+                    draft,
+                    base,
+                },
+                WorkSubcommand::Status => work::WorkAction::Status,
+            };
+            work::run(action)?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
