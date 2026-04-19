@@ -91,6 +91,20 @@ enum ConfigAction {
         /// Config key (e.g. defaults.github_org)
         key: String,
     },
+    /// Add a value to a list config key (templates.paths, templates.repos)
+    Add {
+        /// Config key (templates.paths or templates.repos)
+        key: String,
+        /// Value to add
+        value: String,
+    },
+    /// Remove a value from a list config key (templates.paths, templates.repos)
+    Remove {
+        /// Config key (templates.paths or templates.repos)
+        key: String,
+        /// Value to remove
+        value: String,
+    },
     /// Show all config values
     List,
     /// Show config file path
@@ -151,24 +165,15 @@ fn handle_config(action: ConfigAction) -> Result<()> {
     match action {
         ConfigAction::Get { key } => {
             let config = config::Config::load()?;
+            if !config::Config::is_valid_key(&key) {
+                anyhow::bail!(
+                    "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
+                    key
+                );
+            }
             match config.get(&key) {
-                Some(value) => println!("{}", value),
-                None => {
-                    if matches!(
-                        key.as_str(),
-                        "defaults.author"
-                            | "defaults.github_org"
-                            | "defaults.license"
-                            | "github.token"
-                    ) {
-                        println!("{} {} is not set", style("*").cyan().bold(), key);
-                    } else {
-                        anyhow::bail!(
-                            "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
-                            key
-                        );
-                    }
-                }
+                Some(value) if !value.is_empty() => println!("{}", value),
+                _ => println!("{} {} is not set", style("*").cyan().bold(), key),
             }
         }
         ConfigAction::Set { key, value } => {
@@ -188,6 +193,37 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             config.save()?;
             println!("{} Unset {}", style("✓").green().bold(), style(&key).cyan());
         }
+        ConfigAction::Add { key, value } => {
+            let mut config = config::Config::load()?;
+            config.add_to_list(&key, &value)?;
+            config.save()?;
+            println!(
+                "{} Added {} to {}",
+                style("✓").green().bold(),
+                style(&value).green(),
+                style(&key).cyan()
+            );
+        }
+        ConfigAction::Remove { key, value } => {
+            let mut config = config::Config::load()?;
+            let removed = config.remove_from_list(&key, &value)?;
+            if removed {
+                config.save()?;
+                println!(
+                    "{} Removed {} from {}",
+                    style("✓").green().bold(),
+                    style(&value).green(),
+                    style(&key).cyan()
+                );
+            } else {
+                println!(
+                    "{} {} not found in {}",
+                    style("*").cyan().bold(),
+                    style(&value).dim(),
+                    style(&key).cyan()
+                );
+            }
+        }
         ConfigAction::List => {
             let config = config::Config::load()?;
             let path = config::Config::config_path();
@@ -203,19 +239,35 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 "github.token",
                 &config.github.token.as_ref().map(|_| "***".to_string()),
             );
-            if !config.templates.paths.is_empty() {
+            if config.templates.paths.is_empty() {
                 println!(
                     "  {:<24} {}",
                     style("templates.paths").cyan(),
-                    config.templates.paths.join(", ")
+                    style("(none)").dim()
                 );
+            } else {
+                for (i, p) in config.templates.paths.iter().enumerate() {
+                    if i == 0 {
+                        println!("  {:<24} {}", style("templates.paths").cyan(), p);
+                    } else {
+                        println!("  {:<24} {}", "", p);
+                    }
+                }
             }
-            if !config.templates.repos.is_empty() {
+            if config.templates.repos.is_empty() {
                 println!(
                     "  {:<24} {}",
                     style("templates.repos").cyan(),
-                    config.templates.repos.join(", ")
+                    style("(none)").dim()
                 );
+            } else {
+                for (i, r) in config.templates.repos.iter().enumerate() {
+                    if i == 0 {
+                        println!("  {:<24} {}", style("templates.repos").cyan(), r);
+                    } else {
+                        println!("  {:<24} {}", "", r);
+                    }
+                }
             }
         }
         ConfigAction::Path => {

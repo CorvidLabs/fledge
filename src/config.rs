@@ -76,8 +76,22 @@ impl Config {
             "defaults.github_org" => self.defaults.github_org.clone(),
             "defaults.license" => self.defaults.license.clone(),
             "github.token" => self.github.token.clone(),
+            "templates.paths" => Some(self.templates.paths.join("\n")),
+            "templates.repos" => Some(self.templates.repos.join("\n")),
             _ => None,
         }
+    }
+
+    pub fn is_valid_key(key: &str) -> bool {
+        matches!(
+            key,
+            "defaults.author"
+                | "defaults.github_org"
+                | "defaults.license"
+                | "github.token"
+                | "templates.paths"
+                | "templates.repos"
+        )
     }
 
     pub fn set(&mut self, key: &str, value: &str) -> Result<()> {
@@ -86,8 +100,13 @@ impl Config {
             "defaults.github_org" => self.defaults.github_org = Some(value.to_string()),
             "defaults.license" => self.defaults.license = Some(value.to_string()),
             "github.token" => self.github.token = Some(value.to_string()),
+            "templates.paths" | "templates.repos" => anyhow::bail!(
+                "'{}' is a list key — use `fledge config add/remove {}` instead",
+                key,
+                key
+            ),
             _ => anyhow::bail!(
-                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
+                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
                 key
             ),
         }
@@ -100,12 +119,58 @@ impl Config {
             "defaults.github_org" => self.defaults.github_org = None,
             "defaults.license" => self.defaults.license = None,
             "github.token" => self.github.token = None,
+            "templates.paths" => self.templates.paths.clear(),
+            "templates.repos" => self.templates.repos.clear(),
             _ => anyhow::bail!(
-                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token",
+                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
                 key
             ),
         }
         Ok(())
+    }
+
+    pub fn add_to_list(&mut self, key: &str, value: &str) -> Result<()> {
+        let list = match key {
+            "templates.paths" => &mut self.templates.paths,
+            "templates.repos" => &mut self.templates.repos,
+            "defaults.author" | "defaults.github_org" | "defaults.license" | "github.token" => {
+                anyhow::bail!(
+                    "'{}' is a scalar key — use `fledge config set {} <value>` instead",
+                    key,
+                    key
+                )
+            }
+            _ => anyhow::bail!(
+                "Unknown config key '{}'. List keys: templates.paths, templates.repos",
+                key
+            ),
+        };
+        let val = value.to_string();
+        if !list.contains(&val) {
+            list.push(val);
+        }
+        Ok(())
+    }
+
+    pub fn remove_from_list(&mut self, key: &str, value: &str) -> Result<bool> {
+        let list = match key {
+            "templates.paths" => &mut self.templates.paths,
+            "templates.repos" => &mut self.templates.repos,
+            "defaults.author" | "defaults.github_org" | "defaults.license" | "github.token" => {
+                anyhow::bail!(
+                    "'{}' is a scalar key — use `fledge config unset {}` instead",
+                    key,
+                    key
+                )
+            }
+            _ => anyhow::bail!(
+                "Unknown config key '{}'. List keys: templates.paths, templates.repos",
+                key
+            ),
+        };
+        let before = list.len();
+        list.retain(|v| v != value);
+        Ok(list.len() < before)
     }
 
     pub fn author_or_git(&self) -> Option<String> {
@@ -350,6 +415,163 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     fn template_repos_default_empty() {
         let config = Config::default();
         assert!(config.template_repos().is_empty());
+    }
+
+    #[test]
+    fn get_scalar_key() {
+        let mut config = Config::default();
+        config.defaults.author = Some("Leif".to_string());
+        assert_eq!(config.get("defaults.author").as_deref(), Some("Leif"));
+    }
+
+    #[test]
+    fn get_list_key_returns_newline_separated() {
+        let config = Config {
+            templates: TemplatesConfig {
+                paths: vec!["/a".to_string(), "/b".to_string()],
+                ..TemplatesConfig::default()
+            },
+            ..Config::default()
+        };
+        assert_eq!(config.get("templates.paths").as_deref(), Some("/a\n/b"));
+    }
+
+    #[test]
+    fn get_empty_list_returns_empty_string() {
+        let config = Config::default();
+        assert_eq!(config.get("templates.paths").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn get_unknown_key_returns_none() {
+        let config = Config::default();
+        assert!(config.get("nonexistent.key").is_none());
+    }
+
+    #[test]
+    fn is_valid_key_accepts_all_known_keys() {
+        assert!(Config::is_valid_key("defaults.author"));
+        assert!(Config::is_valid_key("defaults.github_org"));
+        assert!(Config::is_valid_key("defaults.license"));
+        assert!(Config::is_valid_key("github.token"));
+        assert!(Config::is_valid_key("templates.paths"));
+        assert!(Config::is_valid_key("templates.repos"));
+    }
+
+    #[test]
+    fn is_valid_key_rejects_unknown() {
+        assert!(!Config::is_valid_key("unknown.key"));
+    }
+
+    #[test]
+    fn set_scalar_key() {
+        let mut config = Config::default();
+        config.set("defaults.author", "Test").unwrap();
+        assert_eq!(config.defaults.author.as_deref(), Some("Test"));
+    }
+
+    #[test]
+    fn set_list_key_errors() {
+        let mut config = Config::default();
+        assert!(config.set("templates.paths", "/foo").is_err());
+    }
+
+    #[test]
+    fn set_unknown_key_errors() {
+        let mut config = Config::default();
+        assert!(config.set("bad.key", "val").is_err());
+    }
+
+    #[test]
+    fn unset_scalar_key() {
+        let mut config = Config::default();
+        config.defaults.author = Some("Leif".to_string());
+        config.unset("defaults.author").unwrap();
+        assert!(config.defaults.author.is_none());
+    }
+
+    #[test]
+    fn unset_list_key_clears() {
+        let mut config = Config {
+            templates: TemplatesConfig {
+                paths: vec!["/a".to_string()],
+                ..TemplatesConfig::default()
+            },
+            ..Config::default()
+        };
+        config.unset("templates.paths").unwrap();
+        assert!(config.templates.paths.is_empty());
+    }
+
+    #[test]
+    fn unset_unknown_key_errors() {
+        let mut config = Config::default();
+        assert!(config.unset("bad.key").is_err());
+    }
+
+    #[test]
+    fn add_to_list_paths() {
+        let mut config = Config::default();
+        config.add_to_list("templates.paths", "/my/tpl").unwrap();
+        assert_eq!(config.templates.paths, vec!["/my/tpl"]);
+    }
+
+    #[test]
+    fn add_to_list_repos() {
+        let mut config = Config::default();
+        config
+            .add_to_list("templates.repos", "user/repo")
+            .unwrap();
+        assert_eq!(config.templates.repos, vec!["user/repo"]);
+    }
+
+    #[test]
+    fn add_to_list_deduplicates() {
+        let mut config = Config::default();
+        config.add_to_list("templates.paths", "/a").unwrap();
+        config.add_to_list("templates.paths", "/a").unwrap();
+        assert_eq!(config.templates.paths.len(), 1);
+    }
+
+    #[test]
+    fn add_to_list_scalar_key_errors() {
+        let mut config = Config::default();
+        assert!(config.add_to_list("defaults.author", "val").is_err());
+    }
+
+    #[test]
+    fn add_to_list_unknown_key_errors() {
+        let mut config = Config::default();
+        assert!(config.add_to_list("bad.key", "val").is_err());
+    }
+
+    #[test]
+    fn remove_from_list_existing() {
+        let mut config = Config {
+            templates: TemplatesConfig {
+                paths: vec!["/a".to_string(), "/b".to_string()],
+                ..TemplatesConfig::default()
+            },
+            ..Config::default()
+        };
+        let removed = config.remove_from_list("templates.paths", "/a").unwrap();
+        assert!(removed);
+        assert_eq!(config.templates.paths, vec!["/b"]);
+    }
+
+    #[test]
+    fn remove_from_list_nonexistent_returns_false() {
+        let mut config = Config::default();
+        let removed = config
+            .remove_from_list("templates.paths", "/nope")
+            .unwrap();
+        assert!(!removed);
+    }
+
+    #[test]
+    fn remove_from_list_scalar_key_errors() {
+        let mut config = Config::default();
+        assert!(config.remove_from_list("defaults.author", "val").is_err());
     }
 
     #[test]
