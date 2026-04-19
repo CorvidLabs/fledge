@@ -1,7 +1,0 @@
-[spec-sync]
-version = "4.3.1"
-
-[settings]
-spec_dir = "specs"
-source_dirs = ["src", "templates"]
-strict = true

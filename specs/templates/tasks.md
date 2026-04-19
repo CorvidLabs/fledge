@@ -4,15 +4,27 @@ spec: templates.spec.md
 
 ## Tasks
 
-- [ ] <!-- Add tasks for this spec -->
+- [x] Define TemplateManifest, TemplateInfo, PromptDef, FileRules, Hooks structs
+- [x] Implement template discovery from filesystem directories
+- [x] Implement built-in template discovery (embedded via include_dir)
+- [x] Implement embedded template extraction with version-stamped caching
+- [x] Implement `discover_templates_with_repos` for remote repo integration
+- [x] Implement `render_template` with Tera rendering pipeline
+- [x] Implement `.tera` extension detection and stripping
+- [x] Implement glob-based render/ignore file matching
+- [x] Implement path variable rendering (Tera in file/dir names)
+- [x] Create 5 built-in templates (rust-cli, rust-lib, ts-bun, angular-app, swift-pkg)
+- [x] Unit tests for discovery, rendering, globs, manifests
 
 ## Gaps
 
-<!-- Uncovered areas, missing edge cases, or incomplete coverage -->
+- `files.copy` field is parsed but functionally unused (all non-rendered files are copied)
+- No template validation command (`fledge check-template`)
+- `min_fledge_version` is parsed but not enforced
 
 ## Review Sign-offs
 
-- **Product**: pending
-- **QA**: pending
+- **Product**: done
+- **QA**: done
 - **Design**: n/a
-- **Dev**: pending
+- **Dev**: done

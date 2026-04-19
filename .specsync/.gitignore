@@ -1,0 +1,7 @@
+# spec-sync v4 — migrated from root spec-sync.toml
+# Committed: config.toml, registry.toml
+# Ignored: backups, local config, hash cache (regenerated on each run)
+
+backup-3x/
+config.local.toml
+hashes.json
