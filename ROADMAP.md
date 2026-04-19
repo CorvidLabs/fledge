@@ -2,9 +2,9 @@
 
 Fledge is evolving from a project scaffolding tool into a full dev-lifecycle CLI — scaffold, spec, build, ship, monitor — all from one opinionated Rust binary.
 
-## Current State (v0.3.0)
+## Current State (v0.4.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `completions`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands.
 
 ---
 
@@ -23,10 +23,10 @@ Complete the template story: discovery, publishing, versioning, and more built-i
 
 Move beyond scaffolding. Fledge stays with you after `init`.
 
-- [ ] `fledge update` — re-apply template to existing projects (#11)
-- [ ] `fledge spec` — integrate spec-sync (`check`, `sync`, `init`)
-- [ ] `fledge work start` — begin a feature branch with conventions
-- [ ] `fledge work pr` — create PR from current branch
+- [x] `fledge update` — re-apply template to existing projects (#11)
+- [x] `fledge spec` — integrate spec-sync (`check`, `init`, `new`) (#32)
+- [x] `fledge work start` — begin a feature branch with conventions (#33)
+- [x] `fledge work pr` — create PR from current branch (#33)
 
 ## 0.5 — GitHub & AI Integration
 
