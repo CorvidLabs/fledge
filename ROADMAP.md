@@ -2,9 +2,9 @@
 
 Fledge is evolving from a project scaffolding tool into a full dev-lifecycle CLI — scaffold, spec, build, ship, monitor — all from one opinionated Rust binary.
 
-## Current State (v0.5.0)
+## Current State (v0.6.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A. Distribution via Homebrew, install script, Nix flake, and shell completions auto-install.
 
 ---
 
@@ -40,10 +40,10 @@ Bring GitHub ops and AI assistance into the CLI.
 
 Make fledge easy to install everywhere.
 
-- [ ] Homebrew formula (#12)
-- [ ] Install script (`curl | sh`)
-- [ ] Nix package (#12)
-- [ ] Shell completions auto-install
+- [x] Homebrew formula (#12)
+- [x] Install script (`curl | sh`)
+- [x] Nix package (#12)
+- [x] Shell completions auto-install (`fledge completions --install`)
 
 ## 1.0 — Lanes & Plugins
 

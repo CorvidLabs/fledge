@@ -63,9 +63,12 @@ enum Commands {
     List,
     /// Generate shell completions
     Completions {
-        /// Shell to generate completions for
+        /// Shell to generate completions for (auto-detects if omitted with --install)
         #[arg(value_enum)]
-        shell: Shell,
+        shell: Option<Shell>,
+        /// Install completions to the standard location for your shell
+        #[arg(long)]
+        install: bool,
     },
     /// Manage global configuration
     Config {
@@ -425,8 +428,22 @@ fn run() -> Result<()> {
                 question: question.join(" "),
             })?;
         }
-        Commands::Completions { shell } => {
-            clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
+        Commands::Completions { shell, install } => {
+            if install {
+                install_completions(shell)?;
+            } else {
+                let shell = shell.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Shell argument is required when not using --install. Usage: fledge completions <bash|zsh|fish>"
+                    )
+                })?;
+                clap_complete::generate(
+                    shell,
+                    &mut Cli::command(),
+                    "fledge",
+                    &mut std::io::stdout(),
+                );
+            }
         }
         #[cfg(feature = "tui")]
         Commands::Tui { output, no_git } => {
@@ -558,6 +575,66 @@ fn print_config_entry(key: &str, value: &Option<impl std::fmt::Display>) {
         Some(v) => println!("  {:<24} {}", style(key).cyan(), v),
         None => println!("  {:<24} {}", style(key).cyan(), style("(not set)").dim()),
     }
+}
+
+fn install_completions(shell: Option<Shell>) -> Result<()> {
+    let shell = shell.unwrap_or_else(|| {
+        let shell_env = std::env::var("SHELL").unwrap_or_default();
+        if shell_env.ends_with("zsh") {
+            Shell::Zsh
+        } else if shell_env.ends_with("fish") {
+            Shell::Fish
+        } else {
+            Shell::Bash
+        }
+    });
+
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("cannot determine home directory"))?;
+
+    let dest = match shell {
+        Shell::Bash => {
+            let dir = home.join(".local/share/bash-completion/completions");
+            std::fs::create_dir_all(&dir)?;
+            dir.join("fledge")
+        }
+        Shell::Zsh => {
+            let dir = home.join(".zfunc");
+            std::fs::create_dir_all(&dir)?;
+            dir.join("_fledge")
+        }
+        Shell::Fish => {
+            let dir = home.join(".config/fish/completions");
+            std::fs::create_dir_all(&dir)?;
+            dir.join("fledge.fish")
+        }
+        _ => anyhow::bail!(
+            "auto-install not supported for {:?} — use `fledge completions <shell>` to generate manually",
+            shell
+        ),
+    };
+
+    let mut buf = Vec::new();
+    clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut buf);
+    std::fs::write(&dest, buf)?;
+
+    println!(
+        "{} Installed {} completions to {}",
+        style("✓").green().bold(),
+        style(format!("{shell:?}")).cyan(),
+        style(dest.display()).dim()
+    );
+
+    if matches!(shell, Shell::Zsh) {
+        println!(
+            "\n  {}",
+            style("Add to your .zshrc if not already present:").dim()
+        );
+        println!("    fpath=(~/.zfunc $fpath)");
+        println!("    autoload -Uz compinit && compinit");
+    }
+
+    Ok(())
 }
 
 fn list_templates() -> Result<()> {
