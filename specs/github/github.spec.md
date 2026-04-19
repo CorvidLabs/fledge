@@ -41,6 +41,33 @@ Shared helpers for GitHub API interactions: repository detection from git remote
 4. Rate limit errors (403) produce a helpful message about setting a token
 5. `format_relative_time` gracefully falls back to the raw string for unparseable input
 
+## Behavioral Examples
+
+### detect_repo — HTTPS remote
+```
+# Given remote: https://github.com/CorvidLabs/fledge.git
+detect_repo() -> Ok(("CorvidLabs", "fledge"))
+```
+
+### detect_repo — SSH remote
+```
+# Given remote: git@github.com:CorvidLabs/fledge.git
+detect_repo() -> Ok(("CorvidLabs", "fledge"))
+```
+
+### github_api_get — authenticated request
+```
+github_api_get("/repos/CorvidLabs/fledge/issues", Some(token), &[("state", "open")])
+  -> GET https://api.github.com/repos/CorvidLabs/fledge/issues?state=open
+  -> Authorization: token <token>
+```
+
+### format_relative_time
+```
+format_relative_time("2026-04-19T10:00:00Z")  // now is 10:05
+  -> "5m ago"
+```
+
 ## Error Cases
 
 | Error | When | Behavior |
