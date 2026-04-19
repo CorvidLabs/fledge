@@ -1,9 +1,12 @@
 use anyhow::{Context, Result};
+use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tera::Tera;
 use walkdir::WalkDir;
+
+static EMBEDDED_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 
 #[derive(Debug, Deserialize)]
 pub struct TemplateManifest {
@@ -140,8 +143,52 @@ fn builtin_template_dir() -> PathBuf {
         }
     }
 
-    // Fallback: current directory
-    PathBuf::from("templates")
+    // CWD fallback (e.g. running from repo root)
+    let cwd_path = PathBuf::from("templates");
+    if cwd_path.exists() {
+        return cwd_path;
+    }
+
+    // Extract embedded templates to cache directory
+    extract_embedded_templates()
+}
+
+fn extract_embedded_templates() -> PathBuf {
+    let version = env!("CARGO_PKG_VERSION");
+    let cache_dir = dirs::cache_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("fledge")
+        .join(format!("templates-v{}", version));
+
+    // If already extracted for this version, reuse it
+    if cache_dir.exists() {
+        return cache_dir;
+    }
+
+    if let Err(e) = extract_dir_recursive(&EMBEDDED_TEMPLATES, &cache_dir) {
+        eprintln!("Warning: failed to extract embedded templates: {}", e);
+    }
+
+    cache_dir
+}
+
+fn extract_dir_recursive(dir: &Dir, target: &Path) -> Result<()> {
+    std::fs::create_dir_all(target)
+        .with_context(|| format!("creating {}", target.display()))?;
+
+    for file in dir.files() {
+        let file_path = target.join(file.path().file_name().unwrap_or_default());
+        std::fs::write(&file_path, file.contents())
+            .with_context(|| format!("writing {}", file_path.display()))?;
+    }
+
+    for subdir in dir.dirs() {
+        let subdir_name = subdir.path().file_name().unwrap_or_default();
+        let subdir_target = target.join(subdir_name);
+        extract_dir_recursive(subdir, &subdir_target)?;
+    }
+
+    Ok(())
 }
 
 fn load_templates_from_dir(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
