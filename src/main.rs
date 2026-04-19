@@ -8,6 +8,7 @@ mod config;
 mod create_template;
 mod init;
 mod prompts;
+mod publish;
 mod remote;
 mod search;
 mod templates;
@@ -80,6 +81,21 @@ enum Commands {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// Publish a template to GitHub
+    Publish {
+        /// Path to the template directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Publish under a GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Create as a private repository
+        #[arg(long)]
+        private: bool,
+        /// Override the repository description
+        #[arg(long)]
+        description: Option<String>,
     },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
@@ -175,6 +191,19 @@ fn run() -> Result<()> {
         }
         Commands::Search { query, limit, json } => {
             search::run(search::SearchOptions { query, limit, json })?;
+        }
+        Commands::Publish {
+            path,
+            org,
+            private,
+            description,
+        } => {
+            publish::run(publish::PublishOptions {
+                path,
+                org,
+                private,
+                description,
+            })?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
