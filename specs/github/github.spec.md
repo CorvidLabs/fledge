@@ -6,8 +6,7 @@ files:
   - src/github.rs
 
 db_tables: []
-depends_on:
-  - search
+depends_on: []
 ---
 
 # GitHub
