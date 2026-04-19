@@ -7,8 +7,8 @@ files:
 
 db_tables: []
 depends_on:
-  - github
-  - config
+  - specs/github/github.spec.md
+  - specs/config/config.spec.md
 ---
 
 # Prs
