@@ -151,3 +151,27 @@ fn cli_version_flag() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("fledge"));
 }
+
+#[test]
+fn cli_dry_run_does_not_create_files() {
+    let bin = cargo_bin();
+    let tmp = TempDir::new().unwrap();
+
+    let output = Command::new(&bin)
+        .args([
+            "init",
+            "dry-test",
+            "--template",
+            "rust-cli",
+            "--output",
+            tmp.path().to_str().unwrap(),
+            "--dry-run",
+        ])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(output.status.success(), "dry-run failed: {stdout}");
+    assert!(stdout.contains("Dry run"));
+    assert!(!tmp.path().join("dry-test").exists());
+}

@@ -16,7 +16,7 @@ pub struct TemplateManifest {
     pub hooks: Hooks,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Hooks {
     #[serde(default)]
     pub post_create: Vec<String>,
