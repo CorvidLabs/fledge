@@ -1,6 +1,6 @@
 ---
 module: remote
-version: 2
+version: 3
 status: active
 files:
   - src/remote.rs
@@ -23,8 +23,8 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 |--------|-------------|
 | `cache_dir` | Returns the platform-appropriate cache directory for cloned template repos |
 | `is_remote_ref` | Checks if a string looks like a GitHub `owner/repo` reference |
-| `parse_remote_ref` | Splits a remote reference into owner, repo, and optional subpath |
-| `fetch_repo` | Clones or updates a GitHub repo in the local cache |
+| `parse_remote_ref` | Splits a remote reference into owner, repo, optional subpath, and optional git ref |
+| `fetch_repo` | Clones or updates a GitHub repo in the local cache, with optional version pinning |
 | `clear_cache` | Removes a cached repo directory to force re-clone |
 | `resolve_template_dir` | Fetches a repo and returns the path to the template directory |
 
@@ -44,10 +44,10 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 |----------|-----------|-------------|
 | `cache_dir` | `() -> PathBuf` | Returns `~/.cache/fledge/templates` (platform-aware) |
 | `is_remote_ref` | `(&str) -> bool` | Returns true if string contains `/` with non-empty segments |
-| `parse_remote_ref` | `(&str) -> (&str, &str, Option<&str>)` | Splits into (owner, repo, optional subpath) |
-| `fetch_repo` | `(&str, &str, Option<&str>) -> Result<PathBuf>` | Clone or pull repo, returns local path |
+| `parse_remote_ref` | `(&str) -> (&str, &str, Option<&str>, Option<&str>)` | Splits into (owner, repo, optional subpath, optional git ref) |
+| `fetch_repo` | `(&str, &str, Option<&str>, Option<&str>) -> Result<PathBuf>` | Clone or pull repo with optional git ref, returns local path |
 | `clear_cache` | `(&str, &str) -> Result<()>` | Remove cached repo dir for owner/repo |
-| `resolve_template_dir` | `(&str, &str, Option<&str>, Option<&str>) -> Result<PathBuf>` | Fetch repo and resolve optional subpath |
+| `resolve_template_dir` | `(&str, &str, Option<&str>, Option<&str>, Option<&str>) -> Result<PathBuf>` | Fetch repo and resolve optional subpath with optional git ref |
 
 ## Invariants
 
@@ -57,6 +57,9 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 4. Token is embedded in HTTPS URL for authenticated access
 5. `is_remote_ref` requires at least two non-empty `/`-separated segments
 6. `parse_remote_ref` splits on first two `/` characters; everything after is the subpath
+7. `@ref` suffix in remote refs pins to a specific git tag, branch, or commit
+8. Pinned refs are cached separately at `{cache_dir}/{owner}/{repo}@{ref}`
+9. Pinned refs are not updated on subsequent access (they're immutable)
 
 ## Behavioral Examples
 
@@ -114,3 +117,4 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 | Date | Author | Change |
 |------|--------|--------|
 | 2026-04-18 | CorvidAgent | Initial spec |
+| 2026-04-19 | CorvidAgent | v3: Add version pinning with @ref syntax |

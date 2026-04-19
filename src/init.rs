@@ -49,6 +49,8 @@ pub fn run(opts: InitOptions) -> Result<()> {
         style(&template.name).green()
     );
 
+    check_template_version(&template.manifest)?;
+
     // Target directory
     let target_dir = opts.output.join(&opts.name);
     if target_dir.exists() {
@@ -106,21 +108,24 @@ fn run_remote(
     config: &Config,
     token: Option<&str>,
 ) -> Result<()> {
-    let (owner, repo, subpath) = crate::remote::parse_remote_ref(remote_ref);
+    let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref);
 
     if opts.refresh {
         crate::remote::clear_cache(owner, repo)?;
     }
 
+    let ref_display = git_ref.map(|r| format!("@{}", r)).unwrap_or_default();
+
     println!(
-        "{} Fetching template from {}/{}{}...",
+        "{} Fetching template from {}/{}{}{}...",
         style("*").cyan().bold(),
         owner,
         repo,
-        subpath.map(|s| format!("/{}", s)).unwrap_or_default()
+        subpath.map(|s| format!("/{}", s)).unwrap_or_default(),
+        ref_display
     );
 
-    let template_dir = crate::remote::resolve_template_dir(owner, repo, subpath, token)?;
+    let template_dir = crate::remote::resolve_template_dir(owner, repo, subpath, token, git_ref)?;
 
     // The remote dir might be a single template or a collection
     let mut found = Vec::new();
@@ -156,6 +161,8 @@ fn run_remote(
         style("*").cyan().bold(),
         style(&template.name).green()
     );
+
+    check_template_version(&template.manifest)?;
 
     let target_dir = opts.output.join(&opts.name);
     if target_dir.exists() {
@@ -329,6 +336,13 @@ fn print_dry_run(
     }
 
     println!();
+    Ok(())
+}
+
+fn check_template_version(manifest: &templates::TemplateManifest) -> Result<()> {
+    if let Some(ref min_ver) = manifest.template.min_fledge_version {
+        crate::versioning::check_fledge_version(min_ver)?;
+    }
     Ok(())
 }
 
