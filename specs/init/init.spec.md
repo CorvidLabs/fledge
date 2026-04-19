@@ -1,6 +1,6 @@
 ---
 module: init
-version: 4
+version: 5
 status: active
 files:
   - src/init.rs
@@ -49,6 +49,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 2. At least one template must be available
 3. Git init creates an initial commit with all scaffolded files
 4. Directory is created before template rendering begins
+5. `.fledge.toml` is written after rendering, before git init, recording template source and file hashes
 
 ## Behavioral Examples
 
@@ -115,6 +116,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | `templates` | `discover_templates_with_repos()`, `render_template()` |
 | `remote` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()` |
 | `prompts` | `select_template()`, `prompt_variables()` |
+| `update` | `write_project_meta()` for `.fledge.toml` generation |
 | `console` | `style()` for colored output |
 | `anyhow` | Error handling |
 
@@ -131,3 +133,4 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: fill in export descriptions, re-validate against source |
 | 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |
+| 2026-04-19 | CorvidAgent | v5: init now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |

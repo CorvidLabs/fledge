@@ -192,6 +192,10 @@ fn extract_dir_recursive(dir: &Dir, target: &Path) -> Result<()> {
     Ok(())
 }
 
+pub fn load_templates_from_dir_pub(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
+    load_templates_from_dir(dir, templates)
+}
+
 fn load_templates_from_dir(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -305,6 +309,10 @@ fn render_path_string(path: &str, ctx: &tera::Context) -> Result<String> {
     let mut tera = Tera::default();
     tera.add_raw_template("__path__", path)?;
     Ok(tera.render("__path__", ctx)?)
+}
+
+pub fn matches_glob_pub(pattern: &str, path: &str) -> bool {
+    matches_glob(pattern, path)
 }
 
 fn matches_glob(pattern: &str, path: &str) -> bool {
