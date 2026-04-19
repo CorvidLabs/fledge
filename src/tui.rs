@@ -347,6 +347,7 @@ fn clone_template_for_fields(tpl: &Template) -> Template {
                 copy: tpl.manifest.files.copy.clone(),
                 ignore: tpl.manifest.files.ignore.clone(),
             },
+            hooks: tpl.manifest.hooks.clone(),
         },
     }
 }

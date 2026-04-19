@@ -39,6 +39,12 @@ enum Commands {
         /// Force re-clone of cached remote templates
         #[arg(long)]
         refresh: bool,
+        /// Show what would be created without writing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip all confirmation prompts (accept defaults)
+        #[arg(short, long)]
+        yes: bool,
     },
     /// List available templates
     List,
@@ -65,6 +71,8 @@ fn main() -> Result<()> {
             no_git,
             no_install,
             refresh,
+            dry_run,
+            yes,
         } => {
             init::run(init::InitOptions {
                 name,
@@ -73,6 +81,8 @@ fn main() -> Result<()> {
                 no_git,
                 no_install,
                 refresh,
+                dry_run,
+                yes,
             })?;
         }
         Commands::List => {
