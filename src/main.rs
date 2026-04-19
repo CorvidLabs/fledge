@@ -11,6 +11,7 @@ mod prompts;
 mod publish;
 mod remote;
 mod search;
+mod spec;
 mod templates;
 #[cfg(feature = "tui")]
 mod tui;
@@ -112,6 +113,11 @@ enum Commands {
         #[arg(long)]
         description: Option<String>,
     },
+    /// Manage specs (check, init, new)
+    Spec {
+        #[command(subcommand)]
+        action: SpecSubcommand,
+    },
     /// Feature branch and PR workflow
     Work {
         #[command(subcommand)]
@@ -126,6 +132,23 @@ enum Commands {
         /// Skip git init and initial commit
         #[arg(long)]
         no_git: bool,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum SpecSubcommand {
+    /// Validate specs against source code
+    Check {
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+    },
+    /// Initialize spec-sync configuration
+    Init,
+    /// Scaffold a new spec module
+    New {
+        /// Module name
+        name: String,
     },
 }
 
@@ -264,6 +287,14 @@ fn run() -> Result<()> {
                 private,
                 description,
             })?;
+        }
+        Commands::Spec { action } => {
+            let action = match action {
+                SpecSubcommand::Check { strict } => spec::SpecAction::Check { strict },
+                SpecSubcommand::Init => spec::SpecAction::Init,
+                SpecSubcommand::New { name } => spec::SpecAction::New { name },
+            };
+            spec::run(action)?;
         }
         Commands::Work { action } => {
             let action = match action {
