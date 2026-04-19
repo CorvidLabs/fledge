@@ -1,0 +1,13 @@
+[template]
+name = "python-cli"
+description = "Python CLI application with Click, pytest, and pyproject.toml"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new Python CLI" }
+python_version = { message = "Minimum Python version", default = "3.11" }
+
+[files]
+render = ["**/*.py", "**/*.toml", "**/*.md", "**/*.yml", "**/*.cfg"]
+copy = ["**/*.png", "**/*.ico"]
+ignore = ["template.toml"]

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: {% raw %}${{ steps.changes.outputs.packages }}{% endraw %}
+    steps:
+      - uses: actions/checkout@v4
+      - id: changes
+        run: |
+          echo "packages=$(ls packages/ 2>/dev/null | jq -R -s -c 'split("\n") | map(select(. != ""))')" >> $GITHUB_OUTPUT
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate structure
+        run: |
+          echo "Checking {{ project_name }} monorepo structure..."
+          test -d packages || echo "Warning: packages/ directory is empty"
+          echo "OK"

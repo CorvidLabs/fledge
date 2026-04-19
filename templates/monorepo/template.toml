@@ -1,0 +1,12 @@
+[template]
+name = "monorepo"
+description = "Monorepo with shared tooling, CI, and workspace conventions"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A new monorepo" }
+
+[files]
+render = ["**/*.md", "**/*.yml", "**/*.yaml", "**/*.json", "**/*.toml"]
+copy = ["**/*.png", "**/*.ico"]
+ignore = ["template.toml"]

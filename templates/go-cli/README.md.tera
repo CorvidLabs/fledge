@@ -1,0 +1,26 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+```bash
+go install {{ go_module }}@latest
+```
+
+## Usage
+
+```bash
+{{ project_name }} hello --name world
+```
+
+## Development
+
+```bash
+go test ./...
+go vet ./...
+```
+
+## License
+
+{{ license }}
