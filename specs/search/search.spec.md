@@ -30,6 +30,7 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 | `search_github` | Executes GitHub search API call and parses results |
 | `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
 | `format_stars` | Formats star count with `k` suffix for thousands |
+| `urlencod` | URL-encodes a string for use in query parameters |
 
 ### Structs & Enums
 
@@ -53,6 +54,7 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 | `search_github` | `(keyword: Option<&str>, token: Option<&str>, limit: usize) -> Result<Vec<SearchResult>>` | Execute GitHub search API call and parse results |
 | `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parse GitHub API JSON into search results |
 | `format_stars` | `(count: u64) -> String` | Format star count with `k` suffix for thousands |
+| `urlencod` | `(s: &str) -> String` | URL-encode a string for use in query parameters |
 
 ## Invariants
 
