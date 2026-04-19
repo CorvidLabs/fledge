@@ -1,0 +1,9 @@
+[book]
+title = "fledge Documentation"
+authors = ["CorvidLabs"]
+language = "en"
+description = "Get your projects ready to fly. A fast, opinionated project scaffolding CLI built in Rust."
+
+[output.html]
+git-repository-url = "https://github.com/CorvidLabs/fledge"
+edit-url-template = "https://github.com/CorvidLabs/fledge/edit/main/docs/{path}"
