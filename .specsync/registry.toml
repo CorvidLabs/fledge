@@ -1,0 +1,9 @@
+[registry]
+name = "fledge"
+
+[specs]
+config = "specs/config/config.spec.md"
+init = "specs/init/init.spec.md"
+prompts = "specs/prompts/prompts.spec.md"
+remote = "specs/remote/remote.spec.md"
+templates = "specs/templates/templates.spec.md"
