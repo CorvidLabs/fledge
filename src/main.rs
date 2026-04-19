@@ -9,6 +9,7 @@ mod create_template;
 mod init;
 mod prompts;
 mod remote;
+mod search;
 mod templates;
 #[cfg(feature = "tui")]
 mod tui;
@@ -68,6 +69,17 @@ enum Commands {
         /// Parent directory for the template
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
+    },
+    /// Search for templates on GitHub
+    Search {
+        /// Keyword to filter results
+        query: Option<String>,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
     #[cfg(feature = "tui")]
@@ -160,6 +172,9 @@ fn run() -> Result<()> {
         }
         Commands::CreateTemplate { name, output } => {
             create_template::run(create_template::CreateTemplateOptions { name, output })?;
+        }
+        Commands::Search { query, limit, json } => {
+            search::run(search::SearchOptions { query, limit, json })?;
         }
         Commands::Completions { shell } => {
             clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
