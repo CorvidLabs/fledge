@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://corvidlabs.github.io/fledge/)
 
-One CLI for your whole dev lifecycle. Scaffold, build, test, ship.
+One CLI, six stages, your whole dev lifecycle.
 
 I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` for GitHub stuff, and a dozen scripts to glue it all together. So I built fledge — a single Rust binary that handles the full loop from `init` to `changelog`.
 
@@ -15,7 +15,7 @@ I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` f
 - **It's fast.** Native Rust binary. No runtime, no node_modules, no waiting around.
 - **Smart defaults.** Pulls your name and org from git config, auto-detects your project type, generates sensible task configs.
 - **Remote templates.** Any GitHub repo works as a template with `owner/repo` syntax. No special registry needed.
-- **Full lifecycle.** Scaffolding, task runner, workflow lanes, specs, CI checks, changelogs, GitHub integration, AI review — it's all here.
+- **Six pillars.** Start, Build, Develop, Review, Ship, Extend — every stage of your project has a home.
 - **Lanes.** Chain tasks into pipelines with parallel groups. `fledge lane ci` and you're done.
 - **Plugins.** Git-style subcommand pattern. Drop in community extensions or write your own.
 - **Language-agnostic.** Auto-detects Rust, Node, Go, Python, Ruby, Java, Swift and adapts.
@@ -96,52 +96,57 @@ These ship offline with the binary. For more templates (Angular, Go, Python, Swi
 
 Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/). Here's the quick version:
 
-### Scaffolding
+### Start — Scaffold and discover
 
 | Command | What it does |
 |---------|-------------|
 | `fledge init <name>` | Create a project from a template |
 | `fledge list` | Show available templates |
-| `fledge create-template <name>` | Scaffold a new template |
-| `fledge validate-template [path]` | Check a template for issues |
 | `fledge search [query]` | Find templates on GitHub |
+| `fledge create-template <name>` | Scaffold a new template |
 | `fledge publish [path]` | Push a template to GitHub |
+| `fledge validate-template [path]` | Check a template for issues |
 | `fledge update` | Re-apply source template to existing project |
 
-### Project Lifecycle
+### Build — Configure and run
 
 | Command | What it does |
 |---------|-------------|
 | `fledge run [task]` | Run tasks from fledge.toml |
 | `fledge lane [name]` | Run a workflow pipeline |
+| `fledge config <action>` | Manage global config |
 | `fledge doctor` | Environment diagnostics |
+
+### Develop — Branch and spec
+
+| Command | What it does |
+|---------|-------------|
+| `fledge work <action>` | Feature branches + PRs |
+| `fledge spec <action>` | Spec-sync management |
+
+### Review — Quality and insight
+
+| Command | What it does |
+|---------|-------------|
+| `fledge review` | AI code review via Claude |
+| `fledge ask <question>` | Ask about your codebase |
 | `fledge metrics` | Code metrics (LOC, churn, test ratio) |
 | `fledge deps` | Dependency health (outdated, audit, licenses) |
-| `fledge spec <action>` | Spec-sync management |
-| `fledge work <action>` | Feature branches + PRs |
-| `fledge changelog` | Generate changelog from git tags |
 
-### GitHub Integration
+### Ship — Track and release
 
 | Command | What it does |
 |---------|-------------|
 | `fledge issues` | List/view GitHub issues |
 | `fledge prs` | List/view pull requests |
 | `fledge checks` | CI/CD status |
+| `fledge changelog` | Generate changelog from git tags |
 
-### AI-Powered
-
-| Command | What it does |
-|---------|-------------|
-| `fledge review` | AI code review via Claude |
-| `fledge ask <question>` | Ask about your codebase |
-
-### Plugins & Config
+### Extend — Grow the tool
 
 | Command | What it does |
 |---------|-------------|
 | `fledge plugin <action>` | Install, remove, search, run plugins |
-| `fledge config <action>` | Manage global config |
 | `fledge completions [shell]` | Shell completions (bash, zsh, fish) |
 | `fledge tui` | Interactive template browser (requires `--features tui`) |
 

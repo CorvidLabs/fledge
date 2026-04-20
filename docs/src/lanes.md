@@ -194,6 +194,17 @@ fledge lane --init       # generate defaults
 fledge lane --list --json
 ```
 
+## Environment diagnostics with `fledge doctor`
+
+Before you start building, make sure everything is in place. `fledge doctor` checks for missing tools, bad config, and common setup issues.
+
+```bash
+fledge doctor
+fledge doctor --json
+```
+
+This is a "can I build?" check — run it when something feels off or on a fresh machine.
+
 ## Tips
 
 - Start with `fledge lane --init` and customize from there.

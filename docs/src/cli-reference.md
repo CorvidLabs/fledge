@@ -2,7 +2,7 @@
 
 Every command, every flag. If it's in fledge, it's here.
 
-## Scaffolding
+## Start — Scaffold and discover
 
 ### fledge init `<name>`
 
@@ -129,7 +129,7 @@ fledge update [OPTIONS]
 
 ---
 
-## Project Lifecycle
+## Build — Configure and run
 
 ### fledge run `[task]`
 
@@ -217,21 +217,52 @@ fledge lane --init
 
 ---
 
-### fledge spec `<action>`
+### fledge config `<action>`
 
-Spec-sync management. Specs are the source of truth for module design.
+Manage `~/.config/fledge/config.toml`.
 
 ```
-fledge spec <check|init|new> [OPTIONS]
+fledge config <get|set|unset|add|remove|list|path|init>
 ```
 
-**Subcommands:**
+| Subcommand | What it does |
+|------------|-------------|
+| `get <key>` | Read a value |
+| `set <key> <value>` | Write a value |
+| `unset <key>` | Delete a value |
+| `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
+| `remove <key> <value>` | Remove from a list |
+| `list` | Show everything |
+| `path` | Print config file path |
+| `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
 
-- `check` — Validate specs against code (`--strict` for warnings as errors)
-- `init` — Set up spec-sync for the project
-- `new <name>` — Scaffold a new spec
+**Valid keys:**
+- `defaults.author`, `defaults.github_org`, `defaults.license`
+- `github.token`
+- `templates.paths`, `templates.repos`
+
+```bash
+fledge config set defaults.author "Leif"
+fledge config add templates.repos "CorvidLabs/fledge-templates"
+fledge config list
+```
 
 ---
+
+### fledge doctor
+
+Check your environment for issues (missing tools, bad config, etc). Run this before `fledge run` if something seems off.
+
+```
+fledge doctor [OPTIONS]
+```
+
+**Options:**
+- `--json` — JSON output
+
+---
+
+## Develop — Branch and spec
 
 ### fledge work `<action>`
 
@@ -249,39 +280,50 @@ fledge work <start|pr|status> [OPTIONS]
 
 ---
 
-### fledge changelog
+### fledge spec `<action>`
 
-Generate a changelog from git tags and conventional commits.
+Spec-sync management. Specs are the source of truth for module design.
 
 ```
-fledge changelog [OPTIONS]
+fledge spec <check|init|new> [OPTIONS]
 ```
 
-**Options:**
-- `-l, --limit <N>` — Releases to show [default: `10`]
-- `-t, --tag <TAG>` — Specific tag
-- `--unreleased` — Changes since last tag
-- `--json` — JSON output
+**Subcommands:**
 
-```bash
-fledge changelog
-fledge changelog --unreleased
-fledge changelog --json
-fledge changelog --tag v0.7.0
-```
+- `check` — Validate specs against code (`--strict` for warnings as errors)
+- `init` — Set up spec-sync for the project
+- `new <name>` — Scaffold a new spec
 
 ---
 
-### fledge doctor
+## Review — Quality and insight
 
-Check your environment for issues (missing tools, bad config, etc).
+### fledge review
+
+AI code review via Claude. Diffs your branch against the base and gives feedback.
 
 ```
-fledge doctor [OPTIONS]
+fledge review [OPTIONS]
 ```
 
 **Options:**
-- `--json` — JSON output
+- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
+- `-f, --file <FILE>` — Review a single file
+
+---
+
+### fledge ask `<question>`
+
+Ask about your codebase. Claude reads your code and answers.
+
+```
+fledge ask <question>
+```
+
+```bash
+fledge ask "how does the template rendering work?"
+fledge ask "what tests cover the config module?"
+```
 
 ---
 
@@ -341,7 +383,7 @@ fledge deps --outdated --audit --licenses --json
 
 ---
 
-## GitHub
+## Ship — Track and release
 
 ### fledge issues `[view <number>]`
 
@@ -390,38 +432,30 @@ fledge checks [OPTIONS]
 
 ---
 
-## AI-Powered
+### fledge changelog
 
-### fledge review
-
-AI code review via Claude. Diffs your branch against the base and gives feedback.
+Generate a changelog from git tags and conventional commits.
 
 ```
-fledge review [OPTIONS]
+fledge changelog [OPTIONS]
 ```
 
 **Options:**
-- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
-- `-f, --file <FILE>` — Review a single file
-
----
-
-### fledge ask `<question>`
-
-Ask about your codebase. Claude reads your code and answers.
-
-```
-fledge ask <question>
-```
+- `-l, --limit <N>` — Releases to show [default: `10`]
+- `-t, --tag <TAG>` — Specific tag
+- `--unreleased` — Changes since last tag
+- `--json` — JSON output
 
 ```bash
-fledge ask "how does the template rendering work?"
-fledge ask "what tests cover the config module?"
+fledge changelog
+fledge changelog --unreleased
+fledge changelog --json
+fledge changelog --tag v0.7.0
 ```
 
 ---
 
-## Plugins
+## Extend — Grow the tool
 
 ### fledge plugin `<action>`
 
@@ -469,40 +503,6 @@ fledge plugin remove fledge-deploy
 
 ---
 
-## Configuration
-
-### fledge config `<action>`
-
-Manage `~/.config/fledge/config.toml`.
-
-```
-fledge config <get|set|unset|add|remove|list|path|init>
-```
-
-| Subcommand | What it does |
-|------------|-------------|
-| `get <key>` | Read a value |
-| `set <key> <value>` | Write a value |
-| `unset <key>` | Delete a value |
-| `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
-| `remove <key> <value>` | Remove from a list |
-| `list` | Show everything |
-| `path` | Print config file path |
-| `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
-
-**Valid keys:**
-- `defaults.author`, `defaults.github_org`, `defaults.license`
-- `github.token`
-- `templates.paths`, `templates.repos`
-
-```bash
-fledge config set defaults.author "Leif"
-fledge config add templates.repos "CorvidLabs/fledge-templates"
-fledge config list
-```
-
----
-
 ### fledge completions `[shell]`
 
 Shell completions for bash, zsh, fish, powershell.
@@ -525,7 +525,7 @@ fledge completions fish > ~/.config/fish/completions/fledge.fish
 
 ### fledge tui *(requires `--features tui`)*
 
-Interactive template browser.
+Interactive template browser. Browse, preview, and scaffold templates without memorizing command flags.
 
 ```
 fledge tui [OPTIONS]

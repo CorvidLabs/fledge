@@ -1,6 +1,6 @@
 # Introduction
 
-One CLI for your whole dev lifecycle. Scaffold, build, test, ship.
+One CLI, six stages, your whole dev lifecycle.
 
 **fledge** is a Rust CLI that replaces the pile of tools you're currently juggling. Instead of `cookiecutter` + `make` + `gh` + custom scripts, you get one binary that handles everything from project creation to changelog generation.
 
@@ -10,13 +10,15 @@ I kept setting up the same boilerplate across projects — CI workflows, linters
 
 ## What it does
 
-| Category | Commands | The gist |
-|----------|----------|----------|
-| **Scaffolding** | `init`, `list`, `create-template`, `search`, `publish`, `update`, `validate-template` | Create projects from templates, find and share templates |
-| **Project Lifecycle** | `run`, `lane`, `spec`, `work`, `changelog` | Task runner, workflow pipelines, spec management, git workflow |
-| **Project Health** | `doctor`, `metrics`, `deps` | Environment checks, code stats, dependency auditing |
-| **GitHub** | `issues`, `prs`, `checks` | Issues, PRs, and CI status without leaving the terminal |
-| **AI-Powered** | `review`, `ask` | Code review and codebase Q&A powered by Claude |
-| **Extensibility** | `plugin`, `config`, `completions`, `tui` | Community plugins, config, shell completions, interactive UI |
+| Pillar | Tagline | Commands |
+|--------|---------|----------|
+| **Start** | Scaffold and discover | `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update` |
+| **Build** | Configure and run | `run`, `lane`, `config`, `doctor` |
+| **Develop** | Branch and spec | `work`, `spec` |
+| **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
+| **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog` |
+| **Extend** | Grow the tool | `plugin`, `completions`, `tui` |
+
+The lifecycle flows naturally: Start a project, Build your tasks and config, Develop features on branches, Review quality before merging, and Ship releases. Extend runs alongside everything — plugins and completions enhance any stage.
 
 It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift), generates sensible defaults, and stays out of your way. Start with `fledge init`, define tasks in `fledge.toml`, compose them into lanes, and you've got a consistent workflow across all your projects.
