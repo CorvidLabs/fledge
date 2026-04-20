@@ -51,6 +51,7 @@ pub fn run(opts: InitOptions) -> Result<()> {
     );
 
     check_template_version(&template.manifest)?;
+    check_template_requirements(&template.manifest, opts.yes)?;
 
     // Target directory
     let target_dir = opts.output.join(&opts.name);
@@ -175,6 +176,7 @@ fn run_remote(
     );
 
     check_template_version(&template.manifest)?;
+    check_template_requirements(&template.manifest, opts.yes)?;
 
     let target_dir = opts.output.join(&opts.name);
     if target_dir.exists() {
@@ -328,6 +330,21 @@ fn print_dry_run(
     println!("  Location:  {}", style(target_dir.display()).dim());
     println!("  Git init:  {}", if no_git { "no" } else { "yes" });
 
+    if !template.manifest.template.requires.is_empty() {
+        let (found, missing) = templates::check_requirements(&template.manifest.template.requires);
+        print!("  Requires:  ");
+        let parts: Vec<String> = found
+            .iter()
+            .map(|t| format!("{}", style(t).green()))
+            .chain(
+                missing
+                    .iter()
+                    .map(|t| format!("{}", style(format!("{t} (missing)")).red())),
+            )
+            .collect();
+        println!("{}", parts.join(", "));
+    }
+
     // List template files
     let files: Vec<_> = walkdir::WalkDir::new(&template.path)
         .into_iter()
@@ -366,6 +383,51 @@ fn check_template_version(manifest: &templates::TemplateManifest) -> Result<()> 
     if let Some(ref min_ver) = manifest.template.min_fledge_version {
         crate::versioning::check_fledge_version(min_ver)?;
     }
+    Ok(())
+}
+
+fn check_template_requirements(
+    manifest: &templates::TemplateManifest,
+    auto_yes: bool,
+) -> Result<()> {
+    if manifest.template.requires.is_empty() {
+        return Ok(());
+    }
+
+    let (_, missing) = templates::check_requirements(&manifest.template.requires);
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    println!(
+        "\n{} This template requires tools not found on your PATH:",
+        style("!").yellow().bold()
+    );
+    for tool in &missing {
+        println!("  {} {}", style("missing:").yellow().bold(), tool);
+    }
+    println!();
+
+    if auto_yes {
+        println!(
+            "{} Continuing anyway (--yes). Post-create hooks may fail.",
+            style("*").cyan().bold()
+        );
+        return Ok(());
+    }
+
+    let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+        .with_prompt("Continue without these tools? (post-create hooks may fail)")
+        .default(false)
+        .interact()?;
+
+    if !confirm {
+        bail!(
+            "Missing required tools: {}. Install them and try again.",
+            missing.join(", ")
+        );
+    }
+
     Ok(())
 }
 

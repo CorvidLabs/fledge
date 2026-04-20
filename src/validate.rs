@@ -19,6 +19,8 @@ struct ValidationReport {
     path: String,
     errors: Vec<String>,
     warnings: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    missing_requirements: Vec<String>,
 }
 
 const BUILTIN_VARS: &[&str] = &[
@@ -100,6 +102,18 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
         report
             .errors
             .push("template.description is empty".to_string());
+    }
+
+    if !manifest.template.requires.is_empty() {
+        let (_, missing) = crate::templates::check_requirements(&manifest.template.requires);
+        if !missing.is_empty() {
+            for tool in &missing {
+                report
+                    .warnings
+                    .push(format!("required tool '{tool}' not found on PATH"));
+            }
+            report.missing_requirements = missing;
+        }
     }
 
     let known_vars: HashSet<String> = BUILTIN_VARS
@@ -627,5 +641,88 @@ ignore = ["template.toml"]
             json: false,
         });
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn missing_requirement_is_warning() {
+        let tmp = TempDir::new().unwrap();
+        let tpl = tmp.path().join("needs-tool");
+        make_template(
+            &tpl,
+            r#"
+[template]
+name = "needs-tool"
+description = "Needs a nonexistent tool"
+requires = ["fledge_nonexistent_tool_xyz"]
+
+[files]
+ignore = ["template.toml"]
+"#,
+            &[("file.txt", "hello")],
+        );
+
+        let report = validate_single(&tpl).unwrap();
+        assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.contains("fledge_nonexistent_tool_xyz")),
+            "should warn about missing tool"
+        );
+        assert_eq!(
+            report.missing_requirements,
+            vec!["fledge_nonexistent_tool_xyz"]
+        );
+    }
+
+    #[test]
+    fn present_requirement_no_warning() {
+        let tmp = TempDir::new().unwrap();
+        let tpl = tmp.path().join("needs-sh");
+        make_template(
+            &tpl,
+            r#"
+[template]
+name = "needs-sh"
+description = "Needs sh which always exists"
+requires = ["sh"]
+
+[files]
+ignore = ["template.toml"]
+"#,
+            &[("file.txt", "hello")],
+        );
+
+        let report = validate_single(&tpl).unwrap();
+        assert!(report.errors.is_empty());
+        assert!(
+            !report.warnings.iter().any(|w| w.contains("not found")),
+            "should not warn about sh: {:?}",
+            report.warnings
+        );
+        assert!(report.missing_requirements.is_empty());
+    }
+
+    #[test]
+    fn requires_field_is_optional() {
+        let tmp = TempDir::new().unwrap();
+        let tpl = tmp.path().join("no-requires");
+        make_template(
+            &tpl,
+            r#"
+[template]
+name = "no-requires"
+description = "No requires field at all"
+
+[files]
+ignore = ["template.toml"]
+"#,
+            &[("file.txt", "hello")],
+        );
+
+        let report = validate_single(&tpl).unwrap();
+        assert!(report.errors.is_empty());
+        assert!(report.missing_requirements.is_empty());
     }
 }
