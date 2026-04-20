@@ -24,7 +24,6 @@ Provides opinionated git workflow commands for feature branch development. `fled
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate work subcommand |
 | `WorkAction` | Enum of subcommands: Start, Pr, Status |
-| `WorkConfig` | Configuration for branch naming (format string, default type) |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
 | `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
