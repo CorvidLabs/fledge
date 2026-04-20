@@ -291,6 +291,175 @@ fledge changelog --tag v0.7.0
 
 ---
 
+### fledge lane `[name]`
+
+Run a composable workflow pipeline defined in `fledge.toml`. Lanes chain multiple tasks into named pipelines with parallel execution and configurable failure behavior.
+
+#### Usage
+
+```
+fledge lane [name] [OPTIONS]
+```
+
+#### Arguments
+
+- `[name]` — Lane name to run (lists lanes if omitted)
+
+#### Options
+
+- `-l, --list` — List available lanes
+- `--init` — Add default lanes to `fledge.toml` (language-aware)
+- `--dry-run` — Show execution plan without running
+- `--json` — Output as JSON
+
+#### Lane Configuration
+
+Lanes are defined in `fledge.toml` alongside tasks:
+
+```toml
+[lanes.ci]
+description = "Full CI pipeline"
+steps = ["lint", "test", "build"]
+
+[lanes.check]
+description = "Quick quality check"
+steps = [
+  { parallel = ["lint", "fmt"] },
+  "test"
+]
+
+[lanes.release]
+description = "Build and publish"
+fail_fast = false
+steps = [
+  "test",
+  { run = "cargo build --release" },
+  "publish"
+]
+```
+
+#### Step Types
+
+| Type | Syntax | Description |
+|------|--------|-------------|
+| Task reference | `"task_name"` | Runs a task from `[tasks]` |
+| Inline command | `{ run = "command" }` | Runs a shell command |
+| Parallel group | `{ parallel = ["a", "b"] }` | Runs tasks concurrently |
+
+#### Examples
+
+```bash
+# List lanes
+fledge lane
+
+# Run the CI lane
+fledge lane ci
+
+# Preview without running
+fledge lane ci --dry-run
+
+# Add default lanes for your project type
+fledge lane --init
+```
+
+---
+
+### fledge doctor
+
+Diagnose project environment health. Checks for required tools, validates configuration, and reports issues.
+
+#### Usage
+
+```
+fledge doctor [OPTIONS]
+```
+
+#### Options
+
+- `--json` — Output as JSON
+
+---
+
+### fledge metrics
+
+Project code metrics — lines of code by language, file churn, and test coverage ratio.
+
+#### Usage
+
+```
+fledge metrics [OPTIONS]
+```
+
+#### Options
+
+- `--churn` — Show most-changed files from git history
+- `--tests` — Show test file detection and test-to-code ratio
+- `-l, --limit <N>` — Maximum entries for churn output [default: `20`]
+- `--json` — Output as JSON
+
+#### Examples
+
+```bash
+# LOC breakdown by language
+fledge metrics
+
+# Most frequently changed files
+fledge metrics --churn
+
+# Test coverage ratio
+fledge metrics --tests
+
+# All metrics as JSON
+fledge metrics --churn --tests --json
+```
+
+---
+
+### fledge deps
+
+Check dependency health — list dependencies, find outdated packages, run security audits, and scan licenses.
+
+#### Usage
+
+```
+fledge deps [OPTIONS]
+```
+
+#### Options
+
+- `--outdated` — Check for outdated dependencies
+- `--audit` — Run security audit via ecosystem tools
+- `--licenses` — Show dependency licenses
+- `--json` — Output as JSON
+
+#### Supported Ecosystems
+
+| Ecosystem | Detection | Outdated | Audit | Licenses |
+|-----------|-----------|----------|-------|----------|
+| Rust | `Cargo.lock` | `cargo outdated` | `cargo audit` | `cargo license` |
+| Node.js | `package-lock.json` / `yarn.lock` | `npm outdated` / `yarn outdated` | `npm audit` / `yarn audit` | `license-checker` |
+| Go | `go.sum` | `go list` | `govulncheck` | — |
+| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | `pip list --outdated` | `pip-audit` | — |
+| Ruby | `Gemfile.lock` | `bundle outdated` | `bundle audit` | — |
+
+#### Examples
+
+```bash
+# List all dependencies
+fledge deps
+
+# Check for outdated packages
+fledge deps --outdated
+
+# Run security audit
+fledge deps --audit
+
+# Full health check as JSON
+fledge deps --outdated --audit --licenses --json
+```
+
+---
+
 ## GitHub Integration Commands
 
 ### fledge issues `[view <number>]`
@@ -387,6 +556,88 @@ fledge ask "what tests cover the config module?"
 
 ---
 
+## Plugin Commands
+
+### fledge plugin `<action>`
+
+Manage plugins — install, remove, list, and search community extensions.
+
+#### Usage
+
+```
+fledge plugin <install|remove|list|search|run> [OPTIONS]
+```
+
+#### Subcommands
+
+##### `fledge plugin install <source>`
+
+Install a plugin from GitHub. Clones the repo, reads `plugin.toml`, and symlinks binaries.
+
+- `<source>` — GitHub repo (`owner/repo`) or full URL
+- `--force` — Reinstall if already present
+
+##### `fledge plugin remove <name>`
+
+Remove an installed plugin and clean up symlinks.
+
+##### `fledge plugin list`
+
+List installed plugins with name, version, source, and commands.
+
+##### `fledge plugin search [query]`
+
+Search for plugins on GitHub using the `fledge-plugin` topic.
+
+- `-l, --limit <N>` — Maximum results [default: `20`]
+
+##### `fledge plugin run <name> [args...]`
+
+Run a plugin command with additional arguments.
+
+#### Global Options
+
+- `--json` — Output as JSON (for `list` and `search`)
+
+#### Plugin Format
+
+Plugins are repositories containing a `plugin.toml` manifest:
+
+```toml
+[plugin]
+name = "fledge-deploy"
+version = "0.1.0"
+description = "Deploy to cloud providers"
+author = "someone"
+
+[[commands]]
+name = "deploy"
+description = "Deploy the project"
+binary = "fledge-deploy"
+
+[[hooks]]
+event = "lane:post"
+binary = "fledge-deploy-notify"
+```
+
+#### Examples
+
+```bash
+# Install a plugin
+fledge plugin install someone/fledge-deploy
+
+# List installed plugins
+fledge plugin list
+
+# Search for plugins
+fledge plugin search deploy
+
+# Remove a plugin
+fledge plugin remove fledge-deploy
+```
+
+---
+
 ## Configuration Commands
 
 ### fledge config `<action>`
@@ -396,7 +647,7 @@ Manage global configuration stored in `~/.config/fledge/config.toml`.
 #### Usage
 
 ```
-fledge config <get|set|unset|add|remove|list|path>
+fledge config <get|set|unset|add|remove|list|path|init>
 ```
 
 #### Subcommands
@@ -410,6 +661,7 @@ fledge config <get|set|unset|add|remove|list|path>
 | `remove <key> <value>` | Remove a value from a list key |
 | `list` | Show all config values |
 | `path` | Show config file path |
+| `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
 
 #### Valid Keys
 

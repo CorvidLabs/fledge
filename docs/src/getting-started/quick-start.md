@@ -47,6 +47,40 @@ fledge run build     # run the build task
 fledge run test      # run tests
 ```
 
+## Compose Workflow Pipelines
+
+Lanes chain tasks into named pipelines — think `fledge lane ci` to run lint, test, and build in sequence:
+
+```bash
+fledge lane --init       # add default lanes for your project type
+fledge lane              # list available lanes
+fledge lane ci           # run the CI lane
+fledge lane ci --dry-run # preview the execution plan
+```
+
+Lanes support parallel execution groups and inline commands. See the [CLI Reference](../cli-reference.md) for full configuration.
+
+## Check Project Health
+
+```bash
+fledge doctor            # diagnose environment issues
+fledge metrics           # LOC breakdown by language
+fledge metrics --churn   # most frequently changed files
+fledge deps              # list all dependencies
+fledge deps --outdated   # find outdated packages
+fledge deps --audit      # run security audit
+```
+
+## Install Plugins
+
+Extend fledge with community plugins:
+
+```bash
+fledge plugin search deploy   # find plugins on GitHub
+fledge plugin install someone/fledge-deploy
+fledge plugin list            # see installed plugins
+```
+
 ## Start a Feature Branch
 
 Use the workflow commands to manage branches and PRs:
