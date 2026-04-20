@@ -13,4 +13,4 @@ copy = []
 ignore = ["template.toml"]
 
 [hooks]
-post_create = ["python3 -m venv .venv"]
+post_create = ["python3 -m venv .venv", ".venv/bin/pip install --upgrade pip", ".venv/bin/pip install -e '.[dev]'"]
