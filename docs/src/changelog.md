@@ -1,25 +1,18 @@
 # Changelog
 
-fledge can auto-generate changelogs from your git history. You can also view the full project changelog below.
+fledge generates changelogs from your git tags and conventional commits.
 
-## Using `fledge changelog`
+## Usage
 
 ```bash
-# Show recent releases
-fledge changelog
-
-# Show unreleased changes
-fledge changelog --unreleased
-
-# Export as JSON
-fledge changelog --json
-
-# Show a specific release
-fledge changelog --tag v0.7.0
+fledge changelog                 # recent releases
+fledge changelog --unreleased    # changes since last tag
+fledge changelog --tag v0.7.0    # specific release
+fledge changelog --json          # machine-readable
 ```
 
-The `changelog` command parses git tags and conventional commits, grouping them by type (features, fixes, etc.).
+It parses conventional commit messages and groups them by type (features, fixes, etc.).
 
-## Project Changelog
+## Full Changelog
 
-See [CHANGELOG.md](https://github.com/CorvidLabs/fledge/blob/main/CHANGELOG.md) for the full release history.
+See [CHANGELOG.md](https://github.com/CorvidLabs/fledge/blob/main/CHANGELOG.md) for the complete release history.

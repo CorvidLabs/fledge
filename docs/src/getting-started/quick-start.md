@@ -2,132 +2,124 @@
 
 ## Create Your First Project
 
-The simplest way to get started is to create a new project:
+Pick a template and go:
 
 ```bash
 fledge init my-tool --template rust-cli
 ```
 
-This creates a new Rust CLI project in a `my-tool` directory with all the scaffolding you need.
+That gives you a full Rust CLI project with clap, CI, and release automation in a `my-tool` directory.
 
-## Browse Templates Interactively
+## Browse Templates
 
-If you're not sure which template to use, let fledge guide you:
+Not sure what you want? Just run init without a template and fledge will walk you through it:
 
 ```bash
 fledge init my-project
 ```
 
-You'll be prompted to select a template and fill in project variables.
+## Use a Remote Template
 
-## Use a Remote GitHub Template
-
-Any GitHub repository can be a template source. Use the `owner/repo` syntax:
+Any GitHub repo works as a template source:
 
 ```bash
 fledge init my-app --template CorvidLabs/fledge-templates/react-app
 ```
 
-## Preview Changes with Dry Run
+## Dry Run First
 
-Before committing to creating a project, preview what would be generated:
+Preview what you'd get before writing anything:
 
 ```bash
 fledge init my-tool --template rust-cli --dry-run
 ```
 
-## Set Up Your Project
+## Set Up Tasks
 
-Once your project is created, initialize the task runner:
+Once your project exists, generate a `fledge.toml` with auto-detected tasks:
 
 ```bash
 cd my-tool
-fledge run --init    # generates fledge.toml with language-aware defaults
-fledge run build     # run the build task
-fledge run test      # run tests
+fledge run --init    # generates fledge.toml based on what it finds
+fledge run build
+fledge run test
 ```
 
-## Compose Workflow Pipelines
+## Workflow Pipelines
 
-Lanes chain tasks into named pipelines — think `fledge lane ci` to run lint, test, and build in sequence:
+Lanes chain tasks together. Think of `fledge lane ci` as your local CI:
 
 ```bash
-fledge lane --init       # add default lanes for your project type
-fledge lane              # list available lanes
-fledge lane ci           # run the CI lane
-fledge lane ci --dry-run # preview the execution plan
+fledge lane --init       # generate default lanes for your project type
+fledge lane              # see what's available
+fledge lane ci           # run the full pipeline
+fledge lane ci --dry-run # just show the plan
 ```
 
-Lanes support parallel execution groups and inline commands. See the [Lanes & Pipelines](../lanes.md) guide for full configuration.
+Lanes support parallel groups and inline commands. More on that in [Lanes & Pipelines](../lanes.md).
 
-## Check Project Health
+## Project Health
 
 ```bash
-fledge doctor            # diagnose environment issues
-fledge metrics           # LOC breakdown by language
-fledge metrics --churn   # most frequently changed files
-fledge deps              # list all dependencies
-fledge deps --outdated   # find outdated packages
-fledge deps --audit      # run security audit
+fledge doctor            # anything broken in your env?
+fledge metrics           # LOC by language
+fledge metrics --churn   # most-changed files
+fledge deps              # list deps
+fledge deps --outdated   # find stale ones
+fledge deps --audit      # security check
 ```
 
-## Install Plugins
+## Plugins
 
-Extend fledge with community plugins:
+Community extensions, git-style:
 
 ```bash
-fledge plugin search deploy   # find plugins on GitHub
+fledge plugin search deploy
 fledge plugin install someone/fledge-deploy
-fledge plugin list            # see installed plugins
+fledge plugin list
 ```
 
-## Start a Feature Branch
-
-Use the workflow commands to manage branches and PRs:
+## Feature Branches + PRs
 
 ```bash
-fledge work start add-logging    # creates feat/add-logging branch
-# ... make changes ...
-fledge work pr                   # creates a PR from current branch
-fledge work status               # check branch and PR status
+fledge work start add-logging    # creates feat/add-logging
+# ... hack on your feature ...
+fledge work pr                   # opens a PR
+fledge work status               # where are we?
 ```
 
-## Check CI and Review Code
+## CI + Code Review
 
 ```bash
-fledge checks                    # view CI/CD status
-fledge review                    # AI-powered code review
+fledge checks                    # CI status
+fledge review                    # AI code review
 fledge ask "how does X work?"    # ask about the codebase
 ```
 
-## Generate a Changelog
+## Changelog
 
 ```bash
 fledge changelog                 # from git tags + conventional commits
-fledge changelog --unreleased    # see what's new since last tag
+fledge changelog --unreleased    # what's new since last tag
 ```
 
-## List Available Templates
-
-See all available templates (built-in and configured):
+## All Templates
 
 ```bash
 fledge list
 ```
 
-## Built-in Templates
+Shows everything available — built-in, configured repos, and local paths.
 
-fledge comes with several built-in templates ready to use:
+### Built-in Templates
 
-| Template | Description |
-|----------|-------------|
-| `rust-cli` | Rust CLI application with clap, CI, and release automation |
-| `rust-lib` | Rust library crate with docs and publishing workflow |
-| `swift-pkg` | Swift package with Package.swift, CI, and coding conventions |
-| `ts-bun` | TypeScript project with Bun runtime |
-| `angular-app` | Angular application with mobile-first setup |
-| `python-cli` | Python CLI with Click, tests, and packaging |
-| `go-cli` | Go CLI with Cobra, Makefile, and CI |
-| `monorepo` | Monorepo with shared tooling, CI, and workspace conventions |
-
-Each template includes sensible defaults, CI/CD workflows, and best practices for its language ecosystem.
+| Template | What you get |
+|----------|--------------|
+| `rust-cli` | Rust CLI with clap, CI, release automation |
+| `rust-lib` | Rust library crate with docs + publishing |
+| `swift-pkg` | Swift package with Package.swift + CI |
+| `ts-bun` | TypeScript project on Bun |
+| `angular-app` | Angular with mobile-first setup |
+| `python-cli` | Python CLI with Click + packaging |
+| `go-cli` | Go CLI with Cobra, Makefile, CI |
+| `monorepo` | Workspace monorepo with shared tooling |
