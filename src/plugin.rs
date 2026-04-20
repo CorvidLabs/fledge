@@ -508,6 +508,7 @@ fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
     None
 }
 
+#[cfg(unix)]
 fn make_executable(path: &Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let metadata = fs::metadata(path)?;
@@ -517,6 +518,11 @@ fn make_executable(path: &Path) -> Result<()> {
         perms.set_mode(mode | 0o755);
         fs::set_permissions(path, perms)?;
     }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
