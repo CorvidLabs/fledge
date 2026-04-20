@@ -1,11 +1,61 @@
 use anyhow::{Result, bail};
 use console::style;
+use serde::Deserialize;
 use std::process::Command;
+
+const VALID_BRANCH_TYPES: &[&str] = &["feat", "fix", "chore", "docs", "hotfix", "refactor"];
+
+#[derive(Debug, Deserialize)]
+pub struct WorkConfig {
+    #[serde(default = "default_branch_format")]
+    pub branch_format: String,
+    #[serde(default = "default_type")]
+    pub default_type: String,
+}
+
+impl Default for WorkConfig {
+    fn default() -> Self {
+        Self {
+            branch_format: default_branch_format(),
+            default_type: default_type(),
+        }
+    }
+}
+
+fn default_branch_format() -> String {
+    "{type}/{name}".to_string()
+}
+
+fn default_type() -> String {
+    "feat".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+struct FledgeWorkFile {
+    #[serde(default)]
+    work: WorkConfig,
+}
+
+fn load_work_config() -> WorkConfig {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let path = cwd.join("fledge.toml");
+    if path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(file) = toml::from_str::<FledgeWorkFile>(&content) {
+                return file.work;
+            }
+        }
+    }
+    WorkConfig::default()
+}
 
 #[derive(Debug)]
 pub enum WorkAction {
     Start {
         name: String,
+        branch_type: Option<String>,
+        issue: Option<u64>,
+        prefix: Option<String>,
         base: Option<String>,
     },
     Pr {
@@ -20,7 +70,19 @@ pub enum WorkAction {
 pub fn run(action: WorkAction) -> Result<()> {
     ensure_git_repo()?;
     match action {
-        WorkAction::Start { name, base } => start(&name, base.as_deref()),
+        WorkAction::Start {
+            name,
+            branch_type,
+            issue,
+            prefix,
+            base,
+        } => start(
+            &name,
+            branch_type.as_deref(),
+            issue,
+            prefix.as_deref(),
+            base.as_deref(),
+        ),
         WorkAction::Pr {
             title,
             body,
@@ -106,9 +168,26 @@ pub fn sanitize_branch_name(name: &str) -> String {
     result.trim_end_matches('-').to_string()
 }
 
-fn start(name: &str, base: Option<&str>) -> Result<()> {
+fn start(
+    name: &str,
+    branch_type: Option<&str>,
+    issue: Option<u64>,
+    prefix: Option<&str>,
+    base: Option<&str>,
+) -> Result<()> {
     if has_uncommitted_changes()? {
         bail!("Uncommitted changes detected. Commit or stash before starting work.");
+    }
+
+    let config = load_work_config();
+
+    let btype = branch_type.unwrap_or(&config.default_type);
+    if prefix.is_none() && !VALID_BRANCH_TYPES.contains(&btype) {
+        bail!(
+            "Unknown branch type '{}'. Valid types: {}",
+            btype,
+            VALID_BRANCH_TYPES.join(", ")
+        );
     }
 
     let base_branch = match base {
@@ -117,10 +196,19 @@ fn start(name: &str, base: Option<&str>) -> Result<()> {
     };
 
     let sanitized = sanitize_branch_name(name);
-    let branch_name = if sanitized.contains('/') {
-        sanitized
+
+    let branch_name = if let Some(pfx) = prefix {
+        format!("{}/{sanitized}", pfx.trim_end_matches('/'))
     } else {
-        format!("feat/{sanitized}")
+        let name_part = match issue {
+            Some(num) => format!("{num}-{sanitized}"),
+            None => sanitized,
+        };
+        config
+            .branch_format
+            .replace("{type}", btype)
+            .replace("{issue}", &issue.map(|n| n.to_string()).unwrap_or_default())
+            .replace("{name}", &name_part)
     };
 
     let existing = git_output(&["branch", "--list", &branch_name])?;
@@ -291,11 +379,9 @@ fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
 }
 
 pub fn generate_title_from_branch(branch: &str) -> String {
-    let name = branch
-        .strip_prefix("feat/")
-        .or_else(|| branch.strip_prefix("fix/"))
-        .or_else(|| branch.strip_prefix("chore/"))
-        .or_else(|| branch.strip_prefix("refactor/"))
+    let name = VALID_BRANCH_TYPES
+        .iter()
+        .find_map(|t| branch.strip_prefix(&format!("{t}/")))
         .unwrap_or(branch);
 
     let words: Vec<String> = name
@@ -323,6 +409,30 @@ pub fn generate_title_from_branch(branch: &str) -> String {
     }
 
     title
+}
+
+#[cfg(test)]
+pub fn build_branch_name(
+    name: &str,
+    branch_type: &str,
+    issue: Option<u64>,
+    prefix: Option<&str>,
+    config: &WorkConfig,
+) -> String {
+    let sanitized = sanitize_branch_name(name);
+    if let Some(pfx) = prefix {
+        format!("{}/{sanitized}", pfx.trim_end_matches('/'))
+    } else {
+        let name_part = match issue {
+            Some(num) => format!("{num}-{sanitized}"),
+            None => sanitized,
+        };
+        config
+            .branch_format
+            .replace("{type}", branch_type)
+            .replace("{issue}", &issue.map(|n| n.to_string()).unwrap_or_default())
+            .replace("{name}", &name_part)
+    }
 }
 
 #[cfg(test)]
@@ -396,5 +506,156 @@ mod tests {
     #[test]
     fn test_generate_title_empty_after_prefix() {
         assert_eq!(generate_title_from_branch("feat/"), "feat/");
+    }
+
+    #[test]
+    fn test_generate_title_docs_prefix() {
+        assert_eq!(
+            generate_title_from_branch("docs/update-readme"),
+            "Update readme"
+        );
+    }
+
+    #[test]
+    fn test_generate_title_hotfix_prefix() {
+        assert_eq!(
+            generate_title_from_branch("hotfix/critical-bug"),
+            "Critical bug"
+        );
+    }
+
+    // Branch name building tests
+
+    #[test]
+    fn test_build_branch_default_feat() {
+        let config = WorkConfig::default();
+        assert_eq!(
+            build_branch_name("login-page", "feat", None, None, &config),
+            "feat/login-page"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_fix_type() {
+        let config = WorkConfig::default();
+        assert_eq!(
+            build_branch_name("login-crash", "fix", None, None, &config),
+            "fix/login-crash"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_with_issue() {
+        let config = WorkConfig::default();
+        assert_eq!(
+            build_branch_name("login-crash", "fix", Some(42), None, &config),
+            "fix/42-login-crash"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_with_prefix() {
+        let config = WorkConfig::default();
+        assert_eq!(
+            build_branch_name("search", "feat", None, Some("user/leif"), &config),
+            "user/leif/search"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_prefix_trailing_slash() {
+        let config = WorkConfig::default();
+        assert_eq!(
+            build_branch_name("search", "feat", None, Some("user/leif/"), &config),
+            "user/leif/search"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_custom_format() {
+        let config = WorkConfig {
+            branch_format: "user/leif/{type}/{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
+        assert_eq!(
+            build_branch_name("search", "feat", None, None, &config),
+            "user/leif/feat/search"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_issue_format() {
+        let config = WorkConfig {
+            branch_format: "{type}/{issue}-{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
+        assert_eq!(
+            build_branch_name("login-crash", "fix", Some(42), None, &config),
+            "fix/42-42-login-crash"
+        );
+    }
+
+    #[test]
+    fn test_build_branch_issue_in_format_no_issue() {
+        let config = WorkConfig {
+            branch_format: "{type}/{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
+        assert_eq!(
+            build_branch_name("search", "feat", None, None, &config),
+            "feat/search"
+        );
+    }
+
+    #[test]
+    fn test_work_config_defaults() {
+        let config = WorkConfig::default();
+        assert_eq!(config.branch_format, "{type}/{name}");
+        assert_eq!(config.default_type, "feat");
+    }
+
+    #[test]
+    fn test_work_config_from_toml() {
+        let toml_str = r#"
+[work]
+branch_format = "{type}/PROJ-{issue}-{name}"
+default_type = "fix"
+"#;
+        let file: FledgeWorkFile = toml::from_str(toml_str).unwrap();
+        assert_eq!(file.work.branch_format, "{type}/PROJ-{issue}-{name}");
+        assert_eq!(file.work.default_type, "fix");
+    }
+
+    #[test]
+    fn test_work_config_partial_toml() {
+        let toml_str = r#"
+[work]
+default_type = "chore"
+"#;
+        let file: FledgeWorkFile = toml::from_str(toml_str).unwrap();
+        assert_eq!(file.work.branch_format, "{type}/{name}");
+        assert_eq!(file.work.default_type, "chore");
+    }
+
+    #[test]
+    fn test_work_config_missing_section() {
+        let toml_str = r#"
+[tasks]
+test = "cargo test"
+"#;
+        let file: FledgeWorkFile = toml::from_str(toml_str).unwrap();
+        assert_eq!(file.work.branch_format, "{type}/{name}");
+        assert_eq!(file.work.default_type, "feat");
+    }
+
+    #[test]
+    fn test_valid_branch_types() {
+        assert!(VALID_BRANCH_TYPES.contains(&"feat"));
+        assert!(VALID_BRANCH_TYPES.contains(&"fix"));
+        assert!(VALID_BRANCH_TYPES.contains(&"chore"));
+        assert!(VALID_BRANCH_TYPES.contains(&"docs"));
+        assert!(VALID_BRANCH_TYPES.contains(&"hotfix"));
+        assert!(VALID_BRANCH_TYPES.contains(&"refactor"));
+        assert!(!VALID_BRANCH_TYPES.contains(&"yolo"));
     }
 }
