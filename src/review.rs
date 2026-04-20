@@ -49,9 +49,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         diff
     );
 
-    let status = Command::new("claude")
-        .args(["--print", "--prompt", &prompt])
-        .status()?;
+    let status = Command::new("claude").args(["--print", &prompt]).status()?;
 
     if !status.success() {
         bail!("claude CLI exited with an error.");
