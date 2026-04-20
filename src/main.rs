@@ -16,6 +16,7 @@ mod init;
 mod issues;
 mod lanes;
 mod metrics;
+mod plugin;
 mod prompts;
 mod prs;
 mod publish;
@@ -266,6 +267,14 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Manage plugins (install, remove, list, search)
+    Plugin {
+        #[command(subcommand)]
+        action: PluginSubcommand,
+        /// Output as JSON
+        #[arg(long, global = true)]
+        json: bool,
+    },
     /// Ask a question about your codebase
     Ask {
         /// The question to ask
@@ -384,6 +393,41 @@ enum ConfigAction {
     List,
     /// Show config file path
     Path,
+}
+
+#[derive(clap::Subcommand)]
+enum PluginSubcommand {
+    /// Install a plugin from GitHub
+    Install {
+        /// GitHub repo (owner/repo) or full URL
+        source: String,
+        /// Reinstall if already present
+        #[arg(long)]
+        force: bool,
+    },
+    /// Remove an installed plugin
+    Remove {
+        /// Plugin name
+        name: String,
+    },
+    /// List installed plugins
+    List,
+    /// Search for plugins on GitHub
+    Search {
+        /// Search query
+        query: Option<String>,
+        /// Maximum results
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+    },
+    /// Run a plugin command
+    Run {
+        /// Plugin command name
+        name: String,
+        /// Arguments to pass to the plugin
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 fn main() {
@@ -577,6 +621,20 @@ fn run() -> Result<()> {
                 licenses,
                 json,
             })?;
+        }
+        Commands::Plugin { action, json } => {
+            let action = match action {
+                PluginSubcommand::Install { source, force } => {
+                    plugin::PluginAction::Install { source, force }
+                }
+                PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
+                PluginSubcommand::List => plugin::PluginAction::List,
+                PluginSubcommand::Search { query, limit } => {
+                    plugin::PluginAction::Search { query, limit }
+                }
+                PluginSubcommand::Run { name, args } => plugin::PluginAction::Run { name, args },
+            };
+            plugin::run(plugin::PluginOptions { action, json })?;
         }
         Commands::Ask { question } => {
             if question.is_empty() {
