@@ -14,6 +14,7 @@ mod doctor;
 mod github;
 mod init;
 mod issues;
+mod lanes;
 mod metrics;
 mod prompts;
 mod prs;
@@ -196,6 +197,23 @@ enum Commands {
         /// List available tasks
         #[arg(short, long)]
         list: bool,
+    },
+    /// Run a composable workflow pipeline
+    Lane {
+        /// Lane name to run (lists lanes if omitted)
+        lane: Option<String>,
+        /// List available lanes
+        #[arg(short, long)]
+        list: bool,
+        /// Add default lanes to fledge.toml
+        #[arg(long)]
+        init: bool,
+        /// Show execution plan without running
+        #[arg(long)]
+        dry_run: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -502,6 +520,21 @@ fn run() -> Result<()> {
         }
         Commands::Review { base, file } => {
             review::run(review::ReviewOptions { base, file })?;
+        }
+        Commands::Lane {
+            lane,
+            list,
+            init,
+            dry_run,
+            json,
+        } => {
+            lanes::run(lanes::LaneOptions {
+                lane,
+                list,
+                init,
+                dry_run,
+                json,
+            })?;
         }
         Commands::Changelog {
             limit,
