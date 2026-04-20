@@ -107,7 +107,6 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge publish [path]` | Push a template to GitHub |
 | `fledge validate-template [path]` | Check a template for issues |
 | `fledge update` | Re-apply source template to existing project |
-| `fledge tui` | Interactive template browser (requires `--features tui`) |
 
 ### Build — Configure and run
 
@@ -116,6 +115,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge run [task]` | Run tasks from fledge.toml |
 | `fledge lane [name]` | Run a workflow pipeline |
 | `fledge config <action>` | Manage global config |
+| `fledge doctor` | Environment diagnostics |
 
 ### Develop — Branch and spec
 
@@ -130,7 +130,6 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 |---------|-------------|
 | `fledge review` | AI code review via Claude |
 | `fledge ask <question>` | Ask about your codebase |
-| `fledge doctor` | Environment diagnostics |
 | `fledge metrics` | Code metrics (LOC, churn, test ratio) |
 | `fledge deps` | Dependency health (outdated, audit, licenses) |
 
@@ -149,6 +148,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 |---------|-------------|
 | `fledge plugin <action>` | Install, remove, search, run plugins |
 | `fledge completions [shell]` | Shell completions (bash, zsh, fish) |
+| `fledge tui` | Interactive template browser (requires `--features tui`) |
 
 ## Remote Templates
 
