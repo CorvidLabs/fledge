@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn bin_dir_is_under_plugins() {
         let dir = plugin_bin_dir();
-        assert!(dir.to_string_lossy().ends_with("plugins/bin"));
+        assert!(dir.ends_with("plugins/bin"));
     }
 
     #[test]
