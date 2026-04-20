@@ -53,6 +53,7 @@ enum ActionId {
     RunFlow,
     SearchTemplates,
     CreateTemplate,
+    PublishTemplate,
     ConfigGet,
     ConfigSet,
     AskQuestion,
@@ -386,6 +387,25 @@ fn build_categories() -> Vec<CategoryDef> {
                     },
                 },
                 ActionDef {
+                    name: "Publish",
+                    description: "Publish a template to GitHub",
+                    kind: ActionKind::WithInput {
+                        fields: vec![
+                            FieldDef {
+                                label: "Template path",
+                                default: ".",
+                                required: false,
+                            },
+                            FieldDef {
+                                label: "Organization (optional)",
+                                default: "",
+                                required: false,
+                            },
+                        ],
+                        action_id: ActionId::PublishTemplate,
+                    },
+                },
+                ActionDef {
                     name: "Validate",
                     description: "Validate templates in current directory",
                     kind: ActionKind::Direct(vec!["validate-template"]),
@@ -558,6 +578,21 @@ fn build_command(action_id: ActionId, fields: &[String]) -> Vec<String> {
         }
         ActionId::CreateTemplate => {
             vec!["create-template".into(), fields[0].clone()]
+        }
+        ActionId::PublishTemplate => {
+            let mut args = vec!["publish".into()];
+            let path = if fields[0].is_empty() {
+                "."
+            } else {
+                &fields[0]
+            };
+            if path != "." {
+                args.push(path.to_string());
+            }
+            if !fields[1].is_empty() {
+                args.extend(["--org".into(), fields[1].clone()]);
+            }
+            args
         }
         ActionId::ConfigGet => vec!["config".into(), "get".into(), fields[0].clone()],
         ActionId::ConfigSet => {
