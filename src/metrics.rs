@@ -97,7 +97,7 @@ pub fn run(opts: MetricsOptions) -> Result<()> {
     }
 
     let mut languages: Vec<LanguageStats> = lang_map.into_values().collect();
-    languages.sort_by(|a, b| b.code.cmp(&a.code));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.code));
 
     let summary = LocSummary {
         files: languages.iter().map(|l| l.files).sum(),
@@ -190,7 +190,7 @@ fn run_churn(project_dir: &Path, limit: usize, json: bool) -> Result<()> {
         .filter(|(path, _)| Path::new(path).exists())
         .map(|(file, commits)| ChurnEntry { file, commits })
         .collect();
-    entries.sort_by(|a, b| b.commits.cmp(&a.commits));
+    entries.sort_by_key(|b| std::cmp::Reverse(b.commits));
     entries.truncate(limit);
 
     if json {
