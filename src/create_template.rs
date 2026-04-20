@@ -168,6 +168,7 @@ TODO: Add setup instructions here.
     std::fs::write(
         target.join(".gitignore"),
         r#"# Build artifacts
+/target/
 /dist/
 /build/
 /out/
