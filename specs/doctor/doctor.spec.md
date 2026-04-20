@@ -7,7 +7,7 @@ files:
 
 db_tables: []
 depends_on:
-  - run
+  - specs/run/run.spec.md
 ---
 
 # Doctor
