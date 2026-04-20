@@ -68,17 +68,14 @@ fledge changelog
 
 | Template | Description |
 |----------|-------------|
+| `angular-app` | Angular application with mobile-first setup |
+| `go-cli` | Go CLI with Cobra, Makefile, and CI |
+| `monorepo` | Monorepo with workspace tooling |
+| `python-cli` | Python CLI with Click, tests, and packaging |
 | `rust-cli` | Rust CLI application with clap, CI, and release automation |
 | `rust-lib` | Rust library crate with docs and publishing workflow |
 | `swift-pkg` | Swift package with Package.swift, CI, and coding conventions |
 | `ts-bun` | TypeScript project with Bun runtime |
-| `angular-app` | Angular application with mobile-first setup |
-| `python-cli` | Python CLI with Click, tests, and packaging |
-| `go-cli` | Go CLI with Cobra, Makefile, and CI |
-| `node-cli` | Node.js CLI with TypeScript |
-| `node-lib` | Node.js library with TypeScript and npm publishing |
-| `monorepo` | Monorepo with workspace tooling |
-| `static-site` | Static site with build pipeline |
 
 ## CLI Reference
 
