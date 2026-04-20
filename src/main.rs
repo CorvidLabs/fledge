@@ -14,6 +14,7 @@ mod doctor;
 mod github;
 mod init;
 mod issues;
+mod metrics;
 mod prompts;
 mod prs;
 mod publish;
@@ -213,6 +214,21 @@ enum Commands {
     },
     /// Diagnose project environment health
     Doctor {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Project code metrics (LOC, churn, test ratio)
+    Metrics {
+        /// Show file churn from git history
+        #[arg(long)]
+        churn: bool,
+        /// Show test file detection and ratio
+        #[arg(long)]
+        tests: bool,
+        /// Maximum entries for churn output
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -502,6 +518,19 @@ fn run() -> Result<()> {
         }
         Commands::Doctor { json } => {
             doctor::run(doctor::DoctorOptions { json })?;
+        }
+        Commands::Metrics {
+            churn,
+            tests,
+            limit,
+            json,
+        } => {
+            metrics::run(metrics::MetricsOptions {
+                churn,
+                tests,
+                json,
+                limit,
+            })?;
         }
         Commands::Deps {
             outdated,
