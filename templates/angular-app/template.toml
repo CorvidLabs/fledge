@@ -2,6 +2,7 @@
 name = "angular-app"
 description = "Angular application with mobile-first setup"
 min_fledge_version = "0.1.0"
+requires = ["npm", "node"]
 
 [prompts]
 description = { message = "Project description", default = "A new Angular application" }

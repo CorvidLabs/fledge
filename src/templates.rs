@@ -34,6 +34,28 @@ pub struct TemplateInfo {
     #[serde(default)]
     #[allow(dead_code)]
     pub version: Option<String>,
+    #[serde(default)]
+    pub requires: Vec<String>,
+}
+
+pub fn check_requirements(requires: &[String]) -> (Vec<String>, Vec<String>) {
+    let mut found = Vec::new();
+    let mut missing = Vec::new();
+    for tool in requires {
+        let ok = std::process::Command::new("sh")
+            .args(["-c", &format!("command -v {}", tool)])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if ok {
+            found.push(tool.clone());
+        } else {
+            missing.push(tool.clone());
+        }
+    }
+    (found, missing)
 }
 
 #[derive(Debug, Deserialize)]
@@ -864,5 +886,34 @@ ignore = ["template.toml"]
         let ctx = tera::Context::new();
         let result = render_template(&template, &target, &ctx);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn check_requirements_finds_sh() {
+        let (found, missing) = check_requirements(&["sh".to_string()]);
+        assert_eq!(found, vec!["sh"]);
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn check_requirements_reports_missing() {
+        let (found, missing) = check_requirements(&["fledge_nonexistent_xyz".to_string()]);
+        assert!(found.is_empty());
+        assert_eq!(missing, vec!["fledge_nonexistent_xyz"]);
+    }
+
+    #[test]
+    fn check_requirements_mixed() {
+        let (found, missing) =
+            check_requirements(&["sh".to_string(), "fledge_nonexistent_xyz".to_string()]);
+        assert_eq!(found, vec!["sh"]);
+        assert_eq!(missing, vec!["fledge_nonexistent_xyz"]);
+    }
+
+    #[test]
+    fn check_requirements_empty_input() {
+        let (found, missing) = check_requirements(&[]);
+        assert!(found.is_empty());
+        assert!(missing.is_empty());
     }
 }
