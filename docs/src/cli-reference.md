@@ -1,49 +1,36 @@
 # CLI Reference
 
-Complete reference for all fledge commands and options.
+Every command, every flag. If it's in fledge, it's here.
 
-## Scaffolding Commands
+## Scaffolding
 
 ### fledge init `<name>`
 
 Create a new project from a template.
 
-#### Usage
-
 ```
 fledge init <name> [OPTIONS]
 ```
 
-#### Arguments
-
+**Arguments:**
 - `<name>` — Project name
 
-#### Options
-
-- `-t, --template <TEMPLATE>` — Template to use (skip interactive selection)
-- `-o, --output <OUTPUT>` — Parent directory for the project [default: `.`]
+**Options:**
+- `-t, --template <TEMPLATE>` — Template to use (skips interactive selection)
+- `-o, --output <OUTPUT>` — Where to put it [default: `.`]
 - `--no-git` — Skip git init and initial commit
-- `--no-install` — Skip dependency installation (post-create hooks)
+- `--no-install` — Skip post-create hooks
 - `--refresh` — Force re-clone of cached remote templates
-- `--dry-run` — Show what would be created without writing anything
-- `-y, --yes` — Skip all confirmation prompts (accept defaults)
+- `--dry-run` — Preview without writing anything
+- `-y, --yes` — Accept all defaults, skip prompts
 
-#### Examples
+**Examples:**
 
 ```bash
-# Create with defaults
 fledge init my-tool --template rust-cli
-
-# Preview before creating
 fledge init my-app --template react-app --dry-run
-
-# Skip all prompts
 fledge init my-lib --template rust-lib --yes
-
-# Specify output directory
 fledge init my-project --template ts-bun -o ~/projects
-
-# Use a remote template pinned to a version
 fledge init my-app --template CorvidLabs/templates/react-app@v2.0
 ```
 
@@ -51,70 +38,48 @@ fledge init my-app --template CorvidLabs/templates/react-app@v2.0
 
 ### fledge list
 
-List all available templates (built-in + configured).
-
-#### Usage
+Show all available templates — built-in, configured repos, and local paths.
 
 ```
 fledge list
 ```
 
-Shows template name, description, and source (built-in or configured repo).
-
 ---
 
 ### fledge create-template `<name>`
 
-Scaffold a new fledge template with a `template.toml` manifest and example files.
-
-#### Usage
+Scaffold a new template directory with `template.toml` and example files.
 
 ```
 fledge create-template <name> [OPTIONS]
 ```
 
-#### Arguments
-
-- `<name>` — Template name
-
-#### Options
-
-- `-o, --output <OUTPUT>` — Parent directory for the template [default: `.`]
+**Options:**
+- `-o, --output <OUTPUT>` — Parent directory [default: `.`]
 
 ---
 
 ### fledge validate-template `[path]`
 
-Validate a template or directory of templates for correctness. Checks manifest parsing, Tera syntax, variable definitions, and render glob coverage.
-
-#### Usage
+Check a template for issues: manifest parsing, Tera syntax, undefined variables, glob coverage.
 
 ```
 fledge validate-template [path] [OPTIONS]
 ```
 
-#### Arguments
+**Arguments:**
+- `[path]` — Template directory or directory of templates [default: `.`]
 
-- `[path]` — Path to a template directory or a directory containing multiple templates [default: `.`]
+**Options:**
+- `--strict` — Warnings become errors (non-zero exit)
+- `--json` — Machine-readable output
 
-#### Options
-
-- `--strict` — Treat warnings as errors (non-zero exit)
-- `--json` — Output results as JSON
-
-#### Examples
+**Examples:**
 
 ```bash
-# Validate a single template
 fledge validate-template ./my-template
-
-# Validate all templates in a directory
 fledge validate-template ./templates
-
-# CI mode: fail on warnings
-fledge validate-template ./templates --strict
-
-# Machine-readable output
+fledge validate-template ./templates --strict   # for CI
 fledge validate-template ./templates --json
 ```
 
@@ -122,236 +87,98 @@ fledge validate-template ./templates --json
 
 ### fledge search `[query]`
 
-Search for templates on GitHub using the `fledge-template` topic.
-
-#### Usage
+Find templates on GitHub (looks for the `fledge-template` topic).
 
 ```
 fledge search [query] [OPTIONS]
 ```
 
-#### Arguments
-
-- `[query]` — Keyword to filter results (optional)
-
-#### Options
-
-- `-l, --limit <LIMIT>` — Maximum number of results [default: `20`]
-- `--json` — Output results as JSON
+**Options:**
+- `-l, --limit <N>` — Max results [default: `20`]
+- `--json` — JSON output
 
 ---
 
 ### fledge publish `[path]`
 
-Publish a template directory to GitHub as a new repository tagged with `fledge-template`.
-
-#### Usage
+Push a template to GitHub as a new repo tagged with `fledge-template`.
 
 ```
 fledge publish [path] [OPTIONS]
 ```
 
-#### Arguments
-
-- `[path]` — Path to the template directory [default: `.`]
-
-#### Options
-
-- `--org <ORG>` — Publish under a GitHub organization
-- `--private` — Create as a private repository
-- `--description <DESC>` — Override the repository description
+**Options:**
+- `--org <ORG>` — Publish under an org
+- `--private` — Private repo
+- `--description <DESC>` — Override repo description
 
 ---
 
 ### fledge update
 
-Re-apply the source template to an existing project. Useful when the template has been updated and you want to pull in changes.
-
-#### Usage
+Re-apply the source template to an existing project. Handy when the template gets updated.
 
 ```
 fledge update [OPTIONS]
 ```
 
-#### Options
-
-- `--dry-run` — Show what would change without writing anything
-- `--refresh` — Force re-clone of cached remote templates
-- `-y, --yes` — Skip all confirmation prompts
+**Options:**
+- `--dry-run` — Preview changes
+- `--refresh` — Force re-clone
+- `-y, --yes` — Skip prompts
 
 ---
 
-## Project Lifecycle Commands
+## Project Lifecycle
 
 ### fledge run `[task]`
 
-Run a project task defined in `fledge.toml`. If no task is specified, lists available tasks. Use `--init` to generate a starter `fledge.toml` with language-aware defaults for your project type.
-
-#### Usage
+Run tasks from `fledge.toml`. Use `--init` to auto-generate a config based on what it finds in your project.
 
 ```
 fledge run [task] [OPTIONS]
 ```
 
-#### Arguments
-
-- `[task]` — Task name to run (lists tasks if omitted)
-
-#### Options
-
-- `--init` — Create a starter `fledge.toml` with detected project defaults
+**Options:**
+- `--init` — Generate `fledge.toml` with detected defaults
 - `-l, --list` — List available tasks
 
-#### Supported Project Types
+**Auto-detection:**
 
-`fledge run --init` auto-detects your project and generates appropriate task definitions:
-
-| Project Type | Detection | Default Tasks |
-|--------------|-----------|---------------|
-| Rust | `Cargo.toml` | `cargo build`, `cargo test`, `cargo clippy`, `cargo fmt` |
-| Node.js | `package.json` | `npm run build`, `npm test`, `npm run lint` |
-| Go | `go.mod` | `go build`, `go test`, `go vet` |
-| Python | `pyproject.toml` / `setup.py` | `pytest`, `ruff check`, `mypy` |
-| Ruby | `Gemfile` | `bundle exec rake`, `bundle exec rspec` |
-| Gradle | `build.gradle` | `./gradlew build`, `./gradlew test` |
-| Maven | `pom.xml` | `mvn compile`, `mvn test` |
-
-#### Examples
+| Project | Detected by | Default tasks |
+|---------|------------|---------------|
+| Rust | `Cargo.toml` | build, test, clippy, fmt |
+| Node.js | `package.json` | build, test, lint |
+| Go | `go.mod` | build, test, vet |
+| Python | `pyproject.toml` / `setup.py` | pytest, ruff, mypy |
+| Ruby | `Gemfile` | rake, rspec |
+| Gradle | `build.gradle` | build, test |
+| Maven | `pom.xml` | compile, test |
 
 ```bash
-# Initialize task config
 fledge run --init
-
-# Run a task
 fledge run build
 fledge run test
-
-# List available tasks
 fledge run --list
-```
-
----
-
-### fledge spec `<action>`
-
-Manage spec-sync specifications. Specs are the source of truth for module design and implementation.
-
-#### Usage
-
-```
-fledge spec <check|init|new> [OPTIONS]
-```
-
-#### Subcommands
-
-##### `fledge spec check`
-
-Validate all specs against the source code.
-
-- `--strict` — Treat warnings as errors
-
-##### `fledge spec init`
-
-Initialize spec-sync configuration for the project.
-
-##### `fledge spec new <name>`
-
-Scaffold a new spec module with all required sections.
-
----
-
-### fledge work `<action>`
-
-Feature branch and PR workflow — start branches, create PRs, and check status.
-
-#### Usage
-
-```
-fledge work <start|pr|status> [OPTIONS]
-```
-
-#### Subcommands
-
-##### `fledge work start <name>`
-
-Start a new feature branch. The name is sanitized and prefixed with `feat/`.
-
-- `--base <BRANCH>` — Base branch to branch from [default: `main`]
-
-##### `fledge work pr`
-
-Create a pull request from the current branch.
-
-- `-t, --title <TITLE>` — PR title (auto-generated from branch name if omitted)
-- `-b, --body <BODY>` — PR body/description
-- `--draft` — Create as a draft PR
-- `--base <BRANCH>` — Target base branch for the PR
-
-##### `fledge work status`
-
-Show the current branch name and associated PR status.
-
----
-
-### fledge changelog
-
-Generate a changelog from git tags and conventional commits. Groups commits by type (features, fixes, etc.).
-
-#### Usage
-
-```
-fledge changelog [OPTIONS]
-```
-
-#### Options
-
-- `-l, --limit <N>` — Number of releases to show [default: `10`]
-- `-t, --tag <TAG>` — Show a specific tag only
-- `--unreleased` — Show unreleased changes since the latest tag
-- `--json` — Output as JSON
-
-#### Examples
-
-```bash
-# Show recent releases
-fledge changelog
-
-# Show only unreleased changes
-fledge changelog --unreleased
-
-# Export as JSON for automation
-fledge changelog --json
-
-# Show a specific release
-fledge changelog --tag v0.7.0
 ```
 
 ---
 
 ### fledge lane `[name]`
 
-Run a composable workflow pipeline defined in `fledge.toml`. Lanes chain multiple tasks into named pipelines with parallel execution and configurable failure behavior.
-
-#### Usage
+Run workflow pipelines. Lanes chain tasks with parallel groups and failure control.
 
 ```
 fledge lane [name] [OPTIONS]
 ```
 
-#### Arguments
+**Options:**
+- `-l, --list` — List lanes
+- `--init` — Generate default lanes
+- `--dry-run` — Preview the plan
+- `--json` — JSON output
 
-- `[name]` — Lane name to run (lists lanes if omitted)
-
-#### Options
-
-- `-l, --list` — List available lanes
-- `--init` — Add default lanes to `fledge.toml` (language-aware)
-- `--dry-run` — Show execution plan without running
-- `--json` — Output as JSON
-
-#### Lane Configuration
-
-Lanes are defined in `fledge.toml` alongside tasks:
+**Lane config in fledge.toml:**
 
 ```toml
 [lanes.ci]
@@ -359,14 +186,12 @@ description = "Full CI pipeline"
 steps = ["lint", "test", "build"]
 
 [lanes.check]
-description = "Quick quality check"
 steps = [
   { parallel = ["lint", "fmt"] },
   "test"
 ]
 
 [lanes.release]
-description = "Build and publish"
 fail_fast = false
 steps = [
   "test",
@@ -375,78 +200,109 @@ steps = [
 ]
 ```
 
-#### Step Types
+**Step types:**
 
-| Type | Syntax | Description |
-|------|--------|-------------|
+| Type | Syntax | |
+|------|--------|-|
 | Task reference | `"task_name"` | Runs a task from `[tasks]` |
-| Inline command | `{ run = "command" }` | Runs a shell command |
-| Parallel group | `{ parallel = ["a", "b"] }` | Runs tasks concurrently |
-
-#### Examples
+| Inline command | `{ run = "command" }` | Shell command |
+| Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
 ```bash
-# List lanes
 fledge lane
-
-# Run the CI lane
 fledge lane ci
-
-# Preview without running
 fledge lane ci --dry-run
-
-# Add default lanes for your project type
 fledge lane --init
+```
+
+---
+
+### fledge spec `<action>`
+
+Spec-sync management. Specs are the source of truth for module design.
+
+```
+fledge spec <check|init|new> [OPTIONS]
+```
+
+**Subcommands:**
+
+- `check` — Validate specs against code (`--strict` for warnings as errors)
+- `init` — Set up spec-sync for the project
+- `new <name>` — Scaffold a new spec
+
+---
+
+### fledge work `<action>`
+
+Feature branch and PR workflow.
+
+```
+fledge work <start|pr|status> [OPTIONS]
+```
+
+**Subcommands:**
+
+- `start <name>` — Create `feat/<name>` branch (`--base` to pick the base)
+- `pr` — Open a PR (`--title`, `--body`, `--draft`, `--base`)
+- `status` — Current branch + PR status
+
+---
+
+### fledge changelog
+
+Generate a changelog from git tags and conventional commits.
+
+```
+fledge changelog [OPTIONS]
+```
+
+**Options:**
+- `-l, --limit <N>` — Releases to show [default: `10`]
+- `-t, --tag <TAG>` — Specific tag
+- `--unreleased` — Changes since last tag
+- `--json` — JSON output
+
+```bash
+fledge changelog
+fledge changelog --unreleased
+fledge changelog --json
+fledge changelog --tag v0.7.0
 ```
 
 ---
 
 ### fledge doctor
 
-Diagnose project environment health. Checks for required tools, validates configuration, and reports issues.
-
-#### Usage
+Check your environment for issues (missing tools, bad config, etc).
 
 ```
 fledge doctor [OPTIONS]
 ```
 
-#### Options
-
-- `--json` — Output as JSON
+**Options:**
+- `--json` — JSON output
 
 ---
 
 ### fledge metrics
 
-Project code metrics — lines of code by language, file churn, and test coverage ratio.
-
-#### Usage
+Code stats — LOC by language, file churn, test ratio.
 
 ```
 fledge metrics [OPTIONS]
 ```
 
-#### Options
-
-- `--churn` — Show most-changed files from git history
-- `--tests` — Show test file detection and test-to-code ratio
-- `-l, --limit <N>` — Maximum entries for churn output [default: `20`]
-- `--json` — Output as JSON
-
-#### Examples
+**Options:**
+- `--churn` — Most-changed files from git history
+- `--tests` — Test file detection and ratio
+- `-l, --limit <N>` — Max churn entries [default: `20`]
+- `--json` — JSON output
 
 ```bash
-# LOC breakdown by language
 fledge metrics
-
-# Most frequently changed files
 fledge metrics --churn
-
-# Test coverage ratio
 fledge metrics --tests
-
-# All metrics as JSON
 fledge metrics --churn --tests --json
 ```
 
@@ -454,137 +310,109 @@ fledge metrics --churn --tests --json
 
 ### fledge deps
 
-Check dependency health — list dependencies, find outdated packages, run security audits, and scan licenses.
-
-#### Usage
+Dependency health checks.
 
 ```
 fledge deps [OPTIONS]
 ```
 
-#### Options
+**Options:**
+- `--outdated` — Find stale dependencies
+- `--audit` — Security audit
+- `--licenses` — License scan
+- `--json` — JSON output
 
-- `--outdated` — Check for outdated dependencies
-- `--audit` — Run security audit via ecosystem tools
-- `--licenses` — Show dependency licenses
-- `--json` — Output as JSON
+**Works with:**
 
-#### Supported Ecosystems
-
-| Ecosystem | Detection | Outdated | Audit | Licenses |
-|-----------|-----------|----------|-------|----------|
+| Ecosystem | Detected by | Outdated | Audit | Licenses |
+|-----------|------------|----------|-------|----------|
 | Rust | `Cargo.lock` | `cargo outdated` | `cargo audit` | `cargo license` |
-| Node.js | `package-lock.json` / `yarn.lock` | `npm outdated` / `yarn outdated` | `npm audit` / `yarn audit` | `license-checker` |
+| Node.js | `package-lock.json` / `yarn.lock` | npm/yarn outdated | npm/yarn audit | `license-checker` |
 | Go | `go.sum` | `go list` | `govulncheck` | — |
-| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | `pip list --outdated` | `pip-audit` | — |
+| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | pip outdated | `pip-audit` | — |
 | Ruby | `Gemfile.lock` | `bundle outdated` | `bundle audit` | — |
 
-#### Examples
-
 ```bash
-# List all dependencies
 fledge deps
-
-# Check for outdated packages
 fledge deps --outdated
-
-# Run security audit
 fledge deps --audit
-
-# Full health check as JSON
 fledge deps --outdated --audit --licenses --json
 ```
 
 ---
 
-## GitHub Integration Commands
+## GitHub
 
 ### fledge issues `[view <number>]`
 
-List and view GitHub issues for the current repository.
-
-#### Usage
+List and view GitHub issues.
 
 ```
 fledge issues [OPTIONS]
 fledge issues view <number> [OPTIONS]
 ```
 
-#### Options
-
-- `-s, --state <STATE>` — Filter by state: `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` — Maximum number of results [default: `20`]
+**Options:**
+- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>` — Max results [default: `20`]
 - `--label <LABEL>` — Filter by label
-- `--json` — Output results as JSON
+- `--json`
 
 ---
 
 ### fledge prs `[view <number>]`
 
-List and view GitHub pull requests for the current repository.
-
-#### Usage
+List and view pull requests.
 
 ```
 fledge prs [OPTIONS]
 fledge prs view <number> [OPTIONS]
 ```
 
-#### Options
-
-- `-s, --state <STATE>` — Filter by state: `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` — Maximum number of results [default: `20`]
-- `--json` — Output results as JSON
+**Options:**
+- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>` — Max results [default: `20`]
+- `--json`
 
 ---
 
 ### fledge checks
 
-View CI/CD check status for a branch.
-
-#### Usage
+CI/CD status for a branch.
 
 ```
 fledge checks [OPTIONS]
 ```
 
-#### Options
-
-- `-b, --branch <BRANCH>` — Branch to check [default: current branch]
-- `--json` — Output results as JSON
+**Options:**
+- `-b, --branch <BRANCH>` — Branch to check [default: current]
+- `--json`
 
 ---
 
-## AI-Powered Commands
+## AI-Powered
 
 ### fledge review
 
-AI-powered code review of current changes using Claude CLI. Diffs the current branch against the base branch and provides review feedback.
-
-#### Usage
+AI code review via Claude. Diffs your branch against the base and gives feedback.
 
 ```
 fledge review [OPTIONS]
 ```
 
-#### Options
-
-- `-b, --base <BRANCH>` — Base branch to diff against [default: auto-detect]
-- `-f, --file <FILE>` — Review only a specific file
+**Options:**
+- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
+- `-f, --file <FILE>` — Review a single file
 
 ---
 
 ### fledge ask `<question>`
 
-Ask a question about your codebase using Claude CLI. Provides context-aware answers based on your project's source code.
-
-#### Usage
+Ask about your codebase. Claude reads your code and answers.
 
 ```
 fledge ask <question>
 ```
-
-#### Examples
 
 ```bash
 fledge ask "how does the template rendering work?"
@@ -593,52 +421,27 @@ fledge ask "what tests cover the config module?"
 
 ---
 
-## Plugin Commands
+## Plugins
 
 ### fledge plugin `<action>`
 
-Manage plugins — install, remove, list, and search community extensions.
-
-#### Usage
+Install, manage, and run community plugins.
 
 ```
 fledge plugin <install|remove|list|search|run> [OPTIONS]
 ```
 
-#### Subcommands
+**Subcommands:**
 
-##### `fledge plugin install <source>`
+- `install <source>` — Install from GitHub (`owner/repo` or URL). `--force` to reinstall.
+- `remove <name>` — Uninstall a plugin
+- `list` — Show installed plugins
+- `search [query]` — Find plugins on GitHub (`--limit`)
+- `run <name> [args...]` — Run a plugin command
 
-Install a plugin from GitHub. Clones the repo, reads `plugin.toml`, and symlinks binaries.
+`--json` works with `list` and `search`.
 
-- `<source>` — GitHub repo (`owner/repo`) or full URL
-- `--force` — Reinstall if already present
-
-##### `fledge plugin remove <name>`
-
-Remove an installed plugin and clean up symlinks.
-
-##### `fledge plugin list`
-
-List installed plugins with name, version, source, and commands.
-
-##### `fledge plugin search [query]`
-
-Search for plugins on GitHub using the `fledge-plugin` topic.
-
-- `-l, --limit <N>` — Maximum results [default: `20`]
-
-##### `fledge plugin run <name> [args...]`
-
-Run a plugin command with additional arguments.
-
-#### Global Options
-
-- `--json` — Output as JSON (for `list` and `search`)
-
-#### Plugin Format
-
-Plugins are repositories containing a `plugin.toml` manifest:
+**Plugin format** (`plugin.toml`):
 
 ```toml
 [plugin]
@@ -657,59 +460,40 @@ event = "lane:post"
 binary = "fledge-deploy-notify"
 ```
 
-#### Examples
-
 ```bash
-# Install a plugin
 fledge plugin install someone/fledge-deploy
-
-# List installed plugins
 fledge plugin list
-
-# Search for plugins
 fledge plugin search deploy
-
-# Remove a plugin
 fledge plugin remove fledge-deploy
 ```
 
 ---
 
-## Configuration Commands
+## Configuration
 
 ### fledge config `<action>`
 
-Manage global configuration stored in `~/.config/fledge/config.toml`.
-
-#### Usage
+Manage `~/.config/fledge/config.toml`.
 
 ```
 fledge config <get|set|unset|add|remove|list|path|init>
 ```
 
-#### Subcommands
-
-| Subcommand | Description |
+| Subcommand | What it does |
 |------------|-------------|
-| `get <key>` | Get a config value |
-| `set <key> <value>` | Set a config value |
-| `unset <key>` | Remove a config value |
-| `add <key> <value>` | Add a value to a list key (`templates.paths`, `templates.repos`) |
-| `remove <key> <value>` | Remove a value from a list key |
-| `list` | Show all config values |
-| `path` | Show config file path |
+| `get <key>` | Read a value |
+| `set <key> <value>` | Write a value |
+| `unset <key>` | Delete a value |
+| `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
+| `remove <key> <value>` | Remove from a list |
+| `list` | Show everything |
+| `path` | Print config file path |
 | `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
 
-#### Valid Keys
-
-- `defaults.author` — Default author name
-- `defaults.github_org` — Default GitHub organization
-- `defaults.license` — Default license
-- `github.token` — GitHub personal access token
-- `templates.paths` — Local template directories (list)
-- `templates.repos` — GitHub template repositories (list)
-
-#### Examples
+**Valid keys:**
+- `defaults.author`, `defaults.github_org`, `defaults.license`
+- `github.token`
+- `templates.paths`, `templates.repos`
 
 ```bash
 fledge config set defaults.author "Leif"
@@ -721,29 +505,17 @@ fledge config list
 
 ### fledge completions `[shell]`
 
-Generate or install shell completions.
-
-#### Usage
+Shell completions for bash, zsh, fish, powershell.
 
 ```
 fledge completions [shell] [OPTIONS]
 ```
 
-#### Arguments
-
-- `[shell]` — Shell to generate completions for: `bash`, `zsh`, `fish`, `powershell` (auto-detects with `--install`)
-
-#### Options
-
-- `--install` — Install completions to the standard location for your shell
-
-#### Examples
+**Options:**
+- `--install` — Auto-install for your current shell
 
 ```bash
-# Auto-install for your current shell
 fledge completions --install
-
-# Manual generation
 fledge completions bash >> ~/.bashrc
 fledge completions zsh > ~/.zfunc/_fledge
 fledge completions fish > ~/.config/fish/completions/fledge.fish
@@ -753,21 +525,14 @@ fledge completions fish > ~/.config/fish/completions/fledge.fish
 
 ### fledge tui *(requires `--features tui`)*
 
-Interactive terminal UI for browsing templates and scaffolding projects.
-
-#### Usage
+Interactive template browser.
 
 ```
 fledge tui [OPTIONS]
 ```
 
-#### Options
+**Options:**
+- `-o, --output <OUTPUT>` — Where to put the project [default: `.`]
+- `--no-git` — Skip git init
 
-- `-o, --output <OUTPUT>` — Parent directory for the project [default: `.`]
-- `--no-git` — Skip git init and initial commit
-
-#### Navigation
-
-- **Arrow keys** — Browse templates
-- **Tab** — Fill in project variables
-- **Enter** — Confirm and create
+**Navigation:** Arrow keys to browse, Tab to fill in variables, Enter to create.

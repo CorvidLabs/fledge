@@ -1,32 +1,30 @@
 # Configuration
 
-Configure fledge to customize defaults and add custom template repositories.
+## Quick Setup
 
-## Quick Setup with Presets
-
-Initialize config with a preset for fast onboarding:
+Use a preset to get started fast:
 
 ```bash
-# CorvidLabs preset — sets author, org, license, and template repo
+# CorvidLabs preset — sets author, org, license, template repo
 fledge config init --preset corvidlabs
 
-# Default config with MIT license
+# Default config
 fledge config init
 ```
 
-## Config File Location
+## Config File
 
-fledge reads configuration from:
+Lives at:
 
 ```
 ~/.config/fledge/config.toml
 ```
 
-## Configuration Sections
+## Sections
 
-### defaults
+### [defaults]
 
-Set default values for project creation:
+Default values for new projects:
 
 ```toml
 [defaults]
@@ -35,21 +33,15 @@ github_org = "YourOrg"
 license = "MIT"
 ```
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `author` | Default author name | falls back to `git config user.name` |
-| `github_org` | Default GitHub organization | `CorvidLabs` |
-| `license` | Default license for new projects | `MIT` |
+| Key | What it does | Fallback |
+|-----|-------------|----------|
+| `author` | Default author name | `git config user.name` |
+| `github_org` | Default GitHub org | `CorvidLabs` |
+| `license` | Default license | `MIT` |
 
-If `author` is not set, fledge falls back to your git config:
+### [templates]
 
-```bash
-git config user.name
-```
-
-### templates
-
-Configure template locations and repositories:
+Where to find templates:
 
 ```toml
 [templates]
@@ -57,30 +49,24 @@ paths = ["~/my-templates", "~/work/templates"]
 repos = ["CorvidLabs/fledge-templates", "myorg/templates"]
 ```
 
-| Key | Description |
+| Key | What it does |
 |-----|-------------|
-| `paths` | Local directories containing template files (relative to home) |
-| `repos` | GitHub repositories to search for templates (`owner/repo` format) |
+| `paths` | Local directories with templates |
+| `repos` | GitHub repos to pull templates from (`owner/repo`) |
 
-### github
-
-Configure GitHub access for private template repositories:
+### [github]
 
 ```toml
 [github]
 token = "ghp_..."
 ```
 
-| Key | Description |
-|-----|-------------|
-| `token` | GitHub personal access token for private repos |
+Token priority:
+1. `FLEDGE_GITHUB_TOKEN` env var
+2. `GITHUB_TOKEN` env var
+3. Config file
 
-**Note:** fledge checks GitHub token in order:
-1. `FLEDGE_GITHUB_TOKEN` environment variable
-2. `GITHUB_TOKEN` environment variable
-3. `token` in config file
-
-## Complete Example Config
+## Full Example
 
 ```toml
 [defaults]
@@ -98,27 +84,16 @@ token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
 
 ## Environment Variables
 
-fledge respects the following environment variables:
-
-| Variable | Purpose |
-|----------|---------|
+| Variable | What it does |
+|----------|-------------|
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (overrides config) |
 | `GITHUB_TOKEN` | GitHub token (fallback) |
 
-Example:
+## Priority Order
 
-```bash
-export FLEDGE_GITHUB_TOKEN="ghp_..."
-fledge init my-project --template private-org/private-template
-```
+When creating a project, values come from (highest to lowest):
 
-## Defaults Behavior
-
-When creating a project, fledge uses this priority for defaults:
-
-1. Command-line arguments (highest priority)
-2. Config file settings
-3. Git config (for author)
-4. Built-in defaults (lowest priority)
-
-For example, if you set `author = "Leif"` in your config, fledge will use that unless you provide a different author when prompted.
+1. Command-line arguments
+2. Config file
+3. Git config (author only)
+4. Built-in defaults

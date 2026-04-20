@@ -1,10 +1,10 @@
 # Template Authoring Guide
 
-Create your own templates to share with your team or the community.
+How to build your own fledge templates.
 
 ## Overview
 
-A template is a directory with a `template.toml` manifest and any number of template files. Files are rendered through [Tera](https://keats.github.io/tera/) (a Jinja2-like engine) before being written.
+A template is a directory with a `template.toml` manifest and whatever files you want. Files get rendered through [Tera](https://keats.github.io/tera/) (Jinja2-style) before being written to the output.
 
 ### Directory Structure
 
@@ -12,7 +12,7 @@ A template is a directory with a `template.toml` manifest and any number of temp
 my-template/
 ├── template.toml          # manifest (required)
 ├── src/
-│   └── main.rs            # template files — Tera syntax supported
+│   └── main.rs            # template files — Tera syntax works here
 ├── README.md
 ├── Cargo.toml
 └── .github/
@@ -22,68 +22,65 @@ my-template/
 
 ## template.toml Reference
 
-The `template.toml` manifest defines template metadata, prompts, file rules, and hooks.
+This is where you define metadata, prompts, file rules, and hooks.
 
 ### Basic Structure
 
 ```toml
 [template]
-name = "my-template"                           # template name (used in --template flag)
-description = "A short description"            # shown in fledge list
-min_fledge_version = "0.1.0"                   # optional minimum fledge version
+name = "my-template"
+description = "A short description"
+min_fledge_version = "0.1.0"          # optional
 
 [prompts]
-# Each key becomes a template variable. Values have `message` and optional `default`.
 description = { message = "Project description", default = "A new project" }
 port = { message = "Default port", default = "3000" }
 
-# Defaults can use Tera expressions referencing earlier variables:
+# Defaults can reference earlier variables:
 repo_url = { message = "Repository URL", default = "https://github.com/{{ github_org }}/{{ project_name }}" }
 
 [files]
-render = ["**/*.rs", "**/*.toml", "**/*.md", "**/*.yml"]   # files to render through Tera
-copy = ["**/*.png", "**/*.ico"]                             # files to copy as-is (binary files)
-ignore = ["template.toml"]                                  # files to exclude from output
+render = ["**/*.rs", "**/*.toml", "**/*.md", "**/*.yml"]
+copy = ["**/*.png", "**/*.ico"]
+ignore = ["template.toml"]
 
 [hooks]
-post_create = ["cargo fmt", "npm install"]     # commands to run after scaffolding
+post_create = ["cargo fmt", "npm install"]
 ```
 
-### Section: template
+### [template] section
 
 | Key | Type | Required | Notes |
 |-----|------|----------|-------|
-| `name` | string | Yes | Used with `--template` flag |
-| `description` | string | No | Shown in `fledge list` |
-| `min_fledge_version` | string | No | Minimum fledge version required |
+| `name` | string | Yes | What you pass to `--template` |
+| `description` | string | No | Shows up in `fledge list` |
+| `min_fledge_version` | string | No | Minimum fledge version needed |
 
-### Section: prompts
+### [prompts] section
 
-Define custom variables that will be prompted to the user. Each prompt becomes a template variable.
+Each key becomes a template variable that gets prompted to the user.
 
 ```toml
 [prompts]
-# Simple prompt with default
+# With a default
 description = { message = "Project description", default = "A new project" }
 
-# Prompt without default (required)
+# No default — user has to answer
 main_author = { message = "Primary author" }
 
-# Default can reference earlier variables
+# Default can reference other variables
 repo_url = { message = "Repository URL", default = "https://github.com/{{ github_org }}/{{ project_name }}" }
 ```
 
-### Section: files
+### [files] section
 
-Define which files to render, copy, or ignore.
+Controls which files get rendered, copied, or skipped. Rules apply in order — first match wins.
 
-**Rules are applied in order and first match wins.**
+- **`render`** — process through Tera
+- **`copy`** — copy as-is (for binary files, images, etc.)
+- **`ignore`** — skip entirely
 
-- **`render`** — glob patterns for files that should be processed through Tera
-- **`copy`** — glob patterns for files that should be copied as-is (binary files, images)
-- **`ignore`** — glob patterns for files to exclude entirely
-
-Files not matching any rule are rendered by default.
+Anything not matching a rule gets rendered by default.
 
 ```toml
 [files]
@@ -92,37 +89,37 @@ copy = ["**/*.png", "**/*.ico", "assets/**"]
 ignore = ["template.toml", "node_modules/**"]
 ```
 
-### Section: hooks
+### [hooks] section
 
-Commands to run after scaffolding is complete, inside the newly created project directory.
+Commands that run after scaffolding, inside the new project directory.
 
 ```toml
 [hooks]
 post_create = ["cargo fmt", "cargo test", "git add -A && git commit -m 'Initial commit'"]
 ```
 
-For local (built-in) templates, hooks run automatically. For remote templates, fledge shows the commands and asks for confirmation unless `--yes` is passed.
+Built-in templates run hooks automatically. Remote templates show the commands and ask for confirmation (unless you pass `--yes`).
 
 ## Built-in Variables
 
-These variables are always available in your templates — no need to define them in `[prompts]`:
+These are always available — you don't need to define them in `[prompts]`:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `project_name` | The project name as provided by the user | `my-cool-app` |
-| `project_name_snake` | Snake case version | `my_cool_app` |
-| `project_name_pascal` | PascalCase version | `MyCoolApp` |
+| Variable | What it is | Example |
+|----------|-----------|---------|
+| `project_name` | Name as the user typed it | `my-cool-app` |
+| `project_name_snake` | Snake case | `my_cool_app` |
+| `project_name_pascal` | PascalCase | `MyCoolApp` |
 | `author` | From config, git, or prompted | `Leif` |
-| `github_org` | From config or prompted (default: `CorvidLabs`) | `CorvidLabs` |
-| `license` | From config (default: `MIT`) | `MIT` |
+| `github_org` | From config or prompted | `CorvidLabs` |
+| `license` | From config, defaults to `MIT` | `MIT` |
 | `year` | Current year | `2026` |
 | `date` | Current date | `2026-04-18` |
 
 ## Tera Syntax
 
-Templates use [Tera](https://keats.github.io/tera/docs/) syntax. Common patterns:
+Templates use [Tera](https://keats.github.io/tera/docs/) syntax. Here's the stuff you'll actually use:
 
-### Variable Substitution
+### Variables
 
 ```
 # {{ project_name }}
@@ -153,7 +150,7 @@ Project slug: {{ project_name | slugify }}
 Uppercase: {{ author | upper }}
 ```
 
-### Complete Example
+### Putting it together
 
 ```
 # {{ project_name }}
@@ -176,15 +173,15 @@ cargo build
 ```
 ```
 
-## Creating a Template from Scratch
+## Building a Template from Scratch
 
-### 1. Create the template directory
+### 1. Make the directory
 
 ```bash
 mkdir python-api && cd python-api
 ```
 
-### 2. Create template.toml
+### 2. Write template.toml
 
 ```toml
 [template]
@@ -203,7 +200,7 @@ ignore = ["template.toml"]
 post_create = ["python -m venv .venv"]
 ```
 
-### 3. Create template files
+### 3. Add your files
 
 ```python
 # app/main.py
@@ -226,16 +223,14 @@ RUN pip install -e .
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
 ```
 
-### 4. Test locally
+### 4. Test it
 
 ```bash
 fledge init test-api --template ./python-api --dry-run
 fledge init test-api --template ./python-api
 ```
 
-## Testing Templates
-
-### Point to Local Template Directory
+## Testing
 
 Add your template directory to config:
 
@@ -245,43 +240,37 @@ Add your template directory to config:
 paths = ["~/dev/my-templates"]
 ```
 
-Or use it directly as a path:
+Or point at it directly:
 
 ```bash
 fledge init test-project --template ./my-template
 ```
 
-### Iterate and Test
+The loop is: edit files → `fledge init test-output --template my-template` → check the output → delete test output → repeat.
 
-1. Edit template files
-2. Run `fledge init test-output --template my-template`
-3. Inspect the output
-4. Delete test output and repeat
+## Sharing
 
-## Sharing Templates
+### GitHub
 
-### Use a GitHub Repository
-
-Any GitHub repository can be a template source. Use the `owner/repo` syntax:
+Push your template to a GitHub repo. Anyone can use it with:
 
 ```bash
 fledge init my-app --template user/my-template
 ```
 
-### Register Template Repositories
+### Template Repos
 
-Users can register your template repo in their config to have it appear in `fledge list`:
+Users can register your repo so it shows up in `fledge list`:
 
 ```toml
-# ~/.config/fledge/config.toml
 [templates]
 repos = ["CorvidLabs/fledge-templates", "myorg/templates"]
 ```
 
-### Best Practices
+### Tips
 
-- **Clear names** — use descriptive template names
-- **Good docs** — include a README explaining what the template does
-- **Sensible defaults** — prompt for what's necessary, provide defaults for everything else
-- **Test hooks** — ensure post-create hooks are idempotent and handle missing tools gracefully
-- **Version requirements** — use `min_fledge_version` to signal breaking changes
+- **Name it clearly.** `python-api` beats `template-1`.
+- **Write a README.** Explain what the template does and what variables it uses.
+- **Default everything you can.** Only prompt for things that actually vary.
+- **Test your hooks.** Make sure `post_create` commands handle missing tools gracefully.
+- **Use `min_fledge_version`** if you depend on newer features.

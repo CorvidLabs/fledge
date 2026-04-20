@@ -1,80 +1,66 @@
 # Plugins
 
-Extend fledge with community plugins. Plugins are external executables distributed as GitHub repositories, following the git-style subcommand pattern (`fledge-<name>` becomes `fledge <name>`).
+Plugins extend fledge with community-built commands. They're external executables distributed as GitHub repos, following the git-style subcommand pattern — `fledge-<name>` becomes `fledge <name>`.
 
-## Installing Plugins
+## Installing
 
 ```bash
-# From GitHub (owner/repo shorthand)
+# From GitHub
 fledge plugin install someone/fledge-deploy
 
-# From a full URL
+# Full URL works too
 fledge plugin install https://github.com/someone/fledge-deploy.git
 
-# Reinstall an existing plugin
+# Reinstall
 fledge plugin install someone/fledge-deploy --force
 ```
 
-When you install a plugin, fledge:
-1. Clones the repository to `~/.config/fledge/plugins/<name>/`
-2. Reads the `plugin.toml` manifest
-3. Symlinks command binaries to `~/.config/fledge/plugins/bin/`
-4. Registers the plugin in `~/.config/fledge/plugins.toml`
+What happens when you install:
+1. Repo gets cloned to `~/.config/fledge/plugins/<name>/`
+2. fledge reads `plugin.toml`
+3. Command binaries get symlinked to `~/.config/fledge/plugins/bin/`
+4. Plugin is registered in `~/.config/fledge/plugins.toml`
 
 ## Using Plugins
 
-Once installed, run plugin commands directly:
-
 ```bash
-# Via fledge plugin run
+# Via fledge
 fledge plugin run deploy --target production
 
-# Or as a subcommand (if the binary is on PATH)
+# Or directly if the binary is on PATH
 fledge deploy --target production
 ```
 
-## Managing Plugins
+## Managing
 
 ```bash
-# List installed plugins
-fledge plugin list
-
-# Search for plugins on GitHub
-fledge plugin search deploy
-
-# Remove a plugin
+fledge plugin list              # what's installed
+fledge plugin search deploy     # find plugins on GitHub
 fledge plugin remove fledge-deploy
-
-# JSON output for scripting
-fledge plugin list --json
-fledge plugin search --json
+fledge plugin list --json       # for scripting
 ```
 
-## Plugin Discovery
+## Discovery
 
-Plugins are discovered on GitHub using the `fledge-plugin` topic. To make your plugin discoverable:
+Plugins use the `fledge-plugin` topic on GitHub. To make yours findable:
 
-1. Add the `fledge-plugin` topic to your GitHub repository
-2. Include a valid `plugin.toml` manifest
-
-Search for available plugins:
+1. Add `fledge-plugin` as a topic on your repo
+2. Include a `plugin.toml` manifest
 
 ```bash
 fledge plugin search            # browse all plugins
 fledge plugin search deploy     # search by keyword
 ```
 
-## Creating a Plugin
+## Building a Plugin
 
-### 1. Create the Repository
+### 1. Create the repo
 
 ```bash
 mkdir fledge-deploy && cd fledge-deploy
 ```
 
-### 2. Write the Manifest
-
-Create `plugin.toml` in the repository root:
+### 2. Write plugin.toml
 
 ```toml
 [plugin]
@@ -98,9 +84,9 @@ event = "lane:post"
 binary = "fledge-deploy-notify"
 ```
 
-### 3. Add the Command Binaries
+### 3. Add the executables
 
-Each `[[commands]]` entry points to an executable file in the repository. These can be compiled binaries, shell scripts, or any executable:
+Each `[[commands]]` entry points to an executable in the repo. Can be compiled binaries, shell scripts, whatever:
 
 ```bash
 #!/usr/bin/env bash
@@ -108,7 +94,7 @@ Each `[[commands]]` entry points to an executable file in the repository. These 
 echo "Deploying $(basename $(pwd))..."
 ```
 
-Make sure binaries are executable:
+Make them executable:
 
 ```bash
 chmod +x fledge-deploy fledge-rollback
@@ -116,7 +102,7 @@ chmod +x fledge-deploy fledge-rollback
 
 ### 4. Publish
 
-Push to GitHub and add the `fledge-plugin` topic to the repository. Users can then install with:
+Push to GitHub, add the `fledge-plugin` topic. Users install with:
 
 ```bash
 fledge plugin install yourname/fledge-deploy
@@ -124,38 +110,38 @@ fledge plugin install yourname/fledge-deploy
 
 ## plugin.toml Reference
 
-### [plugin] Section
+### [plugin]
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
+| Field | Type | Required | |
+|-------|------|----------|-|
 | `name` | string | Yes | Plugin name |
-| `version` | string | Yes | Semantic version |
+| `version` | string | Yes | Semver |
 | `description` | string | No | Short description |
-| `author` | string | No | Plugin author |
+| `author` | string | No | Who made it |
 
-### [[commands]] Entries
+### [[commands]]
 
-Each entry registers a subcommand that fledge can run.
+Each entry registers a subcommand.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Command name (becomes `fledge plugin run <name>`) |
-| `description` | string | No | Command description |
+| Field | Type | Required | |
+|-------|------|----------|-|
+| `name` | string | Yes | Command name (`fledge plugin run <name>`) |
+| `description` | string | No | What it does |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
-### [[hooks]] Entries
+### [[hooks]]
 
-Hooks register binaries that run in response to fledge events.
+Hooks fire in response to fledge events.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `event` | string | Yes | Event to hook into (e.g., `lane:post`) |
+| Field | Type | Required | |
+|-------|------|----------|-|
+| `event` | string | Yes | Event to hook (e.g. `lane:post`) |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
 ## File Locations
 
-| Path | Purpose |
-|------|---------|
+| Path | What's there |
+|------|-------------|
 | `~/.config/fledge/plugins/` | Installed plugin directories |
-| `~/.config/fledge/plugins/bin/` | Symlinked command binaries |
-| `~/.config/fledge/plugins.toml` | Plugin registry (tracks installs) |
+| `~/.config/fledge/plugins/bin/` | Symlinked binaries |
+| `~/.config/fledge/plugins.toml` | Plugin registry |

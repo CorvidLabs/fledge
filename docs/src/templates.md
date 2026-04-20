@@ -1,23 +1,21 @@
 # Templates
 
-Fledge uses templates to scaffold new projects. Templates come from three sources: built-in, remote repositories, and local directories.
+Templates are how fledge scaffolds projects. They come from three places: built-in, remote repos, and local directories.
 
 ## Built-in Templates
 
-These ship with the fledge binary — always available, no configuration needed:
+These ship with the binary — always there, no setup needed:
 
-| Template | Description |
-|----------|-------------|
-| `rust-cli` | Rust CLI application with clap |
+| Template | What it is |
+|----------|-----------|
+| `rust-cli` | Rust CLI with clap |
 | `rust-lib` | Rust library crate |
-| `go-cli` | Go CLI application |
+| `go-cli` | Go CLI app |
 | `python-cli` | Python CLI with argparse |
-| `ts-bun` | TypeScript project with Bun runtime |
-| `angular-app` | Angular application |
+| `ts-bun` | TypeScript on Bun |
+| `angular-app` | Angular app |
 | `swift-pkg` | Swift package |
-| `monorepo` | Multi-project monorepo structure |
-
-Use them directly:
+| `monorepo` | Multi-project monorepo |
 
 ```bash
 fledge init my-app --template rust-cli
@@ -26,42 +24,41 @@ fledge init my-service --template go-cli
 
 ## Remote Templates
 
-Any GitHub repository can be a template source. Use `owner/repo` syntax:
+Any GitHub repo can be a template. Just use `owner/repo`:
 
 ```bash
-# From a specific repo
 fledge init my-app --template CorvidLabs/fledge-templates/deno-cli
 
-# Pin to a version tag
+# Pin to a specific version
 fledge init my-app --template CorvidLabs/fledge-templates/mcp-server@v1.0
 ```
 
-Remote templates are cached locally after the first download. Use `--refresh` to force a re-download:
+Templates get cached locally after the first pull. Use `--refresh` to force a re-download:
 
 ```bash
 fledge init my-app --template CorvidLabs/fledge-templates/deno-cli --refresh
 ```
 
-### The fledge-templates Repository
+### Official Template Collection
 
-[CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates) is the official community template collection. It includes:
+[CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates) has a growing set of community templates:
 
-| Template | Description |
-|----------|-------------|
+| Template | What it is |
+|----------|-----------|
 | `corvid-agent-skill` | CorvidAgent skill module |
-| `deno-cli` | Deno CLI application |
+| `deno-cli` | Deno CLI app |
 | `mcp-server` | MCP server project |
-| `python-api` | Python FastAPI application |
+| `python-api` | FastAPI app |
 | `rust-workspace` | Rust workspace with multiple crates |
-| `static-site` | Static site with HTML/CSS/JS |
+| `static-site` | Static site (HTML/CSS/JS) |
 
-Add it to your config so these templates appear in `fledge list`:
+Add it to your config so these show up in `fledge list`:
 
 ```bash
 fledge config add templates.repos "CorvidLabs/fledge-templates"
 ```
 
-Or use the CorvidLabs preset which sets this up automatically:
+Or use the preset which sets everything up:
 
 ```bash
 fledge config init --preset corvidlabs
@@ -69,98 +66,84 @@ fledge config init --preset corvidlabs
 
 ## Local Templates
 
-Point fledge at directories on your filesystem:
+Point fledge at a directory on disk:
 
 ```bash
 fledge config add templates.paths "~/my-templates"
 ```
 
-Or use a path directly:
+Or just pass a path directly:
 
 ```bash
 fledge init my-app --template ./path/to/template
 ```
 
-## Discovering Templates
+## Finding Templates
 
 ### Search GitHub
 
-Find templates published by the community using the `fledge-template` topic:
+Templates on GitHub use the `fledge-template` topic:
 
 ```bash
-fledge search                  # browse all
-fledge search "react"          # search by keyword
-fledge search --limit 50       # more results
+fledge search                  # browse everything
+fledge search "react"          # filter by keyword
+fledge search --limit 50
 ```
 
-### List Available
-
-See all templates you have access to (built-in + configured repos + local paths):
+### List What You Have
 
 ```bash
-fledge list
+fledge list    # built-in + configured repos + local paths
 ```
 
 ## Publishing Your Own
 
-### Quick Start
-
 ```bash
-# Scaffold a template skeleton
+# Start with the skeleton
 fledge create-template my-template
 
 # Edit template files and template.toml
 
-# Publish to GitHub
+# Ship it
 fledge publish --org MyOrg
 ```
 
-### Make It Discoverable
+Add the `fledge-template` topic to your GitHub repo so it shows up in search results.
 
-Add the `fledge-template` topic to your GitHub repository. This makes it appear in `fledge search` results.
-
-### Validate Before Publishing
+### Validate Before You Ship
 
 ```bash
-# Basic validation
 fledge validate-template .
-
-# Strict mode (warnings are errors)
-fledge validate-template . --strict
-
-# Validate all templates in a directory
-fledge validate-template ./templates
-
-# Machine-readable output
-fledge validate-template . --json
+fledge validate-template . --strict    # warnings become errors
+fledge validate-template ./templates   # validate a whole directory
+fledge validate-template . --json      # machine-readable output
 ```
 
-The validator checks:
-- `template.toml` exists and parses correctly
-- Required fields (`name`, `description`) are present
-- All `.tera` files have valid syntax
-- Variables used in templates are defined (built-in or via `[prompts]`)
-- `files.render` globs match actual files
-- `template.toml` is in the ignore list
+The validator checks for:
+- Valid `template.toml` with required fields (`name`, `description`)
+- Tera syntax errors in template files
+- Undefined variables (not built-in and not in `[prompts]`)
+- Render globs that don't match any files
+- `template.toml` in the ignore list
 
-You can also test your template with a dry run:
+You can also just test it:
 
 ```bash
 fledge init test-output --template ./my-template --dry-run
 ```
 
-For details on the template format, see the [Template Authoring Guide](./template-authoring.md).
+For the full format reference, see the [Template Authoring Guide](./template-authoring.md).
 
-## Template Resolution Order
+## Resolution Order
 
-When you run `fledge init --template <name>`, fledge searches in this order:
+When you run `fledge init --template <name>`, fledge looks in this order:
 
-1. **Exact path** — if the name is a file path (starts with `.` or `/`)
-2. **Built-in templates** — the 8 templates bundled with fledge
-3. **Configured repos** — repositories listed in `templates.repos`
-4. **Local paths** — directories listed in `templates.paths`
-5. **GitHub shorthand** — treated as `owner/repo` and fetched directly
+1. **Exact path** — starts with `.` or `/`
+2. **Built-in templates** — the 8 bundled ones
+3. **Configured repos** — `templates.repos` in your config
+4. **Local paths** — `templates.paths` in your config
+5. **GitHub shorthand** — treats it as `owner/repo` and fetches it
 
 ## Security
 
-Remote template hooks (`post_create` commands) require explicit confirmation before running. This prevents untrusted templates from executing arbitrary commands. Pass `--yes` to skip the confirmation prompt if you trust the source.
+Hooks from remote templates (`post_create` commands) always ask for confirmation before running. This way random templates can't execute whatever they want on your machine. Pass `--yes` if you trust the source and want to skip the prompt.

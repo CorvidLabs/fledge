@@ -1,16 +1,16 @@
 # Lanes & Pipelines
 
-Lanes are composable workflow pipelines defined in `fledge.toml`. They chain multiple tasks into named sequences with support for parallel execution and configurable failure behavior.
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
-If you already have tasks in `fledge.toml`, add default lanes automatically:
+Already have tasks in `fledge.toml`? Generate lanes automatically:
 
 ```bash
 fledge lane --init
 ```
 
-This detects your project type and generates appropriate lane definitions. Then run one:
+This looks at your project type and creates sensible defaults. Then just run one:
 
 ```bash
 fledge lane ci
@@ -18,7 +18,7 @@ fledge lane ci
 
 ## Defining Lanes
 
-Lanes live in `fledge.toml` alongside your tasks. Each lane has a name, optional description, a list of steps, and an optional `fail_fast` flag.
+Lanes go in `fledge.toml` alongside your tasks:
 
 ```toml
 [tasks]
@@ -41,19 +41,19 @@ steps = [
 
 ### Lane Options
 
-| Field | Type | Default | Description |
+| Field | Type | Default | What it does |
 |-------|------|---------|-------------|
-| `description` | string | `(no description)` | Shown when listing lanes |
-| `steps` | array | required | Ordered list of steps to execute |
-| `fail_fast` | bool | `true` | Stop on first failure. Set to `false` to run all steps and report failures at the end |
+| `description` | string | `(no description)` | Shows up when listing lanes |
+| `steps` | array | required | Ordered list of steps |
+| `fail_fast` | bool | `true` | Stop on first failure vs. run everything and report |
 
 ## Step Types
 
-Lanes support three types of steps that can be mixed freely:
+You can mix these freely in a lane:
 
 ### Task References
 
-Reference any task defined in the `[tasks]` section by name. Task dependencies (`deps`) are resolved automatically.
+Just name a task from your `[tasks]` section. Dependencies (`deps`) get resolved automatically.
 
 ```toml
 steps = ["lint", "test", "build"]
@@ -61,7 +61,7 @@ steps = ["lint", "test", "build"]
 
 ### Inline Commands
 
-Run a shell command directly without defining it as a named task. Useful for one-off steps.
+One-off shell commands without cluttering your task list:
 
 ```toml
 steps = [
@@ -73,7 +73,7 @@ steps = [
 
 ### Parallel Groups
 
-Run multiple tasks concurrently. All tasks in the group must complete before the next step begins.
+Run multiple tasks at the same time. Everything in the group finishes before the next step starts.
 
 ```toml
 steps = [
@@ -83,31 +83,28 @@ steps = [
 ]
 ```
 
-In this example, `fmt` and `lint` run at the same time. Once both finish, `test` runs, then `build`.
+Here `fmt` and `lint` run concurrently, then `test`, then `build`.
 
 ## Failure Behavior
 
-By default, lanes use `fail_fast = true` — the pipeline stops immediately when any step fails.
+Default is `fail_fast = true` — pipeline stops as soon as something fails.
 
 ```toml
 [lanes.ci]
 description = "Stop on first failure"
 steps = ["lint", "test", "build"]
-# fail_fast = true (default)
 ```
 
-Set `fail_fast = false` to run all steps regardless of failures, then report a summary:
+Set `fail_fast = false` when you want the full picture:
 
 ```toml
 [lanes.audit]
-description = "Run all checks, report all failures"
+description = "Run everything, report all failures"
 fail_fast = false
 steps = ["lint", "test", "security-check", "license-check"]
 ```
 
 ## Task Configuration
-
-Tasks referenced by lanes support the full task configuration format:
 
 ### Short Form
 
@@ -127,17 +124,15 @@ env = { RUST_LOG = "info" }
 dir = "crates/core"
 ```
 
-| Field | Type | Description |
+| Field | Type | What it does |
 |-------|------|-------------|
-| `cmd` | string | Shell command to execute |
-| `description` | string | Shown when listing tasks |
+| `cmd` | string | Shell command to run |
+| `description` | string | Shows up when listing tasks |
 | `deps` | array | Tasks to run first (resolved recursively) |
 | `env` | table | Environment variables for this task |
 | `dir` | string | Working directory (relative to project root) |
 
-When a lane step references a task with `deps`, those dependencies run first automatically.
-
-## Real-World Examples
+## Examples
 
 ### CI Pipeline
 
@@ -151,11 +146,11 @@ steps = [
 ]
 ```
 
-### Release Workflow
+### Release
 
 ```toml
 [lanes.release]
-description = "Build and prepare release"
+description = "Build and package a release"
 steps = [
   "test",
   { run = "cargo build --release" },
@@ -164,11 +159,11 @@ steps = [
 ]
 ```
 
-### Full Audit (No Fail-Fast)
+### Full Audit
 
 ```toml
 [lanes.audit]
-description = "Run all quality checks"
+description = "All quality checks"
 fail_fast = false
 steps = [
   "lint",
@@ -180,38 +175,29 @@ steps = [
 
 ## Auto-Generated Defaults
 
-`fledge lane --init` generates language-aware defaults:
+`fledge lane --init` detects your project type:
 
-| Project Type | Detection | Default Lanes |
-|--------------|-----------|---------------|
+| Project | How it's detected | What you get |
+|---------|------------------|-------------|
 | Rust | `Cargo.toml` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Node.js | `package.json` | `ci` (lint, test, build), `check` (parallel lint+test) |
 | Go | `go.mod` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Python | `pyproject.toml` | `ci` (fmt, lint, typecheck, test), `check` (parallel fmt+lint, test) |
 
-## CLI Usage
+## CLI
 
 ```bash
-# List available lanes
-fledge lane
-
-# Run a lane
-fledge lane ci
-
-# Preview without running
-fledge lane ci --dry-run
-
-# Add default lanes to fledge.toml
-fledge lane --init
-
-# JSON output (for scripting)
+fledge lane              # list lanes
+fledge lane ci           # run one
+fledge lane ci --dry-run # preview the plan
+fledge lane --init       # generate defaults
 fledge lane --list --json
 ```
 
 ## Tips
 
-- Start with `fledge lane --init` to get sensible defaults, then customize.
-- Use parallel groups for independent checks (linting and formatting don't depend on each other).
-- Keep `fail_fast = true` (the default) for CI — there's no point running the build if tests fail.
-- Use `fail_fast = false` for audit-style lanes where you want a complete report.
-- Combine inline commands with task references for flexibility without polluting your task list.
+- Start with `fledge lane --init` and customize from there.
+- Use parallel groups for independent checks — linting and formatting don't need to wait for each other.
+- Keep `fail_fast = true` for CI. No point building if tests fail.
+- Use `fail_fast = false` for audit lanes where you want the full report.
+- Inline commands are great for one-off steps that don't need to be named tasks.
