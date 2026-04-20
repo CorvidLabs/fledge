@@ -119,23 +119,18 @@ fledge publish --org MyOrg
 
 Add the `fledge-template` topic to your GitHub repository. This makes it appear in `fledge search` results.
 
-### Validate Before Publishing
+### Validation
 
-```bash
-# Basic validation
-fledge validate-template .
-
-# Strict mode (warnings are errors)
-fledge validate-template . --strict
-```
-
-The validator checks:
+When you run `fledge publish`, it automatically validates your template before publishing:
 - `template.toml` exists and parses correctly
 - Required fields (`name`, `description`) are present
 - All `.tera` files have valid syntax
-- Variables used in templates are defined (built-in or via `[prompts]`)
-- `files.render` globs match actual files
-- `template.toml` is in the ignore list
+
+You can also test your template locally with a dry run before publishing:
+
+```bash
+fledge init test-output --template ./my-template --dry-run
+```
 
 For details on the template format, see the [Template Authoring Guide](./template-authoring.md).
 

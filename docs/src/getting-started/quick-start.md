@@ -58,7 +58,7 @@ fledge lane ci           # run the CI lane
 fledge lane ci --dry-run # preview the execution plan
 ```
 
-Lanes support parallel execution groups and inline commands. See the [CLI Reference](../cli-reference.md) for full configuration.
+Lanes support parallel execution groups and inline commands. See the [Lanes & Pipelines](../lanes.md) guide for full configuration.
 
 ## Check Project Health
 
@@ -128,9 +128,6 @@ fledge comes with several built-in templates ready to use:
 | `angular-app` | Angular application with mobile-first setup |
 | `python-cli` | Python CLI with Click, tests, and packaging |
 | `go-cli` | Go CLI with Cobra, Makefile, and CI |
-| `node-cli` | Node.js CLI with TypeScript |
-| `node-lib` | Node.js library with TypeScript and npm publishing |
-| `monorepo` | Monorepo with workspace tooling |
-| `static-site` | Static site with build pipeline |
+| `monorepo` | Monorepo with shared tooling, CI, and workspace conventions |
 
 Each template includes sensible defaults, CI/CD workflows, and best practices for its language ecosystem.
