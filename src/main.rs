@@ -9,6 +9,7 @@ mod changelog;
 mod checks;
 mod config;
 mod create_template;
+mod deps;
 mod github;
 mod init;
 mod issues;
@@ -205,6 +206,21 @@ enum Commands {
         /// Show unreleased changes since the latest tag
         #[arg(long)]
         unreleased: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Check dependency health (outdated, audit, licenses)
+    Deps {
+        /// Check for outdated dependencies
+        #[arg(long)]
+        outdated: bool,
+        /// Run security audit via ecosystem tools
+        #[arg(long)]
+        audit: bool,
+        /// Show dependency licenses
+        #[arg(long)]
+        licenses: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -474,6 +490,19 @@ fn run() -> Result<()> {
                 limit,
                 tag,
                 unreleased,
+                json,
+            })?;
+        }
+        Commands::Deps {
+            outdated,
+            audit,
+            licenses,
+            json,
+        } => {
+            deps::run(deps::DepsOptions {
+                outdated,
+                audit,
+                licenses,
                 json,
             })?;
         }
