@@ -507,6 +507,7 @@ fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
     None
 }
 
+#[cfg(unix)]
 fn make_executable(path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
@@ -535,6 +536,11 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
     {
         std::os::windows::fs::symlink_file(original, link)?;
     }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 

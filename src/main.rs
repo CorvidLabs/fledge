@@ -29,6 +29,7 @@ mod templates;
 #[cfg(feature = "tui")]
 mod tui;
 mod update;
+mod validate;
 mod versioning;
 mod work;
 
@@ -277,6 +278,19 @@ enum Commands {
         action: PluginSubcommand,
         /// Output as JSON
         #[arg(long, global = true)]
+        json: bool,
+    },
+    /// Validate a template or directory of templates
+    #[command(name = "validate-template")]
+    ValidateTemplate {
+        /// Path to a template or directory of templates
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+        /// Output as JSON
+        #[arg(long)]
         json: bool,
     },
     /// Ask a question about your codebase
@@ -645,6 +659,9 @@ fn run() -> Result<()> {
                 PluginSubcommand::Run { name, args } => plugin::PluginAction::Run { name, args },
             };
             plugin::run(plugin::PluginOptions { action, json })?;
+        }
+        Commands::ValidateTemplate { path, strict, json } => {
+            validate::run(validate::ValidateOptions { path, strict, json })?;
         }
         Commands::Ask { question } => {
             if question.is_empty() {
