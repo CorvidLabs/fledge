@@ -62,7 +62,7 @@ pub fn check_fledge_version(min_version: &str) -> Result<()> {
     if current < required {
         bail!(
             "This template requires fledge {} or newer (you have {}). \
-             Upgrade with: cargo install fledge",
+             Upgrade with: cargo install fledge (or see https://github.com/CorvidLabs/fledge#install)",
             required,
             current
         );
