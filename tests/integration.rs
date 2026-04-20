@@ -1102,3 +1102,169 @@ fn cli_ask_no_question_fails() {
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("question") || stderr.contains("Usage"));
 }
+
+// ──────────────────────────────────────────────────────────
+// Deps command
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_deps_lists_rust_dependencies() {
+    let output = run_fledge(&["deps"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Dependencies"));
+    assert!(stdout.contains("clap"));
+    assert!(stdout.contains("serde"));
+}
+
+#[test]
+fn cli_deps_json_valid() {
+    let output = run_fledge(&["deps", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["ecosystem"], "rust");
+    assert!(parsed["dependencies"].is_array());
+    assert!(!parsed["dependencies"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn cli_deps_generic_project_fails() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["deps"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Could not detect"));
+}
+
+#[test]
+fn cli_deps_node_project_no_lock_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("package.json"), "{}").unwrap();
+    let output = run_fledge_in(tmp.path(), &["deps"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No lock file"));
+}
+
+// ──────────────────────────────────────────────────────────
+// E2E workflow: init → run → flow → doctor → metrics → deps
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn e2e_rust_project_lifecycle() {
+    let tmp = TempDir::new().unwrap();
+
+    // Step 1: Init a Rust project
+    let output = run_fledge(&[
+        "init",
+        "e2e-test",
+        "--template",
+        "rust-cli",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--yes",
+    ]);
+    assert!(
+        output.status.success(),
+        "init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let project = tmp.path().join("e2e-test");
+    assert!(project.join("Cargo.toml").exists());
+
+    // Step 2: Generate task runner config
+    let output = run_fledge_in(&project, &["run", "--init"]);
+    assert!(
+        output.status.success(),
+        "run --init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(project.join("fledge.toml").exists());
+    let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
+    assert!(fledge_toml.contains("[tasks]"));
+    assert!(fledge_toml.contains("cargo"));
+
+    // Step 3: List tasks
+    let output = run_fledge_in(&project, &["run", "--list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("build") || stdout.contains("test"));
+
+    // Step 4: Generate default flows
+    let output = run_fledge_in(&project, &["flow", "--init"]);
+    assert!(
+        output.status.success(),
+        "flow --init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
+    assert!(fledge_toml.contains("[flows"));
+
+    // Step 5: List flows
+    let output = run_fledge_in(&project, &["flow", "--list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ci"));
+
+    // Step 6: Dry-run a flow
+    let output = run_fledge_in(&project, &["flow", "ci", "--dry-run"]);
+    assert!(output.status.success());
+
+    // Step 7: Doctor check
+    let output = run_fledge_in(&project, &["doctor"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Toolchain"));
+
+    // Step 8: Metrics
+    let output = run_fledge_in(&project, &["metrics"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Rust") || stdout.contains("Lines"));
+
+    // Step 9: Doctor JSON
+    let output = run_fledge_in(&project, &["doctor", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["project_type"], "rust");
+}
+
+#[test]
+fn e2e_tsbun_project_lifecycle() {
+    let tmp = TempDir::new().unwrap();
+
+    // Step 1: Init a ts-bun project
+    let output = run_fledge(&[
+        "init",
+        "e2e-ts",
+        "--template",
+        "ts-bun",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--no-install",
+        "--yes",
+    ]);
+    assert!(
+        output.status.success(),
+        "init ts-bun failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let project = tmp.path().join("e2e-ts");
+    assert!(project.join("package.json").exists());
+
+    // Step 2: Generate task runner config
+    let output = run_fledge_in(&project, &["run", "--init"]);
+    assert!(output.status.success());
+
+    // Step 3: Doctor
+    let output = run_fledge_in(&project, &["doctor"]);
+    assert!(output.status.success());
+
+    // Step 4: Metrics
+    let output = run_fledge_in(&project, &["metrics"]);
+    assert!(output.status.success());
+}
