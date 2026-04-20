@@ -7,9 +7,9 @@ files:
 
 db_tables: []
 depends_on:
-  - specs/init/init.spec.md
-  - specs/templates/templates.spec.md
-  - specs/remote/remote.spec.md
+  - init
+  - templates
+  - remote
 ---
 
 # Update
