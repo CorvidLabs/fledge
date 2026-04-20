@@ -881,7 +881,7 @@ fn cli_init_yes_flag_skips_prompts() {
         "init",
         "yes-test",
         "--template",
-        "rust-lib",
+        "rust-cli",
         "--output",
         tmp.path().to_str().unwrap(),
         "--no-git",
@@ -891,19 +891,12 @@ fn cli_init_yes_flag_skips_prompts() {
     let project_dir = tmp.path().join("yes-test");
     assert!(project_dir.exists());
     assert!(project_dir.join("Cargo.toml").exists());
-    assert!(project_dir.join("src/lib.rs").exists());
+    assert!(project_dir.join("src/main.rs").exists());
 }
 
 #[test]
 fn cli_init_yes_with_each_builtin_template() {
-    let templates = [
-        "rust-cli",
-        "rust-lib",
-        "ts-bun",
-        "go-cli",
-        "python-cli",
-        "swift-pkg",
-    ];
+    let templates = ["rust-cli", "ts-bun"];
     for tpl in &templates {
         let tmp = TempDir::new().unwrap();
         let output = run_fledge(&[
@@ -939,15 +932,7 @@ fn cli_list_shows_all_builtin_templates() {
     let output = run_fledge(&["list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    let expected = [
-        "rust-cli",
-        "rust-lib",
-        "ts-bun",
-        "go-cli",
-        "python-cli",
-        "angular-app",
-        "swift-pkg",
-    ];
+    let expected = ["rust-cli", "ts-bun"];
     for tpl in &expected {
         assert!(
             stdout.contains(tpl),
@@ -1053,9 +1038,7 @@ fn cli_run_task_with_env() {
     };
     fs::write(
         tmp.path().join("fledge.toml"),
-        format!(
-            "[tasks.greet]\ncmd = \"{cmd}\"\nenv = {{ GREETING = \"HELLO_FLEDGE\" }}\n"
-        ),
+        format!("[tasks.greet]\ncmd = \"{cmd}\"\nenv = {{ GREETING = \"HELLO_FLEDGE\" }}\n"),
     )
     .unwrap();
     let output = run_fledge_in(tmp.path(), &["run", "greet"]);
