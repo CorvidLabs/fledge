@@ -40,6 +40,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `extra_template_paths` | Resolves and returns additional template directory paths |
 | `github_token` | Returns GitHub token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN` env var, or config |
 | `template_repos` | Returns configured remote template repository references |
+| `init_config` | Creates a new config file at the default path, optionally with a named preset |
 
 ### Structs & Enums
 
@@ -74,6 +75,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `Config::extra_template_paths` | `(&self) -> Vec<PathBuf>` | Resolves extra template directory paths |
 | `Config::github_token` | `(&self) -> Option<String>` | GitHub token from env vars or config |
 | `Config::template_repos` | `(&self) -> &[String]` | Remote template repo references |
+| `init_config` | `(Option<&str>) -> Result<()>` | Create config file, optionally applying a named preset |
 
 ## Invariants
 

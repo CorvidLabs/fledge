@@ -24,6 +24,7 @@ Composable workflow pipelines defined in `fledge.toml`. Lanes chain multiple tas
 |--------|-------------|
 | `run` | Entry point — lists or executes lanes |
 | `LaneOptions` | Options: `lane`, `list`, `init`, `dry_run`, `json` |
+| `LaneDef` | Lane definition: description, steps, and fail_fast flag |
 
 ### Structs & Enums
 
