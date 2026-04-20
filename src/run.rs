@@ -186,6 +186,7 @@ fn execute_task(
     Ok(())
 }
 
+// Detection order matters for monorepos: first match wins (most specific → least)
 fn detect_project_type(dir: &Path) -> &'static str {
     if dir.join("Cargo.toml").exists() {
         "rust"
@@ -197,8 +198,10 @@ fn detect_project_type(dir: &Path) -> &'static str {
         "python"
     } else if dir.join("Gemfile").exists() {
         "ruby"
-    } else if dir.join("pom.xml").exists() || dir.join("build.gradle").exists() {
-        "java"
+    } else if dir.join("build.gradle").exists() || dir.join("build.gradle.kts").exists() {
+        "java-gradle"
+    } else if dir.join("pom.xml").exists() {
+        "java-maven"
     } else {
         "generic"
     }
@@ -235,7 +238,12 @@ typecheck = "mypy .""#
 lint = "bundle exec rubocop"
 console = "bundle exec irb""#
         }
-        "java" => {
+        "java-gradle" => {
+            r#"build = "./gradlew build"
+test = "./gradlew test"
+lint = "./gradlew check""#
+        }
+        "java-maven" => {
             r#"build = "mvn compile"
 test = "mvn test"
 lint = "mvn checkstyle:check""#
@@ -420,6 +428,49 @@ dir = "client"
     }
 
     #[test]
+    fn detect_python_setup_py() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("setup.py"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "python");
+    }
+
+    #[test]
+    fn detect_ruby_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Gemfile"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "ruby");
+    }
+
+    #[test]
+    fn detect_java_gradle_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("build.gradle"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "java-gradle");
+    }
+
+    #[test]
+    fn detect_java_gradle_kts_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("build.gradle.kts"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "java-gradle");
+    }
+
+    #[test]
+    fn detect_java_maven_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("pom.xml"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "java-maven");
+    }
+
+    #[test]
+    fn detect_multi_marker_uses_first_match() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "rust");
+    }
+
+    #[test]
     fn detect_generic_project() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(detect_project_type(dir.path()), "generic");
@@ -427,7 +478,16 @@ dir = "client"
 
     #[test]
     fn task_defaults_are_valid_toml() {
-        for project_type in &["rust", "node", "go", "python", "ruby", "java", "generic"] {
+        for project_type in &[
+            "rust",
+            "node",
+            "go",
+            "python",
+            "ruby",
+            "java-gradle",
+            "java-maven",
+            "generic",
+        ] {
             let defaults = task_defaults(project_type);
             let toml_str = format!("[tasks]\n{}", defaults);
             let result: Result<FledgeFile, _> = toml::from_str(&toml_str);
