@@ -25,15 +25,19 @@ Plugin system for community extensions. Plugins are external executables that re
 |--------|-------------|
 | `run` | Entry point — install, list, remove, or run plugins |
 | `PluginOptions` | Options for the plugin subcommand |
+| `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
+| `PluginAction` | Enum of plugin operations: Install, Remove, List, Search, Run |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
+| `list_installed` | List all installed plugins with metadata |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `PluginOptions` | CLI options: `action`, `name`, `json` |
+| `PluginOptions` | CLI options: `action`, `json` |
+| `PluginAction` | Enum: Install, Remove, List, Search, Run |
+| `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
 | `PluginManifest` | Parsed `plugin.toml`: name, version, description, commands, hooks |
-| `PluginInfo` | Installed plugin metadata for listing |
 
 ### Functions
 
