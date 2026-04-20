@@ -1,0 +1,24 @@
+from click.testing import CliRunner
+
+from src.cli import main
+
+
+def test_hello_default():
+    runner = CliRunner()
+    result = runner.invoke(main, ["hello"])
+    assert result.exit_code == 0
+    assert "Hello, world!" in result.output
+
+
+def test_hello_name():
+    runner = CliRunner()
+    result = runner.invoke(main, ["hello", "--name", "Fledge"])
+    assert result.exit_code == 0
+    assert "Hello, Fledge!" in result.output
+
+
+def test_version():
+    runner = CliRunner()
+    result = runner.invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert "0.1.0" in result.output
