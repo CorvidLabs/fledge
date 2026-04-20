@@ -5,6 +5,7 @@ use console::style;
 use std::path::PathBuf;
 
 mod ask;
+mod checks;
 mod config;
 mod create_template;
 mod github;
@@ -15,6 +16,7 @@ mod prs;
 mod publish;
 mod remote;
 mod review;
+mod run;
 mod search;
 mod spec;
 mod templates;
@@ -170,6 +172,26 @@ enum Commands {
         /// Review only a specific file
         #[arg(short, long)]
         file: Option<String>,
+    },
+    /// View CI/CD check status for a branch
+    Checks {
+        /// Branch to check (default: current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run a project task defined in fledge.toml
+    Run {
+        /// Task name to run (lists tasks if omitted)
+        task: Option<String>,
+        /// Create a starter fledge.toml
+        #[arg(long)]
+        init: bool,
+        /// List available tasks
+        #[arg(short, long)]
+        list: bool,
     },
     /// Ask a question about your codebase
     Ask {
@@ -416,6 +438,12 @@ fn run() -> Result<()> {
                 None => prs::PrsAction::List { state, limit, json },
             };
             prs::run(action)?;
+        }
+        Commands::Checks { branch, json } => {
+            checks::run(checks::ChecksOptions { branch, json })?;
+        }
+        Commands::Run { task, init, list } => {
+            run::run(run::RunOptions { task, init, list })?;
         }
         Commands::Review { base, file } => {
             review::run(review::ReviewOptions { base, file })?;
