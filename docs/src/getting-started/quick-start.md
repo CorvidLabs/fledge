@@ -98,13 +98,15 @@ fledge plugin install someone/fledge-deploy
 fledge plugin list
 ```
 
-## Feature Branches + PRs
+## Work Branches + PRs
 
 ```bash
-fledge work start add-logging    # creates feat/add-logging
-# ... hack on your feature ...
-fledge work pr                   # opens a PR
-fledge work status               # where are we?
+fledge work start add-logging                # creates feat/add-logging
+fledge work start fix-typo --type fix        # creates fix/fix-typo
+fledge work start bump-deps --type chore     # creates chore/bump-deps
+# ... hack on your branch ...
+fledge work pr                               # opens a PR
+fledge work status                           # where are we?
 ```
 
 ## CI + Code Review

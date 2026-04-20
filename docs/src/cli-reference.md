@@ -275,7 +275,7 @@ fledge doctor [OPTIONS]
 
 ### fledge work `<action>`
 
-Feature branch and PR workflow.
+Work branch and PR workflow. Supports any branch type, not just features.
 
 ```
 fledge work <start|pr|status> [OPTIONS]
@@ -283,9 +283,34 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Subcommands:**
 
-- `start <name>` - Create `feat/<name>` branch (`--base` to pick the base)
+- `start <name>` - Create a work branch
 - `pr` - Open a PR (`--title`, `--body`, `--draft`, `--base`)
 - `status` - Current branch + PR status
+
+**Options for `work start`:**
+
+- `-t, --type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
+- `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
+- `--base <BRANCH>` - Base branch [default: `main`]
+
+The branch format is configurable via `[work]` in `fledge.toml`:
+
+```toml
+[work]
+default_type = "feat"
+branch_format = "{author}/{type}/{name}"
+```
+
+**Examples:**
+
+```bash
+fledge work start add-auth                    # feat/add-auth (default)
+fledge work start login-crash --type fix      # fix/login-crash
+fledge work start bump-deps --type chore      # chore/bump-deps
+fledge work start login-crash --issue 42      # feat/42-login-crash
+fledge work start my-feature --prefix user/leif  # user/leif/my-feature
+```
 
 ---
 
