@@ -1,0 +1,16 @@
+[template]
+name = "python-cli"
+description = "Python CLI application with Click and pyproject.toml"
+min_fledge_version = "0.1.0"
+requires = ["python3"]
+
+[prompts]
+description = { message = "Project description", default = "A new Python CLI" }
+
+[files]
+render = ["**/*.py", "**/*.toml", "**/*.md", "**/*.yml", "**/*.cfg"]
+copy = []
+ignore = ["template.toml"]
+
+[hooks]
+post_create = ["python3 -m venv .venv"]

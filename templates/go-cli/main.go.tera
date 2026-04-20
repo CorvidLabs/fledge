@@ -1,0 +1,7 @@
+package main
+
+import "github.com/{{ github_org }}/{{ project_name }}/cmd"
+
+func main() {
+	cmd.Execute()
+}

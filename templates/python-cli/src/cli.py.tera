@@ -1,0 +1,18 @@
+import click
+
+
+@click.group()
+@click.version_option()
+def main():
+    """{{ description }}"""
+
+
+@main.command()
+@click.option("--name", default="world", help="Name to greet.")
+def hello(name: str):
+    """Say hello."""
+    click.echo(f"Hello, {name}!")
+
+
+if __name__ == "__main__":
+    main()

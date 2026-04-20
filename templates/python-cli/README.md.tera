@@ -1,0 +1,29 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+## Usage
+
+```bash
+{{ project_name }} hello --name world
+```
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest
+ruff check src/
+```
+
+## License
+
+{{ license }}

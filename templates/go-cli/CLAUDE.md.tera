@@ -1,0 +1,16 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+go build
+go test ./...
+go vet ./...
+```
+
+## Architecture
+
+- `main.go` — Entry point
+- `cmd/root.go` — CLI commands (Cobra)

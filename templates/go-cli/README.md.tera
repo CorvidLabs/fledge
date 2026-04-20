@@ -1,0 +1,27 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Installation
+
+```bash
+go install github.com/{{ github_org }}/{{ project_name }}@latest
+```
+
+## Usage
+
+```bash
+{{ project_name }} hello --name world
+```
+
+## Development
+
+```bash
+go build
+go test ./...
+go vet ./...
+```
+
+## License
+
+{{ license }}
