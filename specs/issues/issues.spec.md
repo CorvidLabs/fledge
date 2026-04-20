@@ -7,8 +7,8 @@ files:
 
 db_tables: []
 depends_on:
-  - specs/github/github.spec.md
-  - specs/config/config.spec.md
+  - github
+  - config
 ---
 
 # Issues

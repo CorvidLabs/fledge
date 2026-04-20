@@ -7,8 +7,8 @@ files:
 
 db_tables: []
 depends_on:
-  - specs/config/config.spec.md
-  - specs/templates/templates.spec.md
+  - config
+  - templates
 ---
 
 # Publish
