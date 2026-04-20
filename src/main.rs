@@ -304,13 +304,13 @@ enum Commands {
         /// The question to ask
         question: Vec<String>,
     },
-    /// Interactive TUI for browsing and scaffolding templates (requires --features tui)
+    /// Interactive TUI dashboard — browse and run all fledge commands (requires --features tui)
     #[cfg(feature = "tui")]
     Tui {
-        /// Parent directory for the project
+        /// Parent directory for template scaffolding
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
-        /// Skip git init and initial commit
+        /// Skip git init for template scaffolding
         #[arg(long)]
         no_git: bool,
     },
