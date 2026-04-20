@@ -1,6 +1,6 @@
 [package]
 name = "fledge"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2024"
 authors = ["CorvidLabs <corvidlabs@proton.me>"]
 description = "Corvid-themed project scaffolding CLI — get your projects ready to fly."
