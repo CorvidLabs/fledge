@@ -1,5 +1,11 @@
 # fledge
 
+[![CI](https://github.com/CorvidLabs/fledge/actions/workflows/ci.yml/badge.svg)](https://github.com/CorvidLabs/fledge/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/fledge)](https://crates.io/crates/fledge)
+[![Downloads](https://img.shields.io/crates/d/fledge)](https://crates.io/crates/fledge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://corvidlabs.github.io/fledge/)
+
 Dev-lifecycle CLI — get your projects ready to fly.
 
 A fast, opinionated CLI built in Rust. Scaffold projects, run tasks, compose workflow pipelines, manage plugins, check dependencies, review code, and ship — all from one binary.
