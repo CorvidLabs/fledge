@@ -1,0 +1,43 @@
+# fledge.toml -- fledge uses its own CLI for development workflows
+# Detected project type: rust
+
+[tasks]
+build = "cargo build"
+test = "cargo test"
+lint = "cargo clippy -- -D warnings"
+fmt = "cargo fmt --check"
+fmt-fix = "cargo fmt"
+spec-check = "cargo run -- spec check"
+docs-build = "mdbook build docs"
+docs-serve = "mdbook serve docs --open"
+
+[tasks.validate-templates]
+cmd = "cargo run -- validate-template templates/"
+description = "Validate all built-in templates"
+
+[flows.ci]
+description = "Full CI pipeline"
+steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
+
+[flows.check]
+description = "Quick quality check"
+steps = [
+  { parallel = ["fmt", "lint"] },
+  "test",
+]
+
+[flows.pre-commit]
+description = "Run before committing"
+steps = [
+  { parallel = ["fmt", "lint"] },
+  "test",
+  "spec-check",
+]
+
+[flows.docs]
+description = "Build and validate documentation"
+steps = ["docs-build"]
+
+[flows.release]
+description = "Pre-release validation"
+steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates", "docs-build"]

@@ -15,10 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fledge validate-template` - validate templates for correctness with `--strict` and `--json` output
 - `fledge run` zero-config mode - auto-detects project type and runs tasks without `fledge.toml`
 - Community flow registry - search and import flows from GitHub
+- `fledge.toml` in the repo root - fledge now dogfoods its own CLI for development workflows
+- "Using Fledge with Existing Projects" documentation guide
+
+### Fixed
+
+- **Security**: path traversal in template rendering - malicious templates can no longer write outside the project directory
+- CLI reference examples now use correct built-in template names
 
 ### Changed
 
 - Full end-to-end dev lifecycle coverage from scaffold to ship
+- Homebrew formula updated to 1.0.0
 - Promoted to 1.0.0 - stable API
 
 ## [0.8.0] - 2026-04-19

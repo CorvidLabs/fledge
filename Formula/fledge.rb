@@ -2,7 +2,7 @@ class Fledge < Formula
   desc "Corvid-themed project scaffolding CLI — get your projects ready to fly"
   homepage "https://github.com/CorvidLabs/fledge"
   license "MIT"
-  version "0.6.0"
+  version "1.0.0"
 
   on_macos do
     on_arm do
