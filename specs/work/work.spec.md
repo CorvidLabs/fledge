@@ -14,7 +14,7 @@ depends_on:
 
 ## Purpose
 
-Provides opinionated git workflow commands for feature branch development. `fledge work start` creates a branch following configurable naming conventions (supporting multiple branch types like feat, fix, chore, etc.), and `fledge work pr` creates a pull request from the current branch with automatic title/body generation.
+Provides opinionated git workflow commands for feature branch development. `fledge work start` creates a branch following configurable naming conventions (type, issue linking, custom prefix), and `fledge work pr` creates a pull request from the current branch with automatic title/body generation.
 
 ## Public API
 
@@ -24,16 +24,16 @@ Provides opinionated git workflow commands for feature branch development. `fled
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate work subcommand |
 | `WorkAction` | Enum of subcommands: Start, Pr, Status |
-| `WorkConfig` | Configuration struct for branch format and default type |
+| `WorkConfig` | Configuration for branch naming (format string, default type) |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
-| `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping prefix and converting hyphens to spaces |
-| `build_branch_name` | Constructs a branch name from config format, type, name, issue, and author |
+| `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces |
+| `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `WorkAction` | Enum of subcommands: Start (with name, branch_type, issue, prefix, base), Pr, Status |
+| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base), Pr, Status |
 | `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 
 ### Traits
@@ -46,12 +46,13 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(WorkAction) -> Result<()>` | Dispatches to start, pr, or status |
-| `start` | `(name, branch_type, issue, prefix, base) -> Result<()>` | Creates and checks out a branch using configurable format |
+| `start` | `(name, branch_type, issue, prefix, base) -> Result<()>` | Creates and checks out a branch with configurable type and naming |
 | `pr` | `(title, body, draft, base) -> Result<()>` | Creates a PR via `gh` CLI |
 | `status` | `() -> Result<()>` | Shows current branch, commits ahead, and PR status |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
 | `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
-| `build_branch_name` | `(config, btype, name, issue, author) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
+| `load_work_config` | `() -> WorkConfig` | Reads `[work]` section from `fledge.toml`, falls back to defaults |
+| `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
 
 ## Invariants
 
@@ -66,6 +67,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 9. `status` works without `gh` (gracefully degrades if not available)
 10. `--prefix` bypasses type validation and format template, using raw `prefix/name`
 11. `--issue N` prepends the issue number to the branch name segment: `N-name`
+12. `generate_title_from_branch` strips any valid branch type prefix (feat/, fix/, chore/, docs/, hotfix/, refactor/)
 
 ## Behavioral Examples
 
@@ -154,7 +156,7 @@ $ fledge work status
 ## Dependencies
 
 - `console` — styled terminal output
-- `serde` / `toml` — config deserialization
+- `serde` / `toml` — config deserialization for `[work]` section in `fledge.toml`
 - `crate::config::Config` — global config for author resolution
 - Git CLI — branch operations
 - `gh` CLI — PR creation (optional for `status`)
