@@ -35,6 +35,11 @@ cargo fmt --check
 - `src/github.rs` — Shared GitHub API helpers
 - `src/remote.rs` — Remote template fetching and caching
 - `src/flows.rs` — Composable workflow pipelines
+- `src/deps.rs` — Cross-language dependency health checker
+- `src/metrics.rs` — Code metrics (LOC, churn, test ratio)
+- `src/plugin.rs` — Plugin system for community extensions
+- `src/validate.rs` — Template validation
+- `src/tui.rs` — Interactive template browser (feature-gated)
 - `src/doctor.rs` — Environment diagnostics
 - `specs/` — spec-sync specifications (source of truth)
 - `templates/` — Built-in project templates
