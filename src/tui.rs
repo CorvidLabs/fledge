@@ -342,6 +342,7 @@ fn clone_template_for_fields(tpl: &Template) -> Template {
                 description: tpl.manifest.template.description.clone(),
                 min_fledge_version: tpl.manifest.template.min_fledge_version.clone(),
                 version: tpl.manifest.template.version.clone(),
+                requires: tpl.manifest.template.requires.clone(),
             },
             prompts,
             files: FileRules {
