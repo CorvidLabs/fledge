@@ -12,12 +12,12 @@ I kept setting up the same boilerplate across projects — CI workflows, linters
 
 | Pillar | Tagline | Commands |
 |--------|---------|----------|
-| **Start** | Scaffold and discover | `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update`, `tui` |
-| **Build** | Configure and run | `run`, `lane`, `config` |
+| **Start** | Scaffold and discover | `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update` |
+| **Build** | Configure and run | `run`, `lane`, `config`, `doctor` |
 | **Develop** | Branch and spec | `work`, `spec` |
-| **Review** | Quality and insight | `review`, `ask`, `doctor`, `metrics`, `deps` |
+| **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
 | **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog` |
-| **Extend** | Grow the tool | `plugin`, `completions` |
+| **Extend** | Grow the tool | `plugin`, `completions`, `tui` |
 
 The lifecycle flows naturally: Start a project, Build your tasks and config, Develop features on branches, Review quality before merging, and Ship releases. Extend runs alongside everything — plugins and completions enhance any stage.
 

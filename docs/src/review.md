@@ -1,6 +1,6 @@
 # Review — Quality and Insight
 
-Check your code before it ships. AI-powered review, codebase Q&A, environment health, code metrics, and dependency auditing.
+Check your code before it ships. AI-powered review, codebase Q&A, code metrics, and dependency auditing.
 
 ## AI code review with `fledge review`
 
@@ -19,15 +19,6 @@ Got a question about how something works? Ask it.
 ```bash
 fledge ask "how does the template rendering work?"
 fledge ask "what tests cover the config module?"
-```
-
-## Environment diagnostics with `fledge doctor`
-
-Checks your setup for missing tools, bad config, and common issues.
-
-```bash
-fledge doctor
-fledge doctor --json
 ```
 
 ## Code metrics with `fledge metrics`

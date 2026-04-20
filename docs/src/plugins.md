@@ -138,6 +138,17 @@ Hooks fire in response to fledge events.
 | `event` | string | Yes | Event to hook (e.g. `lane:post`) |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
+## Interactive TUI
+
+`fledge tui` gives you a visual template browser — arrow keys to browse, Tab to fill in variables, Enter to scaffold. It's an alternative to `fledge init` for people who prefer a visual interface.
+
+```bash
+fledge tui
+fledge tui -o ~/projects
+```
+
+Requires building with `--features tui`.
+
 ## File Locations
 
 | Path | What's there |

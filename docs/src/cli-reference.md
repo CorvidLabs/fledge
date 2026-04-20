@@ -129,22 +129,6 @@ fledge update [OPTIONS]
 
 ---
 
-### fledge tui *(requires `--features tui`)*
-
-Interactive template browser.
-
-```
-fledge tui [OPTIONS]
-```
-
-**Options:**
-- `-o, --output <OUTPUT>` — Where to put the project [default: `.`]
-- `--no-git` — Skip git init
-
-**Navigation:** Arrow keys to browse, Tab to fill in variables, Enter to create.
-
----
-
 ## Build — Configure and run
 
 ### fledge run `[task]`
@@ -265,6 +249,19 @@ fledge config list
 
 ---
 
+### fledge doctor
+
+Check your environment for issues (missing tools, bad config, etc). Run this before `fledge run` if something seems off.
+
+```
+fledge doctor [OPTIONS]
+```
+
+**Options:**
+- `--json` — JSON output
+
+---
+
 ## Develop — Branch and spec
 
 ### fledge work `<action>`
@@ -327,19 +324,6 @@ fledge ask <question>
 fledge ask "how does the template rendering work?"
 fledge ask "what tests cover the config module?"
 ```
-
----
-
-### fledge doctor
-
-Check your environment for issues (missing tools, bad config, etc).
-
-```
-fledge doctor [OPTIONS]
-```
-
-**Options:**
-- `--json` — JSON output
 
 ---
 
@@ -536,3 +520,19 @@ fledge completions bash >> ~/.bashrc
 fledge completions zsh > ~/.zfunc/_fledge
 fledge completions fish > ~/.config/fish/completions/fledge.fish
 ```
+
+---
+
+### fledge tui *(requires `--features tui`)*
+
+Interactive template browser. Browse, preview, and scaffold templates without memorizing command flags.
+
+```
+fledge tui [OPTIONS]
+```
+
+**Options:**
+- `-o, --output <OUTPUT>` — Where to put the project [default: `.`]
+- `--no-git` — Skip git init
+
+**Navigation:** Arrow keys to browse, Tab to fill in variables, Enter to create.
