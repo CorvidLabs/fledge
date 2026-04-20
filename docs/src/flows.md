@@ -1,6 +1,6 @@
 # Flows & Pipelines
 
-flows let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge flow ci`. They support parallel groups and configurable failure behavior.
+Flows let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge flow ci`. They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
@@ -16,9 +16,9 @@ This looks at your project type and creates sensible defaults. Then just run one
 fledge flow ci
 ```
 
-## Defining flows
+## Defining Flows
 
-flows go in `fledge.toml` alongside your tasks:
+Flows go in `fledge.toml` alongside your tasks:
 
 ```toml
 [tasks]
@@ -39,7 +39,7 @@ steps = [
 ]
 ```
 
-### flow Options
+### Flow Options
 
 | Field | Type | Default | What it does |
 |-------|------|---------|-------------|
