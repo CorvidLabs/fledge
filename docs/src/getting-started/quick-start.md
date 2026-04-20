@@ -42,7 +42,7 @@ fledge init my-project
 Any GitHub repo works as a template source:
 
 ```bash
-fledge init my-app --template CorvidLabs/fledge-templates/react-app
+fledge init my-app --template CorvidLabs/fledge-templates/python-api
 ```
 
 ## Dry Run First

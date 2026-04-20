@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-04-20
+
+### Added
+
+- `fledge flow` - composable workflow pipelines with sequential, parallel, and inline steps
+- `fledge flow --init` - auto-generate flows for your project type
+- `fledge plugin` - plugin architecture (install, remove, list, search, run) via GitHub repos
+- `fledge validate-template` - validate templates for correctness with `--strict` and `--json` output
+- `fledge run` zero-config mode - auto-detects project type and runs tasks without `fledge.toml`
+- Community flow registry - search and import flows from GitHub
+
+### Changed
+
+- Full end-to-end dev lifecycle coverage from scaffold to ship
+- Promoted to 1.0.0 - stable API
+
+## [0.8.0] - 2026-04-19
+
+### Added
+
+- `fledge deps` - dependency health check (outdated packages, audit, license scan) for Rust, Node, Python, Go, Ruby
+- `fledge metrics` - project stats (lines of code by language, test file ratio, churn analysis)
+- `fledge doctor` - environment diagnostics (toolchain versions, missing dependencies, config validation)
+- JSON output for all three commands (`--json`)
+
 ## [0.7.0] - 2026-04-19
 
 ### Added
@@ -59,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fledge create-template` — scaffold a new fledge template
 - Template versioning and compatibility checks (`min_fledge_version`)
 - Version pinning for remote templates with `@ref` syntax
-- Additional built-in templates: `python-cli`, `go-cli`, `node-cli`, `node-lib`, `monorepo`, `static-site`
+- Additional built-in templates: `python-cli`, `go-cli`, `ts-node`, `static-site`
 
 ### Changed
 
@@ -71,7 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Core scaffolding engine with Tera template rendering
-- 5 built-in templates: `rust-cli`, `rust-lib`, `swift-pkg`, `ts-bun`, `angular-app`
+- 6 built-in templates: `rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`
 - Remote template support via `owner/repo` GitHub syntax
 - Interactive prompts with dialoguer for project configuration
 - Hook system with `pre_create` and `post_create` lifecycle hooks

@@ -7,7 +7,7 @@ files:
 
 db_tables: []
 depends_on:
-  - specs/run/run.spec.md
+  - run
 ---
 
 # Deps

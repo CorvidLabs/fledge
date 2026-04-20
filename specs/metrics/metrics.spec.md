@@ -44,7 +44,7 @@ Project code metrics — lines of code by language, file churn from git history,
 2. `--churn` shows files sorted by commit frequency from git history, filtered to existing files
 3. `--tests` detects test files using language-specific patterns and reports test-to-code ratio
 4. `--json` outputs structured JSON for all modes
-5. Directories like `.git`, `node_modules`, `target`, `vendor`, `dist`, `build` are always excluded
+5. Directories like `.git`, `node_modules`, `target`, `vendor`, `dist`, `build`, `.next`, `__pycache__`, `.tox`, `venv`, `.venv`, `deps`, `_build`, `.gradle`, `.idea`, `.vscode` are always excluded
 6. Lines are classified as code, blank, or comment based on language-specific comment prefixes
 7. `--limit` controls how many entries appear in churn output (default 20)
 

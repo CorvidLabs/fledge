@@ -1,8 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use include_dir::{Dir, include_dir};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use tera::Tera;
 use walkdir::WalkDir;
 
@@ -285,7 +285,7 @@ pub fn render_template(
         if entry.file_type().is_dir() {
             let dir_name = rel_str.to_string();
             let rendered_name = render_path_string(&dir_name, variables)?;
-            let target = target_dir.join(&rendered_name);
+            let target = safe_join(target_dir, &rendered_name)?;
             std::fs::create_dir_all(&target)?;
             continue;
         }
@@ -301,7 +301,7 @@ pub fn render_template(
 
         // Render the path itself (handles {{ project_name_pascal }} in paths)
         let rendered_rel = render_path_string(&output_rel, variables)?;
-        let target_path = target_dir.join(&rendered_rel);
+        let target_path = safe_join(target_dir, &rendered_rel)?;
 
         // Ensure parent directory exists
         if let Some(parent) = target_path.parent() {
@@ -335,6 +335,16 @@ pub fn render_template(
 
     created_files.sort();
     Ok(created_files)
+}
+
+fn safe_join(base: &Path, rel: &str) -> Result<PathBuf> {
+    let joined = base.join(rel);
+    for component in joined.strip_prefix(base).unwrap_or(&joined).components() {
+        if matches!(component, Component::ParentDir) {
+            bail!("path traversal rejected: {}", rel);
+        }
+    }
+    Ok(joined)
 }
 
 fn render_path_string(path: &str, ctx: &tera::Context) -> Result<String> {
@@ -927,5 +937,19 @@ ignore = ["template.toml"]
         let (found, missing) = check_requirements(&[]);
         assert!(found.is_empty());
         assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn safe_join_rejects_traversal() {
+        let base = Path::new("/tmp/project");
+        assert!(safe_join(base, "../etc/passwd").is_err());
+        assert!(safe_join(base, "src/../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn safe_join_allows_normal_paths() {
+        let base = Path::new("/tmp/project");
+        assert!(safe_join(base, "src/main.rs").is_ok());
+        assert!(safe_join(base, "nested/dir/file.txt").is_ok());
     }
 }

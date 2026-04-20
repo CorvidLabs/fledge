@@ -30,7 +30,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Type | Description |
 |------|-------------|
-| `InitOptions` | Options for project creation: name, template, output, no_git, no_install, refresh |
+| `InitOptions` | Options for project creation: name, template, output, no_git, no_install, refresh, dry_run, yes |
 
 ### Traits
 

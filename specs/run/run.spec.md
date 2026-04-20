@@ -13,7 +13,7 @@ depends_on: []
 
 ## Purpose
 
-Task runner that reads task definitions from `fledge.toml` and executes them. Supports simple string commands, full task configs with dependencies, environment variables, and working directory overrides.
+Task runner that reads task definitions from `fledge.toml` and executes them. Supports simple string commands, full task configs with dependencies, environment variables, and working directory overrides. When no `fledge.toml` exists, auto-detects the project type and synthesizes tasks in memory. Only suggests `fledge run --init` for unrecognized (generic) project types.
 
 ## Public API
 
@@ -40,11 +40,12 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 
 ## Invariants
 
-1. Tasks are read from `fledge.toml` in the current directory
-2. Short-form tasks (`name = "cmd"`) and full-form (`[tasks.name]` with `cmd`, `deps`, `env`, `dir`, `description`) are both supported
+1. Tasks are read from `fledge.toml` in the current directory, or auto-detected from project type when no `fledge.toml` exists
+2. Short-form tasks (`name = "cmd"`) and full-form (`[tasks.name]` with `cmd`, `deps`, `description`, `env`, `dir`) are both supported
 3. Dependencies are executed before the task itself
 4. Circular dependencies are detected and produce an error
 5. `--init` creates a starter `fledge.toml` if none exists
+6. When auto-detecting, the task list header indicates tasks are auto-detected and suggests creating `fledge.toml` to customize
 
 ## Behavioral Examples
 
@@ -73,7 +74,7 @@ $ fledge run --init
 
 | Error | When | Behavior |
 |-------|------|----------|
-| No fledge.toml | File missing | Suggest `fledge run --init` |
+| No fledge.toml (generic project) | File missing and project type is unrecognized | Suggest `fledge run --init` |
 | No tasks defined | Empty `[tasks]` section | Error with guidance |
 | Unknown task | Task name not found | List available tasks |
 | Circular dependency | Task A depends on B depends on A | Error with cycle info |

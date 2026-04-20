@@ -73,7 +73,7 @@ fledge init my-tool --template rust-cli
 fledge init my-project
 
 # Use a template from GitHub
-fledge init my-app --template CorvidLabs/fledge-templates/react-app
+fledge init my-app --template CorvidLabs/fledge-templates/python-api
 
 # See what you'd get before committing
 fledge init my-tool --template rust-cli --dry-run

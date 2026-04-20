@@ -152,7 +152,7 @@ Uppercase: {{ author | upper }}
 
 ### Putting it together
 
-```
+````
 # {{ project_name }}
 
 {{ description }}
@@ -171,7 +171,7 @@ This project is MIT licensed.
 cd {{ project_name_snake }}
 cargo build
 ```
-```
+````
 
 ## Building a Template from Scratch
 
