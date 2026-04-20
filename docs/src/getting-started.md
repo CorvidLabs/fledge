@@ -1,3 +1,3 @@
 # Getting Started
 
-Install fledge and create your first project in about two minutes.
+Install fledge and get started in about two minutes -- whether you're creating a new project or adding fledge to an existing one.

@@ -53,6 +53,18 @@ cd fledge && cargo install --path .
 
 ## Quick Start
 
+### Existing project? Just use it.
+
+```bash
+cd my-project
+fledge run test          # auto-detects your stack, zero config needed
+fledge run build
+fledge review            # AI code review works in any git repo
+fledge run --init        # optional: generate fledge.toml to customize
+```
+
+### New project? Scaffold it.
+
 ```bash
 # Scaffold a Rust CLI
 fledge init my-tool --template rust-cli
@@ -65,11 +77,6 @@ fledge init my-app --template CorvidLabs/fledge-templates/react-app
 
 # See what you'd get before committing
 fledge init my-tool --template rust-cli --dry-run
-
-# Set up tasks and run them
-fledge run --init       # auto-generates fledge.toml
-fledge run build
-fledge run test
 
 # Workflow pipelines
 fledge flow --init       # generate default flows

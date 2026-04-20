@@ -133,7 +133,7 @@ fledge update [OPTIONS]
 
 ### fledge run `[task]`
 
-Run tasks from `fledge.toml`. Use `--init` to auto-generate a config based on what it finds in your project.
+Run tasks. Works with zero config (auto-detects your project type) or from `fledge.toml` when you want full control.
 
 ```
 fledge run [task] [OPTIONS]
@@ -143,12 +143,16 @@ fledge run [task] [OPTIONS]
 - `--init` - Generate `fledge.toml` with detected defaults
 - `-l, --list` - List available tasks
 
+**Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
+
+**Config mode** (`fledge.toml` exists): The config file takes full precedence. No mixing with auto-detection.
+
 **Auto-detection:**
 
 | Project | Detected by | Default tasks |
 |---------|------------|---------------|
 | Rust | `Cargo.toml` | build, test, clippy, fmt |
-| Node.js | `package.json` | build, test, lint |
+| Node.js | `package.json` | build, test, lint, dev (if scripts exist) |
 | Go | `go.mod` | build, test, vet |
 | Python | `pyproject.toml` / `setup.py` | pytest, ruff, mypy |
 | Ruby | `Gemfile` | rake, rspec |
@@ -156,10 +160,10 @@ fledge run [task] [OPTIONS]
 | Maven | `pom.xml` | compile, test |
 
 ```bash
-fledge run --init
-fledge run build
-fledge run test
-fledge run --list
+fledge run test          # works immediately in any detected project
+fledge run --list        # see what's available
+fledge run --init        # generate fledge.toml to customize
+fledge run build         # run a specific task
 ```
 
 ---
