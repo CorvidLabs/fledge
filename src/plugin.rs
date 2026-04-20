@@ -2,7 +2,6 @@ use anyhow::{Context, Result, bail};
 use console::style;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -232,7 +231,7 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
         if link_path.exists() || link_path.is_symlink() {
             fs::remove_file(&link_path).ok();
         }
-        symlink(&binary_path, &link_path).with_context(|| {
+        create_symlink(&binary_path, &link_path).with_context(|| {
             format!(
                 "creating symlink {} -> {}",
                 link_path.display(),
@@ -508,15 +507,40 @@ fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
     None
 }
 
+#[cfg(unix)]
 fn make_executable(path: &Path) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
-    let metadata = fs::metadata(path)?;
-    let mut perms = metadata.permissions();
-    let mode = perms.mode();
-    if mode & 0o111 == 0 {
-        perms.set_mode(mode | 0o755);
-        fs::set_permissions(path, perms)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = fs::metadata(path)?;
+        let mut perms = metadata.permissions();
+        let mode = perms.mode();
+        if mode & 0o111 == 0 {
+            perms.set_mode(mode | 0o755);
+            fs::set_permissions(path, perms)?;
+        }
     }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
+fn create_symlink(original: &Path, link: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(original, link)?;
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_file(original, link)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
@@ -575,7 +599,7 @@ mod tests {
     #[test]
     fn bin_dir_is_under_plugins() {
         let dir = plugin_bin_dir();
-        assert!(dir.to_string_lossy().ends_with("plugins/bin"));
+        assert!(dir.ends_with("plugins/bin"));
     }
 
     #[test]

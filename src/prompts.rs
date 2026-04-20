@@ -23,6 +23,7 @@ pub fn prompt_variables(
     template: &Template,
     project_name: &str,
     config: &Config,
+    yes: bool,
 ) -> Result<tera::Context> {
     let mut ctx = tera::Context::new();
 
@@ -36,18 +37,18 @@ pub fn prompt_variables(
     ctx.insert("year", &now.format("%Y").to_string());
     ctx.insert("date", &now.format("%Y-%m-%d").to_string());
 
-    // Author — from config, git, or prompt
     let author = match config.author_or_git() {
         Some(a) => a,
+        None if yes => project_name.to_string(),
         None => Input::with_theme(&ColorfulTheme::default())
             .with_prompt("Author name")
             .interact_text()?,
     };
     ctx.insert("author", &author);
 
-    // GitHub org — from config or prompt
     let github_org = match config.github_org() {
         Some(org) => org,
+        None if yes => project_name.to_string(),
         None => Input::with_theme(&ColorfulTheme::default())
             .with_prompt("GitHub organization")
             .default("CorvidLabs".to_string())
@@ -58,19 +59,26 @@ pub fn prompt_variables(
     // License
     ctx.insert("license", &config.license());
 
-    // Template-specific prompts
     for (key, prompt_def) in &template.manifest.prompts {
-        let theme = ColorfulTheme::default();
-        let value: String = if let Some(ref default) = prompt_def.default {
-            let rendered = render_default(default, &ctx).unwrap_or_else(|_| default.clone());
-            Input::with_theme(&theme)
-                .with_prompt(&prompt_def.message)
-                .default(rendered)
-                .interact_text()?
+        let value: String = if yes {
+            if let Some(ref default) = prompt_def.default {
+                render_default(default, &ctx).unwrap_or_else(|_| default.clone())
+            } else {
+                String::new()
+            }
         } else {
-            Input::with_theme(&theme)
-                .with_prompt(&prompt_def.message)
-                .interact_text()?
+            let theme = ColorfulTheme::default();
+            if let Some(ref default) = prompt_def.default {
+                let rendered = render_default(default, &ctx).unwrap_or_else(|_| default.clone());
+                Input::with_theme(&theme)
+                    .with_prompt(&prompt_def.message)
+                    .default(rendered)
+                    .interact_text()?
+            } else {
+                Input::with_theme(&theme)
+                    .with_prompt(&prompt_def.message)
+                    .interact_text()?
+            }
         };
         ctx.insert(key, &value);
     }

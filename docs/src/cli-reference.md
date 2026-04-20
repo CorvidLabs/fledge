@@ -83,6 +83,43 @@ fledge create-template <name> [OPTIONS]
 
 ---
 
+### fledge validate-template `[path]`
+
+Validate a template or directory of templates for correctness. Checks manifest parsing, Tera syntax, variable definitions, and render glob coverage.
+
+#### Usage
+
+```
+fledge validate-template [path] [OPTIONS]
+```
+
+#### Arguments
+
+- `[path]` — Path to a template directory or a directory containing multiple templates [default: `.`]
+
+#### Options
+
+- `--strict` — Treat warnings as errors (non-zero exit)
+- `--json` — Output results as JSON
+
+#### Examples
+
+```bash
+# Validate a single template
+fledge validate-template ./my-template
+
+# Validate all templates in a directory
+fledge validate-template ./templates
+
+# CI mode: fail on warnings
+fledge validate-template ./templates --strict
+
+# Machine-readable output
+fledge validate-template ./templates --json
+```
+
+---
+
 ### fledge search `[query]`
 
 Search for templates on GitHub using the `fledge-template` topic.
