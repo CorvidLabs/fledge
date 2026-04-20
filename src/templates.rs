@@ -814,17 +814,12 @@ ignore = ["template.toml"]
     }
 
     #[test]
-    fn discover_builtin_templates_finds_all_eight() {
+    fn discover_builtin_templates_finds_starters() {
         let templates = discover_templates(&[]).unwrap();
         let names: Vec<&str> = templates.iter().map(|t| t.name.as_str()).collect();
         assert!(names.contains(&"rust-cli"), "missing rust-cli");
-        assert!(names.contains(&"rust-lib"), "missing rust-lib");
         assert!(names.contains(&"ts-bun"), "missing ts-bun");
-        assert!(names.contains(&"angular-app"), "missing angular-app");
-        assert!(names.contains(&"swift-pkg"), "missing swift-pkg");
-        assert!(names.contains(&"python-cli"), "missing python-cli");
-        assert!(names.contains(&"go-cli"), "missing go-cli");
-        assert!(names.contains(&"monorepo"), "missing monorepo");
+        assert_eq!(names.len(), 2, "expected exactly 2 built-in templates");
     }
 
     #[test]

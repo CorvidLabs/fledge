@@ -13,7 +13,7 @@ spec: templates.spec.md
 - [x] Implement `.tera` extension detection and stripping
 - [x] Implement glob-based render/ignore file matching
 - [x] Implement path variable rendering (Tera in file/dir names)
-- [x] Create 5 built-in templates (rust-cli, rust-lib, ts-bun, angular-app, swift-pkg)
+- [x] Create built-in starter templates (rust-cli, ts-bun; others migrated to CorvidLabs/fledge-templates)
 - [x] Unit tests for discovery, rendering, globs, manifests
 
 ## Gaps

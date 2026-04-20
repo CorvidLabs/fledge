@@ -87,16 +87,10 @@ fledge changelog
 
 | Template | What you get |
 |----------|--------------|
-| `angular-app` | Angular + mobile-first setup |
-| `go-cli` | Go CLI with Cobra, Makefile, CI |
-| `monorepo` | Workspace monorepo structure |
-| `python-cli` | Python CLI with Click + packaging |
 | `rust-cli` | Rust CLI with clap, CI, release automation |
-| `rust-lib` | Rust library crate with docs + publishing |
-| `swift-pkg` | Swift package with Package.swift + CI |
 | `ts-bun` | TypeScript project on Bun |
 
-Plus community templates via [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).
+These ship offline with the binary. For more templates (Angular, Go, Python, Swift, monorepo, etc.), see [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates) — 12 official templates and growing.
 
 ## CLI Reference
 

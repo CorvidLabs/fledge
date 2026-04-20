@@ -13,7 +13,7 @@ spec: templates.spec.md
 
 ## Acceptance Criteria
 
-- `discover_templates()` finds all built-in templates (rust-cli, rust-lib, ts-bun, angular-app, swift-pkg)
+- `discover_templates()` finds all built-in templates (rust-cli, ts-bun)
 - Extra paths from config are searched for template directories
 - Remote repos from config are fetched and searched for templates
 - Templates are returned sorted alphabetically by name
