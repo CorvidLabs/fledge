@@ -40,7 +40,7 @@ Interactive user prompts using dialoguer. Handles template selection and variabl
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `select_template` | `(&[Template]) -> Result<usize>` | Interactive template selection menu |
-| `prompt_variables` | `(&Template, &str, &Config) -> Result<tera::Context>` | Collects all template variables via prompts |
+| `prompt_variables` | `(&Template, &str, &Config, bool) -> Result<tera::Context>` | Collects all template variables via prompts; bool is `yes` flag to skip interactive prompts |
 
 ## Invariants
 

@@ -36,7 +36,7 @@ license = "MIT"
 | Key | What it does | Fallback |
 |-----|-------------|----------|
 | `author` | Default author name | `git config user.name` |
-| `github_org` | Default GitHub org | `CorvidLabs` |
+| `github_org` | Default GitHub org | Prompted |
 | `license` | Default license | `MIT` |
 
 ### [templates]

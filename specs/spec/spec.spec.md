@@ -31,8 +31,8 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 |------|-------------|
 | `SpecAction` | Enum of subcommands: Check, Init, New |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
-| `ValidationResult` | Result of validating a single spec (warnings + errors) |
-| `CheckReport` | Aggregate report from checking all specs |
+| `SpecResult` | Result of validating a single spec (warnings + errors) |
+| `ValidationIssue` | Individual issue: message and is_error flag |
 
 ### Traits
 
@@ -44,9 +44,9 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, or new |
-| `check` | `(strict: bool) -> Result<()>` | Validates all specs and prints report |
-| `init` | `() -> Result<()>` | Scaffolds `.specsync/` with config.toml, registry.toml, .gitignore, version |
-| `new_spec` | `(name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files |
+| `check` | `(root: &Path, strict: bool) -> Result<()>` | Validates all specs and prints report (private) |
+| `init` | `(root: &Path) -> Result<()>` | Scaffolds `.specsync/` with config.toml, registry.toml, .gitignore, version (private) |
+| `new_spec` | `(root: &Path, name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files (private) |
 
 ## Invariants
 

@@ -37,7 +37,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, List, Search, Run |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
-| `PluginManifest` | Parsed `plugin.toml`: name, version, description, commands, hooks |
+| `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
 ### Functions
 
@@ -45,7 +45,7 @@ Plugin system for community extensions. Plugins are external executables that re
 |----------|-----------|-------------|
 | `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
-| `list_installed` | `() -> Result<Vec<PluginInfo>>` | List all installed plugins |
+| `list_installed` | `() -> Result<Vec<PluginEntry>>` | List all installed plugins |
 
 ## Plugin Format
 

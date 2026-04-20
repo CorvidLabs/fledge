@@ -54,7 +54,7 @@ Run tasks, check CI, and generate changelogs. fledge becomes your daily driver.
 - [x] `fledge changelog` - generate changelogs from git tags and conventional commits (#53)
 - [x] Language-agnostic support - auto-detects Rust, Node, Go, Python, Ruby, Java (#51)
 
-## 0.8: Project Health (planned)
+## 0.8: Project Health
 
 Dependency management, project metrics, and environment diagnostics.
 

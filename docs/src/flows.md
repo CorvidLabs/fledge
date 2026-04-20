@@ -222,17 +222,6 @@ You can pin to a specific branch or tag:
 fledge flow --import CorvidLabs/fledge-flows@v1.0.0
 ```
 
-## Environment diagnostics with `fledge doctor`
-
-Before you start building, make sure everything is in place. `fledge doctor` checks for missing tools, bad config, and common setup issues.
-
-```bash
-fledge doctor
-fledge doctor --json
-```
-
-This is a "can I build?" check. Run it when something feels off or on a fresh machine.
-
 ## Tips
 
 - Start with `fledge flow --init` and customize from there.
