@@ -87,7 +87,7 @@ Here `fmt` and `lint` run concurrently, then `test`, then `build`.
 
 ## Failure Behavior
 
-Default is `fail_fast = true` — pipeline stops as soon as something fails.
+Default is `fail_fast = true`. Pipeline stops on the first failure.
 
 ```toml
 [flows.ci]
@@ -231,12 +231,12 @@ fledge doctor
 fledge doctor --json
 ```
 
-This is a "can I build?" check — run it when something feels off or on a fresh machine.
+This is a "can I build?" check. Run it when something feels off or on a fresh machine.
 
 ## Tips
 
 - Start with `fledge flow --init` and customize from there.
-- Use parallel groups for independent checks — linting and formatting don't need to wait for each other.
+- Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
 - Use `fail_fast = false` for audit flows where you want the full report.
 - Inline commands are great for one-off steps that don't need to be named tasks.

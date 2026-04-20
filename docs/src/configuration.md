@@ -5,7 +5,7 @@
 Use a preset to get started fast:
 
 ```bash
-# CorvidLabs preset — sets author, org, license, template repo
+# CorvidLabs preset - sets author, org, license, template repo
 fledge config init --preset corvidlabs
 
 # Default config

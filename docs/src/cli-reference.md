@@ -2,7 +2,7 @@
 
 Every command, every flag. If it's in fledge, it's here.
 
-## Start — Scaffold and discover
+## Start: Scaffold and discover
 
 ### fledge init `<name>`
 
@@ -13,16 +13,16 @@ fledge init <name> [OPTIONS]
 ```
 
 **Arguments:**
-- `<name>` — Project name
+- `<name>` - Project name
 
 **Options:**
-- `-t, --template <TEMPLATE>` — Template to use (skips interactive selection)
-- `-o, --output <OUTPUT>` — Where to put it [default: `.`]
-- `--no-git` — Skip git init and initial commit
-- `--no-install` — Skip post-create hooks
-- `--refresh` — Force re-clone of cached remote templates
-- `--dry-run` — Preview without writing anything
-- `-y, --yes` — Accept all defaults, skip prompts
+- `-t, --template <TEMPLATE>` - Template to use (skips interactive selection)
+- `-o, --output <OUTPUT>` - Where to put it [default: `.`]
+- `--no-git` - Skip git init and initial commit
+- `--no-install` - Skip post-create hooks
+- `--refresh` - Force re-clone of cached remote templates
+- `--dry-run` - Preview without writing anything
+- `-y, --yes` - Accept all defaults, skip prompts
 
 **Examples:**
 
@@ -38,7 +38,7 @@ fledge init my-app --template CorvidLabs/templates/react-app@v2.0
 
 ### fledge list
 
-Show all available templates — built-in, configured repos, and local paths.
+Show all available templates (built-in, configured repos, and local paths).
 
 ```
 fledge list
@@ -55,7 +55,7 @@ fledge create-template <name> [OPTIONS]
 ```
 
 **Options:**
-- `-o, --output <OUTPUT>` — Parent directory [default: `.`]
+- `-o, --output <OUTPUT>` - Parent directory [default: `.`]
 
 ---
 
@@ -68,11 +68,11 @@ fledge validate-template [path] [OPTIONS]
 ```
 
 **Arguments:**
-- `[path]` — Template directory or directory of templates [default: `.`]
+- `[path]` - Template directory or directory of templates [default: `.`]
 
 **Options:**
-- `--strict` — Warnings become errors (non-zero exit)
-- `--json` — Machine-readable output
+- `--strict` - Warnings become errors (non-zero exit)
+- `--json` - Machine-readable output
 
 **Examples:**
 
@@ -94,8 +94,8 @@ fledge search [query] [OPTIONS]
 ```
 
 **Options:**
-- `-l, --limit <N>` — Max results [default: `20`]
-- `--json` — JSON output
+- `-l, --limit <N>` - Max results [default: `20`]
+- `--json` - JSON output
 
 ---
 
@@ -108,9 +108,9 @@ fledge publish [path] [OPTIONS]
 ```
 
 **Options:**
-- `--org <ORG>` — Publish under an org
-- `--private` — Private repo
-- `--description <DESC>` — Override repo description
+- `--org <ORG>` - Publish under an org
+- `--private` - Private repo
+- `--description <DESC>` - Override repo description
 
 ---
 
@@ -123,13 +123,13 @@ fledge update [OPTIONS]
 ```
 
 **Options:**
-- `--dry-run` — Preview changes
-- `--refresh` — Force re-clone
-- `-y, --yes` — Skip prompts
+- `--dry-run` - Preview changes
+- `--refresh` - Force re-clone
+- `-y, --yes` - Skip prompts
 
 ---
 
-## Build — Configure and run
+## Build: Configure and run
 
 ### fledge run `[task]`
 
@@ -140,8 +140,8 @@ fledge run [task] [OPTIONS]
 ```
 
 **Options:**
-- `--init` — Generate `fledge.toml` with detected defaults
-- `-l, --list` — List available tasks
+- `--init` - Generate `fledge.toml` with detected defaults
+- `-l, --list` - List available tasks
 
 **Auto-detection:**
 
@@ -173,12 +173,12 @@ fledge flow [name] [OPTIONS]
 ```
 
 **Options:**
-- `-l, --list` — List flows
-- `--init` — Generate default flows
-- `--dry-run` — Preview the plan
-- `--json` — JSON output
-- `--search` — Search GitHub for community flows
-- `--import <source>` — Import flows from a GitHub repo (owner/repo or owner/repo@ref)
+- `-l, --list` - List flows
+- `--init` - Generate default flows
+- `--dry-run` - Preview the plan
+- `--json` - JSON output
+- `--search` - Search GitHub for community flows
+- `--import <source>` - Import flows from a GitHub repo (owner/repo or owner/repo@ref)
 
 **Flow config in fledge.toml:**
 
@@ -263,11 +263,11 @@ fledge doctor [OPTIONS]
 ```
 
 **Options:**
-- `--json` — JSON output
+- `--json` - JSON output
 
 ---
 
-## Develop — Branch and spec
+## Develop: Branch and spec
 
 ### fledge work `<action>`
 
@@ -279,9 +279,9 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Subcommands:**
 
-- `start <name>` — Create `feat/<name>` branch (`--base` to pick the base)
-- `pr` — Open a PR (`--title`, `--body`, `--draft`, `--base`)
-- `status` — Current branch + PR status
+- `start <name>` - Create `feat/<name>` branch (`--base` to pick the base)
+- `pr` - Open a PR (`--title`, `--body`, `--draft`, `--base`)
+- `status` - Current branch + PR status
 
 ---
 
@@ -295,13 +295,13 @@ fledge spec <check|init|new> [OPTIONS]
 
 **Subcommands:**
 
-- `check` — Validate specs against code (`--strict` for warnings as errors)
-- `init` — Set up spec-sync for the project
-- `new <name>` — Scaffold a new spec
+- `check` - Validate specs against code (`--strict` for warnings as errors)
+- `init` - Set up spec-sync for the project
+- `new <name>` - Scaffold a new spec
 
 ---
 
-## Review — Quality and insight
+## Review: Quality and insight
 
 ### fledge review
 
@@ -312,8 +312,8 @@ fledge review [OPTIONS]
 ```
 
 **Options:**
-- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
-- `-f, --file <FILE>` — Review a single file
+- `-b, --base <BRANCH>` - Base branch [default: auto-detect]
+- `-f, --file <FILE>` - Review a single file
 
 ---
 
@@ -334,17 +334,17 @@ fledge ask "what tests cover the config module?"
 
 ### fledge metrics
 
-Code stats — LOC by language, file churn, test ratio.
+Code stats: LOC by language, file churn, test ratio.
 
 ```
 fledge metrics [OPTIONS]
 ```
 
 **Options:**
-- `--churn` — Most-changed files from git history
-- `--tests` — Test file detection and ratio
-- `-l, --limit <N>` — Max churn entries [default: `20`]
-- `--json` — JSON output
+- `--churn` - Most-changed files from git history
+- `--tests` - Test file detection and ratio
+- `-l, --limit <N>` - Max churn entries [default: `20`]
+- `--json` - JSON output
 
 ```bash
 fledge metrics
@@ -364,10 +364,10 @@ fledge deps [OPTIONS]
 ```
 
 **Options:**
-- `--outdated` — Find stale dependencies
-- `--audit` — Security audit
-- `--licenses` — License scan
-- `--json` — JSON output
+- `--outdated` - Find stale dependencies
+- `--audit` - Security audit
+- `--licenses` - License scan
+- `--json` - JSON output
 
 **Works with:**
 
@@ -388,7 +388,7 @@ fledge deps --outdated --audit --licenses --json
 
 ---
 
-## Ship — Track and release
+## Ship: Track and release
 
 ### fledge issues `[view <number>]`
 
@@ -400,9 +400,9 @@ fledge issues view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` — Max results [default: `20`]
-- `--label <LABEL>` — Filter by label
+- `-s, --state <STATE>` - `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>` - Max results [default: `20`]
+- `--label <LABEL>` - Filter by label
 - `--json`
 
 ---
@@ -417,8 +417,8 @@ fledge prs view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` — Max results [default: `20`]
+- `-s, --state <STATE>` - `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>` - Max results [default: `20`]
 - `--json`
 
 ---
@@ -432,7 +432,7 @@ fledge checks [OPTIONS]
 ```
 
 **Options:**
-- `-b, --branch <BRANCH>` — Branch to check [default: current]
+- `-b, --branch <BRANCH>` - Branch to check [default: current]
 - `--json`
 
 ---
@@ -446,10 +446,10 @@ fledge changelog [OPTIONS]
 ```
 
 **Options:**
-- `-l, --limit <N>` — Releases to show [default: `10`]
-- `-t, --tag <TAG>` — Specific tag
-- `--unreleased` — Changes since last tag
-- `--json` — JSON output
+- `-l, --limit <N>` - Releases to show [default: `10`]
+- `-t, --tag <TAG>` - Specific tag
+- `--unreleased` - Changes since last tag
+- `--json` - JSON output
 
 ```bash
 fledge changelog
@@ -460,7 +460,7 @@ fledge changelog --tag v0.7.0
 
 ---
 
-## Extend — Grow the tool
+## Extend: Grow the tool
 
 ### fledge plugin `<action>`
 
@@ -472,11 +472,11 @@ fledge plugin <install|remove|list|search|run> [OPTIONS]
 
 **Subcommands:**
 
-- `install <source>` — Install from GitHub (`owner/repo` or URL). `--force` to reinstall.
-- `remove <name>` — Uninstall a plugin
-- `list` — Show installed plugins
-- `search [query]` — Find plugins on GitHub (`--limit`)
-- `run <name> [args...]` — Run a plugin command
+- `install <source>` - Install from GitHub (`owner/repo` or URL). `--force` to reinstall.
+- `remove <name>` - Uninstall a plugin
+- `list` - Show installed plugins
+- `search [query]` - Find plugins on GitHub (`--limit`)
+- `run <name> [args...]` - Run a plugin command
 
 `--json` works with `list` and `search`.
 
@@ -517,7 +517,7 @@ fledge completions [shell] [OPTIONS]
 ```
 
 **Options:**
-- `--install` — Auto-install for your current shell
+- `--install` - Auto-install for your current shell
 
 ```bash
 fledge completions --install
@@ -537,7 +537,7 @@ fledge tui [OPTIONS]
 ```
 
 **Options:**
-- `-o, --output <OUTPUT>` — Where to put the project [default: `.`]
-- `--no-git` — Skip git init
+- `-o, --output <OUTPUT>` - Where to put the project [default: `.`]
+- `--no-git` - Skip git init
 
 **Navigation:** Arrow keys to browse, Tab to fill in variables, Enter to create.

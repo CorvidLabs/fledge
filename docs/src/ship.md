@@ -1,4 +1,4 @@
-# Ship — Track and Release
+# Ship: Track and Release
 
 Manage issues, review PRs, check CI status, and generate changelogs. Everything you need to get code out the door without leaving the terminal.
 
