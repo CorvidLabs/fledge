@@ -569,7 +569,7 @@ depends_on: []
 
 ## Purpose
 
-TODO: Describe the purpose of this module.
+<!-- Describe what this module does and why it exists. -->
 
 ## Public API
 
@@ -577,36 +577,43 @@ TODO: Describe the purpose of this module.
 
 | Export | Description |
 |--------|-------------|
+| | |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
+| | |
 
 ### Traits
 
 | Trait | Description |
 |-------|-------------|
+| | |
 
 ### Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
+| | | |
 
 ## Invariants
 
-1. TODO
+1. <!-- List invariants that must always hold. -->
 
 ## Behavioral Examples
 
 ```
-TODO: Add behavioral examples
+Given ...
+When ...
+Then ...
 ```
 
 ## Error Cases
 
 | Error | When | Behavior |
 |-------|------|----------|
+| | | |
 
 ## Dependencies
 
@@ -630,19 +637,19 @@ spec: {name}.spec.md
 
 ## User Stories
 
-- As a developer, I want to TODO
+- As a developer, I want to <!-- describe the goal -->
 
 ## Acceptance Criteria
 
-- TODO
+- <!-- List measurable acceptance criteria. -->
 
 ## Constraints
 
-- TODO
+- <!-- List any constraints or limitations. -->
 
 ## Out of Scope
 
-- TODO
+- <!-- List anything explicitly excluded. -->
 "#
     );
 
@@ -666,15 +673,15 @@ spec: {name}.spec.md
 
 ## Context
 
-TODO: Describe the context and motivation for this module.
+<!-- Describe the context and motivation for this module. -->
 
 ## Related Modules
 
-- TODO
+- <!-- List related modules or specs. -->
 
 ## Design Decisions
 
-- TODO
+- <!-- Document key design decisions and their rationale. -->
 "#
     );
 
@@ -687,11 +694,11 @@ spec: {name}.spec.md
 
 ### Unit Tests
 
-- TODO
+- <!-- List unit test scenarios. -->
 
 ### Integration Tests
 
-- TODO
+- <!-- List integration test scenarios. -->
 "#
     );
 
