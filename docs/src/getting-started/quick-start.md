@@ -1,6 +1,25 @@
 # Quick Start
 
-## Create Your First Project
+## Use Fledge in an Existing Project
+
+Already have a project? Just `cd` in and go:
+
+```bash
+cd my-project
+fledge run test     # auto-detects your stack, runs the right command
+fledge run build
+fledge run lint
+```
+
+No config file needed. When you want to customize, generate one:
+
+```bash
+fledge run --init   # creates fledge.toml with detected defaults
+```
+
+See [Existing Projects](./existing-projects.md) for the full guide.
+
+## Create a New Project
 
 Pick a template and go:
 

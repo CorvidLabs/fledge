@@ -21,4 +21,4 @@ I kept setting up the same boilerplate across projects. CI workflows, linters, t
 
 Start a project, build your tasks and config, develop features on branches, review quality before merging, ship releases. Extend runs alongside everything with plugins and completions.
 
-It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift) and generates sensible defaults. Start with `fledge init`, define tasks in `fledge.toml`, compose them into flows, and you've got a consistent workflow across all your projects.
+It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift) and generates sensible defaults. You don't need `fledge init` to get started -- just `cd` into any existing project and run `fledge run test`. It works with zero config. When you want more control, `fledge run --init` generates a `fledge.toml` tailored to your stack. Compose tasks into flows, and you've got a consistent workflow across all your projects -- new and existing.
