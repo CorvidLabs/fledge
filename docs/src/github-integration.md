@@ -24,13 +24,22 @@ The repo is auto-detected from your git remote.
 
 ```bash
 fledge work start add-dark-mode
-# → creates feat/add-dark-mode
+# → creates feat/add-dark-mode (default type)
+
+fledge work start login-crash --type fix
+# → creates fix/login-crash
 
 fledge work start fix-login --base develop
 # → branches from develop instead of main
+
+fledge work start login-crash --issue 42
+# → creates feat/42-login-crash (linked to issue #42)
+
+fledge work start my-feature --prefix user/leif
+# → creates user/leif/my-feature (custom prefix)
 ```
 
-Branch names get sanitized automatically (spaces → hyphens, special chars removed) and prefixed with `feat/`.
+Branch names get sanitized automatically (spaces → hyphens, special chars removed). The default type is `feat`, but you can use `fix`, `chore`, `docs`, `hotfix`, or `refactor` via `--type`. The branch format is configurable in `fledge.toml`.
 
 ### Open a PR
 
@@ -97,7 +106,7 @@ fledge ask "what tests cover the config module?"
 ## Typical Workflow
 
 ```bash
-fledge work start user-auth      # 1. start a feature branch
+fledge work start user-auth      # 1. start a work branch
 fledge run test                  # 2. code + test
 fledge flow ci                   # 3. run the full pipeline
 fledge review                    # 4. AI review

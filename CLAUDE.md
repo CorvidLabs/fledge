@@ -1,6 +1,6 @@
 # fledge
 
-Rust CLI for project scaffolding. Uses clap for argument parsing, Tera for template rendering.
+Dev-lifecycle CLI — scaffolding, task running, code review, and the full dev loop from init to changelog. Built in Rust with clap for CLI parsing, Tera for template rendering.
 
 ## Build & Test
 
@@ -22,7 +22,7 @@ cargo fmt --check
 - `src/changelog.rs` — Changelog generation from git tags
 - `src/checks.rs` — CI/CD status viewer
 - `src/spec.rs` — Spec-sync management
-- `src/work.rs` — Feature branch and PR workflow
+- `src/work.rs` — Work branch and PR workflow (flexible branch types, configurable format)
 - `src/issues.rs` — GitHub issues
 - `src/prs.rs` — GitHub pull requests
 - `src/review.rs` — AI-powered code review

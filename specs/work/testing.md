@@ -10,6 +10,15 @@ spec: work.spec.md
 - Default branch detection
 - Commit count parsing
 - PR URL extraction from gh output
+- Title generation strips all valid type prefixes (feat, fix, chore, docs, hotfix, refactor)
+- `build_branch_name` with default format
+- `build_branch_name` with fix type
+- `build_branch_name` with issue number
+- `build_branch_name` with custom prefix
+- `build_branch_name` with custom format string
+- `WorkConfig` default values
+- `WorkConfig` parsing from TOML (full, partial, missing section)
+- Valid branch types list
 
 ### Integration Tests
 

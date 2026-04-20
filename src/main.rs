@@ -335,10 +335,19 @@ enum SpecSubcommand {
 
 #[derive(clap::Subcommand)]
 enum WorkSubcommand {
-    /// Start a new feature branch
+    /// Start a new work branch
     Start {
-        /// Feature name (will be sanitized and prefixed with feat/)
+        /// Branch name (will be sanitized for git)
         name: String,
+        /// Branch type: feat, fix, chore, docs, hotfix, refactor (default: feat)
+        #[arg(short = 't', long = "type", value_name = "TYPE")]
+        branch_type: Option<String>,
+        /// Link to GitHub issue (prefixes branch name with issue number)
+        #[arg(short, long, value_name = "NUMBER")]
+        issue: Option<u64>,
+        /// Override branch prefix entirely (e.g. "user/leif")
+        #[arg(long)]
+        prefix: Option<String>,
         /// Base branch to branch from (default: main)
         #[arg(long)]
         base: Option<String>,
@@ -538,7 +547,19 @@ fn run() -> Result<()> {
         }
         Commands::Work { action } => {
             let action = match action {
-                WorkSubcommand::Start { name, base } => work::WorkAction::Start { name, base },
+                WorkSubcommand::Start {
+                    name,
+                    branch_type,
+                    issue,
+                    prefix,
+                    base,
+                } => work::WorkAction::Start {
+                    name,
+                    branch_type,
+                    issue,
+                    prefix,
+                    base,
+                },
                 WorkSubcommand::Pr {
                     title,
                     body,
