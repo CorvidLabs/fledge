@@ -1,4 +1,0 @@
-/// {{ description }}
-public struct {{ project_name_pascal }} {
-    public init() {}
-}

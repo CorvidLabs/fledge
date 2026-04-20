@@ -14,12 +14,12 @@ spec: templates.spec.md
 ## Files to Read First
 
 - `src/templates.rs` — discovery, rendering, manifest parsing, glob matching
-- `templates/` — built-in template directories (rust-cli, rust-lib, ts-bun, angular-app, swift-pkg)
+- `templates/` — built-in starter templates (rust-cli, ts-bun)
 - `specs/templates/templates.spec.md` — formal API and invariants
 
 ## Current Status
 
-- 5 built-in templates: rust-cli, rust-lib, ts-bun, angular-app, swift-pkg
+- 2 built-in starter templates: rust-cli, ts-bun (others moved to CorvidLabs/fledge-templates)
 - Template discovery from built-in, local, and remote sources all working
 - Full rendering pipeline: glob matching, Tera rendering, .tera extension stripping, path variable rendering
 - Embedded template extraction with version-stamped caching

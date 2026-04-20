@@ -9,17 +9,13 @@ These ship with the binary — always there, no setup needed:
 | Template | What it is |
 |----------|-----------|
 | `rust-cli` | Rust CLI with clap |
-| `rust-lib` | Rust library crate |
-| `go-cli` | Go CLI app |
-| `python-cli` | Python CLI with argparse |
 | `ts-bun` | TypeScript on Bun |
-| `angular-app` | Angular app |
-| `swift-pkg` | Swift package |
-| `monorepo` | Multi-project monorepo |
+
+These two ship with the binary for offline use. For Angular, Go, Python, Swift, monorepo, and more — grab them from the [official template repo](https://github.com/CorvidLabs/fledge-templates):
 
 ```bash
 fledge init my-app --template rust-cli
-fledge init my-service --template go-cli
+fledge init my-service --template CorvidLabs/fledge-templates/go-cli
 ```
 
 ## Remote Templates

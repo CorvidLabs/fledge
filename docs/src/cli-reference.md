@@ -29,7 +29,7 @@ fledge init <name> [OPTIONS]
 ```bash
 fledge init my-tool --template rust-cli
 fledge init my-app --template react-app --dry-run
-fledge init my-lib --template rust-lib --yes
+fledge init my-lib --template CorvidLabs/fledge-templates/rust-lib --yes
 fledge init my-project --template ts-bun -o ~/projects
 fledge init my-app --template CorvidLabs/templates/react-app@v2.0
 ```

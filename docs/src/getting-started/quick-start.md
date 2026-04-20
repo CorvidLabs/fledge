@@ -116,10 +116,6 @@ Shows everything available — built-in, configured repos, and local paths.
 | Template | What you get |
 |----------|--------------|
 | `rust-cli` | Rust CLI with clap, CI, release automation |
-| `rust-lib` | Rust library crate with docs + publishing |
-| `swift-pkg` | Swift package with Package.swift + CI |
 | `ts-bun` | TypeScript project on Bun |
-| `angular-app` | Angular with mobile-first setup |
-| `python-cli` | Python CLI with Click + packaging |
-| `go-cli` | Go CLI with Cobra, Makefile, CI |
-| `monorepo` | Workspace monorepo with shared tooling |
+
+More templates (Angular, Go, Python, Swift, etc.) available at [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).

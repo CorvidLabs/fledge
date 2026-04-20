@@ -41,6 +41,15 @@ pub fn run(opts: InitOptions) -> Result<()> {
         bail!("No templates found. Add templates to the templates/ directory.");
     }
 
+    if opts.template.is_none() && config.template_repos().is_empty() && available.len() <= 2 {
+        println!(
+            "{} Only built-in starter templates found. Run {} to discover more, or add {} to your config.",
+            style("tip:").yellow().bold(),
+            style("fledge search").cyan(),
+            style("CorvidLabs/fledge-templates").cyan(),
+        );
+    }
+
     // Resolve which template to use
     let template = resolve_template(&available, opts.template.as_deref())?;
 
