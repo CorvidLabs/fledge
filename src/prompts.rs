@@ -30,7 +30,9 @@ pub fn prompt_variables(
     // Core variables
     ctx.insert("project_name", project_name);
     ctx.insert("project_name_snake", &to_snake_case(project_name));
+    ctx.insert("project_name_kebab", &to_kebab_case(project_name));
     ctx.insert("project_name_pascal", &to_pascal_case(project_name));
+    ctx.insert("project_name_camel", &to_camel_case(project_name));
 
     // Date variables
     let now = chrono::Local::now();
@@ -93,6 +95,31 @@ fn render_default(template: &str, ctx: &tera::Context) -> Result<String> {
     let mut tera = tera::Tera::default();
     tera.add_raw_template("__default__", template)?;
     Ok(tera.render("__default__", ctx)?)
+}
+
+fn to_kebab_case(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            if c == '_' {
+                '-'
+            } else {
+                c.to_ascii_lowercase()
+            }
+        })
+        .collect()
+}
+
+fn to_camel_case(s: &str) -> String {
+    let pascal = to_pascal_case(s);
+    let mut chars = pascal.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => {
+            let mut s = first.to_lowercase().to_string();
+            s.extend(chars);
+            s
+        }
+    }
 }
 
 fn to_snake_case(s: &str) -> String {
@@ -174,6 +201,35 @@ mod tests {
     #[test]
     fn test_to_pascal_case_single_char() {
         assert_eq!(to_pascal_case("a"), "A");
+    }
+
+    #[test]
+    fn test_to_kebab_case() {
+        assert_eq!(to_kebab_case("my_project"), "my-project");
+        assert_eq!(to_kebab_case("my-project"), "my-project");
+        assert_eq!(to_kebab_case("MyProject"), "myproject");
+    }
+
+    #[test]
+    fn test_to_kebab_case_empty() {
+        assert_eq!(to_kebab_case(""), "");
+    }
+
+    #[test]
+    fn test_to_camel_case() {
+        assert_eq!(to_camel_case("my-project"), "myProject");
+        assert_eq!(to_camel_case("my_project"), "myProject");
+        assert_eq!(to_camel_case("single"), "single");
+    }
+
+    #[test]
+    fn test_to_camel_case_multiple_segments() {
+        assert_eq!(to_camel_case("my-cool-project"), "myCoolProject");
+    }
+
+    #[test]
+    fn test_to_camel_case_empty() {
+        assert_eq!(to_camel_case(""), "");
     }
 
     #[test]

@@ -24,7 +24,9 @@ struct ValidationReport {
 const BUILTIN_VARS: &[&str] = &[
     "project_name",
     "project_name_snake",
+    "project_name_kebab",
     "project_name_pascal",
+    "project_name_camel",
     "year",
     "date",
     "author",

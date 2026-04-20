@@ -223,8 +223,10 @@ These variables are available in all rendered files:
 | Variable | Description |
 |----------|-------------|
 | `{{{{ project_name }}}}` | Project name as provided by the user |
-| `{{{{ project_name_snake }}}}` | Snake_case version |
+| `{{{{ project_name_snake }}}}` | snake_case version |
+| `{{{{ project_name_kebab }}}}` | kebab-case version |
 | `{{{{ project_name_pascal }}}}` | PascalCase version |
+| `{{{{ project_name_camel }}}}` | camelCase version |
 | `{{{{ author }}}}` | Author name |
 | `{{{{ github_org }}}}` | GitHub organization |
 | `{{{{ license }}}}` | License identifier |
