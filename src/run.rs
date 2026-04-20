@@ -187,7 +187,7 @@ fn execute_task(
 }
 
 // Detection order matters for monorepos: first match wins (most specific → least)
-fn detect_project_type(dir: &Path) -> &'static str {
+pub fn detect_project_type(dir: &Path) -> &'static str {
     if dir.join("Cargo.toml").exists() {
         "rust"
     } else if dir.join("package.json").exists() {

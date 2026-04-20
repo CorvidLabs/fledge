@@ -1,0 +1,3 @@
+---
+spec: deps.spec.md
+---
