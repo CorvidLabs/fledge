@@ -12,7 +12,7 @@ A template is a directory with a `template.toml` manifest and whatever files you
 my-template/
 ├── template.toml          # manifest (required)
 ├── src/
-│   └── main.rs            # template files — Tera syntax works here
+│   └── main.rs            # template files, Tera syntax works here
 ├── README.md
 ├── Cargo.toml
 └── .github/
@@ -65,7 +65,7 @@ Each key becomes a template variable that gets prompted to the user.
 # With a default
 description = { message = "Project description", default = "A new project" }
 
-# No default — user has to answer
+# No default, user has to answer
 main_author = { message = "Primary author" }
 
 # Default can reference other variables
@@ -74,11 +74,11 @@ repo_url = { message = "Repository URL", default = "https://github.com/{{ github
 
 ### [files] section
 
-Controls which files get rendered, copied, or skipped. Rules apply in order — first match wins.
+Controls which files get rendered, copied, or skipped. Rules apply in order, first match wins.
 
-- **`render`** — process through Tera
-- **`copy`** — copy as-is (for binary files, images, etc.)
-- **`ignore`** — skip entirely
+- **`render`** - process through Tera
+- **`copy`** - copy as-is (for binary files, images, etc.)
+- **`ignore`** - skip entirely
 
 Anything not matching a rule gets rendered by default.
 
@@ -102,7 +102,7 @@ Built-in templates run hooks automatically. Remote templates show the commands a
 
 ## Built-in Variables
 
-These are always available — you don't need to define them in `[prompts]`:
+These are always available. You don't need to define them in `[prompts]`:
 
 | Variable | What it is | Example |
 |----------|-----------|---------|

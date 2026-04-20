@@ -1,4 +1,4 @@
-# Review — Quality and Insight
+# Review: Quality and Insight
 
 Check your code before it ships. AI-powered review, codebase Q&A, code metrics, and dependency auditing.
 

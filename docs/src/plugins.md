@@ -1,6 +1,6 @@
 # Plugins
 
-Plugins extend fledge with community-built commands. They're external executables distributed as GitHub repos, following the git-style subcommand pattern — `fledge-<name>` becomes `fledge <name>`.
+Plugins extend fledge with community-built commands. They're external executables distributed as GitHub repos, following the git-style subcommand pattern. `fledge-<name>` becomes `fledge <name>`.
 
 ## Installing
 
@@ -140,7 +140,7 @@ Hooks fire in response to fledge events.
 
 ## Interactive TUI
 
-`fledge tui` gives you a visual template browser — arrow keys to browse, Tab to fill in variables, Enter to scaffold. It's an alternative to `fledge init` for people who prefer a visual interface.
+`fledge tui` gives you a visual template browser. Arrow keys to browse, Tab to fill in variables, Enter to scaffold. It's an alternative to `fledge init` if you prefer something visual.
 
 ```bash
 fledge tui

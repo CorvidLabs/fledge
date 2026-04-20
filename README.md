@@ -11,17 +11,17 @@
 ```bash
 fledge init my-tool --template rust-cli
 cd my-tool
-fledge flow ci     # lint + test + build — works immediately, no setup
+fledge flow ci     # lint + test + build, works out of the box
 ```
 
-I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` for GitHub stuff, and a dozen scripts to glue it all together. So I built fledge — a single Rust binary that handles the full loop from `init` to `changelog`. Every feature is measured against one question: *does this preserve the zero-config path?*
+I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` for GitHub stuff, and a dozen scripts to glue it all together. So I built fledge: one Rust binary that handles the full loop from `init` to `changelog`. Every feature gets measured against one question: *does this preserve the zero-config path?*
 
 ## Why fledge?
 
 - **It's fast.** Native Rust binary. No runtime, no node_modules, no waiting around.
 - **Smart defaults.** Pulls your name and org from git config, auto-detects your project type, generates sensible task configs.
 - **Remote templates.** Any GitHub repo works as a template with `owner/repo` syntax. No special registry needed.
-- **Six pillars.** Start, Build, Develop, Review, Ship, Extend — every stage of your project has a home.
+- **Six pillars.** Start, Build, Develop, Review, Ship, Extend. Every stage of your project has a home.
 - **Flows.** Chain tasks into pipelines with parallel groups. `fledge flow ci` and you're done.
 - **Plugins.** Git-style subcommand pattern. Drop in community extensions or write your own.
 - **Language-agnostic.** Auto-detects Rust, Node, Go, Python, Ruby, Java, Swift and adapts.
@@ -98,7 +98,7 @@ fledge changelog
 | `python-cli` | Python CLI with Click and Ruff |
 | `go-cli` | Go CLI with Cobra |
 | `ts-node` | TypeScript on Node with tsx and Biome |
-| `static-site` | Vanilla HTML/CSS/JS — zero dependencies |
+| `static-site` | Vanilla HTML/CSS/JS, no dependencies |
 
 These ship offline with the binary. For more templates (Angular, MCP server, Deno, Swift, monorepo, etc.), see [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).
 
@@ -106,7 +106,7 @@ These ship offline with the binary. For more templates (Angular, MCP server, Den
 
 Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/). Here's the quick version:
 
-### Start — Scaffold and discover
+### Start: Scaffold and discover
 
 | Command | What it does |
 |---------|-------------|
@@ -118,7 +118,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge validate-template [path]` | Check a template for issues |
 | `fledge update` | Re-apply source template to existing project |
 
-### Build — Configure and run
+### Build: Configure and run
 
 | Command | What it does |
 |---------|-------------|
@@ -127,14 +127,14 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge config <action>` | Manage global config |
 | `fledge doctor` | Environment diagnostics |
 
-### Develop — Branch and spec
+### Develop: Branch and spec
 
 | Command | What it does |
 |---------|-------------|
 | `fledge work <action>` | Feature branches + PRs |
 | `fledge spec <action>` | Spec-sync management |
 
-### Review — Quality and insight
+### Review: Quality and insight
 
 | Command | What it does |
 |---------|-------------|
@@ -143,7 +143,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge metrics` | Code metrics (LOC, churn, test ratio) |
 | `fledge deps` | Dependency health (outdated, audit, licenses) |
 
-### Ship — Track and release
+### Ship: Track and release
 
 | Command | What it does |
 |---------|-------------|
@@ -152,7 +152,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | `fledge checks` | CI/CD status |
 | `fledge changelog` | Generate changelog from git tags |
 
-### Extend — Grow the tool
+### Extend: Grow the tool
 
 | Command | What it does |
 |---------|-------------|

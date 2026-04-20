@@ -1,4 +1,4 @@
-# Develop — Branch and Spec
+# Develop: Branch and Spec
 
 Work on features with proper branch isolation and keep your specs in sync with the code.
 
@@ -20,17 +20,17 @@ fledge work pr --title "Add auth middleware"
 This creates a `feat/add-auth` branch, and `fledge work pr` opens a pull request against your base branch with sensible defaults.
 
 **Options for `work start`:**
-- `--base <branch>` — Base branch (defaults to `main`)
+- `--base <branch>` - Base branch (defaults to `main`)
 
 **Options for `work pr`:**
-- `--title <title>` — PR title
-- `--body <body>` — PR description
-- `--draft` — Open as draft
-- `--base <branch>` — Target branch
+- `--title <title>` - PR title
+- `--body <body>` - PR description
+- `--draft` - Open as draft
+- `--base <branch>` - Target branch
 
 ## Spec-sync with `fledge spec`
 
-Specs are markdown files in `specs/` that define how a module should work. `fledge spec check` validates that the code matches the spec — catches drift before it becomes a problem.
+Specs are markdown files in `specs/` that define how a module should work. `fledge spec check` validates that the code matches the spec. Catches drift before it becomes a problem.
 
 ```bash
 # Set up spec-sync
