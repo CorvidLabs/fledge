@@ -60,7 +60,7 @@ pub fn run(opts: InitOptions) -> Result<()> {
     );
 
     check_template_version(&template.manifest)?;
-    check_template_requirements(&template.manifest, opts.yes)?;
+    let reqs_ok = check_template_requirements(&template.manifest, opts.yes)?;
 
     // Target directory
     let target_dir = opts.output.join(&opts.name);
@@ -108,8 +108,8 @@ pub fn run(opts: InitOptions) -> Result<()> {
         init_git(&target_dir)?;
     }
 
-    // Post-create hooks (local templates are trusted)
-    if !opts.no_install {
+    // Post-create hooks (local templates are trusted); skip if required tools missing
+    if !opts.no_install && reqs_ok {
         run_post_create_hooks(
             &template.manifest.hooks.post_create,
             &target_dir,
@@ -185,7 +185,7 @@ fn run_remote(
     );
 
     check_template_version(&template.manifest)?;
-    check_template_requirements(&template.manifest, opts.yes)?;
+    let reqs_ok = check_template_requirements(&template.manifest, opts.yes)?;
 
     let target_dir = opts.output.join(&opts.name);
     if target_dir.exists() {
@@ -228,8 +228,8 @@ fn run_remote(
         init_git(&target_dir)?;
     }
 
-    // Remote templates require confirmation before running hooks
-    if !opts.no_install {
+    // Remote templates require confirmation before running hooks; skip if required tools missing
+    if !opts.no_install && reqs_ok {
         run_post_create_hooks(
             &template.manifest.hooks.post_create,
             &target_dir,
@@ -395,17 +395,18 @@ fn check_template_version(manifest: &templates::TemplateManifest) -> Result<()> 
     Ok(())
 }
 
+/// Returns true if all requirements are met (hooks safe to run).
 fn check_template_requirements(
     manifest: &templates::TemplateManifest,
     auto_yes: bool,
-) -> Result<()> {
+) -> Result<bool> {
     if manifest.template.requires.is_empty() {
-        return Ok(());
+        return Ok(true);
     }
 
     let (_, missing) = templates::check_requirements(&manifest.template.requires);
     if missing.is_empty() {
-        return Ok(());
+        return Ok(true);
     }
 
     println!(
@@ -419,14 +420,14 @@ fn check_template_requirements(
 
     if auto_yes {
         println!(
-            "{} Continuing anyway (--yes). Post-create hooks may fail.",
+            "{} Continuing anyway (--yes). Skipping post-create hooks.",
             style("*").cyan().bold()
         );
-        return Ok(());
+        return Ok(false);
     }
 
     let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-        .with_prompt("Continue without these tools? (post-create hooks may fail)")
+        .with_prompt("Continue without these tools? (post-create hooks will be skipped)")
         .default(false)
         .interact()?;
 
@@ -437,7 +438,7 @@ fn check_template_requirements(
         );
     }
 
-    Ok(())
+    Ok(false)
 }
 
 fn resolve_template<'a>(
