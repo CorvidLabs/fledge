@@ -230,6 +230,63 @@ impl Config {
     }
 }
 
+pub fn init_config(preset: Option<&str>) -> Result<()> {
+    use console::style;
+
+    let path = Config::config_path();
+    if path.exists() {
+        anyhow::bail!(
+            "Config already exists at {}.\n  Use {} to modify it.",
+            style(path.display()).dim(),
+            style("fledge config set").cyan()
+        );
+    }
+
+    let mut config = Config::default();
+
+    if let Some(preset_name) = preset {
+        match preset_name {
+            "corvidlabs" => {
+                config.defaults.author = Some("CorvidLabs".to_string());
+                config.defaults.github_org = Some("CorvidLabs".to_string());
+                config.defaults.license = Some("MIT".to_string());
+                config
+                    .templates
+                    .repos
+                    .push("CorvidLabs/fledge-templates".to_string());
+            }
+            _ => {
+                anyhow::bail!(
+                    "Unknown preset '{}'. Available presets: {}",
+                    preset_name,
+                    style("corvidlabs").cyan()
+                );
+            }
+        }
+        config.save()?;
+        println!(
+            "{} Created config with {} preset at {}",
+            style("✓").green().bold(),
+            style(preset_name).cyan(),
+            style(path.display()).dim()
+        );
+    } else {
+        config.save()?;
+        println!(
+            "{} Created default config at {}",
+            style("✓").green().bold(),
+            style(path.display()).dim()
+        );
+    }
+
+    println!(
+        "  Edit with: {}",
+        style("fledge config set <key> <value>").cyan()
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,6 +625,23 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     fn remove_from_list_scalar_key_errors() {
         let mut config = Config::default();
         assert!(config.remove_from_list("defaults.author", "val").is_err());
+    }
+
+    #[test]
+    fn corvidlabs_preset_sets_expected_values() {
+        let mut config = Config::default();
+        config.defaults.author = Some("CorvidLabs".to_string());
+        config.defaults.github_org = Some("CorvidLabs".to_string());
+        config.defaults.license = Some("MIT".to_string());
+        config
+            .templates
+            .repos
+            .push("CorvidLabs/fledge-templates".to_string());
+
+        assert_eq!(config.defaults.author.as_deref(), Some("CorvidLabs"));
+        assert_eq!(config.github_org().as_deref(), Some("CorvidLabs"));
+        assert_eq!(config.license(), "MIT");
+        assert_eq!(config.template_repos(), &["CorvidLabs/fledge-templates"]);
     }
 
     #[test]

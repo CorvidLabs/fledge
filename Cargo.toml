@@ -1,15 +1,15 @@
 [package]
 name = "fledge"
-version = "0.7.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["CorvidLabs <corvidlabs@proton.me>"]
-description = "Corvid-themed project scaffolding CLI — get your projects ready to fly."
+description = "Dev-lifecycle CLI — scaffolding, tasks, lanes, plugins, and more."
 readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/CorvidLabs/fledge"
 repository = "https://github.com/CorvidLabs/fledge"
 rust-version = "1.85"
-keywords = ["cli", "scaffold", "template", "project-init"]
+keywords = ["cli", "scaffold", "template", "task-runner", "dev-tools"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
