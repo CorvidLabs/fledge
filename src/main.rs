@@ -5,6 +5,7 @@ use console::style;
 use std::path::PathBuf;
 
 mod ask;
+mod changelog;
 mod checks;
 mod config;
 mod create_template;
@@ -192,6 +193,21 @@ enum Commands {
         /// List available tasks
         #[arg(short, long)]
         list: bool,
+    },
+    /// Generate a changelog from git tags and commits
+    Changelog {
+        /// Number of releases to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+        /// Show a specific tag only
+        #[arg(short, long)]
+        tag: Option<String>,
+        /// Show unreleased changes since the latest tag
+        #[arg(long)]
+        unreleased: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Ask a question about your codebase
     Ask {
@@ -447,6 +463,19 @@ fn run() -> Result<()> {
         }
         Commands::Review { base, file } => {
             review::run(review::ReviewOptions { base, file })?;
+        }
+        Commands::Changelog {
+            limit,
+            tag,
+            unreleased,
+            json,
+        } => {
+            changelog::run(changelog::ChangelogOptions {
+                limit,
+                tag,
+                unreleased,
+                json,
+            })?;
         }
         Commands::Ask { question } => {
             if question.is_empty() {
