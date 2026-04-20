@@ -559,7 +559,7 @@ fledge completions fish > ~/.config/fish/completions/fledge.fish
 
 ### fledge tui *(requires `--features tui`)*
 
-Interactive template browser. Browse, preview, and scaffold templates without memorizing command flags.
+Interactive dashboard for the entire fledge dev lifecycle. Browse and run all fledge commands from a two-panel TUI with keyboard navigation.
 
 ```
 fledge tui [OPTIONS]
@@ -567,6 +567,19 @@ fledge tui [OPTIONS]
 
 **Options:**
 - `-o, --output <OUTPUT>` - Where to put the project [default: `.`]
-- `--no-git` - Skip git init
+- `--no-git` - Skip git init for template scaffolding
 
-**Navigation:** Arrow keys to browse, Tab to fill in variables, Enter to create.
+**Categories:**
+- **Work** — start branches, create PRs, view status
+- **GitHub** — browse issues, PRs, CI checks
+- **Run** — execute tasks and workflow pipelines
+- **Specs** — check, init, create new spec modules
+- **Metrics** — LOC, file churn, test ratio, dependency health
+- **Config** — view and edit settings
+- **Templates** — browse, scaffold, search, create, publish, validate, update
+- **AI** — code review, codebase Q&A
+- **Doctor** — environment diagnostics
+- **Changelog** — generate from tags, view unreleased changes
+- **Plugins** — list, search, install, remove, run community extensions
+
+**Navigation:** `↑↓`/`j`/`k` to navigate, `Enter` to run, `Tab`/`→` to open category, `Esc`/`←` to go back, `q` to quit. Actions that need input show an inline form. Output is displayed in a scrollable panel (`PgUp`/`PgDn`, `g`/`G` for top/bottom).
