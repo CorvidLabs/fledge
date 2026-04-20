@@ -125,6 +125,16 @@ Options:
   -o, --output        Parent directory for the template [default: .]
 ```
 
+#### `fledge validate-template [path]`
+
+Validate a template directory for correctness (manifest, Tera syntax, variable definitions, render globs).
+
+```
+Options:
+      --strict          Treat warnings as errors (non-zero exit)
+      --json            Output results as JSON
+```
+
 #### `fledge search [query]`
 
 Search for templates on GitHub by keyword.

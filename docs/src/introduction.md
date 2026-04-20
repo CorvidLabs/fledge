@@ -23,7 +23,7 @@ fledge is designed to be the one CLI you reach for throughout the dev lifecycle.
 
 | Category | Commands | Description |
 |----------|----------|-------------|
-| **Scaffolding** | `init`, `list`, `create-template`, `search`, `publish`, `update` | Create projects from templates, discover and share templates |
+| **Scaffolding** | `init`, `list`, `create-template`, `search`, `publish`, `update`, `validate-template` | Create projects from templates, discover, validate, and share templates |
 | **Project Lifecycle** | `run`, `lane`, `spec`, `work`, `changelog` | Task runner, workflow pipelines, spec management, git workflow |
 | **Project Health** | `doctor`, `metrics`, `deps` | Environment diagnostics, code metrics, dependency auditing |
 | **GitHub** | `issues`, `prs`, `checks` | View issues, PRs, and CI status from the terminal |
