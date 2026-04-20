@@ -21,7 +21,8 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 
 | Export | Description |
 |--------|-------------|
-| `run(RunOptions)` | Entry point — lists or executes tasks |
+| `run` | Entry point — lists or executes tasks |
+| `RunOptions` | Options: `task`, `init`, `list` |
 
 ### Structs & Enums
 

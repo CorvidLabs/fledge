@@ -7,8 +7,8 @@ files:
 
 db_tables: []
 depends_on:
-  - github
-  - config
+  - specs/github/github.spec.md
+  - specs/config/config.spec.md
 ---
 
 # Checks
@@ -23,7 +23,8 @@ View CI/CD check run status for a branch using the GitHub Check Runs API. Shows 
 
 | Export | Description |
 |--------|-------------|
-| `run(ChecksOptions)` | Entry point — fetch and display check status |
+| `run` | Entry point — fetch and display check status |
+| `ChecksOptions` | Options: `branch`, `json` |
 
 ### Structs & Enums
 
