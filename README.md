@@ -6,9 +6,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://corvidlabs.github.io/fledge/)
 
-One CLI, six stages, your whole dev lifecycle.
+**Zero config for the common case.** One CLI, your whole dev lifecycle.
 
-I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` for GitHub stuff, and a dozen scripts to glue it all together. So I built fledge — a single Rust binary that handles the full loop from `init` to `changelog`.
+```bash
+fledge init my-tool --template rust-cli
+cd my-tool
+fledge flow ci     # lint + test + build — works immediately, no setup
+```
+
+I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` for GitHub stuff, and a dozen scripts to glue it all together. So I built fledge — a single Rust binary that handles the full loop from `init` to `changelog`. Every feature is measured against one question: *does this preserve the zero-config path?*
 
 ## Why fledge?
 
