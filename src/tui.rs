@@ -104,7 +104,8 @@ impl TuiApp {
         let org_default = self
             .config
             .github_org()
-            .unwrap_or_else(|| "CorvidLabs".into());
+            .or_else(|| self.config.author_or_git())
+            .unwrap_or_default();
         fields.push(VariableField {
             key: "__github_org__".into(),
             label: "GitHub org".into(),

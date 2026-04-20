@@ -50,11 +50,17 @@ pub fn prompt_variables(
 
     let github_org = match config.github_org() {
         Some(org) => org,
-        None if yes => project_name.to_string(),
-        None => Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("GitHub organization")
-            .default("CorvidLabs".to_string())
-            .interact_text()?,
+        None if yes => author.clone(),
+        None => {
+            let theme = ColorfulTheme::default();
+            let input = Input::<String>::with_theme(&theme).with_prompt("GitHub organization");
+            let input = if let Some(ref a) = config.author_or_git() {
+                input.default(a.clone())
+            } else {
+                input
+            };
+            input.interact_text()?
+        }
     };
     ctx.insert("github_org", &github_org);
 
