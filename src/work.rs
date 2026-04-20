@@ -3,6 +3,8 @@ use console::style;
 use serde::Deserialize;
 use std::process::Command;
 
+use crate::config::Config;
+
 const VALID_BRANCH_TYPES: &[&str] = &["feat", "fix", "chore", "docs", "hotfix", "refactor"];
 
 #[derive(Debug, Deserialize)]
@@ -23,7 +25,7 @@ impl Default for WorkConfig {
 }
 
 fn default_branch_format() -> String {
-    "{type}/{name}".to_string()
+    "{author}/{type}/{name}".to_string()
 }
 
 fn default_type() -> String {
@@ -197,6 +199,12 @@ fn start(
 
     let sanitized = sanitize_branch_name(name);
 
+    let author = Config::load()
+        .ok()
+        .and_then(|c| c.author_or_git())
+        .map(|a| sanitize_branch_name(&a))
+        .unwrap_or_default();
+
     let branch_name = if let Some(pfx) = prefix {
         format!("{}/{sanitized}", pfx.trim_end_matches('/'))
     } else {
@@ -206,6 +214,7 @@ fn start(
         };
         config
             .branch_format
+            .replace("{author}", &author)
             .replace("{type}", btype)
             .replace("{issue}", &issue.map(|n| n.to_string()).unwrap_or_default())
             .replace("{name}", &name_part)
@@ -423,12 +432,18 @@ pub fn build_branch_name(
     if let Some(pfx) = prefix {
         format!("{}/{sanitized}", pfx.trim_end_matches('/'))
     } else {
+        let author = Config::load()
+            .ok()
+            .and_then(|c| c.author_or_git())
+            .map(|a| sanitize_branch_name(&a))
+            .unwrap_or_default();
         let name_part = match issue {
             Some(num) => format!("{num}-{sanitized}"),
             None => sanitized,
         };
         config
             .branch_format
+            .replace("{author}", &author)
             .replace("{type}", branch_type)
             .replace("{issue}", &issue.map(|n| n.to_string()).unwrap_or_default())
             .replace("{name}", &name_part)
@@ -528,7 +543,10 @@ mod tests {
 
     #[test]
     fn test_build_branch_default_feat() {
-        let config = WorkConfig::default();
+        let config = WorkConfig {
+            branch_format: "{type}/{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
         assert_eq!(
             build_branch_name("login-page", "feat", None, None, &config),
             "feat/login-page"
@@ -537,7 +555,10 @@ mod tests {
 
     #[test]
     fn test_build_branch_fix_type() {
-        let config = WorkConfig::default();
+        let config = WorkConfig {
+            branch_format: "{type}/{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
         assert_eq!(
             build_branch_name("login-crash", "fix", None, None, &config),
             "fix/login-crash"
@@ -546,7 +567,10 @@ mod tests {
 
     #[test]
     fn test_build_branch_with_issue() {
-        let config = WorkConfig::default();
+        let config = WorkConfig {
+            branch_format: "{type}/{name}".to_string(),
+            default_type: "feat".to_string(),
+        };
         assert_eq!(
             build_branch_name("login-crash", "fix", Some(42), None, &config),
             "fix/42-login-crash"
@@ -610,7 +634,7 @@ mod tests {
     #[test]
     fn test_work_config_defaults() {
         let config = WorkConfig::default();
-        assert_eq!(config.branch_format, "{type}/{name}");
+        assert_eq!(config.branch_format, "{author}/{type}/{name}");
         assert_eq!(config.default_type, "feat");
     }
 
@@ -633,7 +657,7 @@ default_type = "fix"
 default_type = "chore"
 "#;
         let file: FledgeWorkFile = toml::from_str(toml_str).unwrap();
-        assert_eq!(file.work.branch_format, "{type}/{name}");
+        assert_eq!(file.work.branch_format, "{author}/{type}/{name}");
         assert_eq!(file.work.default_type, "chore");
     }
 
@@ -644,7 +668,7 @@ default_type = "chore"
 test = "cargo test"
 "#;
         let file: FledgeWorkFile = toml::from_str(toml_str).unwrap();
-        assert_eq!(file.work.branch_format, "{type}/{name}");
+        assert_eq!(file.work.branch_format, "{author}/{type}/{name}");
         assert_eq!(file.work.default_type, "feat");
     }
 
