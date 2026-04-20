@@ -1,6 +1,6 @@
 ---
 module: flows
-version: 1
+version: 2
 status: active
 files:
   - src/flows.rs
@@ -8,6 +8,9 @@ files:
 db_tables: []
 depends_on:
   - run
+  - config
+  - github
+  - search
 ---
 
 # Flows
@@ -22,8 +25,8 @@ Composable workflow pipelines defined in `fledge.toml`. Flows chain multiple tas
 
 | Export | Description |
 |--------|-------------|
-| `run` | Entry point — lists or executes flows |
-| `FlowOptions` | Options: `flow`, `list`, `init`, `dry_run`, `json` |
+| `run` | Entry point — lists, executes, searches, or imports flows |
+| `FlowOptions` | Options: `flow`, `list`, `init`, `dry_run`, `json`, `search`, `import` |
 | `FlowDef` | Flow definition: description, steps, and fail_fast flag |
 
 ### Structs & Enums
@@ -128,6 +131,29 @@ $ fledge flow check
 # Init default flows
 $ fledge flow --init
 ✓ Added default flows to fledge.toml
+
+# Search community flows on GitHub
+$ fledge flow --search
+Community flows on GitHub:
+  CorvidLabs/fledge-flows  (★ 12)  Official community flow collection
+  user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
+
+# Search with keyword
+$ fledge flow rust --search
+Community flows on GitHub:
+  user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
+
+# Import flows from a remote repo
+$ fledge flow --import CorvidLabs/fledge-flows
+✓ Imported 3 flow(s) from CorvidLabs/fledge-flows
+  + release
+  + deploy
+  + audit
+  + Also added 2 task(s): package, upload
+  * Skipped (already exist): ci
+
+# Import with version pinning
+$ fledge flow --import CorvidLabs/fledge-flows@v1.0.0
 ```
 
 ## Error Cases
@@ -141,13 +167,20 @@ $ fledge flow --init
 | Step failed | Non-zero exit code | Stop flow (if fail_fast) or continue and report |
 | Already exists | `--init` when flows already exist | Error |
 | Empty steps | Flow has no steps | Error |
+| Remote no fledge.toml | Import target has no fledge.toml | Error with message |
+| Remote no flows | Import target's fledge.toml has no flows | Error with message |
+| All flows exist | All imported flows already defined locally | Skip with message |
 
 ## Dependencies
 
 - `run` module (reuses task execution, project detection)
+- `config` module (GitHub token for API auth)
+- `github` module (GitHub API requests)
+- `search` module (response parsing, URL encoding)
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-20 | Add community flow registry (search + import) |
 | 1 | 2026-04-20 | Initial spec |
