@@ -2,13 +2,15 @@
 
 Get your projects ready to fly.
 
-A fast, opinionated project scaffolding CLI built in Rust. Create new projects from templates — local or remote — with smart defaults, Tera-powered rendering, and zero boilerplate.
+A fast, opinionated dev-lifecycle CLI built in Rust. Scaffold projects from templates, manage specs, run tasks, check CI, review code, and ship — all from one binary.
 
 ## Why fledge?
 
 - **Fast** — native Rust binary, no runtime dependencies
 - **Smart defaults** — pulls author/org from git config, renders dates, computes name variants automatically
 - **Remote templates** — use any GitHub repo as a template source with `owner/repo` syntax
+- **Full lifecycle** — scaffolding, specs, tasks, CI checks, changelogs, GitHub ops, AI review
+- **Language-agnostic** — auto-detects Rust, Node, Go, Python, Ruby, Java and adapts defaults
 - **Extensible** — create your own templates with a simple `template.toml` manifest
 - **Safe** — remote template hooks require explicit confirmation before running
 - **Optional TUI** — interactive template browser with `--features tui`
@@ -21,6 +23,15 @@ cargo install fledge
 
 # With TUI support
 cargo install fledge --features tui
+
+# Homebrew
+brew install CorvidLabs/tap/fledge
+
+# Install script
+curl -fsSL https://raw.githubusercontent.com/CorvidLabs/fledge/main/install.sh | sh
+
+# Nix
+nix run github:CorvidLabs/fledge
 
 # From source
 git clone https://github.com/CorvidLabs/fledge.git
@@ -42,11 +53,15 @@ fledge init my-app --template CorvidLabs/fledge-templates/react-app
 # Preview what would be created
 fledge init my-tool --template rust-cli --dry-run
 
-# Skip all prompts with defaults
-fledge init my-tool --template rust-cli --yes
+# Run project tasks
+fledge run build
+fledge run test
 
-# List available templates
-fledge list
+# Check CI status
+fledge checks
+
+# Generate a changelog
+fledge changelog
 ```
 
 ## Built-in Templates
@@ -58,19 +73,22 @@ fledge list
 | `swift-pkg` | Swift package with Package.swift, CI, and coding conventions |
 | `ts-bun` | TypeScript project with Bun runtime |
 | `angular-app` | Angular application with mobile-first setup |
+| `python-cli` | Python CLI with Click, tests, and packaging |
+| `go-cli` | Go CLI with Cobra, Makefile, and CI |
+| `node-cli` | Node.js CLI with TypeScript |
+| `node-lib` | Node.js library with TypeScript and npm publishing |
+| `monorepo` | Monorepo with workspace tooling |
+| `static-site` | Static site with build pipeline |
 
 ## CLI Reference
 
-### `fledge init <name>`
+### Scaffolding
+
+#### `fledge init <name>`
 
 Create a new project from a template.
 
 ```
-fledge init <name> [OPTIONS]
-
-Arguments:
-  <name>              Project name
-
 Options:
   -t, --template      Template to use (skip interactive selection)
   -o, --output        Parent directory for the project [default: .]
@@ -81,36 +99,177 @@ Options:
   -y, --yes           Skip all confirmation prompts (accept defaults)
 ```
 
-### `fledge list`
+#### `fledge list`
 
 List all available templates (built-in + configured).
 
-### `fledge tui` *(requires `--features tui`)*
+#### `fledge create-template <name>`
 
-Interactive terminal UI for browsing templates and scaffolding projects. Navigate with arrow keys, fill in variables with Tab, confirm with Enter.
+Scaffold a new fledge template with `template.toml` manifest.
 
 ```
-fledge tui [OPTIONS]
-
 Options:
-  -o, --output        Parent directory for the project [default: .]
-      --no-git        Skip git init and initial commit
+  -o, --output        Parent directory for the template [default: .]
 ```
 
-### `fledge completions <shell>`
+#### `fledge search [query]`
 
-Generate shell completions for your shell. Supported: `bash`, `zsh`, `fish`, `powershell`.
+Search for templates on GitHub by keyword.
 
-```bash
-# Bash
-fledge completions bash >> ~/.bashrc
-
-# Zsh
-fledge completions zsh > ~/.zfunc/_fledge
-
-# Fish
-fledge completions fish > ~/.config/fish/completions/fledge.fish
 ```
+Options:
+  -l, --limit         Maximum number of results [default: 20]
+      --json          Output results as JSON
+```
+
+#### `fledge publish [path]`
+
+Publish a template to GitHub as a repository with `fledge-template` topic.
+
+```
+Options:
+      --org           Publish under a GitHub organization
+      --private       Create as a private repository
+      --description   Override the repository description
+```
+
+#### `fledge update`
+
+Re-apply the source template to an existing project (update scaffolding).
+
+```
+Options:
+      --dry-run       Show what would change without writing anything
+      --refresh       Force re-clone of cached remote templates
+  -y, --yes           Skip all confirmation prompts
+```
+
+### Project Lifecycle
+
+#### `fledge run [task]`
+
+Run a project task defined in `fledge.toml`. Auto-detects your project type and generates sensible defaults with `--init`.
+
+```
+Options:
+      --init          Create a starter fledge.toml with language-aware defaults
+  -l, --list          List available tasks
+```
+
+#### `fledge spec <action>`
+
+Manage spec-sync specifications (source of truth for modules).
+
+```
+Subcommands:
+  check               Validate specs against source code (--strict for warnings as errors)
+  init                Initialize spec-sync configuration
+  new <name>          Scaffold a new spec module
+```
+
+#### `fledge work <action>`
+
+Feature branch and PR workflow.
+
+```
+Subcommands:
+  start <name>        Start a new feature branch (--base to specify base branch)
+  pr                  Create a PR from current branch (--title, --body, --draft)
+  status              Show current branch and PR status
+```
+
+#### `fledge changelog`
+
+Generate a changelog from git tags and conventional commits.
+
+```
+Options:
+  -l, --limit         Number of releases to show [default: 10]
+  -t, --tag           Show a specific tag only
+      --unreleased    Show unreleased changes since the latest tag
+      --json          Output as JSON
+```
+
+### GitHub Integration
+
+#### `fledge issues [view <number>]`
+
+List and view GitHub issues.
+
+```
+Options:
+  -s, --state         Filter by state: open, closed, all [default: open]
+  -l, --limit         Maximum number of results [default: 20]
+      --label         Filter by label
+      --json          Output results as JSON
+```
+
+#### `fledge prs [view <number>]`
+
+List and view GitHub pull requests.
+
+```
+Options:
+  -s, --state         Filter by state: open, closed, all [default: open]
+  -l, --limit         Maximum number of results [default: 20]
+      --json          Output results as JSON
+```
+
+#### `fledge checks`
+
+View CI/CD check status for a branch.
+
+```
+Options:
+  -b, --branch        Branch to check [default: current branch]
+      --json          Output results as JSON
+```
+
+### AI-Powered
+
+#### `fledge review`
+
+AI-powered code review of current changes via Claude CLI.
+
+```
+Options:
+  -b, --base          Base branch to diff against [default: auto-detect]
+  -f, --file          Review only a specific file
+```
+
+#### `fledge ask <question>`
+
+Ask a question about your codebase via Claude CLI.
+
+### Configuration
+
+#### `fledge config <action>`
+
+Manage global configuration (`~/.config/fledge/config.toml`).
+
+```
+Subcommands:
+  get <key>           Get a config value
+  set <key> <value>   Set a config value
+  unset <key>         Remove a config value
+  add <key> <value>   Add a value to a list (templates.paths, templates.repos)
+  remove <key> <value> Remove a value from a list
+  list                Show all config values
+  path                Show config file path
+```
+
+#### `fledge completions [shell]`
+
+Generate or install shell completions (bash, zsh, fish, powershell).
+
+```
+Options:
+      --install       Auto-install completions to the standard location
+```
+
+#### `fledge tui` *(requires `--features tui`)*
+
+Interactive terminal UI for browsing templates and scaffolding projects.
 
 ## Remote Templates
 
@@ -123,6 +282,9 @@ fledge init my-app --template user/my-template
 # Use a specific template from a collection
 fledge init my-app --template CorvidLabs/templates/python-api
 
+# Pin to a specific version/ref
+fledge init my-app --template user/my-template@v1.0.0
+
 # Force re-download of a cached template
 fledge init my-app --template user/my-template --refresh
 ```
@@ -131,7 +293,7 @@ Remote templates are cloned and cached locally. Post-create hooks from remote te
 
 ### Template Repositories
 
-You can register template repos in your config so they appear in `fledge list`:
+Register template repos in your config so they appear in `fledge list`:
 
 ```toml
 # ~/.config/fledge/config.toml
@@ -157,172 +319,26 @@ repos = ["CorvidLabs/fledge-templates"]         # GitHub repos to include in tem
 token = "ghp_..."         # for private template repos (also reads FLEDGE_GITHUB_TOKEN / GITHUB_TOKEN env vars)
 ```
 
-If `author` is not set, fledge falls back to `git config user.name`. The GitHub token is checked in order: `FLEDGE_GITHUB_TOKEN` env var → `GITHUB_TOKEN` env var → config file.
+If `author` is not set, fledge falls back to `git config user.name`. The GitHub token is checked in order: `FLEDGE_GITHUB_TOKEN` env var -> `GITHUB_TOKEN` env var -> config file.
 
 ## Creating Templates
 
-A template is a directory with a `template.toml` manifest and any number of files. Files are rendered through [Tera](https://keats.github.io/tera/) (a Jinja2-like engine) before being written.
+See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for full documentation on creating and publishing templates.
 
-### Directory Structure
+A template is a directory with a `template.toml` manifest and any number of files rendered through [Tera](https://keats.github.io/tera/) (a Jinja2-like engine).
 
-```
-my-template/
-├── template.toml          # manifest (required)
-├── src/
-│   └── main.rs            # template files — Tera syntax supported
-├── README.md
-├── Cargo.toml
-└── .github/
-    └── workflows/
-        └── ci.yml
-```
-
-### template.toml Reference
-
-```toml
-[template]
-name = "my-template"                           # template name (used in --template flag)
-description = "A short description"            # shown in fledge list
-min_fledge_version = "0.1.0"                   # optional minimum fledge version
-
-[prompts]
-# Each key becomes a template variable. Values have `message` and optional `default`.
-description = { message = "Project description", default = "A new project" }
-port = { message = "Default port", default = "3000" }
-
-# Defaults can use Tera expressions referencing earlier variables:
-repo_url = { message = "Repository URL", default = "https://github.com/{{ github_org }}/{{ project_name }}" }
-
-[files]
-render = ["**/*.rs", "**/*.toml", "**/*.md", "**/*.yml"]   # files to render through Tera
-copy = ["**/*.png", "**/*.ico"]                             # files to copy as-is (binary files)
-ignore = ["template.toml"]                                  # files to exclude from output
-
-[hooks]
-post_create = ["cargo fmt", "npm install"]     # commands to run after scaffolding
-```
-
-### Built-in Variables
-
-These are always available in your templates — no need to define them in `[prompts]`:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `project_name` | The project name as provided by the user | `my-cool-app` |
-| `project_name_snake` | Snake case version | `my_cool_app` |
-| `project_name_pascal` | PascalCase version | `MyCoolApp` |
-| `author` | From config, git, or prompted | `Leif` |
-| `github_org` | From config or prompted (default: `CorvidLabs`) | `CorvidLabs` |
-| `license` | From config (default: `MIT`) | `MIT` |
-| `year` | Current year | `2026` |
-| `date` | Current date | `2026-04-18` |
-
-### Tera Syntax
-
-Templates use [Tera](https://keats.github.io/tera/docs/) syntax:
-
-```
-# {{ project_name }}
-
-{{ description }}
-
-## Author
-
-Created by {{ author }} ({{ github_org }}) in {{ year }}.
-
-{% if license == "MIT" %}
-This project is MIT licensed.
-{% endif %}
-```
-
-### File Rules
-
-- **`render`** — glob patterns for files that should be processed through Tera. Template variables (`{{ project_name }}`, etc.) are replaced with actual values.
-- **`copy`** — glob patterns for files that should be copied as-is. Use for binary files (images, fonts) that would break if parsed.
-- **`ignore`** — glob patterns for files to exclude from the output entirely. `template.toml` should always be listed here.
-
-Files not matching any rule are rendered by default.
-
-### Post-Create Hooks
-
-Commands listed in `hooks.post_create` run inside the newly created project directory after all files are written. Use them for dependency installation, formatting, or other setup:
-
-```toml
-[hooks]
-post_create = ["bun install", "bun run format"]
-```
-
-For local (built-in) templates, hooks run automatically. For remote templates, fledge shows the commands and asks for confirmation before running — unless `--yes` is passed.
-
-### Testing Templates Locally
-
-Point fledge at your template directory during development:
+Quick example:
 
 ```bash
-# Add your template directory to config
-# ~/.config/fledge/config.toml
-[templates]
-paths = ["~/dev/my-templates"]
+# Scaffold a new template
+fledge create-template my-template
 
-# Or use it directly as a remote-style path
-fledge init test-project --template ./my-template
-```
+# Edit template.toml and template files
+# Test it
+fledge init test-project --template ./my-template --dry-run
 
-Then iterate: edit template files, run `fledge init test-output --template my-template`, inspect the output, delete and repeat.
-
-### Example: Creating a Template from Scratch
-
-```bash
-mkdir my-template && cd my-template
-```
-
-Create `template.toml`:
-
-```toml
-[template]
-name = "python-api"
-description = "Python FastAPI project with Docker"
-
-[prompts]
-description = { message = "Project description", default = "A FastAPI application" }
-python_version = { message = "Python version", default = "3.12" }
-
-[files]
-render = ["**/*.py", "**/*.toml", "**/*.md", "**/*.yml", "Dockerfile"]
-ignore = ["template.toml"]
-
-[hooks]
-post_create = ["python -m venv .venv"]
-```
-
-Create template files using Tera variables:
-
-```python
-# app/main.py
-"""{{ description }}"""
-from fastapi import FastAPI
-
-app = FastAPI(title="{{ project_name_pascal }}")
-
-@app.get("/")
-def root():
-    return {"name": "{{ project_name }}"}
-```
-
-```dockerfile
-# Dockerfile
-FROM python:{{ python_version }}-slim
-WORKDIR /app
-COPY . .
-RUN pip install -e .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
-```
-
-Test it:
-
-```bash
-fledge init test-api --template python-api --dry-run
-fledge init test-api --template python-api
+# Publish to GitHub
+fledge publish ./my-template
 ```
 
 ## License

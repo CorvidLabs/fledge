@@ -7,3 +7,4 @@
 - [CLI Reference](./cli-reference.md)
 - [Template Authoring Guide](./template-authoring.md)
 - [Configuration](./configuration.md)
+- [Changelog](./changelog.md)
