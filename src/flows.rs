@@ -93,9 +93,19 @@ pub struct FlowOptions {
     pub init: bool,
     pub dry_run: bool,
     pub json: bool,
+    pub search: bool,
+    pub import: Option<String>,
 }
 
 pub fn run(opts: FlowOptions) -> Result<()> {
+    if opts.search {
+        return search_flows(opts.flow.as_deref(), opts.json);
+    }
+
+    if let Some(ref source) = opts.import {
+        return import_flows(source);
+    }
+
     if opts.init {
         return init_flows();
     }
@@ -536,6 +546,276 @@ fn init_flows() -> Result<()> {
     Ok(())
 }
 
+fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
+    let config = crate::config::Config::load()?;
+    let token = config.github_token();
+
+    let query = match keyword {
+        Some(kw) => format!("{} topic:fledge-flow", kw),
+        None => "topic:fledge-flow".to_string(),
+    };
+
+    println!(
+        "  {} Searching GitHub for community flows...",
+        style("▸").cyan().bold()
+    );
+
+    let body = crate::github::github_api_get(
+        "/search/repositories",
+        token.as_deref(),
+        &[("q", &query), ("sort", "stars"), ("per_page", "30")],
+    )
+    .context("searching GitHub for flow repos")?;
+
+    let results = crate::search::parse_search_response(&body)?;
+
+    if results.is_empty() {
+        if json {
+            println!("[]");
+        } else {
+            println!(
+                "{} No community flows found{}.",
+                style("*").cyan().bold(),
+                keyword
+                    .map(|q| format!(" matching '{q}'"))
+                    .unwrap_or_default()
+            );
+        }
+        return Ok(());
+    }
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&results)?);
+        return Ok(());
+    }
+
+    println!("{}\n", style("Community flows on GitHub:").bold());
+    let max_name = results
+        .iter()
+        .map(|r| r.full_name().len())
+        .max()
+        .unwrap_or(0);
+    for r in &results {
+        let stars = crate::search::format_stars(r.stars);
+        let desc = if r.description.len() > 60 {
+            format!("{}...", &r.description[..57])
+        } else {
+            r.description.clone()
+        };
+        println!(
+            "  {:<width$}  {}  {}",
+            style(&r.full_name()).green(),
+            style(format!("(★ {})", stars)).dim(),
+            style(&desc).dim(),
+            width = max_name,
+        );
+    }
+    println!(
+        "\n{}",
+        style("Import with: fledge flow --import <owner/repo>").dim()
+    );
+
+    Ok(())
+}
+
+fn import_flows(source: &str) -> Result<()> {
+    let cwd = std::env::current_dir()?;
+    let local_path = cwd.join("fledge.toml");
+
+    if !local_path.exists() {
+        bail!(
+            "No fledge.toml found. Run {} first.",
+            style("fledge run --init").cyan()
+        );
+    }
+
+    let config = crate::config::Config::load()?;
+    let token = config.github_token();
+
+    let (owner, repo, git_ref) = parse_import_source(source);
+
+    println!(
+        "  {} Fetching flows from {}/{}{}...",
+        style("▸").cyan().bold(),
+        owner,
+        repo,
+        git_ref
+            .as_ref()
+            .map(|r| format!("@{r}"))
+            .unwrap_or_default()
+    );
+
+    let ref_param = git_ref.as_deref().unwrap_or("HEAD");
+    let body = crate::github::github_api_get(
+        &format!("/repos/{owner}/{repo}/contents/fledge.toml"),
+        token.as_deref(),
+        &[("ref", ref_param)],
+    )
+    .context("fetching fledge.toml from remote repo")?;
+
+    let content_b64 = body
+        .get("content")
+        .and_then(|c| c.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Remote repo has no fledge.toml or it's not a file"))?;
+
+    let cleaned: String = content_b64.chars().filter(|c| !c.is_whitespace()).collect();
+    let decoded = base64_decode(&cleaned).context("decoding fledge.toml content")?;
+    let remote_content = String::from_utf8(decoded).context("fledge.toml is not valid UTF-8")?;
+
+    let remote_config: FledgeFileWithFlows =
+        toml::from_str(&remote_content).context("parsing remote fledge.toml")?;
+
+    if remote_config.flows.is_empty() {
+        bail!("Remote repo has no [flows] defined in fledge.toml.");
+    }
+
+    let local_content =
+        std::fs::read_to_string(&local_path).context("reading local fledge.toml")?;
+    let local_config: FledgeFileWithFlows =
+        toml::from_str(&local_content).context("parsing local fledge.toml")?;
+
+    let mut imported_flows = Vec::new();
+    let mut imported_tasks = Vec::new();
+    let mut skipped = Vec::new();
+    let mut append = String::new();
+
+    for (task_name, task_def) in &remote_config.tasks {
+        if local_config.tasks.contains_key(task_name) {
+            continue;
+        }
+        let cmd = task_def.cmd();
+        append.push_str(&format!("\n[tasks.{task_name}]\ncmd = \"{cmd}\"\n"));
+        imported_tasks.push(task_name.clone());
+    }
+
+    for (flow_name, flow) in &remote_config.flows {
+        if local_config.flows.contains_key(flow_name) {
+            skipped.push(flow_name.clone());
+            continue;
+        }
+        append.push_str(&format_flow_toml(flow_name, flow));
+        imported_flows.push(flow_name.clone());
+    }
+
+    if imported_flows.is_empty() {
+        println!(
+            "{} All flows from {}/{} already exist locally ({})",
+            style("*").cyan().bold(),
+            owner,
+            repo,
+            skipped.join(", ")
+        );
+        return Ok(());
+    }
+
+    let new_content = format!("{}{}", local_content.trim_end(), append);
+    std::fs::write(&local_path, new_content).context("writing fledge.toml")?;
+
+    println!(
+        "{} Imported {} flow(s) from {}/{}",
+        style("✓").green().bold(),
+        imported_flows.len(),
+        owner,
+        repo
+    );
+    for name in &imported_flows {
+        println!("  {} {}", style("+").green(), style(name).cyan());
+    }
+    if !imported_tasks.is_empty() {
+        println!(
+            "  {} Also added {} task(s): {}",
+            style("+").green(),
+            imported_tasks.len(),
+            imported_tasks.join(", ")
+        );
+    }
+    if !skipped.is_empty() {
+        println!(
+            "  {} Skipped (already exist): {}",
+            style("*").dim(),
+            skipped.join(", ")
+        );
+    }
+
+    Ok(())
+}
+
+fn parse_import_source(source: &str) -> (String, String, Option<String>) {
+    let source = source
+        .strip_prefix("https://github.com/")
+        .unwrap_or(source)
+        .trim_end_matches(".git");
+
+    let (path, git_ref) = if let Some((p, r)) = source.split_once('@') {
+        (p, Some(r.to_string()))
+    } else {
+        (source, None)
+    };
+
+    let parts: Vec<&str> = path.splitn(2, '/').collect();
+    let owner = parts.first().unwrap_or(&"").to_string();
+    let repo = parts.get(1).unwrap_or(&"").to_string();
+
+    (owner, repo, git_ref)
+}
+
+fn format_flow_toml(name: &str, flow: &FlowDef) -> String {
+    let mut out = format!("\n[flows.{}]\n", name);
+    if let Some(ref desc) = flow.description {
+        out.push_str(&format!("description = \"{}\"\n", desc));
+    }
+    if !flow.fail_fast {
+        out.push_str("fail_fast = false\n");
+    }
+    out.push_str("steps = [");
+    for (i, step) in flow.steps.iter().enumerate() {
+        if i > 0 {
+            out.push_str(", ");
+        }
+        match step {
+            Step::TaskRef(name) => {
+                out.push_str(&format!("\"{}\"", name));
+            }
+            Step::Inline { run: cmd } => {
+                out.push_str(&format!("{{ run = \"{}\" }}", cmd));
+            }
+            Step::Parallel { parallel } => {
+                let names: Vec<String> = parallel.iter().map(|n| format!("\"{}\"", n)).collect();
+                out.push_str(&format!("{{ parallel = [{}] }}", names.join(", ")));
+            }
+        }
+    }
+    out.push_str("]\n");
+    out
+}
+
+fn base64_decode(input: &str) -> Result<Vec<u8>> {
+    let mut output = Vec::with_capacity(input.len() * 3 / 4);
+    let mut buf: u32 = 0;
+    let mut bits: u32 = 0;
+
+    for c in input.chars() {
+        let val = match c {
+            'A'..='Z' => c as u32 - b'A' as u32,
+            'a'..='z' => c as u32 - b'a' as u32 + 26,
+            '0'..='9' => c as u32 - b'0' as u32 + 52,
+            '+' => 62,
+            '/' => 63,
+            '=' => break,
+            _ => continue,
+        };
+        buf = (buf << 6) | val;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            output.push((buf >> bits) as u8);
+            buf &= (1 << bits) - 1;
+        }
+    }
+
+    Ok(output)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -923,5 +1203,144 @@ steps = ["build"]
                 result.err()
             );
         }
+    }
+
+    #[test]
+    fn parse_import_source_basic() {
+        let (owner, repo, git_ref) = parse_import_source("CorvidLabs/fledge-flows");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_import_source_with_ref() {
+        let (owner, repo, git_ref) = parse_import_source("CorvidLabs/fledge-flows@v1.0.0");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert_eq!(git_ref.unwrap(), "v1.0.0");
+    }
+
+    #[test]
+    fn parse_import_source_full_url() {
+        let (owner, repo, git_ref) =
+            parse_import_source("https://github.com/CorvidLabs/fledge-flows.git");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_import_source_url_with_ref() {
+        let (owner, repo, git_ref) =
+            parse_import_source("https://github.com/CorvidLabs/fledge-flows@main");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert_eq!(git_ref.unwrap(), "main");
+    }
+
+    #[test]
+    fn format_flow_toml_sequential() {
+        let flow = FlowDef {
+            description: Some("CI pipeline".to_string()),
+            steps: vec![
+                Step::TaskRef("lint".to_string()),
+                Step::TaskRef("test".to_string()),
+            ],
+            fail_fast: true,
+        };
+        let toml = format_flow_toml("ci", &flow);
+        assert!(toml.contains("[flows.ci]"));
+        assert!(toml.contains("description = \"CI pipeline\""));
+        assert!(toml.contains("\"lint\""));
+        assert!(toml.contains("\"test\""));
+        assert!(!toml.contains("fail_fast"));
+    }
+
+    #[test]
+    fn format_flow_toml_with_fail_fast_false() {
+        let flow = FlowDef {
+            description: None,
+            steps: vec![Step::TaskRef("audit".to_string())],
+            fail_fast: false,
+        };
+        let toml = format_flow_toml("audit", &flow);
+        assert!(toml.contains("fail_fast = false"));
+    }
+
+    #[test]
+    fn format_flow_toml_with_inline() {
+        let flow = FlowDef {
+            description: None,
+            steps: vec![Step::Inline {
+                run: "echo hello".to_string(),
+            }],
+            fail_fast: true,
+        };
+        let toml = format_flow_toml("test", &flow);
+        assert!(toml.contains("{ run = \"echo hello\" }"));
+    }
+
+    #[test]
+    fn format_flow_toml_with_parallel() {
+        let flow = FlowDef {
+            description: None,
+            steps: vec![Step::Parallel {
+                parallel: vec!["lint".to_string(), "fmt".to_string()],
+            }],
+            fail_fast: true,
+        };
+        let toml = format_flow_toml("check", &flow);
+        assert!(toml.contains("parallel"));
+        assert!(toml.contains("\"lint\""));
+        assert!(toml.contains("\"fmt\""));
+    }
+
+    #[test]
+    fn format_flow_toml_roundtrips() {
+        let flow = FlowDef {
+            description: Some("Full CI".to_string()),
+            steps: vec![
+                Step::TaskRef("lint".to_string()),
+                Step::TaskRef("test".to_string()),
+                Step::TaskRef("build".to_string()),
+            ],
+            fail_fast: true,
+        };
+        let toml_str = format!(
+            "[tasks]\nlint = \"echo lint\"\ntest = \"echo test\"\nbuild = \"echo build\"\n{}",
+            format_flow_toml("ci", &flow)
+        );
+        let parsed: FledgeFileWithFlows = toml::from_str(&toml_str).unwrap();
+        assert!(parsed.flows.contains_key("ci"));
+        assert_eq!(parsed.flows["ci"].steps.len(), 3);
+    }
+
+    #[test]
+    fn base64_decode_basic() {
+        let encoded = "SGVsbG8gV29ybGQ=";
+        let decoded = base64_decode(encoded).unwrap();
+        assert_eq!(String::from_utf8(decoded).unwrap(), "Hello World");
+    }
+
+    #[test]
+    fn base64_decode_no_padding() {
+        let encoded = "Zm9v";
+        let decoded = base64_decode(encoded).unwrap();
+        assert_eq!(String::from_utf8(decoded).unwrap(), "foo");
+    }
+
+    #[test]
+    fn base64_decode_empty() {
+        let decoded = base64_decode("").unwrap();
+        assert!(decoded.is_empty());
+    }
+
+    #[test]
+    fn base64_decode_with_newlines() {
+        let encoded = "SGVs\nbG8=";
+        let cleaned: String = encoded.chars().filter(|c| !c.is_whitespace()).collect();
+        let decoded = base64_decode(&cleaned).unwrap();
+        assert_eq!(String::from_utf8(decoded).unwrap(), "Hello");
     }
 }
