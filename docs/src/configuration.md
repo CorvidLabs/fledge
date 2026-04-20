@@ -2,6 +2,18 @@
 
 Configure fledge to customize defaults and add custom template repositories.
 
+## Quick Setup with Presets
+
+Initialize config with a preset for fast onboarding:
+
+```bash
+# CorvidLabs preset — sets author, org, license, and template repo
+fledge config init --preset corvidlabs
+
+# Default config with MIT license
+fledge config init
+```
+
 ## Config File Location
 
 fledge reads configuration from:

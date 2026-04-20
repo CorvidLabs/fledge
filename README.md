@@ -1,17 +1,19 @@
 # fledge
 
-Get your projects ready to fly.
+Dev-lifecycle CLI — get your projects ready to fly.
 
-A fast, opinionated dev-lifecycle CLI built in Rust. Scaffold projects from templates, manage specs, run tasks, check CI, review code, and ship — all from one binary.
+A fast, opinionated CLI built in Rust. Scaffold projects, run tasks, compose workflow pipelines, manage plugins, check dependencies, review code, and ship — all from one binary.
 
 ## Why fledge?
 
 - **Fast** — native Rust binary, no runtime dependencies
 - **Smart defaults** — pulls author/org from git config, renders dates, computes name variants automatically
 - **Remote templates** — use any GitHub repo as a template source with `owner/repo` syntax
-- **Full lifecycle** — scaffolding, specs, tasks, CI checks, changelogs, GitHub ops, AI review
+- **Full lifecycle** — scaffolding, tasks, lanes, specs, CI checks, changelogs, GitHub ops, AI review
+- **Composable lanes** — chain tasks into named pipelines with parallel execution
+- **Plugin system** — community extensions via external executables (git-style)
 - **Language-agnostic** — auto-detects Rust, Node, Go, Python, Ruby, Java and adapts defaults
-- **Extensible** — create your own templates with a simple `template.toml` manifest
+- **Extensible** — create templates, plugins, and custom lane steps
 - **Safe** — remote template hooks require explicit confirmation before running
 - **Optional TUI** — interactive template browser with `--features tui`
 
@@ -56,6 +58,20 @@ fledge init my-tool --template rust-cli --dry-run
 # Run project tasks
 fledge run build
 fledge run test
+
+# Compose workflow pipelines
+fledge lane --init       # add default lanes
+fledge lane ci           # run the CI lane
+fledge lane ci --dry-run # preview execution plan
+
+# Project health
+fledge doctor            # environment diagnostics
+fledge metrics           # LOC by language
+fledge deps --outdated   # check for outdated deps
+
+# Plugins
+fledge plugin search deploy
+fledge plugin install someone/fledge-deploy
 
 # Check CI status
 fledge checks
@@ -153,6 +169,51 @@ Options:
   -l, --list          List available tasks
 ```
 
+#### `fledge lane [name]`
+
+Run a composable workflow pipeline. Lanes chain tasks into named pipelines with parallel execution groups.
+
+```
+Options:
+  -l, --list          List available lanes
+      --init          Add default lanes to fledge.toml
+      --dry-run       Show execution plan without running
+      --json          Output as JSON
+```
+
+#### `fledge doctor`
+
+Diagnose project environment health (tools, config, issues).
+
+```
+Options:
+      --json          Output as JSON
+```
+
+#### `fledge metrics`
+
+Project code metrics — LOC by language, file churn, test ratio.
+
+```
+Options:
+      --churn         Show most-changed files from git history
+      --tests         Show test file detection and ratio
+  -l, --limit         Maximum entries for churn [default: 20]
+      --json          Output as JSON
+```
+
+#### `fledge deps`
+
+Check dependency health across ecosystems.
+
+```
+Options:
+      --outdated      Check for outdated dependencies
+      --audit         Run security audit
+      --licenses      Show dependency licenses
+      --json          Output as JSON
+```
+
 #### `fledge spec <action>`
 
 Manage spec-sync specifications (source of truth for modules).
@@ -238,6 +299,25 @@ Options:
 
 Ask a question about your codebase via Claude CLI.
 
+### Plugins
+
+#### `fledge plugin <action>`
+
+Manage community extensions — install, remove, list, and search.
+
+```
+Subcommands:
+  install <source>     Install a plugin from GitHub (owner/repo)
+  remove <name>        Remove an installed plugin
+  list                 List installed plugins
+  search [query]       Search for plugins on GitHub
+  run <name> [args]    Run a plugin command
+
+Options:
+      --json           Output as JSON
+      --force          Reinstall if already present (install only)
+```
+
 ### Configuration
 
 #### `fledge config <action>`
@@ -253,6 +333,7 @@ Subcommands:
   remove <key> <value> Remove a value from a list
   list                Show all config values
   path                Show config file path
+  init [--preset]     Initialize config (presets: corvidlabs)
 ```
 
 #### `fledge completions [shell]`
