@@ -22,7 +22,7 @@ Composable workflow pipelines defined in `fledge.toml`. Flows chain multiple tas
 
 | Export | Description |
 |--------|-------------|
-| `run` | Entry point — lists or executes lanes |
+| `run` | Entry point — lists or executes flows |
 | `FlowOptions` | Options: `flow`, `list`, `init`, `dry_run`, `json` |
 | `FlowDef` | Flow definition: description, steps, and fail_fast flag |
 
@@ -97,9 +97,9 @@ steps = ["deps-audit", "license-check", "security-scan"]
 ## Behavioral Examples
 
 ```
-# List lanes
+# List flows
 $ fledge flow
-Available lanes:
+Available flows:
   ci       Full CI pipeline
   release  Build and publish a release
 
@@ -125,7 +125,7 @@ $ fledge flow check
   ▸ Running task: test
 ✓ Flow check completed (2 steps)
 
-# Init default lanes
+# Init default flows
 $ fledge flow --init
 ✓ Added default flows to fledge.toml
 ```
@@ -135,11 +135,11 @@ $ fledge flow --init
 | Error | When | Behavior |
 |-------|------|----------|
 | No fledge.toml | File missing | Suggest `fledge run --init` |
-| No lanes defined | No `[flows]` section | Error with guidance |
+| No flows defined | No `[flows]` section | Error with guidance |
 | Unknown flow | Flow name not found | List available flows |
 | Unknown task ref | Step references non-existent task | Error before execution with task name |
 | Step failed | Non-zero exit code | Stop flow (if fail_fast) or continue and report |
-| Already exists | `--init` when lanes already exist | Error |
+| Already exists | `--init` when flows already exist | Error |
 | Empty steps | Flow has no steps | Error |
 
 ## Dependencies
