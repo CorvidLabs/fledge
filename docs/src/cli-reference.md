@@ -177,6 +177,8 @@ fledge flow [name] [OPTIONS]
 - `--init` — Generate default flows
 - `--dry-run` — Preview the plan
 - `--json` — JSON output
+- `--search` — Search GitHub for community flows
+- `--import <source>` — Import flows from a GitHub repo (owner/repo or owner/repo@ref)
 
 **Flow config in fledge.toml:**
 
@@ -213,6 +215,9 @@ fledge flow
 fledge flow ci
 fledge flow ci --dry-run
 fledge flow --init
+fledge flow --search
+fledge flow rust --search
+fledge flow --import CorvidLabs/fledge-flows
 ```
 
 ---

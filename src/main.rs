@@ -220,6 +220,12 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Search GitHub for community flows
+        #[arg(long)]
+        search: bool,
+        /// Import flows from a GitHub repo (owner/repo)
+        #[arg(long, value_name = "SOURCE")]
+        import: Option<String>,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -595,6 +601,8 @@ fn run() -> Result<()> {
             init,
             dry_run,
             json,
+            search,
+            import,
         } => {
             flows::run(flows::FlowOptions {
                 flow,
@@ -602,6 +610,8 @@ fn run() -> Result<()> {
                 init,
                 dry_run,
                 json,
+                search,
+                import,
             })?;
         }
         Commands::Changelog {

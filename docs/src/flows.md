@@ -192,6 +192,34 @@ fledge flow ci           # run one
 fledge flow ci --dry-run # preview the plan
 fledge flow --init       # generate defaults
 fledge flow --list --json
+fledge flow --search              # find community flows
+fledge flow rust --search         # search with keyword
+fledge flow --import owner/repo   # import flows from GitHub
+fledge flow --import owner/repo@v1.0.0  # pin to a version
+```
+
+## Community Flow Registry
+
+Share and discover flows via GitHub. Repos with the `fledge-flow` topic are discoverable through `--search`.
+
+### Publishing Flows
+
+1. Create a repo with a `fledge.toml` containing your flows and tasks
+2. Add the `fledge-flow` topic to the repo on GitHub
+3. Others can find it with `fledge flow --search` and import it
+
+### Importing Flows
+
+```bash
+fledge flow --import CorvidLabs/fledge-flows
+```
+
+This fetches the remote repo's `fledge.toml`, extracts its flows and any required tasks, and merges them into your local `fledge.toml`. Existing flows with the same name are skipped (not overwritten).
+
+You can pin to a specific branch or tag:
+
+```bash
+fledge flow --import CorvidLabs/fledge-flows@v1.0.0
 ```
 
 ## Environment diagnostics with `fledge doctor`
