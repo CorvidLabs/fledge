@@ -10,11 +10,11 @@ use std::thread;
 use crate::run::detect_project_type;
 
 #[derive(Debug, Deserialize)]
-struct FledgeFileWithLanes {
+struct FledgeFileWithFlows {
     #[serde(default)]
     tasks: BTreeMap<String, TaskDef>,
     #[serde(default)]
-    lanes: BTreeMap<String, LaneDef>,
+    flows: BTreeMap<String, FlowDef>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +67,7 @@ impl TaskDef {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct LaneDef {
+pub struct FlowDef {
     #[serde(default)]
     description: Option<String>,
     steps: Vec<Step>,
@@ -87,17 +87,17 @@ enum Step {
     Parallel { parallel: Vec<String> },
 }
 
-pub struct LaneOptions {
-    pub lane: Option<String>,
+pub struct FlowOptions {
+    pub flow: Option<String>,
     pub list: bool,
     pub init: bool,
     pub dry_run: bool,
     pub json: bool,
 }
 
-pub fn run(opts: LaneOptions) -> Result<()> {
+pub fn run(opts: FlowOptions) -> Result<()> {
     if opts.init {
-        return init_lanes();
+        return init_flows();
     }
 
     let project_dir = std::env::current_dir().context("getting current directory")?;
@@ -111,52 +111,52 @@ pub fn run(opts: LaneOptions) -> Result<()> {
     }
 
     let content = std::fs::read_to_string(&config_path).context("reading fledge.toml")?;
-    let config: FledgeFileWithLanes = toml::from_str(&content).context("parsing fledge.toml")?;
+    let config: FledgeFileWithFlows = toml::from_str(&content).context("parsing fledge.toml")?;
 
-    if config.lanes.is_empty() {
+    if config.flows.is_empty() {
         bail!(
-            "No lanes defined in fledge.toml.\n  Add a [lanes] section or run {} to add defaults.",
-            style("fledge lane --init").cyan()
+            "No flows defined in fledge.toml.\n  Add a [flows] section or run {} to add defaults.",
+            style("fledge flow --init").cyan()
         );
     }
 
-    if opts.list || opts.lane.is_none() {
-        return list_lanes(&config.lanes, opts.json);
+    if opts.list || opts.flow.is_none() {
+        return list_flows(&config.flows, opts.json);
     }
 
-    let lane_name = opts.lane.as_ref().unwrap();
-    let lane = config.lanes.get(lane_name).ok_or_else(|| {
-        let available: Vec<&str> = config.lanes.keys().map(|s| s.as_str()).collect();
+    let flow_name = opts.flow.as_ref().unwrap();
+    let flow = config.flows.get(flow_name).ok_or_else(|| {
+        let available: Vec<&str> = config.flows.keys().map(|s| s.as_str()).collect();
         anyhow::anyhow!(
-            "Unknown lane '{}'. Available lanes: {}",
-            lane_name,
+            "Unknown flow '{}'. Available flows: {}",
+            flow_name,
             available.join(", ")
         )
     })?;
 
-    if lane.steps.is_empty() {
-        bail!("Lane '{}' has no steps defined", lane_name);
+    if flow.steps.is_empty() {
+        bail!("Flow '{}' has no steps defined", flow_name);
     }
 
-    validate_lane(lane_name, lane, &config.tasks)?;
+    validate_flow(flow_name, flow, &config.tasks)?;
 
     if opts.dry_run {
-        return dry_run_lane(lane_name, lane);
+        return dry_run_flow(flow_name, flow);
     }
 
-    execute_lane(lane_name, lane, &config.tasks, &project_dir)
+    execute_flow(flow_name, flow, &config.tasks, &project_dir)
 }
 
-fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
+fn list_flows(flows: &BTreeMap<String, FlowDef>, json: bool) -> Result<()> {
     if json {
-        let entries: Vec<serde_json::Value> = lanes
+        let entries: Vec<serde_json::Value> = flows
             .iter()
-            .map(|(name, lane)| {
+            .map(|(name, flow)| {
                 serde_json::json!({
                     "name": name,
-                    "description": lane.description,
-                    "steps": lane.steps.len(),
-                    "fail_fast": lane.fail_fast,
+                    "description": flow.description,
+                    "steps": flow.steps.len(),
+                    "fail_fast": flow.fail_fast,
                 })
             })
             .collect();
@@ -164,10 +164,10 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", style("Available lanes:").bold());
-    let max_name_len = lanes.keys().map(|k| k.len()).max().unwrap_or(0);
-    for (name, lane) in lanes {
-        let desc = lane.description.as_deref().unwrap_or("(no description)");
+    println!("{}", style("Available flows:").bold());
+    let max_name_len = flows.keys().map(|k| k.len()).max().unwrap_or(0);
+    for (name, flow) in flows {
+        let desc = flow.description.as_deref().unwrap_or("(no description)");
         println!(
             "  {:<width$}  {}",
             style(name).green(),
@@ -178,14 +178,14 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
     Ok(())
 }
 
-fn validate_lane(lane_name: &str, lane: &LaneDef, tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
-    for (i, step) in lane.steps.iter().enumerate() {
+fn validate_flow(flow_name: &str, flow: &FlowDef, tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
+    for (i, step) in flow.steps.iter().enumerate() {
         match step {
             Step::TaskRef(name) => {
                 if !tasks.contains_key(name) {
                     bail!(
-                        "Lane '{}' step {} references unknown task '{}'.\n  Define it in [tasks] first.",
-                        lane_name,
+                        "Flow '{}' step {} references unknown task '{}'.\n  Define it in [tasks] first.",
+                        flow_name,
                         i + 1,
                         name
                     );
@@ -196,8 +196,8 @@ fn validate_lane(lane_name: &str, lane: &LaneDef, tasks: &BTreeMap<String, TaskD
                 for name in parallel {
                     if !tasks.contains_key(name) {
                         bail!(
-                            "Lane '{}' step {} parallel group references unknown task '{}'.\n  Define it in [tasks] first.",
-                            lane_name,
+                            "Flow '{}' step {} parallel group references unknown task '{}'.\n  Define it in [tasks] first.",
+                            flow_name,
                             i + 1,
                             name
                         );
@@ -209,18 +209,18 @@ fn validate_lane(lane_name: &str, lane: &LaneDef, tasks: &BTreeMap<String, TaskD
     Ok(())
 }
 
-fn dry_run_lane(lane_name: &str, lane: &LaneDef) -> Result<()> {
-    let desc = lane.description.as_deref().unwrap_or("(no description)");
+fn dry_run_flow(flow_name: &str, flow: &FlowDef) -> Result<()> {
+    let desc = flow.description.as_deref().unwrap_or("(no description)");
     println!(
         "{} {} — {}",
-        style("Lane:").bold(),
-        style(lane_name).green(),
+        style("Flow:").bold(),
+        style(flow_name).green(),
         style(desc).dim()
     );
-    if !lane.fail_fast {
+    if !flow.fail_fast {
         println!("  {} fail_fast = false", style("⚙").dim());
     }
-    for (i, step) in lane.steps.iter().enumerate() {
+    for (i, step) in flow.steps.iter().enumerate() {
         match step {
             Step::TaskRef(name) => {
                 println!(
@@ -251,24 +251,24 @@ fn dry_run_lane(lane_name: &str, lane: &LaneDef) -> Result<()> {
     Ok(())
 }
 
-fn execute_lane(
-    lane_name: &str,
-    lane: &LaneDef,
+fn execute_flow(
+    flow_name: &str,
+    flow: &FlowDef,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
 ) -> Result<()> {
-    let desc = lane.description.as_deref().unwrap_or("(no description)");
+    let desc = flow.description.as_deref().unwrap_or("(no description)");
     println!(
         "{} {} — {}",
-        style("▸ Lane:").cyan().bold(),
-        style(lane_name).bold(),
+        style("▸ Flow:").cyan().bold(),
+        style(flow_name).bold(),
         style(desc).dim()
     );
 
-    let total_steps = lane.steps.len();
+    let total_steps = flow.steps.len();
     let mut failures: Vec<String> = Vec::new();
 
-    for (i, step) in lane.steps.iter().enumerate() {
+    for (i, step) in flow.steps.iter().enumerate() {
         let result = match step {
             Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
             Step::Inline { run: cmd } => execute_inline(cmd, project_dir),
@@ -281,10 +281,10 @@ fn execute_lane(
                 Step::Inline { run: cmd } => cmd.clone(),
                 Step::Parallel { parallel } => format!("parallel({})", parallel.join(", ")),
             };
-            if lane.fail_fast {
+            if flow.fail_fast {
                 bail!(
-                    "Lane '{}' failed at step {} ({}): {}",
-                    lane_name,
+                    "Flow '{}' failed at step {} ({}): {}",
+                    flow_name,
                     i + 1,
                     step_desc,
                     e
@@ -303,15 +303,15 @@ fn execute_lane(
 
     if failures.is_empty() {
         println!(
-            "{} Lane {} completed ({} steps)",
+            "{} Flow {} completed ({} steps)",
             style("✓").green().bold(),
-            style(lane_name).green(),
+            style(flow_name).green(),
             total_steps
         );
     } else {
         bail!(
-            "Lane '{}' completed with {} failure(s): {}",
-            lane_name,
+            "Flow '{}' completed with {} failure(s): {}",
+            flow_name,
             failures.len(),
             failures.join(", ")
         );
@@ -437,15 +437,15 @@ fn execute_parallel(
     Ok(())
 }
 
-fn lane_defaults(project_type: &str) -> &'static str {
+fn flow_defaults(project_type: &str) -> &'static str {
     match project_type {
         "rust" => {
             r#"
-[lanes.ci]
+[flows.ci]
 description = "Run full CI pipeline"
 steps = ["fmt", "lint", "test", "build"]
 
-[lanes.check]
+[flows.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -455,11 +455,11 @@ steps = [
         }
         "node" => {
             r#"
-[lanes.ci]
+[flows.ci]
 description = "Run full CI pipeline"
 steps = ["lint", "test", "build"]
 
-[lanes.check]
+[flows.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["lint", "test"] },
@@ -468,11 +468,11 @@ steps = [
         }
         "go" => {
             r#"
-[lanes.ci]
+[flows.ci]
 description = "Run full CI pipeline"
 steps = ["fmt", "lint", "test", "build"]
 
-[lanes.check]
+[flows.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -482,11 +482,11 @@ steps = [
         }
         "python" => {
             r#"
-[lanes.ci]
+[flows.ci]
 description = "Run full CI pipeline"
 steps = ["fmt", "lint", "typecheck", "test"]
 
-[lanes.check]
+[flows.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -496,7 +496,7 @@ steps = [
         }
         _ => {
             r#"
-[lanes.ci]
+[flows.ci]
 description = "Run full CI pipeline"
 steps = ["lint", "test", "build"]
 "#
@@ -504,35 +504,35 @@ steps = ["lint", "test", "build"]
     }
 }
 
-fn init_lanes() -> Result<()> {
+fn init_flows() -> Result<()> {
     let cwd = std::env::current_dir()?;
     let path = cwd.join("fledge.toml");
 
     if !path.exists() {
         bail!(
-            "No fledge.toml found. Run {} first, then add lanes.",
+            "No fledge.toml found. Run {} first, then add flows.",
             style("fledge run --init").cyan()
         );
     }
 
     let content = std::fs::read_to_string(&path).context("reading fledge.toml")?;
 
-    if content.contains("[lanes") {
-        bail!("Lanes already defined in fledge.toml. Edit them manually.");
+    if content.contains("[flows") {
+        bail!("Flows already defined in fledge.toml. Edit them manually.");
     }
 
     let project_type = detect_project_type(&cwd);
-    let defaults = lane_defaults(project_type);
+    let defaults = flow_defaults(project_type);
 
     let new_content = format!("{}{}", content.trim_end(), defaults);
     std::fs::write(&path, new_content).context("writing fledge.toml")?;
 
     println!(
-        "{} Added default lanes to {}",
+        "{} Added default flows to {}",
         style("✓").green().bold(),
         style("fledge.toml").cyan()
     );
-    println!("  Run {} to see them.", style("fledge lane").cyan());
+    println!("  Run {} to see them.", style("fledge flow").cyan());
     Ok(())
 }
 
@@ -540,12 +540,12 @@ fn init_lanes() -> Result<()> {
 mod tests {
     use super::*;
 
-    fn parse_config(toml_str: &str) -> FledgeFileWithLanes {
+    fn parse_config(toml_str: &str) -> FledgeFileWithFlows {
         toml::from_str(toml_str).unwrap()
     }
 
     #[test]
-    fn parse_sequential_lane() {
+    fn parse_sequential_flow() {
         let config = parse_config(
             r#"
 [tasks]
@@ -553,14 +553,14 @@ lint = "cargo clippy"
 test = "cargo test"
 build = "cargo build"
 
-[lanes.ci]
+[flows.ci]
 description = "CI pipeline"
 steps = ["lint", "test", "build"]
 "#,
         );
-        assert_eq!(config.lanes.len(), 1);
-        assert_eq!(config.lanes["ci"].steps.len(), 3);
-        assert!(config.lanes["ci"].fail_fast);
+        assert_eq!(config.flows.len(), 1);
+        assert_eq!(config.flows["ci"].steps.len(), 3);
+        assert!(config.flows["ci"].fail_fast);
     }
 
     #[test]
@@ -570,7 +570,7 @@ steps = ["lint", "test", "build"]
 [tasks]
 test = "cargo test"
 
-[lanes.release]
+[flows.release]
 description = "Release"
 steps = [
   "test",
@@ -578,8 +578,8 @@ steps = [
 ]
 "#,
         );
-        assert_eq!(config.lanes["release"].steps.len(), 2);
-        match &config.lanes["release"].steps[1] {
+        assert_eq!(config.flows["release"].steps.len(), 2);
+        match &config.flows["release"].steps[1] {
             Step::Inline { run: cmd } => assert_eq!(cmd, "cargo build --release"),
             _ => panic!("expected inline step"),
         }
@@ -594,7 +594,7 @@ lint = "cargo clippy"
 fmt = "cargo fmt --check"
 test = "cargo test"
 
-[lanes.check]
+[flows.check]
 description = "Quick check"
 steps = [
   { parallel = ["lint", "fmt"] },
@@ -602,8 +602,8 @@ steps = [
 ]
 "#,
         );
-        assert_eq!(config.lanes["check"].steps.len(), 2);
-        match &config.lanes["check"].steps[0] {
+        assert_eq!(config.flows["check"].steps.len(), 2);
+        match &config.flows["check"].steps[0] {
             Step::Parallel { parallel } => {
                 assert_eq!(parallel, &["lint", "fmt"]);
             }
@@ -619,13 +619,13 @@ steps = [
 a = "echo a"
 b = "echo b"
 
-[lanes.audit]
+[flows.audit]
 description = "Audit"
 fail_fast = false
 steps = ["a", "b"]
 "#,
         );
-        assert!(!config.lanes["audit"].fail_fast);
+        assert!(!config.flows["audit"].fail_fast);
     }
 
     #[test]
@@ -635,11 +635,11 @@ steps = ["a", "b"]
 [tasks]
 a = "echo a"
 
-[lanes.ci]
+[flows.ci]
 steps = ["a"]
 "#,
         );
-        assert!(config.lanes["ci"].fail_fast);
+        assert!(config.flows["ci"].fail_fast);
     }
 
     #[test]
@@ -649,11 +649,11 @@ steps = ["a"]
 [tasks]
 lint = "cargo clippy"
 
-[lanes.ci]
+[flows.ci]
 steps = ["lint", "nonexistent"]
 "#,
         );
-        let result = validate_lane("ci", &config.lanes["ci"], &config.tasks);
+        let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("nonexistent"));
     }
@@ -665,11 +665,11 @@ steps = ["lint", "nonexistent"]
 [tasks]
 lint = "cargo clippy"
 
-[lanes.check]
+[flows.check]
 steps = [{ parallel = ["lint", "ghost"] }]
 "#,
         );
-        let result = validate_lane("check", &config.lanes["check"], &config.tasks);
+        let result = validate_flow("check", &config.flows["check"], &config.tasks);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("ghost"));
     }
@@ -680,11 +680,11 @@ steps = [{ parallel = ["lint", "ghost"] }]
             r#"
 [tasks]
 
-[lanes.ci]
+[flows.ci]
 steps = [{ run = "echo hello" }]
 "#,
         );
-        let result = validate_lane("ci", &config.lanes["ci"], &config.tasks);
+        let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
         assert!(result.is_ok());
     }
 
@@ -697,16 +697,16 @@ lint = "cargo clippy"
 test = "cargo test"
 build = "cargo build"
 
-[lanes.ci]
+[flows.ci]
 steps = ["lint", "test", "build"]
 "#,
         );
-        let result = validate_lane("ci", &config.lanes["ci"], &config.tasks);
+        let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn parse_multiple_lanes() {
+    fn parse_multiple_flows() {
         let config = parse_config(
             r#"
 [tasks]
@@ -714,42 +714,42 @@ lint = "cargo clippy"
 test = "cargo test"
 build = "cargo build"
 
-[lanes.ci]
+[flows.ci]
 description = "CI"
 steps = ["lint", "test", "build"]
 
-[lanes.quick]
+[flows.quick]
 description = "Quick"
 steps = ["lint"]
 "#,
         );
-        assert_eq!(config.lanes.len(), 2);
-        assert!(config.lanes.contains_key("ci"));
-        assert!(config.lanes.contains_key("quick"));
+        assert_eq!(config.flows.len(), 2);
+        assert!(config.flows.contains_key("ci"));
+        assert!(config.flows.contains_key("quick"));
     }
 
     #[test]
-    fn parse_no_lanes_section() {
+    fn parse_no_flows_section() {
         let config = parse_config(
             r#"
 [tasks]
 build = "cargo build"
 "#,
         );
-        assert!(config.lanes.is_empty());
+        assert!(config.flows.is_empty());
     }
 
     #[test]
-    fn parse_empty_lanes_section() {
+    fn parse_empty_flows_section() {
         let config = parse_config(
             r#"
 [tasks]
 build = "cargo build"
 
-[lanes]
+[flows]
 "#,
         );
-        assert!(config.lanes.is_empty());
+        assert!(config.flows.is_empty());
     }
 
     #[test]
@@ -760,7 +760,7 @@ build = "cargo build"
 test = "cargo test"
 lint = "cargo clippy"
 
-[lanes.full]
+[flows.full]
 steps = [
   "test",
   { run = "echo done" },
@@ -768,33 +768,33 @@ steps = [
 ]
 "#,
         );
-        assert_eq!(config.lanes["full"].steps.len(), 3);
-        assert!(matches!(&config.lanes["full"].steps[0], Step::TaskRef(_)));
+        assert_eq!(config.flows["full"].steps.len(), 3);
+        assert!(matches!(&config.flows["full"].steps[0], Step::TaskRef(_)));
         assert!(matches!(
-            &config.lanes["full"].steps[1],
+            &config.flows["full"].steps[1],
             Step::Inline { .. }
         ));
         assert!(matches!(
-            &config.lanes["full"].steps[2],
+            &config.flows["full"].steps[2],
             Step::Parallel { .. }
         ));
     }
 
     #[test]
-    fn execute_sequential_lane_echo() {
+    fn execute_sequential_flow_echo() {
         let config = parse_config(
             r#"
 [tasks]
 a = "echo step-a"
 b = "echo step-b"
 
-[lanes.seq]
+[flows.seq]
 description = "Sequential"
 steps = ["a", "b"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("seq", &config.lanes["seq"], &config.tasks, &project_dir);
+        let result = execute_flow("seq", &config.flows["seq"], &config.tasks, &project_dir);
         assert!(result.is_ok());
     }
 
@@ -804,14 +804,14 @@ steps = ["a", "b"]
             r#"
 [tasks]
 
-[lanes.inline]
+[flows.inline]
 steps = [{ run = "echo inline-works" }]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane(
+        let result = execute_flow(
             "inline",
-            &config.lanes["inline"],
+            &config.flows["inline"],
             &config.tasks,
             &project_dir,
         );
@@ -826,12 +826,12 @@ steps = [{ run = "echo inline-works" }]
 a = "echo parallel-a"
 b = "echo parallel-b"
 
-[lanes.par]
+[flows.par]
 steps = [{ parallel = ["a", "b"] }]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("par", &config.lanes["par"], &config.tasks, &project_dir);
+        let result = execute_flow("par", &config.flows["par"], &config.tasks, &project_dir);
         assert!(result.is_ok());
     }
 
@@ -843,13 +843,13 @@ steps = [{ parallel = ["a", "b"] }]
 fail = "exit 1"
 ok = "echo ok"
 
-[lanes.ff]
+[flows.ff]
 fail_fast = true
 steps = ["fail", "ok"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("ff", &config.lanes["ff"], &config.tasks, &project_dir);
+        let result = execute_flow("ff", &config.flows["ff"], &config.tasks, &project_dir);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("failed at step 1"));
     }
@@ -862,19 +862,19 @@ steps = ["fail", "ok"]
 fail = "exit 1"
 ok = "echo ok"
 
-[lanes.noff]
+[flows.noff]
 fail_fast = false
 steps = ["fail", "ok"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("noff", &config.lanes["noff"], &config.tasks, &project_dir);
+        let result = execute_flow("noff", &config.flows["noff"], &config.tasks, &project_dir);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("1 failure"));
     }
 
     #[test]
-    fn execute_task_deps_in_lane() {
+    fn execute_task_deps_in_flow() {
         let config = parse_config(
             r#"
 [tasks.build]
@@ -884,17 +884,17 @@ deps = ["prep"]
 [tasks.prep]
 cmd = "echo preparing"
 
-[lanes.ci]
+[flows.ci]
 steps = ["build"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("ci", &config.lanes["ci"], &config.tasks, &project_dir);
+        let result = execute_flow("ci", &config.flows["ci"], &config.tasks, &project_dir);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn lane_defaults_are_valid_toml() {
+    fn flow_defaults_are_valid_toml() {
         for project_type in &["rust", "node", "go", "python", "generic"] {
             let tasks = match *project_type {
                 "rust" => {
@@ -913,9 +913,9 @@ steps = ["build"]
                     "[tasks]\nlint = \"echo lint\"\ntest = \"echo test\"\nbuild = \"echo build\"\n"
                 }
             };
-            let defaults = lane_defaults(project_type);
+            let defaults = flow_defaults(project_type);
             let toml_str = format!("{}{}", tasks, defaults);
-            let result: Result<FledgeFileWithLanes, _> = toml::from_str(&toml_str);
+            let result: Result<FledgeFileWithFlows, _> = toml::from_str(&toml_str);
             assert!(
                 result.is_ok(),
                 "Invalid TOML for {}: {:?}",

@@ -16,7 +16,7 @@ I got tired of juggling `cookiecutter` for scaffolding, `make` for tasks, `gh` f
 - **Smart defaults.** Pulls your name and org from git config, auto-detects your project type, generates sensible task configs.
 - **Remote templates.** Any GitHub repo works as a template with `owner/repo` syntax. No special registry needed.
 - **Six pillars.** Start, Build, Develop, Review, Ship, Extend — every stage of your project has a home.
-- **Lanes.** Chain tasks into pipelines with parallel groups. `fledge lane ci` and you're done.
+- **Flows.** Chain tasks into pipelines with parallel groups. `fledge flow ci` and you're done.
 - **Plugins.** Git-style subcommand pattern. Drop in community extensions or write your own.
 - **Language-agnostic.** Auto-detects Rust, Node, Go, Python, Ruby, Java, Swift and adapts.
 - **Safe.** Remote template hooks always ask before running. No surprises.
@@ -66,8 +66,8 @@ fledge run build
 fledge run test
 
 # Workflow pipelines
-fledge lane --init       # generate default lanes
-fledge lane ci           # run lint + test + build
+fledge flow --init       # generate default flows
+fledge flow ci           # run lint + test + build
 
 # Project health
 fledge doctor            # check your environment
@@ -117,7 +117,7 @@ Full docs at [corvidlabs.github.io/fledge](https://corvidlabs.github.io/fledge/)
 | Command | What it does |
 |---------|-------------|
 | `fledge run [task]` | Run tasks from fledge.toml |
-| `fledge lane [name]` | Run a workflow pipeline |
+| `fledge flow [name]` | Run a workflow pipeline |
 | `fledge config <action>` | Manage global config |
 | `fledge doctor` | Environment diagnostics |
 

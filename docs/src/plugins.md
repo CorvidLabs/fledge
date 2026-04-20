@@ -80,7 +80,7 @@ description = "Rollback to previous deployment"
 binary = "fledge-rollback"
 
 [[hooks]]
-event = "lane:post"
+event = "flow:post"
 binary = "fledge-deploy-notify"
 ```
 
@@ -135,7 +135,7 @@ Hooks fire in response to fledge events.
 
 | Field | Type | Required | |
 |-------|------|----------|-|
-| `event` | string | Yes | Event to hook (e.g. `lane:post`) |
+| `event` | string | Yes | Event to hook (e.g. `flow:post`) |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
 ## Interactive TUI

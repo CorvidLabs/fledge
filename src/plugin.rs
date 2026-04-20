@@ -643,7 +643,7 @@ description = "Deploy the project"
 binary = "fledge-deploy"
 
 [[hooks]]
-event = "lane:post"
+event = "flow:post"
 binary = "fledge-deploy-notify"
 "#;
         let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
@@ -652,7 +652,7 @@ binary = "fledge-deploy-notify"
         assert_eq!(manifest.commands.len(), 1);
         assert_eq!(manifest.commands[0].name, "deploy");
         assert_eq!(manifest.hooks.len(), 1);
-        assert_eq!(manifest.hooks[0].event, "lane:post");
+        assert_eq!(manifest.hooks[0].event, "flow:post");
     }
 
     #[test]

@@ -1,24 +1,24 @@
-# Lanes & Pipelines
+# Flows & Pipelines
 
-Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. They support parallel groups and configurable failure behavior.
+flows let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge flow ci`. They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
-Already have tasks in `fledge.toml`? Generate lanes automatically:
+Already have tasks in `fledge.toml`? Generate flows automatically:
 
 ```bash
-fledge lane --init
+fledge flow --init
 ```
 
 This looks at your project type and creates sensible defaults. Then just run one:
 
 ```bash
-fledge lane ci
+fledge flow ci
 ```
 
-## Defining Lanes
+## Defining flows
 
-Lanes go in `fledge.toml` alongside your tasks:
+flows go in `fledge.toml` alongside your tasks:
 
 ```toml
 [tasks]
@@ -27,11 +27,11 @@ lint = "cargo clippy -- -D warnings"
 test = "cargo test"
 build = "cargo build"
 
-[lanes.ci]
+[flows.ci]
 description = "Full CI pipeline"
 steps = ["fmt", "lint", "test", "build"]
 
-[lanes.check]
+[flows.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -39,17 +39,17 @@ steps = [
 ]
 ```
 
-### Lane Options
+### flow Options
 
 | Field | Type | Default | What it does |
 |-------|------|---------|-------------|
-| `description` | string | `(no description)` | Shows up when listing lanes |
+| `description` | string | `(no description)` | Shows up when listing flows |
 | `steps` | array | required | Ordered list of steps |
 | `fail_fast` | bool | `true` | Stop on first failure vs. run everything and report |
 
 ## Step Types
 
-You can mix these freely in a lane:
+You can mix these freely in a flow:
 
 ### Task References
 
@@ -90,7 +90,7 @@ Here `fmt` and `lint` run concurrently, then `test`, then `build`.
 Default is `fail_fast = true` — pipeline stops as soon as something fails.
 
 ```toml
-[lanes.ci]
+[flows.ci]
 description = "Stop on first failure"
 steps = ["lint", "test", "build"]
 ```
@@ -98,7 +98,7 @@ steps = ["lint", "test", "build"]
 Set `fail_fast = false` when you want the full picture:
 
 ```toml
-[lanes.audit]
+[flows.audit]
 description = "Run everything, report all failures"
 fail_fast = false
 steps = ["lint", "test", "security-check", "license-check"]
@@ -137,7 +137,7 @@ dir = "crates/core"
 ### CI Pipeline
 
 ```toml
-[lanes.ci]
+[flows.ci]
 description = "Full CI pipeline"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -149,7 +149,7 @@ steps = [
 ### Release
 
 ```toml
-[lanes.release]
+[flows.release]
 description = "Build and package a release"
 steps = [
   "test",
@@ -162,7 +162,7 @@ steps = [
 ### Full Audit
 
 ```toml
-[lanes.audit]
+[flows.audit]
 description = "All quality checks"
 fail_fast = false
 steps = [
@@ -175,7 +175,7 @@ steps = [
 
 ## Auto-Generated Defaults
 
-`fledge lane --init` detects your project type:
+`fledge flow --init` detects your project type:
 
 | Project | How it's detected | What you get |
 |---------|------------------|-------------|
@@ -187,11 +187,11 @@ steps = [
 ## CLI
 
 ```bash
-fledge lane              # list lanes
-fledge lane ci           # run one
-fledge lane ci --dry-run # preview the plan
-fledge lane --init       # generate defaults
-fledge lane --list --json
+fledge flow              # list flows
+fledge flow ci           # run one
+fledge flow ci --dry-run # preview the plan
+fledge flow --init       # generate defaults
+fledge flow --list --json
 ```
 
 ## Environment diagnostics with `fledge doctor`
@@ -207,8 +207,8 @@ This is a "can I build?" check — run it when something feels off or on a fresh
 
 ## Tips
 
-- Start with `fledge lane --init` and customize from there.
+- Start with `fledge flow --init` and customize from there.
 - Use parallel groups for independent checks — linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
-- Use `fail_fast = false` for audit lanes where you want the full report.
+- Use `fail_fast = false` for audit flows where you want the full report.
 - Inline commands are great for one-off steps that don't need to be named tasks.

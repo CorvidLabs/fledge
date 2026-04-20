@@ -11,10 +11,10 @@ mod config;
 mod create_template;
 mod deps;
 mod doctor;
+mod flows;
 mod github;
 mod init;
 mod issues;
-mod lanes;
 mod metrics;
 mod plugin;
 mod prompts;
@@ -205,13 +205,13 @@ enum Commands {
         list: bool,
     },
     /// Run a composable workflow pipeline
-    Lane {
-        /// Lane name to run (lists lanes if omitted)
-        lane: Option<String>,
-        /// List available lanes
+    Flow {
+        /// Flow name to run (lists flows if omitted)
+        flow: Option<String>,
+        /// List available flows
         #[arg(short, long)]
         list: bool,
-        /// Add default lanes to fledge.toml
+        /// Add default flows to fledge.toml
         #[arg(long)]
         init: bool,
         /// Show execution plan without running
@@ -589,15 +589,15 @@ fn run() -> Result<()> {
         Commands::Review { base, file } => {
             review::run(review::ReviewOptions { base, file })?;
         }
-        Commands::Lane {
-            lane,
+        Commands::Flow {
+            flow,
             list,
             init,
             dry_run,
             json,
         } => {
-            lanes::run(lanes::LaneOptions {
-                lane,
+            flows::run(flows::FlowOptions {
+                flow,
                 list,
                 init,
                 dry_run,

@@ -13,7 +13,7 @@ I kept setting up the same boilerplate across projects — CI workflows, linters
 | Pillar | Tagline | Commands |
 |--------|---------|----------|
 | **Start** | Scaffold and discover | `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update` |
-| **Build** | Configure and run | `run`, `lane`, `config`, `doctor` |
+| **Build** | Configure and run | `run`, `flow`, `config`, `doctor` |
 | **Develop** | Branch and spec | `work`, `spec` |
 | **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
 | **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog` |
@@ -21,4 +21,4 @@ I kept setting up the same boilerplate across projects — CI workflows, linters
 
 The lifecycle flows naturally: Start a project, Build your tasks and config, Develop features on branches, Review quality before merging, and Ship releases. Extend runs alongside everything — plugins and completions enhance any stage.
 
-It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift), generates sensible defaults, and stays out of your way. Start with `fledge init`, define tasks in `fledge.toml`, compose them into lanes, and you've got a consistent workflow across all your projects.
+It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift), generates sensible defaults, and stays out of your way. Start with `fledge init`, define tasks in `fledge.toml`, compose them into flows, and you've got a consistent workflow across all your projects.
