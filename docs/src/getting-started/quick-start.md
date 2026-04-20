@@ -36,12 +36,41 @@ Before committing to creating a project, preview what would be generated:
 fledge init my-tool --template rust-cli --dry-run
 ```
 
-## Skip All Prompts with Defaults
+## Set Up Your Project
 
-If you want to skip confirmations and use defaults, use `--yes`:
+Once your project is created, initialize the task runner:
 
 ```bash
-fledge init my-tool --template rust-cli --yes
+cd my-tool
+fledge run --init    # generates fledge.toml with language-aware defaults
+fledge run build     # run the build task
+fledge run test      # run tests
+```
+
+## Start a Feature Branch
+
+Use the workflow commands to manage branches and PRs:
+
+```bash
+fledge work start add-logging    # creates feat/add-logging branch
+# ... make changes ...
+fledge work pr                   # creates a PR from current branch
+fledge work status               # check branch and PR status
+```
+
+## Check CI and Review Code
+
+```bash
+fledge checks                    # view CI/CD status
+fledge review                    # AI-powered code review
+fledge ask "how does X work?"    # ask about the codebase
+```
+
+## Generate a Changelog
+
+```bash
+fledge changelog                 # from git tags + conventional commits
+fledge changelog --unreleased    # see what's new since last tag
 ```
 
 ## List Available Templates
@@ -63,5 +92,11 @@ fledge comes with several built-in templates ready to use:
 | `swift-pkg` | Swift package with Package.swift, CI, and coding conventions |
 | `ts-bun` | TypeScript project with Bun runtime |
 | `angular-app` | Angular application with mobile-first setup |
+| `python-cli` | Python CLI with Click, tests, and packaging |
+| `go-cli` | Go CLI with Cobra, Makefile, and CI |
+| `node-cli` | Node.js CLI with TypeScript |
+| `node-lib` | Node.js library with TypeScript and npm publishing |
+| `monorepo` | Monorepo with workspace tooling |
+| `static-site` | Static site with build pipeline |
 
 Each template includes sensible defaults, CI/CD workflows, and best practices for its language ecosystem.

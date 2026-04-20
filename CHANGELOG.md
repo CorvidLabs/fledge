@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-04-19
+
+### Added
+
+- `fledge run` — task runner with `fledge.toml` support, `--init` scaffolding, language-aware defaults (Rust, Node, Go, Python, Ruby, Java/Gradle/Maven)
+- `fledge checks` — view CI/CD check status for any branch with `--json` output
+- `fledge changelog` — generate changelogs from git tags and conventional commits with `--limit`, `--tag`, `--unreleased`, `--json` flags
+
+### Fixed
+
+- Made fledge fully language-agnostic — `.gitignore` template covers all ecosystems, upgrade message links to install docs instead of assuming `cargo install`
+- Split Java detection into Gradle/Maven, reinstated `/target/` in `.gitignore`
+- Removed invalid `--prompt` flag from Claude CLI calls in `fledge ask`/`fledge review`
+
 ## [0.6.0] - 2026-04-19
 
 ### Added
@@ -15,11 +29,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fledge completions --install` — auto-installs shell completions for bash, zsh, or fish
 - SHA256 checksums in GitHub releases
 
-## [Unreleased]
+## [0.5.0] - 2026-04-19
 
 ### Added
 
-- `fledge config` subcommand — set/get/list/wizard for global configuration
+- `fledge issues` — list and view GitHub issues with `--state`, `--label`, `--json` filters
+- `fledge prs` — list and view GitHub pull requests with `--state`, `--json` filters
+- `fledge review` — AI-powered code review of current changes via Claude CLI
+- `fledge ask` — ask questions about your codebase via Claude CLI
+
+## [0.4.0] - 2026-04-19
+
+### Added
+
+- `fledge update` — re-apply source template to existing projects with `--dry-run` and `--refresh`
+- `fledge spec check` — validate spec-sync specifications against source code
+- `fledge spec init` — initialize spec-sync configuration
+- `fledge spec new` — scaffold a new spec module
+- `fledge work start` — begin a feature branch with naming conventions
+- `fledge work pr` — create a PR from the current branch
+- `fledge work status` — show current branch and PR status
+
+## [0.3.0] - 2026-04-19
+
+### Added
+
+- `fledge search` — template discovery via GitHub topics
+- `fledge publish` — publish templates to GitHub with `fledge-template` topic
+- `fledge create-template` — scaffold a new fledge template
+- Template versioning and compatibility checks (`min_fledge_version`)
+- Version pinning for remote templates with `@ref` syntax
+- Additional built-in templates: `python-cli`, `go-cli`, `node-cli`, `node-lib`, `monorepo`, `static-site`
+
+### Changed
+
+- `fledge config` — full subcommand interface (get/set/unset/add/remove/list/path)
 - mdBook documentation site on GitHub Pages
 
 ## [0.1.0] - 2026-04-18
@@ -27,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Core scaffolding engine with Tera template rendering
-- 5 built-in templates: `rust-cli`, `rust-lib`, `python-cli`, `node-ts`, `static-site`
+- 5 built-in templates: `rust-cli`, `rust-lib`, `swift-pkg`, `ts-bun`, `angular-app`
 - Remote template support via `owner/repo` GitHub syntax
 - Interactive prompts with dialoguer for project configuration
 - Hook system with `pre_create` and `post_create` lifecycle hooks
