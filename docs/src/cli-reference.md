@@ -164,34 +164,34 @@ fledge run --list
 
 ---
 
-### fledge lane `[name]`
+### fledge flow `[name]`
 
-Run workflow pipelines. Lanes chain tasks with parallel groups and failure control.
+Run workflow pipelines. Flows chain tasks with parallel groups and failure control.
 
 ```
-fledge lane [name] [OPTIONS]
+fledge flow [name] [OPTIONS]
 ```
 
 **Options:**
-- `-l, --list` — List lanes
-- `--init` — Generate default lanes
+- `-l, --list` — List flows
+- `--init` — Generate default flows
 - `--dry-run` — Preview the plan
 - `--json` — JSON output
 
-**Lane config in fledge.toml:**
+**Flow config in fledge.toml:**
 
 ```toml
-[lanes.ci]
+[flows.ci]
 description = "Full CI pipeline"
 steps = ["lint", "test", "build"]
 
-[lanes.check]
+[flows.check]
 steps = [
   { parallel = ["lint", "fmt"] },
   "test"
 ]
 
-[lanes.release]
+[flows.release]
 fail_fast = false
 steps = [
   "test",
@@ -209,10 +209,10 @@ steps = [
 | Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
 ```bash
-fledge lane
-fledge lane ci
-fledge lane ci --dry-run
-fledge lane --init
+fledge flow
+fledge flow ci
+fledge flow ci --dry-run
+fledge flow --init
 ```
 
 ---
@@ -490,7 +490,7 @@ description = "Deploy the project"
 binary = "fledge-deploy"
 
 [[hooks]]
-event = "lane:post"
+event = "flow:post"
 binary = "fledge-deploy-notify"
 ```
 

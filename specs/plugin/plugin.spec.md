@@ -15,7 +15,7 @@ depends_on:
 
 ## Purpose
 
-Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, lane steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`).
+Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, flow steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`).
 
 ## Public API
 
@@ -64,7 +64,7 @@ description = "Deploy the project"
 binary = "fledge-deploy"  # relative to plugin dir
 
 [[hooks]]
-event = "lane:post"
+event = "flow:post"
 binary = "fledge-deploy-notify"
 ```
 
@@ -101,7 +101,7 @@ installed = "2026-04-20"
 6. `plugin list` shows installed plugins with name, version, source, and description
 7. `plugin search` uses GitHub topic search (same as template search)
 8. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
-9. Plugins with `hooks` entries can participate as lane steps via `{ plugin = "name" }` syntax
+9. Plugins with `hooks` entries can participate as flow steps via `{ plugin = "name" }` syntax
 10. `--json` outputs structured data for all list/search operations
 
 ## Behavioral Examples

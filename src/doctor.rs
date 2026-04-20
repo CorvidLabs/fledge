@@ -49,6 +49,7 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
         check_toolchain(project_type),
         check_dependencies(project_type, &project_dir),
         check_git(&project_dir),
+        check_ai(),
     ];
 
     let passed: usize = sections
@@ -529,6 +530,46 @@ fn check_git(dir: &Path) -> Section {
 
     Section {
         name: "Git".to_string(),
+        checks,
+    }
+}
+
+fn check_ai() -> Section {
+    let mut checks = Vec::new();
+
+    let claude = check_tool(
+        "claude",
+        &["--version"],
+        "Install Claude CLI: https://docs.anthropic.com/en/docs/claude-code — then run `claude` to authenticate",
+    );
+
+    match claude.status {
+        CheckStatus::Ok => {
+            checks.push(claude);
+            checks.push(CheckResult {
+                name: "AI commands".to_string(),
+                status: CheckStatus::Ok,
+                version: None,
+                detail: Some("fledge review, fledge ask available".to_string()),
+                fix: None,
+            });
+        }
+        _ => {
+            checks.push(claude);
+            checks.push(CheckResult {
+                name: "AI commands".to_string(),
+                status: CheckStatus::Missing,
+                version: None,
+                detail: Some("fledge review, fledge ask disabled".to_string()),
+                fix: Some(
+                    "Install Claude CLI to enable AI-powered code review and Q&A".to_string(),
+                ),
+            });
+        }
+    }
+
+    Section {
+        name: "AI".to_string(),
         checks,
     }
 }

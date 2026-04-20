@@ -62,13 +62,13 @@ Dependency management, project metrics, and environment diagnostics.
 - [ ] `fledge metrics` — project stats (LOC, test coverage, complexity, churn)
 - [ ] `fledge doctor` — environment diagnostics (toolchain versions, missing deps, config issues)
 
-## 1.0 — Lanes & Plugins
+## 1.0 — Flows & Plugins
 
-Extensible workflow automation — the Fastlane model, but in Rust.
+Extensible workflow automation — the workflow-as-code model, but in Rust.
 
-- [ ] Lane system — composable, typed workflow pipelines (#36)
+- [ ] Flow system — composable, typed workflow pipelines (#36)
 - [ ] Plugin architecture (Rust or WASM)
-- [ ] Community lane registry
+- [ ] Community flow registry
 - [ ] Full end-to-end dev lifecycle coverage
 
 ---

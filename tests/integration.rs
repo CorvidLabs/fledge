@@ -440,18 +440,18 @@ fn cli_run_failing_task_exits_nonzero() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Lane commands
+// Flow commands
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_lane_no_fledge_toml_fails() {
+fn cli_flow_no_fledge_toml_fails() {
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane"]);
+    let output = run_fledge_in(tmp.path(), &["flow"]);
     assert!(!output.status.success());
 }
 
 #[test]
-fn cli_lane_list_shows_lanes() {
+fn cli_flow_list_shows_flows() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -460,40 +460,40 @@ fmt = "echo fmt"
 lint = "echo lint"
 test = "echo test"
 
-[lanes.ci]
+[flows.ci]
 description = "CI pipeline"
 steps = ["fmt", "lint", "test"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "--list"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "--list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
 }
 
 #[test]
-fn cli_lane_dry_run_does_not_execute() {
+fn cli_flow_dry_run_does_not_execute() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo BUILT"
 
-[lanes.ci]
+[flows.ci]
 description = "CI"
 steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "ci", "--dry-run"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "ci", "--dry-run"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(!stdout.contains("BUILT"));
 }
 
 #[test]
-fn cli_lane_executes_steps() {
+fn cli_flow_executes_steps() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -501,12 +501,12 @@ fn cli_lane_executes_steps() {
 step1 = "echo STEP1"
 step2 = "echo STEP2"
 
-[lanes.pipeline]
+[flows.pipeline]
 steps = ["step1", "step2"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "pipeline"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "pipeline"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("STEP1"));
@@ -514,19 +514,19 @@ steps = ["step1", "step2"]
 }
 
 #[test]
-fn cli_lane_unknown_lane_fails() {
+fn cli_flow_unknown_flow_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
-        "[tasks]\nbuild = \"echo build\"\n[lanes.ci]\nsteps = [\"build\"]\n",
+        "[tasks]\nbuild = \"echo build\"\n[flows.ci]\nsteps = [\"build\"]\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "nonexistent"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "nonexistent"]);
     assert!(!output.status.success());
 }
 
 #[test]
-fn cli_lane_init_adds_default_lanes() {
+fn cli_flow_init_adds_default_flows() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("Cargo.toml"),
@@ -538,27 +538,27 @@ fn cli_lane_init_adds_default_lanes() {
         "[tasks]\nbuild = \"echo build\"\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "--init"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "--init"]);
     assert!(output.status.success());
     let content = fs::read_to_string(tmp.path().join("fledge.toml")).unwrap();
-    assert!(content.contains("[lanes"));
+    assert!(content.contains("[flows"));
 }
 
 #[test]
-fn cli_lane_json_output() {
+fn cli_flow_json_output() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo build"
 
-[lanes.ci]
+[flows.ci]
 description = "CI"
 steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "--list", "--json"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "--list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -953,7 +953,7 @@ fn cli_help_flag_shows_usage() {
     assert!(stdout.contains("init"));
     assert!(stdout.contains("list"));
     assert!(stdout.contains("run"));
-    assert!(stdout.contains("lane"));
+    assert!(stdout.contains("flow"));
     assert!(stdout.contains("doctor"));
     assert!(stdout.contains("metrics"));
 }
@@ -963,7 +963,7 @@ fn cli_subcommand_help() {
     let subcommands = [
         "init",
         "run",
-        "lane",
+        "flow",
         "config",
         "spec",
         "doctor",
@@ -982,29 +982,29 @@ fn cli_subcommand_help() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Lane with inline and parallel steps
+// Flow with inline and parallel steps
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_lane_inline_step() {
+fn cli_flow_inline_step() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 
-[lanes.greet]
+[flows.greet]
 steps = [{ run = "echo INLINE_HELLO" }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "greet"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "greet"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("INLINE_HELLO"));
 }
 
 #[test]
-fn cli_lane_parallel_steps() {
+fn cli_flow_parallel_steps() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -1012,12 +1012,12 @@ fn cli_lane_parallel_steps() {
 a = "echo ALPHA"
 b = "echo BRAVO"
 
-[lanes.par]
+[flows.par]
 steps = [{ parallel = ["a", "b"] }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["lane", "par"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "par"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ALPHA"));

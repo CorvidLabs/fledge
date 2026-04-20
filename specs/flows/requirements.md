@@ -1,8 +1,8 @@
-# Lanes — Requirements
+# Flows — Requirements
 
 ## Functional Requirements
 
-1. Define named workflow pipelines in `fledge.toml` under `[lanes]`
+1. Define named workflow pipelines in `fledge.toml` under `[flows]`
 2. Execute lanes as ordered sequences of steps
 3. Support three step types: task references, inline commands, parallel groups
 4. Validate task references before execution
@@ -14,5 +14,5 @@
 ## Non-Functional Requirements
 
 1. Parallel groups must execute steps concurrently using threads
-2. Lane execution must respect task dependency ordering within each step
+2. Flow execution must respect task dependency ordering within each step
 3. `--json` flag must produce machine-parseable output for list operations

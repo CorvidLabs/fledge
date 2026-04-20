@@ -18,7 +18,7 @@ Get a project off the ground. Pick a template (built-in, remote, or your own), s
 
 Define your tasks, wire them into pipelines, set your defaults, and make sure your environment is ready. This is where `fledge.toml` lives.
 
-**Commands:** `run`, `lane`, `config`, `doctor`
+**Commands:** `run`, `flow`, `config`, `doctor`
 
 ## Develop — Branch and spec
 
