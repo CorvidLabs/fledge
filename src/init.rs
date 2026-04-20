@@ -72,7 +72,7 @@ pub fn run(opts: InitOptions) -> Result<()> {
     }
 
     // Prompt for template variables
-    let variables = prompts::prompt_variables(template, &opts.name, &config)?;
+    let variables = prompts::prompt_variables(template, &opts.name, &config, opts.yes)?;
 
     // Create project directory
     std::fs::create_dir_all(&target_dir)
@@ -194,7 +194,7 @@ fn run_remote(
         );
     }
 
-    let variables = prompts::prompt_variables(template, &opts.name, config)?;
+    let variables = prompts::prompt_variables(template, &opts.name, config, opts.yes)?;
 
     std::fs::create_dir_all(&target_dir)
         .with_context(|| format!("creating directory {}", target_dir.display()))?;
