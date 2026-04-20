@@ -33,7 +33,11 @@ mod versioning;
 mod work;
 
 #[derive(Parser)]
-#[command(name = "fledge", version, about = "Get your projects ready to fly.")]
+#[command(
+    name = "fledge",
+    version,
+    about = "Dev-lifecycle CLI — get your projects ready to fly."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -393,6 +397,12 @@ enum ConfigAction {
     List,
     /// Show config file path
     Path,
+    /// Initialize config with a preset (e.g. corvidlabs)
+    Init {
+        /// Preset name (available: corvidlabs)
+        #[arg(long)]
+        preset: Option<String>,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -781,6 +791,9 @@ fn handle_config(action: ConfigAction) -> Result<()> {
         }
         ConfigAction::Path => {
             println!("{}", config::Config::config_path().display());
+        }
+        ConfigAction::Init { preset } => {
+            config::init_config(preset.as_deref())?;
         }
     }
     Ok(())
