@@ -10,6 +10,7 @@ mod checks;
 mod config;
 mod create_template;
 mod deps;
+mod doctor;
 mod github;
 mod init;
 mod issues;
@@ -206,6 +207,12 @@ enum Commands {
         /// Show unreleased changes since the latest tag
         #[arg(long)]
         unreleased: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Diagnose project environment health
+    Doctor {
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -492,6 +499,9 @@ fn run() -> Result<()> {
                 unreleased,
                 json,
             })?;
+        }
+        Commands::Doctor { json } => {
+            doctor::run(doctor::DoctorOptions { json })?;
         }
         Commands::Deps {
             outdated,
