@@ -4,7 +4,7 @@ Fledge is evolving from a project scaffolding tool into a full dev-lifecycle CLI
 
 ## Current State (v0.7.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, `checks`, `run`, `changelog`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A, CI/CD status, task runner with language-aware defaults, changelog generation from git history. Distribution via Homebrew, install script, Nix flake, and shell completions auto-install.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, `checks`, `run`, `changelog`, `flow`, `doctor`, TUI (feature-gated). 8 built-in templates (Rust CLI/lib, Node CLI/lib, Python CLI, Go CLI, monorepo, static site), hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A, CI/CD status, task runner with language-aware defaults, changelog generation from git history, composable workflow pipelines (flows), environment diagnostics. Distribution via Homebrew, install script, Nix flake, and shell completions auto-install.
 
 ---
 
@@ -60,13 +60,13 @@ Dependency management, project metrics, and environment diagnostics.
 
 - [ ] `fledge deps` — dependency health check (outdated packages, audit, license scan)
 - [ ] `fledge metrics` — project stats (LOC, test coverage, complexity, churn)
-- [ ] `fledge doctor` — environment diagnostics (toolchain versions, missing deps, config issues)
+- [x] `fledge doctor` — environment diagnostics (toolchain versions, missing deps, config issues)
 
 ## 1.0 — Flows & Plugins
 
 Extensible workflow automation — the workflow-as-code model, but in Rust.
 
-- [ ] Flow system — composable, typed workflow pipelines (#36)
+- [x] Flow system — composable, typed workflow pipelines (#36)
 - [ ] Plugin architecture (Rust or WASM)
 - [ ] Community flow registry
 - [ ] Full end-to-end dev lifecycle coverage

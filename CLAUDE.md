@@ -34,6 +34,8 @@ cargo fmt --check
 - `src/versioning.rs` — Version management
 - `src/github.rs` — Shared GitHub API helpers
 - `src/remote.rs` — Remote template fetching and caching
+- `src/flows.rs` — Composable workflow pipelines
+- `src/doctor.rs` — Environment diagnostics
 - `specs/` — spec-sync specifications (source of truth)
 - `templates/` — Built-in project templates
 - `docs/` — mdBook documentation site
