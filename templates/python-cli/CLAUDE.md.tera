@@ -1,0 +1,16 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+pip install -e .
+pytest
+ruff check src/
+ruff format --check src/
+```
+
+## Architecture
+
+- `src/cli.py` — CLI entry point (Click)

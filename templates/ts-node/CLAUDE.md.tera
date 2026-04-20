@@ -1,0 +1,16 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+npm install
+npm test
+npm run lint
+npm run build
+```
+
+## Architecture
+
+- `src/index.ts` — Entry point

@@ -88,9 +88,13 @@ fledge changelog
 | Template | What you get |
 |----------|--------------|
 | `rust-cli` | Rust CLI with clap, CI, release automation |
-| `ts-bun` | TypeScript project on Bun |
+| `ts-bun` | TypeScript project on Bun with Biome |
+| `python-cli` | Python CLI with Click and Ruff |
+| `go-cli` | Go CLI with Cobra |
+| `ts-node` | TypeScript on Node with tsx and Biome |
+| `static-site` | Vanilla HTML/CSS/JS — zero dependencies |
 
-These ship offline with the binary. For more templates (Angular, Go, Python, Swift, monorepo, etc.), see [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates) — 12 official templates and growing.
+These ship offline with the binary. For more templates (Angular, MCP server, Deno, Swift, monorepo, etc.), see [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).
 
 ## CLI Reference
 

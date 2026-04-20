@@ -1,0 +1,12 @@
+[template]
+name = "static-site"
+description = "Static website with HTML, CSS, and vanilla JS"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Site description", default = "A new static website" }
+
+[files]
+render = ["**/*.html", "**/*.css", "**/*.js", "**/*.md", "**/*.yml"]
+copy = ["**/*.png", "**/*.ico", "**/*.svg"]
+ignore = ["template.toml"]

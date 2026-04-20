@@ -1,0 +1,9 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Structure
+
+- `index.html` — Main page
+- `css/style.css` — Styles
+- `js/main.js` — Scripts

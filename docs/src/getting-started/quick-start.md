@@ -116,6 +116,10 @@ Shows everything available — built-in, configured repos, and local paths.
 | Template | What you get |
 |----------|--------------|
 | `rust-cli` | Rust CLI with clap, CI, release automation |
-| `ts-bun` | TypeScript project on Bun |
+| `ts-bun` | TypeScript on Bun with Biome |
+| `python-cli` | Python CLI with Click and Ruff |
+| `go-cli` | Go CLI with Cobra |
+| `ts-node` | TypeScript on Node with tsx and Biome |
+| `static-site` | Vanilla HTML/CSS/JS — zero dependencies |
 
-More templates (Angular, Go, Python, Swift, etc.) available at [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).
+More templates (Angular, MCP server, Deno, Swift, etc.) available at [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).

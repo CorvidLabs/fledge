@@ -832,7 +832,11 @@ ignore = ["template.toml"]
         let names: Vec<&str> = templates.iter().map(|t| t.name.as_str()).collect();
         assert!(names.contains(&"rust-cli"), "missing rust-cli");
         assert!(names.contains(&"ts-bun"), "missing ts-bun");
-        assert_eq!(names.len(), 2, "expected exactly 2 built-in templates");
+        assert!(names.contains(&"python-cli"), "missing python-cli");
+        assert!(names.contains(&"go-cli"), "missing go-cli");
+        assert!(names.contains(&"ts-node"), "missing ts-node");
+        assert!(names.contains(&"static-site"), "missing static-site");
+        assert_eq!(names.len(), 6, "expected exactly 6 built-in templates");
     }
 
     #[test]

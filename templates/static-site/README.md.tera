@@ -1,0 +1,17 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Development
+
+Open `index.html` in your browser, or use any static file server:
+
+```bash
+python3 -m http.server 8000
+# or
+npx serve .
+```
+
+## License
+
+{{ license }}

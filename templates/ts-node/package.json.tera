@@ -1,0 +1,22 @@
+{
+  "name": "{{ project_name }}",
+  "version": "0.1.0",
+  "description": "{{ description }}",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "node --test",
+    "lint": "npx biome check src/",
+    "format": "npx biome format --write src/"
+  },
+  "license": "{{ license }}",
+  "devDependencies": {
+    "@biomejs/biome": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "@types/node": "latest"
+  }
+}

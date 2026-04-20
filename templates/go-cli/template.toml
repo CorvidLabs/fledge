@@ -1,0 +1,16 @@
+[template]
+name = "go-cli"
+description = "Go CLI application with Cobra"
+min_fledge_version = "0.1.0"
+requires = ["go"]
+
+[prompts]
+description = { message = "Project description", default = "A new Go CLI" }
+
+[files]
+render = ["**/*.go", "**/*.mod", "**/*.md", "**/*.yml"]
+copy = []
+ignore = ["template.toml"]
+
+[hooks]
+post_create = ["go mod tidy"]
