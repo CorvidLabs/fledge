@@ -184,13 +184,26 @@ fn extract_embedded_templates() -> PathBuf {
         .join("fledge")
         .join(format!("templates-v{}", version));
 
-    // If already extracted for this version, reuse it
-    if cache_dir.exists() {
-        return cache_dir;
-    }
+    let should_extract = if cache_dir.exists() {
+        // Re-extract if the binary is newer than the cache
+        let binary_mtime = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.metadata().ok())
+            .and_then(|m| m.modified().ok());
+        let cache_mtime = cache_dir.metadata().ok().and_then(|m| m.modified().ok());
+        match (binary_mtime, cache_mtime) {
+            (Some(bin), Some(cache)) => bin > cache,
+            _ => false,
+        }
+    } else {
+        true
+    };
 
-    if let Err(e) = extract_dir_recursive(&EMBEDDED_TEMPLATES, &cache_dir) {
-        eprintln!("Warning: failed to extract embedded templates: {}", e);
+    if should_extract {
+        let _ = std::fs::remove_dir_all(&cache_dir);
+        if let Err(e) = extract_dir_recursive(&EMBEDDED_TEMPLATES, &cache_dir) {
+            eprintln!("Warning: failed to extract embedded templates: {}", e);
+        }
     }
 
     cache_dir
