@@ -277,15 +277,74 @@ fn cli_config_set_unknown_key_fails() {
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_run_no_fledge_toml_fails() {
+fn cli_run_no_fledge_toml_generic_fails() {
     let tmp = TempDir::new().unwrap();
     let output = run_fledge_in(tmp.path(), &["run"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("No fledge.toml"),
-        "expected 'No fledge.toml' error, got: {stderr}"
+        stderr.contains("Could not detect project type"),
+        "expected detection failure error, got: {stderr}"
     );
+}
+
+#[test]
+fn cli_run_auto_detect_rust() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::write(tmp.path().join("Cargo.toml"), "[package]\nname = \"test\"\n").unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Auto-detected"), "expected auto-detect banner, got: {stdout}");
+    assert!(stdout.contains("build"), "expected build task in output");
+    assert!(stdout.contains("test"), "expected test task in output");
+}
+
+#[test]
+fn cli_run_auto_detect_node() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::write(
+        tmp.path().join("package.json"),
+        r#"{"scripts":{"build":"tsc","test":"jest","dev":"vite"}}"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Auto-detected"), "expected auto-detect banner");
+    assert!(stdout.contains("build"), "expected build task");
+    assert!(stdout.contains("dev"), "expected dev task");
+}
+
+#[test]
+fn cli_run_auto_detect_bun() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::write(
+        tmp.path().join("package.json"),
+        r#"{"scripts":{"build":"tsc","test":"bun test"}}"#,
+    )
+    .unwrap();
+    std::fs::write(tmp.path().join("bun.lockb"), "").unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("bun"), "expected bun runner in output, got: {stdout}");
+}
+
+#[test]
+fn cli_run_fledge_toml_overrides_auto_detect() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::write(tmp.path().join("Cargo.toml"), "[package]\nname = \"test\"\n").unwrap();
+    std::fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\ncustom = \"echo hello\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(!stdout.contains("Auto-detected"), "should not show auto-detect when fledge.toml exists");
+    assert!(stdout.contains("custom"), "expected custom task from fledge.toml");
 }
 
 #[test]

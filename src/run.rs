@@ -83,27 +83,41 @@ pub fn run(opts: RunOptions) -> Result<()> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
     let config_path = project_dir.join("fledge.toml");
 
-    if !config_path.exists() {
-        bail!(
-            "No fledge.toml found in current directory.\n  Run {} to create one.",
-            style("fledge run --init").cyan()
-        );
-    }
-
-    let content = std::fs::read_to_string(&config_path).context("reading fledge.toml")?;
-    let config: FledgeFile = toml::from_str(&content).context("parsing fledge.toml")?;
-
-    if config.tasks.is_empty() {
-        bail!("No tasks defined in fledge.toml.\n  Add a [tasks] section with task definitions.");
-    }
+    let (tasks, is_auto) = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path).context("reading fledge.toml")?;
+        let config: FledgeFile = toml::from_str(&content).context("parsing fledge.toml")?;
+        if config.tasks.is_empty() {
+            bail!(
+                "No tasks defined in fledge.toml.\n  Add a [tasks] section with task definitions."
+            );
+        }
+        (config.tasks, false)
+    } else {
+        let project_type = detect_project_type(&project_dir);
+        if project_type == "generic" {
+            bail!(
+                "Could not detect project type and no fledge.toml found.\n  Run {} to create one.",
+                style("fledge run --init").cyan()
+            );
+        }
+        let defaults = auto_detect_tasks(project_type, &project_dir);
+        (defaults, true)
+    };
 
     if opts.list || opts.task.is_none() {
-        return list_tasks(&config.tasks);
+        if is_auto {
+            println!(
+                "{} Auto-detected tasks (create {} to customize)\n",
+                style("*").cyan().bold(),
+                style("fledge.toml").cyan()
+            );
+        }
+        return list_tasks(&tasks);
     }
 
     let task_name = opts.task.as_ref().unwrap();
-    if !config.tasks.contains_key(task_name) {
-        let available: Vec<&str> = config.tasks.keys().map(|s| s.as_str()).collect();
+    if !tasks.contains_key(task_name) {
+        let available: Vec<&str> = tasks.keys().map(|s| s.as_str()).collect();
         bail!(
             "Unknown task '{}'. Available tasks: {}",
             task_name,
@@ -111,8 +125,15 @@ pub fn run(opts: RunOptions) -> Result<()> {
         );
     }
 
+    if is_auto {
+        println!(
+            "{} Running auto-detected task (no fledge.toml)\n",
+            style("*").cyan().bold(),
+        );
+    }
+
     let mut visited = HashSet::new();
-    execute_task(task_name, &config.tasks, &project_dir, &mut visited)
+    execute_task(task_name, &tasks, &project_dir, &mut visited)
 }
 
 fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
@@ -254,6 +275,97 @@ lint = "mvn checkstyle:check""#
 # lint = "echo 'add your linter'"#
         }
     }
+}
+
+fn detect_node_runner(dir: &Path) -> &'static str {
+    if dir.join("bun.lockb").exists() || dir.join("bun.lock").exists() {
+        "bun"
+    } else if dir.join("yarn.lock").exists() {
+        "yarn"
+    } else if dir.join("pnpm-lock.yaml").exists() {
+        "pnpm"
+    } else {
+        "npm"
+    }
+}
+
+fn has_script(dir: &Path, script: &str) -> bool {
+    let pkg_path = dir.join("package.json");
+    if let Ok(content) = std::fs::read_to_string(pkg_path) {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content) {
+            return parsed.get("scripts").and_then(|s| s.get(script)).is_some();
+        }
+    }
+    false
+}
+
+fn auto_detect_tasks(project_type: &str, dir: &Path) -> BTreeMap<String, TaskDef> {
+    let mut tasks = BTreeMap::new();
+
+    match project_type {
+        "rust" => {
+            tasks.insert("build".into(), TaskDef::Short("cargo build".into()));
+            tasks.insert("test".into(), TaskDef::Short("cargo test".into()));
+            tasks.insert(
+                "lint".into(),
+                TaskDef::Short("cargo clippy -- -D warnings".into()),
+            );
+            tasks.insert("fmt".into(), TaskDef::Short("cargo fmt --check".into()));
+        }
+        "node" => {
+            let runner = detect_node_runner(dir);
+            let run_prefix = match runner {
+                "npm" => "npm run",
+                other => other,
+            };
+            let test_cmd = match runner {
+                "npm" => "npm test".to_string(),
+                other => format!("{other} test"),
+            };
+
+            if has_script(dir, "build") {
+                tasks.insert(
+                    "build".into(),
+                    TaskDef::Short(format!("{run_prefix} build")),
+                );
+            }
+            tasks.insert("test".into(), TaskDef::Short(test_cmd));
+            if has_script(dir, "lint") {
+                tasks.insert("lint".into(), TaskDef::Short(format!("{run_prefix} lint")));
+            }
+            if has_script(dir, "dev") {
+                tasks.insert("dev".into(), TaskDef::Short(format!("{run_prefix} dev")));
+            }
+        }
+        "go" => {
+            tasks.insert("build".into(), TaskDef::Short("go build ./...".into()));
+            tasks.insert("test".into(), TaskDef::Short("go test ./...".into()));
+            tasks.insert("lint".into(), TaskDef::Short("go vet ./...".into()));
+        }
+        "python" => {
+            tasks.insert("test".into(), TaskDef::Short("pytest".into()));
+            tasks.insert("lint".into(), TaskDef::Short("ruff check .".into()));
+            tasks.insert("fmt".into(), TaskDef::Short("ruff format --check .".into()));
+        }
+        "ruby" => {
+            tasks.insert(
+                "test".into(),
+                TaskDef::Short("bundle exec rake test".into()),
+            );
+            tasks.insert("lint".into(), TaskDef::Short("bundle exec rubocop".into()));
+        }
+        "java-gradle" => {
+            tasks.insert("build".into(), TaskDef::Short("./gradlew build".into()));
+            tasks.insert("test".into(), TaskDef::Short("./gradlew test".into()));
+        }
+        "java-maven" => {
+            tasks.insert("build".into(), TaskDef::Short("mvn compile".into()));
+            tasks.insert("test".into(), TaskDef::Short("mvn test".into()));
+        }
+        _ => {}
+    }
+
+    tasks
 }
 
 fn init_fledge_toml() -> Result<()> {
@@ -498,5 +610,117 @@ dir = "client"
                 result.err()
             );
         }
+    }
+
+    #[test]
+    fn auto_detect_rust_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        let tasks = auto_detect_tasks("rust", dir.path());
+        assert!(tasks.contains_key("build"));
+        assert!(tasks.contains_key("test"));
+        assert!(tasks.contains_key("lint"));
+        assert!(tasks.contains_key("fmt"));
+        assert_eq!(tasks["build"].cmd(), "cargo build");
+    }
+
+    #[test]
+    fn auto_detect_node_npm_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"scripts":{"build":"tsc","test":"jest","lint":"eslint .","dev":"vite"}}"#,
+        )
+        .unwrap();
+        let tasks = auto_detect_tasks("node", dir.path());
+        assert_eq!(tasks["build"].cmd(), "npm run build");
+        assert_eq!(tasks["test"].cmd(), "npm test");
+        assert_eq!(tasks["lint"].cmd(), "npm run lint");
+        assert_eq!(tasks["dev"].cmd(), "npm run dev");
+    }
+
+    #[test]
+    fn auto_detect_node_bun_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"scripts":{"build":"tsc","test":"bun test"}}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
+        let tasks = auto_detect_tasks("node", dir.path());
+        assert_eq!(tasks["build"].cmd(), "bun build");
+        assert_eq!(tasks["test"].cmd(), "bun test");
+        assert!(!tasks.contains_key("dev"));
+    }
+
+    #[test]
+    fn auto_detect_node_yarn_tasks() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"scripts":{"build":"tsc","test":"jest"}}"#,
+        )
+        .unwrap();
+        std::fs::write(dir.path().join("yarn.lock"), "").unwrap();
+        let tasks = auto_detect_tasks("node", dir.path());
+        assert_eq!(tasks["build"].cmd(), "yarn build");
+        assert_eq!(tasks["test"].cmd(), "yarn test");
+    }
+
+    #[test]
+    fn auto_detect_node_only_includes_existing_scripts() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"scripts":{"test":"jest"}}"#,
+        )
+        .unwrap();
+        let tasks = auto_detect_tasks("node", dir.path());
+        assert!(tasks.contains_key("test"));
+        assert!(!tasks.contains_key("build"));
+        assert!(!tasks.contains_key("lint"));
+        assert!(!tasks.contains_key("dev"));
+    }
+
+    #[test]
+    fn auto_detect_generic_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let tasks = auto_detect_tasks("generic", dir.path());
+        assert!(tasks.is_empty());
+    }
+
+    #[test]
+    fn detect_node_runner_npm_default() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(detect_node_runner(dir.path()), "npm");
+    }
+
+    #[test]
+    fn detect_node_runner_bun() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
+        assert_eq!(detect_node_runner(dir.path()), "bun");
+    }
+
+    #[test]
+    fn detect_node_runner_bun_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("bun.lock"), "").unwrap();
+        assert_eq!(detect_node_runner(dir.path()), "bun");
+    }
+
+    #[test]
+    fn detect_node_runner_yarn() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("yarn.lock"), "").unwrap();
+        assert_eq!(detect_node_runner(dir.path()), "yarn");
+    }
+
+    #[test]
+    fn detect_node_runner_pnpm() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("pnpm-lock.yaml"), "").unwrap();
+        assert_eq!(detect_node_runner(dir.path()), "pnpm");
     }
 }
