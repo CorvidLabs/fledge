@@ -8,10 +8,14 @@ These ship with the binary — always there, no setup needed:
 
 | Template | What it is |
 |----------|-----------|
-| `rust-cli` | Rust CLI with clap |
-| `ts-bun` | TypeScript on Bun |
+| `rust-cli` | Rust CLI with clap, CI, release automation |
+| `ts-bun` | TypeScript on Bun with Biome |
+| `python-cli` | Python CLI with Click and Ruff |
+| `go-cli` | Go CLI with Cobra |
+| `ts-node` | TypeScript on Node with tsx and Biome |
+| `static-site` | Vanilla HTML/CSS/JS — zero dependencies |
 
-These two ship with the binary for offline use. For Angular, Go, Python, Swift, monorepo, and more — grab them from the [official template repo](https://github.com/CorvidLabs/fledge-templates):
+For Angular, MCP server, Deno, Swift, monorepo, and more — grab them from the [official template repo](https://github.com/CorvidLabs/fledge-templates):
 
 ```bash
 fledge init my-app --template rust-cli
@@ -135,7 +139,7 @@ For the full format reference, see the [Template Authoring Guide](./template-aut
 When you run `fledge init --template <name>`, fledge looks in this order:
 
 1. **Exact path** — starts with `.` or `/`
-2. **Built-in templates** — the 8 bundled ones
+2. **Built-in templates** — the 6 bundled ones
 3. **Configured repos** — `templates.repos` in your config
 4. **Local paths** — `templates.paths` in your config
 5. **GitHub shorthand** — treats it as `owner/repo` and fetches it
