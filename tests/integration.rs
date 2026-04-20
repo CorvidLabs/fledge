@@ -1046,12 +1046,16 @@ steps = [{ parallel = ["a", "b"] }]
 #[test]
 fn cli_run_task_with_env() {
     let tmp = TempDir::new().unwrap();
+    let cmd = if cfg!(windows) {
+        r#"echo %GREETING%"#
+    } else {
+        r#"echo $GREETING"#
+    };
     fs::write(
         tmp.path().join("fledge.toml"),
-        r#"[tasks.greet]
-cmd = "echo $GREETING"
-env = { GREETING = "HELLO_FLEDGE" }
-"#,
+        format!(
+            "[tasks.greet]\ncmd = \"{cmd}\"\nenv = {{ GREETING = \"HELLO_FLEDGE\" }}\n"
+        ),
     )
     .unwrap();
     let output = run_fledge_in(tmp.path(), &["run", "greet"]);
