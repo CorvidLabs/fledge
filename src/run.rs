@@ -186,30 +186,96 @@ fn execute_task(
     Ok(())
 }
 
+fn detect_project_type(dir: &Path) -> &'static str {
+    if dir.join("Cargo.toml").exists() {
+        "rust"
+    } else if dir.join("package.json").exists() {
+        "node"
+    } else if dir.join("go.mod").exists() {
+        "go"
+    } else if dir.join("pyproject.toml").exists() || dir.join("setup.py").exists() {
+        "python"
+    } else if dir.join("Gemfile").exists() {
+        "ruby"
+    } else if dir.join("pom.xml").exists() || dir.join("build.gradle").exists() {
+        "java"
+    } else {
+        "generic"
+    }
+}
+
+fn task_defaults(project_type: &str) -> &'static str {
+    match project_type {
+        "rust" => {
+            r#"build = "cargo build"
+test = "cargo test"
+lint = "cargo clippy -- -D warnings"
+fmt = "cargo fmt --check""#
+        }
+        "node" => {
+            r#"build = "npm run build"
+test = "npm test"
+lint = "npm run lint"
+dev = "npm run dev""#
+        }
+        "go" => {
+            r#"build = "go build ./..."
+test = "go test ./..."
+lint = "go vet ./..."
+fmt = "gofmt -l .""#
+        }
+        "python" => {
+            r#"test = "pytest"
+lint = "ruff check ."
+fmt = "ruff format --check ."
+typecheck = "mypy .""#
+        }
+        "ruby" => {
+            r#"test = "bundle exec rake test"
+lint = "bundle exec rubocop"
+console = "bundle exec irb""#
+        }
+        "java" => {
+            r#"build = "mvn compile"
+test = "mvn test"
+lint = "mvn checkstyle:check""#
+        }
+        _ => {
+            r#"# build = "make build"
+# test = "make test"
+# lint = "echo 'add your linter'"#
+        }
+    }
+}
+
 fn init_fledge_toml() -> Result<()> {
-    let path = std::env::current_dir()?.join("fledge.toml");
+    let cwd = std::env::current_dir()?;
+    let path = cwd.join("fledge.toml");
     if path.exists() {
         bail!("fledge.toml already exists in current directory");
     }
 
-    let content = r#"# fledge.toml — project task definitions
+    let project_type = detect_project_type(&cwd);
+    let defaults = task_defaults(project_type);
+
+    let content = format!(
+        r#"# fledge.toml — project task definitions
 # Docs: https://github.com/CorvidLabs/fledge#task-runner
+# Detected project type: {project_type}
 
 [tasks]
 # Simple tasks — just a command string
-build = "cargo build"
-test = "cargo test"
-lint = "cargo clippy -- -D warnings"
-fmt = "cargo fmt --check"
+{defaults}
 
 # Full task with options
 # [tasks.ci]
-# cmd = "cargo test && cargo clippy -- -D warnings"
+# cmd = "your-test-cmd && your-lint-cmd"
 # description = "Run full CI checks"
 # deps = ["fmt"]
-# env = { RUST_BACKTRACE = "1" }
+# env = {{}}
 # dir = "."
-"#;
+"#
+    );
 
     std::fs::write(&path, content).context("writing fledge.toml")?;
     println!(
@@ -323,5 +389,54 @@ dir = "client"
 "#;
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         assert_eq!(config.tasks["frontend"].dir(), Some("client"));
+    }
+
+    #[test]
+    fn detect_rust_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "rust");
+    }
+
+    #[test]
+    fn detect_node_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "node");
+    }
+
+    #[test]
+    fn detect_go_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("go.mod"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "go");
+    }
+
+    #[test]
+    fn detect_python_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();
+        assert_eq!(detect_project_type(dir.path()), "python");
+    }
+
+    #[test]
+    fn detect_generic_project() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(detect_project_type(dir.path()), "generic");
+    }
+
+    #[test]
+    fn task_defaults_are_valid_toml() {
+        for project_type in &["rust", "node", "go", "python", "ruby", "java", "generic"] {
+            let defaults = task_defaults(project_type);
+            let toml_str = format!("[tasks]\n{}", defaults);
+            let result: Result<FledgeFile, _> = toml::from_str(&toml_str);
+            assert!(
+                result.is_ok(),
+                "Invalid TOML for {}: {:?}",
+                project_type,
+                result.err()
+            );
+        }
     }
 }

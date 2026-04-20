@@ -134,8 +134,10 @@ fn write_manifest(target: &Path, answers: &TemplateAnswers) -> Result<()> {
     if answers.include_hooks {
         manifest.push_str("\n[hooks]\n");
         manifest.push_str("post_create = [\n");
-        manifest.push_str("    # \"npm install\",\n");
         manifest.push_str("    # \"git init\",\n");
+        manifest.push_str("    # \"npm install\",   # Node\n");
+        manifest.push_str("    # \"pip install -e .\",  # Python\n");
+        manifest.push_str("    # \"go mod tidy\",   # Go\n");
         manifest.push_str("]\n");
     }
 
@@ -166,10 +168,15 @@ TODO: Add setup instructions here.
     std::fs::write(
         target.join(".gitignore"),
         r#"# Build artifacts
-/target/
 /dist/
 /build/
+/out/
+
+# Dependencies
 node_modules/
+vendor/
+__pycache__/
+*.pyc
 
 # IDE
 .idea/
