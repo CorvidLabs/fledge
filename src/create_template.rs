@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 pub struct CreateTemplateOptions {
     pub name: String,
     pub output: PathBuf,
+    pub description: Option<String>,
+    pub render_patterns: Option<String>,
+    pub hooks: Option<bool>,
+    pub prompts: Option<bool>,
+    pub yes: bool,
 }
 
 struct TemplateAnswers {
@@ -23,7 +28,16 @@ pub fn run(options: CreateTemplateOptions) -> Result<()> {
         anyhow::bail!("Directory '{}' already exists", target.display());
     }
 
-    let answers = gather_answers(&options.name)?;
+    let all_provided = options.description.is_some()
+        && options.render_patterns.is_some()
+        && options.hooks.is_some()
+        && options.prompts.is_some();
+
+    let answers = if options.yes || all_provided {
+        build_answers_from_flags(&options)
+    } else {
+        gather_answers(&options)?
+    };
     scaffold(&target, &answers)?;
 
     println!(
@@ -49,22 +63,55 @@ pub fn run(options: CreateTemplateOptions) -> Result<()> {
     Ok(())
 }
 
-fn gather_answers(default_name: &str) -> Result<TemplateAnswers> {
+fn build_answers_from_flags(options: &CreateTemplateOptions) -> TemplateAnswers {
+    let name = options.name.clone();
+    let description = options
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("A {} project template", name));
+    let render_input = options
+        .render_patterns
+        .clone()
+        .unwrap_or_else(|| "**/*.md, **/*.toml, **/*.json, **/*.yml".to_string());
+    let render_globs: Vec<String> = render_input
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    TemplateAnswers {
+        name,
+        description,
+        render_globs,
+        include_hooks: options.hooks.unwrap_or(false),
+        include_prompts: options.prompts.unwrap_or(true),
+    }
+}
+
+fn gather_answers(options: &CreateTemplateOptions) -> Result<TemplateAnswers> {
     let theme = ColorfulTheme::default();
 
     let name: String = Input::with_theme(&theme)
         .with_prompt("Template name")
-        .default(default_name.to_string())
+        .default(options.name.clone())
         .interact_text()?;
 
+    let desc_default = options
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("A {} project template", name));
     let description: String = Input::with_theme(&theme)
         .with_prompt("Description")
-        .default(format!("A {} project template", name))
+        .default(desc_default)
         .interact_text()?;
 
+    let render_default = options
+        .render_patterns
+        .clone()
+        .unwrap_or_else(|| "**/*.md, **/*.toml, **/*.json, **/*.yml".to_string());
     let render_input: String = Input::with_theme(&theme)
         .with_prompt("File patterns to render through Tera (comma-separated)")
-        .default("**/*.md, **/*.toml, **/*.json, **/*.yml".to_string())
+        .default(render_default)
         .interact_text()?;
 
     let render_globs: Vec<String> = render_input
@@ -75,12 +122,12 @@ fn gather_answers(default_name: &str) -> Result<TemplateAnswers> {
 
     let include_hooks = Confirm::with_theme(&theme)
         .with_prompt("Include post-create hooks?")
-        .default(false)
+        .default(options.hooks.unwrap_or(false))
         .interact()?;
 
     let include_prompts = Confirm::with_theme(&theme)
         .with_prompt("Include custom prompts?")
-        .default(true)
+        .default(options.prompts.unwrap_or(true))
         .interact()?;
 
     Ok(TemplateAnswers {
@@ -325,6 +372,11 @@ mod tests {
         let options = CreateTemplateOptions {
             name: "existing".to_string(),
             output: tmp.path().to_path_buf(),
+            description: None,
+            render_patterns: None,
+            hooks: None,
+            prompts: None,
+            yes: false,
         };
 
         let result = run(options);

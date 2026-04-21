@@ -57,6 +57,12 @@ enum Commands {
         /// Parent directory for the project
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
+        /// Author name (bypasses prompt; overrides config)
+        #[arg(long)]
+        author: Option<String>,
+        /// GitHub organization (bypasses prompt; overrides config)
+        #[arg(long)]
+        org: Option<String>,
         /// Skip git init and initial commit
         #[arg(long)]
         no_git: bool,
@@ -96,6 +102,21 @@ enum Commands {
         /// Parent directory for the template
         #[arg(short, long, default_value = ".")]
         output: PathBuf,
+        /// Template description (bypasses prompt)
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Comma-separated file patterns to render through Tera (bypasses prompt)
+        #[arg(long)]
+        render_patterns: Option<String>,
+        /// Include post-create hooks scaffold (bypasses prompt)
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        hooks: Option<bool>,
+        /// Include custom prompts scaffold (bypasses prompt)
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        prompts: Option<bool>,
+        /// Skip all interactive prompts (accept defaults)
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Search for templates on GitHub
     Search {
@@ -499,6 +520,8 @@ fn run() -> Result<()> {
             name,
             template,
             output,
+            author,
+            org,
             no_git,
             no_install,
             refresh,
@@ -509,6 +532,8 @@ fn run() -> Result<()> {
                 name,
                 template,
                 output,
+                author,
+                org,
                 no_git,
                 no_install,
                 refresh,
@@ -522,8 +547,24 @@ fn run() -> Result<()> {
         Commands::Config { action } => {
             handle_config(action)?;
         }
-        Commands::CreateTemplate { name, output } => {
-            create_template::run(create_template::CreateTemplateOptions { name, output })?;
+        Commands::CreateTemplate {
+            name,
+            output,
+            description,
+            render_patterns,
+            hooks,
+            prompts,
+            yes,
+        } => {
+            create_template::run(create_template::CreateTemplateOptions {
+                name,
+                output,
+                description,
+                render_patterns,
+                hooks,
+                prompts,
+                yes,
+            })?;
         }
         Commands::Update { dry_run, refresh } => {
             update::run(update::UpdateOptions { dry_run, refresh })?;
