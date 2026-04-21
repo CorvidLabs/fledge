@@ -1167,7 +1167,7 @@ fn draw_category_list(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
                 .border_style(Style::default().fg(border_color)),
         )
         .highlight_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
-        .highlight_symbol("▶ ");
+        .highlight_symbol("👉 ");
 
     f.render_stateful_widget(list, area, &mut app.cat_state);
 }
@@ -1182,7 +1182,7 @@ fn draw_action_list(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
         .iter()
         .map(|act| {
             let tag = match &act.kind {
-                ActionKind::Direct(_) => Span::styled(" ▸ ", Style::default().fg(GREEN)),
+                ActionKind::Direct(_) => Span::styled(" ▶️ ", Style::default().fg(GREEN)),
                 ActionKind::WithInput { .. } => Span::styled(" ✏️ ", Style::default().fg(YELLOW)),
                 ActionKind::TemplateBrowser => Span::styled(" 📂 ", Style::default().fg(YELLOW)),
             };
@@ -1208,7 +1208,7 @@ fn draw_action_list(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
                 .border_style(Style::default().fg(border_color)),
         )
         .highlight_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
-        .highlight_symbol("▶ ");
+        .highlight_symbol("👉 ");
 
     f.render_stateful_widget(list, area, &mut app.act_state);
 }
@@ -1825,7 +1825,7 @@ fn draw_template_list(f: &mut Frame, app: &mut TemplateBrowserApp, area: Rect) {
                 .border_style(Style::default().fg(DIM)),
         )
         .highlight_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
-        .highlight_symbol("▶ ");
+        .highlight_symbol("👉 ");
 
     f.render_stateful_widget(list, area, &mut app.list_state);
 }
@@ -1972,7 +1972,7 @@ fn draw_tb_done(f: &mut Frame, app: &TemplateBrowserApp, area: Rect) {
         Line::from(""),
         Line::from(vec![
             Span::styled(
-                "  ✓ ",
+                "  ✅ ",
                 Style::default().fg(GREEN).add_modifier(Modifier::BOLD),
             ),
             Span::styled(

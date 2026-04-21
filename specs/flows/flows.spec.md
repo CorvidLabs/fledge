@@ -25,15 +25,15 @@ Composable workflow pipelines defined in `fledge.toml`. Flows chain multiple tas
 
 | Export | Description |
 |--------|-------------|
-| `run` | Entry point — lists, executes, searches, or imports flows |
-| `FlowOptions` | Options: `flow`, `list`, `init`, `dry_run`, `json`, `search`, `import` |
+| `run` | Entry point — dispatches flow actions |
+| `FlowAction` | Enum: `Run`, `List`, `Init`, `Search`, `Import` |
 | `FlowDef` | Flow definition: description, steps, and fail_fast flag |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `FlowOptions` | CLI options for the flow subcommand |
+| `FlowAction` | Action enum for the flow subcommand (Run, List, Init, Search, Import) |
 | `FlowDef` | A named flow with description, steps, and fail_fast flag |
 | `Step` | A single step: task reference, inline command, or parallel group |
 
@@ -41,7 +41,7 @@ Composable workflow pipelines defined in `fledge.toml`. Flows chain multiple tas
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(FlowOptions) -> Result<()>` | Main entry — dispatch to init/list/execute |
+| `run` | `(FlowAction) -> Result<()>` | Main entry — dispatch to init/list/execute/search/import |
 
 ## Config Format
 
@@ -122,29 +122,29 @@ Flow: ci — Full CI pipeline
   3. build (task)
 
 # Parallel steps
-$ fledge flow check
+$ fledge flow run check
 ▸ Flow: check — Quick quality check
   ▸ Running parallel: lint, fmt
   ▸ Running task: test
 ✓ Flow check completed (2 steps)
 
 # Init default flows
-$ fledge flow --init
+$ fledge flow init
 ✓ Added default flows to fledge.toml
 
 # Search community flows on GitHub
-$ fledge flow --search
+$ fledge flow search
 Community flows on GitHub:
   CorvidLabs/fledge-flows  (★ 12)  Official community flow collection
   user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
 
 # Search with keyword
-$ fledge flow rust --search
+$ fledge flow search rust
 Community flows on GitHub:
   user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
 
 # Import flows from a remote repo
-$ fledge flow --import CorvidLabs/fledge-flows
+$ fledge flow import CorvidLabs/fledge-flows
 ✓ Imported 3 flow(s) from CorvidLabs/fledge-flows
   + release
   + deploy
@@ -153,7 +153,7 @@ $ fledge flow --import CorvidLabs/fledge-flows
   * Skipped (already exist): ci
 
 # Import with version pinning
-$ fledge flow --import CorvidLabs/fledge-flows@v1.0.0
+$ fledge flow import CorvidLabs/fledge-flows@v1.0.0
 ```
 
 ## Error Cases

@@ -201,28 +201,10 @@ enum Commands {
         #[arg(short, long)]
         list: bool,
     },
-    /// Run a composable workflow pipeline
+    /// Manage and run composable workflow pipelines
     Flow {
-        /// Flow name to run (lists flows if omitted)
-        flow: Option<String>,
-        /// List available flows
-        #[arg(short, long)]
-        list: bool,
-        /// Add default flows to fledge.toml
-        #[arg(long)]
-        init: bool,
-        /// Show execution plan without running
-        #[arg(long)]
-        dry_run: bool,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Search GitHub for community flows
-        #[arg(long)]
-        search: bool,
-        /// Import flows from a GitHub repo (owner/repo)
-        #[arg(long, value_name = "SOURCE")]
-        import: Option<String>,
+        #[command(subcommand)]
+        action: Option<FlowSubcommand>,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -432,6 +414,39 @@ enum ConfigAction {
 }
 
 #[derive(clap::Subcommand)]
+enum FlowSubcommand {
+    /// Run a flow by name
+    Run {
+        /// Flow name
+        name: String,
+        /// Show execution plan without running
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// List available flows
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Add default flows to fledge.toml
+    Init,
+    /// Search GitHub for community flows
+    Search {
+        /// Keyword to filter results
+        query: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Import flows from a GitHub repo (owner/repo)
+    Import {
+        /// GitHub repo (owner/repo) or full URL, optionally with @ref
+        source: String,
+    },
+}
+
+#[derive(clap::Subcommand)]
 enum PluginSubcommand {
     /// Install a plugin from GitHub
     Install {
@@ -605,24 +620,20 @@ fn run() -> Result<()> {
         Commands::Review { base, file } => {
             review::run(review::ReviewOptions { base, file })?;
         }
-        Commands::Flow {
-            flow,
-            list,
-            init,
-            dry_run,
-            json,
-            search,
-            import,
-        } => {
-            flows::run(flows::FlowOptions {
-                flow,
-                list,
-                init,
-                dry_run,
-                json,
-                search,
-                import,
-            })?;
+        Commands::Flow { action } => {
+            let action = match action {
+                Some(FlowSubcommand::Run { name, dry_run }) => {
+                    flows::FlowAction::Run { name, dry_run }
+                }
+                Some(FlowSubcommand::List { json }) => flows::FlowAction::List { json },
+                Some(FlowSubcommand::Init) => flows::FlowAction::Init,
+                Some(FlowSubcommand::Search { query, json }) => {
+                    flows::FlowAction::Search { query, json }
+                }
+                Some(FlowSubcommand::Import { source }) => flows::FlowAction::Import { source },
+                None => flows::FlowAction::List { json: false },
+            };
+            flows::run(action)?;
         }
         Commands::Changelog {
             limit,

@@ -187,20 +187,20 @@ steps = [
 ## CLI
 
 ```bash
-fledge flow              # list flows
-fledge flow ci           # run one
-fledge flow ci --dry-run # preview the plan
-fledge flow --init       # generate defaults
-fledge flow --list --json
-fledge flow --search              # find community flows
-fledge flow rust --search         # search with keyword
-fledge flow --import owner/repo   # import flows from GitHub
-fledge flow --import owner/repo@v1.0.0  # pin to a version
+fledge flow              # list flows (same as fledge flow list)
+fledge flow run ci       # run one
+fledge flow run ci --dry-run # preview the plan
+fledge flow init         # generate defaults
+fledge flow list --json
+fledge flow search              # find community flows
+fledge flow search rust         # search with keyword
+fledge flow import owner/repo   # import flows from GitHub
+fledge flow import owner/repo@v1.0.0  # pin to a version
 ```
 
 ## Community Flow Registry
 
-Share and discover flows via GitHub. Repos with the `fledge-flow` topic are discoverable through `--search`.
+Share and discover flows via GitHub. Repos with the `fledge-flow` topic are discoverable through `fledge flow search`.
 
 ### Official Examples
 
@@ -208,21 +208,21 @@ Share and discover flows via GitHub. Repos with the `fledge-flow` topic are disc
 
 | Language | Import command |
 |----------|---------------|
-| Rust | `fledge flow --import CorvidLabs/fledge-flows/rust` |
-| Python | `fledge flow --import CorvidLabs/fledge-flows/python` |
-| Node/TypeScript | `fledge flow --import CorvidLabs/fledge-flows/node-typescript` |
-| Go | `fledge flow --import CorvidLabs/fledge-flows/go` |
+| Rust | `fledge flow import CorvidLabs/fledge-flows/rust` |
+| Python | `fledge flow import CorvidLabs/fledge-flows/python` |
+| Node/TypeScript | `fledge flow import CorvidLabs/fledge-flows/node-typescript` |
+| Go | `fledge flow import CorvidLabs/fledge-flows/go` |
 
 ### Publishing Flows
 
 1. Create a repo with a `fledge.toml` containing your flows and tasks
 2. Add the `fledge-flow` topic to the repo on GitHub
-3. Others can find it with `fledge flow --search` and import it
+3. Others can find it with `fledge flow search` and import it
 
 ### Importing Flows
 
 ```bash
-fledge flow --import CorvidLabs/fledge-flows
+fledge flow import CorvidLabs/fledge-flows
 ```
 
 This fetches the remote repo's `fledge.toml`, extracts its flows and any required tasks, and merges them into your local `fledge.toml`. Existing flows with the same name are skipped (not overwritten).
@@ -230,12 +230,12 @@ This fetches the remote repo's `fledge.toml`, extracts its flows and any require
 You can pin to a specific branch or tag:
 
 ```bash
-fledge flow --import CorvidLabs/fledge-flows@v1.0.0
+fledge flow import CorvidLabs/fledge-flows@v1.0.0
 ```
 
 ## Tips
 
-- Start with `fledge flow --init` and customize from there.
+- Start with `fledge flow init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
 - Use `fail_fast = false` for audit flows where you want the full report.

@@ -548,7 +548,7 @@ steps = ["fmt", "lint", "test"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "--list"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
@@ -568,7 +568,7 @@ steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "ci", "--dry-run"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(!stdout.contains("BUILT"));
@@ -588,7 +588,7 @@ steps = ["step1", "step2"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "pipeline"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "pipeline"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("STEP1"));
@@ -603,7 +603,7 @@ fn cli_flow_unknown_flow_fails() {
         "[tasks]\nbuild = \"echo build\"\n[flows.ci]\nsteps = [\"build\"]\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "nonexistent"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "nonexistent"]);
     assert!(!output.status.success());
 }
 
@@ -620,7 +620,7 @@ fn cli_flow_init_adds_default_flows() {
         "[tasks]\nbuild = \"echo build\"\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "--init"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "init"]);
     assert!(output.status.success());
     let content = fs::read_to_string(tmp.path().join("fledge.toml")).unwrap();
     assert!(content.contains("[flows"));
@@ -640,7 +640,7 @@ steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "--list", "--json"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -1079,7 +1079,7 @@ steps = [{ run = "echo INLINE_HELLO" }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "greet"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "greet"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("INLINE_HELLO"));
@@ -1099,7 +1099,7 @@ steps = [{ parallel = ["a", "b"] }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "par"]);
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "par"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ALPHA"));
@@ -1275,23 +1275,23 @@ fn e2e_rust_project_lifecycle() {
     assert!(stdout.contains("build") || stdout.contains("test"));
 
     // Step 4: Generate default flows
-    let output = run_fledge_in(&project, &["flow", "--init"]);
+    let output = run_fledge_in(&project, &["flow", "init"]);
     assert!(
         output.status.success(),
-        "flow --init failed: {}",
+        "flow init failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
     let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
     assert!(fledge_toml.contains("[flows"));
 
     // Step 5: List flows
-    let output = run_fledge_in(&project, &["flow", "--list"]);
+    let output = run_fledge_in(&project, &["flow", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
 
     // Step 6: Dry-run a flow
-    let output = run_fledge_in(&project, &["flow", "ci", "--dry-run"]);
+    let output = run_fledge_in(&project, &["flow", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
     // Step 7: Doctor check
