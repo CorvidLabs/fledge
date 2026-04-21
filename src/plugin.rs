@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,17 +18,17 @@ struct PluginManifest {
 struct PluginMeta {
     name: String,
     version: String,
-    #[allow(dead_code)]
-    description: Option<String>,
-    #[allow(dead_code)]
-    author: Option<String>,
+    #[serde(rename = "description")]
+    _description: Option<String>,
+    #[serde(rename = "author")]
+    _author: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct PluginCommand {
     name: String,
-    #[allow(dead_code)]
-    description: Option<String>,
+    #[serde(rename = "description")]
+    _description: Option<String>,
     binary: String,
 }
 
@@ -93,12 +93,6 @@ pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
     }
 
     which_fledge_plugin(name)
-}
-
-#[allow(dead_code)]
-pub fn list_installed() -> Result<Vec<PluginEntry>> {
-    let registry = load_registry()?;
-    Ok(registry.plugins)
 }
 
 pub fn run_lifecycle_hook(event: &str) -> Result<()> {
@@ -262,6 +256,15 @@ fn link_commands(
     let mut command_names = Vec::new();
     for cmd in &manifest.commands {
         let binary_path = plugin_dir.join(&cmd.binary);
+        if let Ok(canonical) = binary_path.canonicalize() {
+            if !canonical.starts_with(plugin_dir) {
+                bail!(
+                    "Plugin '{}' binary '{}' resolves outside the plugin directory",
+                    manifest.plugin.name,
+                    cmd.binary
+                );
+            }
+        }
         if !binary_path.exists() {
             let mut hint = format!(
                 "Plugin '{}' references binary '{}' which does not exist.",
@@ -868,10 +871,12 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
             .status()
             .with_context(|| format!("running {event} hook"))?
     } else {
-        let shell = if cfg!(windows) { "cmd" } else { "sh" };
-        let flag = if cfg!(windows) { "/C" } else { "-c" };
-        Command::new(shell)
-            .args([flag, hook])
+        let parts: Vec<&str> = hook.split_whitespace().collect();
+        if parts.is_empty() {
+            bail!("Empty hook command for {event}");
+        }
+        Command::new(parts[0])
+            .args(&parts[1..])
             .current_dir(plugin_dir)
             .status()
             .with_context(|| format!("running {event} hook"))?
