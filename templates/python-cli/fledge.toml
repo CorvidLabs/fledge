@@ -1,0 +1,7 @@
+# fledge.toml — project task definitions
+# Docs: https://github.com/CorvidLabs/fledge#task-runner
+
+[tasks]
+test = "pytest"
+lint = "ruff check ."
+fmt = "ruff format --check ."

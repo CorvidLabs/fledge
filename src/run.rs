@@ -233,7 +233,7 @@ pub fn detect_project_type(dir: &Path) -> &'static str {
     }
 }
 
-fn task_defaults(project_type: &str, dir: &Path) -> String {
+pub fn task_defaults(project_type: &str, dir: &Path) -> String {
     match project_type {
         "rust" => r#"build = "cargo build"
 test = "cargo test"

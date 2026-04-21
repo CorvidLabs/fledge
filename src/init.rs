@@ -100,7 +100,10 @@ pub fn run(opts: InitOptions) -> Result<()> {
 
     // Render template
     println!("{} Scaffolding project...", style("*").cyan().bold());
-    let created_files = templates::render_template(template, &target_dir, &variables)?;
+    let mut created_files = templates::render_template(template, &target_dir, &variables)?;
+
+    // Generate fledge.toml if the template didn't include one
+    generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
     // Write .fledge.toml for future `fledge update`
     update::write_project_meta(
@@ -228,7 +231,10 @@ fn run_remote(
         .with_context(|| format!("creating directory {}", target_dir.display()))?;
 
     println!("{} Scaffolding project...", style("*").cyan().bold());
-    let created_files = templates::render_template(template, &target_dir, &variables)?;
+    let mut created_files = templates::render_template(template, &target_dir, &variables)?;
+
+    // Generate fledge.toml if the template didn't include one
+    generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
     // Write .fledge.toml for future `fledge update`
     update::write_project_meta(
@@ -555,6 +561,32 @@ fn init_git(dir: &Path) -> Result<()> {
         .status()
         .context("running git commit")?;
 
+    Ok(())
+}
+
+fn generate_fledge_toml_if_missing(
+    target_dir: &Path,
+    created_files: &mut Vec<PathBuf>,
+) -> Result<()> {
+    let fledge_toml = target_dir.join("fledge.toml");
+    if fledge_toml.exists() {
+        return Ok(());
+    }
+
+    let project_type = crate::run::detect_project_type(target_dir);
+    let defaults = crate::run::task_defaults(project_type, target_dir);
+
+    let content = format!(
+        r#"# fledge.toml — project task definitions
+# Docs: https://github.com/CorvidLabs/fledge#task-runner
+
+[tasks]
+{defaults}
+"#
+    );
+
+    std::fs::write(&fledge_toml, content).context("writing fledge.toml")?;
+    created_files.push(PathBuf::from("fledge.toml"));
     Ok(())
 }
 
