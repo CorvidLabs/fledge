@@ -545,9 +545,9 @@ steps = [
         }
         _ => {
             r#"
-[lanes.ci]
-description = "Run full CI pipeline"
-steps = ["lint", "test", "build"]
+# [lanes.ci]
+# description = "Run full CI pipeline"
+# steps = ["lint", "test", "build"]
 "#
         }
     }
