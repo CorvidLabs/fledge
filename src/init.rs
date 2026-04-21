@@ -326,17 +326,27 @@ fn run_post_create_hooks(
             bail!("Empty post-create hook command");
         }
 
-        let status = std::process::Command::new(parts[0])
+        let output = std::process::Command::new(parts[0])
             .args(&parts[1..])
             .current_dir(project_dir)
-            .status()
+            .output()
             .with_context(|| format!("running hook: {}", cmd))?;
 
-        if !status.success() {
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let mut detail = String::new();
+            if !stdout.trim().is_empty() {
+                detail.push_str(&format!("\n  stdout: {}", stdout.trim()));
+            }
+            if !stderr.trim().is_empty() {
+                detail.push_str(&format!("\n  stderr: {}", stderr.trim()));
+            }
             bail!(
-                "Post-create hook failed (exit {}): {}",
-                status.code().unwrap_or(-1),
-                cmd
+                "Post-create hook failed (exit {}): {}{}",
+                output.status.code().unwrap_or(-1),
+                cmd,
+                detail
             );
         }
     }
@@ -489,16 +499,17 @@ pub fn init_git_for_tui(dir: &Path) -> Result<()> {
 }
 
 fn init_git(dir: &Path) -> Result<()> {
-    let status = std::process::Command::new("git")
+    let output = std::process::Command::new("git")
         .args(["init"])
         .current_dir(dir)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stderr(std::process::Stdio::piped())
+        .output()
         .context("running git init")?;
 
-    if !status.success() {
-        bail!("git init failed");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("git init failed: {}", stderr.trim());
     }
 
     // Ensure git has a user configured (needed in CI / fresh environments)

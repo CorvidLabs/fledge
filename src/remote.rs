@@ -97,21 +97,29 @@ fn clone_repo(
             .env("GIT_CONFIG_VALUE_0", &header_value);
     }
 
-    let status = cmd.status().context("running git clone")?;
+    let output = cmd.output().context("running git clone")?;
 
-    if !status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let detail = if stderr.trim().is_empty() {
+            String::new()
+        } else {
+            format!("\n  git: {}", stderr.trim())
+        };
         if let Some(r) = git_ref {
             bail!(
-                "Failed to clone {}/{}@{}. Check the ref exists.",
+                "Failed to clone {}/{}@{}. Check the ref exists.{}",
                 owner,
                 repo,
-                r
+                r,
+                detail
             );
         }
         bail!(
-            "Failed to clone {}/{}. Check the repo exists and you have access.",
+            "Failed to clone {}/{}. Check the repo exists and you have access.{}",
             owner,
-            repo
+            repo,
+            detail
         );
     }
 

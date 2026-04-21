@@ -31,10 +31,23 @@ pub fn prompt_variables(
 
     // Core variables
     ctx.insert("project_name", project_name);
-    ctx.insert("project_name_snake", &to_snake_case(project_name));
-    ctx.insert("project_name_kebab", &to_kebab_case(project_name));
-    ctx.insert("project_name_pascal", &to_pascal_case(project_name));
-    ctx.insert("project_name_camel", &to_camel_case(project_name));
+    crate::utils::validate_project_name(project_name)?;
+    ctx.insert(
+        "project_name_snake",
+        &crate::utils::to_snake_case(project_name),
+    );
+    ctx.insert(
+        "project_name_kebab",
+        &crate::utils::to_kebab_case(project_name),
+    );
+    ctx.insert(
+        "project_name_pascal",
+        &crate::utils::to_pascal_case(project_name),
+    );
+    ctx.insert(
+        "project_name_camel",
+        &crate::utils::to_camel_case(project_name),
+    );
 
     // Date variables
     let now = chrono::Local::now();
@@ -72,6 +85,7 @@ pub fn prompt_variables(
             }
         }
     };
+    crate::utils::validate_github_org(&github_org)?;
     ctx.insert("github_org", &github_org);
 
     // License
@@ -113,62 +127,10 @@ fn render_default(template: &str, ctx: &tera::Context) -> Result<String> {
     Ok(tera.render("__default__", ctx)?)
 }
 
-fn to_kebab_case(s: &str) -> String {
-    s.chars()
-        .map(|c| {
-            if c == '_' {
-                '-'
-            } else {
-                c.to_ascii_lowercase()
-            }
-        })
-        .collect()
-}
-
-fn to_camel_case(s: &str) -> String {
-    let pascal = to_pascal_case(s);
-    let mut chars = pascal.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(first) => {
-            let mut s = first.to_lowercase().to_string();
-            s.extend(chars);
-            s
-        }
-    }
-}
-
-fn to_snake_case(s: &str) -> String {
-    s.chars()
-        .map(|c| {
-            if c == '-' {
-                '_'
-            } else {
-                c.to_ascii_lowercase()
-            }
-        })
-        .collect()
-}
-
-fn to_pascal_case(s: &str) -> String {
-    s.split(['-', '_'])
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => {
-                    let mut s = first.to_uppercase().to_string();
-                    s.extend(chars);
-                    s
-                }
-            }
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::*;
 
     #[test]
     fn test_to_snake_case() {

@@ -32,7 +32,6 @@ pub struct TemplateInfo {
     #[serde(default)]
     pub min_fledge_version: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     pub version: Option<String>,
     #[serde(default)]
     pub requires: Vec<String>,
@@ -79,7 +78,7 @@ pub struct FileRules {
     #[serde(default)]
     pub render: Vec<String>,
     #[serde(default)]
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "tui"), allow(dead_code))]
     pub copy: Vec<String>,
     #[serde(default)]
     pub ignore: Vec<String>,
