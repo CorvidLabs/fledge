@@ -24,6 +24,8 @@ pub fn prompt_variables(
     project_name: &str,
     config: &Config,
     yes: bool,
+    author_override: Option<&str>,
+    org_override: Option<&str>,
 ) -> Result<tera::Context> {
     let mut ctx = tera::Context::new();
 
@@ -39,27 +41,35 @@ pub fn prompt_variables(
     ctx.insert("year", &now.format("%Y").to_string());
     ctx.insert("date", &now.format("%Y-%m-%d").to_string());
 
-    let author = match config.author_or_git() {
-        Some(a) => a,
-        None if yes => project_name.to_string(),
-        None => Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("Author name")
-            .interact_text()?,
+    let author = if let Some(a) = author_override {
+        a.to_string()
+    } else {
+        match config.author_or_git() {
+            Some(a) => a,
+            None if yes => project_name.to_string(),
+            None => Input::with_theme(&ColorfulTheme::default())
+                .with_prompt("Author name")
+                .interact_text()?,
+        }
     };
     ctx.insert("author", &author);
 
-    let github_org = match config.github_org() {
-        Some(org) => org,
-        None if yes => author.clone(),
-        None => {
-            let theme = ColorfulTheme::default();
-            let input = Input::<String>::with_theme(&theme).with_prompt("GitHub organization");
-            let input = if let Some(ref a) = config.author_or_git() {
-                input.default(a.clone())
-            } else {
-                input
-            };
-            input.interact_text()?
+    let github_org = if let Some(o) = org_override {
+        o.to_string()
+    } else {
+        match config.github_org() {
+            Some(org) => org,
+            None if yes => author.clone(),
+            None => {
+                let theme = ColorfulTheme::default();
+                let input = Input::<String>::with_theme(&theme).with_prompt("GitHub organization");
+                let input = if let Some(ref a) = config.author_or_git() {
+                    input.default(a.clone())
+                } else {
+                    input
+                };
+                input.interact_text()?
+            }
         }
     };
     ctx.insert("github_org", &github_org);

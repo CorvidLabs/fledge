@@ -2353,3 +2353,66 @@ fn e2e_create_validate_init_template() {
         "validate created template failed:\nstdout: {stdout}\nstderr: {stderr}"
     );
 }
+
+#[test]
+fn create_template_non_interactive_with_yes() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = run_fledge(&[
+        "create-template",
+        "my-tpl",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+    ]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        output.status.success(),
+        "create-template --yes failed:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let tpl_dir = tmp.path().join("my-tpl");
+    assert!(tpl_dir.join("template.toml").exists());
+    assert!(tpl_dir.join("README.md").exists());
+
+    // Validate the generated template is well-formed
+    let output = run_fledge(&["validate-template", tpl_dir.to_str().unwrap()]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        output.status.success(),
+        "validate failed:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
+
+#[test]
+fn create_template_non_interactive_with_all_flags() {
+    let tmp = TempDir::new().unwrap();
+
+    let output = run_fledge(&[
+        "create-template",
+        "flagged-tpl",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--description",
+        "A custom template",
+        "--render-patterns",
+        "**/*.rs, **/*.md",
+        "--hooks",
+        "--prompts",
+    ]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        output.status.success(),
+        "create-template with flags failed:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let tpl_dir = tmp.path().join("flagged-tpl");
+    let manifest = std::fs::read_to_string(tpl_dir.join("template.toml")).unwrap();
+    assert!(manifest.contains("A custom template"));
+    assert!(manifest.contains("**/*.rs"));
+    assert!(manifest.contains("[hooks]"));
+    assert!(manifest.contains("[prompts"));
+}

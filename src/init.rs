@@ -11,6 +11,8 @@ pub struct InitOptions {
     pub name: String,
     pub template: Option<String>,
     pub output: PathBuf,
+    pub author: Option<String>,
+    pub org: Option<String>,
     pub no_git: bool,
     pub no_install: bool,
     pub refresh: bool,
@@ -82,7 +84,14 @@ pub fn run(opts: InitOptions) -> Result<()> {
     }
 
     // Prompt for template variables
-    let variables = prompts::prompt_variables(template, &opts.name, &config, opts.yes)?;
+    let variables = prompts::prompt_variables(
+        template,
+        &opts.name,
+        &config,
+        opts.yes,
+        opts.author.as_deref(),
+        opts.org.as_deref(),
+    )?;
 
     // Create project directory
     std::fs::create_dir_all(&target_dir)
@@ -205,7 +214,14 @@ fn run_remote(
         );
     }
 
-    let variables = prompts::prompt_variables(template, &opts.name, config, opts.yes)?;
+    let variables = prompts::prompt_variables(
+        template,
+        &opts.name,
+        config,
+        opts.yes,
+        opts.author.as_deref(),
+        opts.org.as_deref(),
+    )?;
 
     std::fs::create_dir_all(&target_dir)
         .with_context(|| format!("creating directory {}", target_dir.display()))?;
