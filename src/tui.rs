@@ -205,7 +205,7 @@ fn build_categories() -> Vec<CategoryDef> {
         CategoryDef {
             name: "Run",
             icon: "🚀",
-            description: "Tasks and flows",
+            description: "Tasks and lanes",
             actions: vec![
                 ActionDef {
                     name: "List Tasks",
@@ -227,7 +227,7 @@ fn build_categories() -> Vec<CategoryDef> {
                 ActionDef {
                     name: "List Flows",
                     description: "Show available workflow pipelines",
-                    kind: ActionKind::Direct(vec!["flow", "--list"]),
+                    kind: ActionKind::Direct(vec!["lane", "--list"]),
                 },
                 ActionDef {
                     name: "Run Flow",
@@ -589,7 +589,7 @@ fn build_command(action_id: ActionId, fields: &[String]) -> Vec<String> {
         }
         ActionId::SpecNew => vec!["spec".into(), "new".into(), field(fields, 0).to_string()],
         ActionId::RunTask => vec!["run".into(), field(fields, 0).to_string()],
-        ActionId::RunFlow => vec!["flow".into(), field(fields, 0).to_string()],
+        ActionId::RunFlow => vec!["lane".into(), field(fields, 0).to_string()],
         ActionId::SearchTemplates => {
             let mut args = vec!["search".into()];
             let q = field(fields, 0);
@@ -2177,7 +2177,7 @@ mod tests {
     #[test]
     fn test_build_command_run_flow() {
         let args = build_command(ActionId::RunFlow, &["ci".into()]);
-        assert_eq!(args, vec!["flow", "ci"]);
+        assert_eq!(args, vec!["lane", "ci"]);
     }
 
     #[test]

@@ -11,10 +11,10 @@ mod config;
 mod create_template;
 mod deps;
 mod doctor;
-mod flows;
 mod github;
 mod init;
 mod issues;
+mod lanes;
 mod metrics;
 mod plugin;
 mod prompts;
@@ -227,9 +227,9 @@ enum Commands {
         list: bool,
     },
     /// Manage and run composable workflow pipelines
-    Flow {
+    Lane {
         #[command(subcommand)]
-        action: Option<FlowSubcommand>,
+        action: Option<LaneSubcommand>,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -444,24 +444,24 @@ enum ConfigAction {
 }
 
 #[derive(clap::Subcommand)]
-enum FlowSubcommand {
-    /// Run a flow by name
+enum LaneSubcommand {
+    /// Run a lane by name
     Run {
-        /// Flow name
+        /// Lane name
         name: String,
         /// Show execution plan without running
         #[arg(long)]
         dry_run: bool,
     },
-    /// List available flows
+    /// List available lanes
     List {
         /// Output as JSON
         #[arg(long)]
         json: bool,
     },
-    /// Add default flows to fledge.toml
+    /// Add default lanes to fledge.toml
     Init,
-    /// Search GitHub for community flows
+    /// Search GitHub for community lanes
     Search {
         /// Keyword to filter results
         query: Option<String>,
@@ -469,7 +469,7 @@ enum FlowSubcommand {
         #[arg(long)]
         json: bool,
     },
-    /// Import flows from a GitHub repo (owner/repo)
+    /// Import lanes from a GitHub repo (owner/repo)
     Import {
         /// GitHub repo (owner/repo) or full URL, optionally with @ref
         source: String,
@@ -670,20 +670,20 @@ fn run() -> Result<()> {
         Commands::Review { base, file, json } => {
             review::run(review::ReviewOptions { base, file, json })?;
         }
-        Commands::Flow { action } => {
+        Commands::Lane { action } => {
             let action = match action {
-                Some(FlowSubcommand::Run { name, dry_run }) => {
-                    flows::FlowAction::Run { name, dry_run }
+                Some(LaneSubcommand::Run { name, dry_run }) => {
+                    lanes::LaneAction::Run { name, dry_run }
                 }
-                Some(FlowSubcommand::List { json }) => flows::FlowAction::List { json },
-                Some(FlowSubcommand::Init) => flows::FlowAction::Init,
-                Some(FlowSubcommand::Search { query, json }) => {
-                    flows::FlowAction::Search { query, json }
+                Some(LaneSubcommand::List { json }) => lanes::LaneAction::List { json },
+                Some(LaneSubcommand::Init) => lanes::LaneAction::Init,
+                Some(LaneSubcommand::Search { query, json }) => {
+                    lanes::LaneAction::Search { query, json }
                 }
-                Some(FlowSubcommand::Import { source }) => flows::FlowAction::Import { source },
-                None => flows::FlowAction::List { json: false },
+                Some(LaneSubcommand::Import { source }) => lanes::LaneAction::Import { source },
+                None => lanes::LaneAction::List { json: false },
             };
-            flows::run(action)?;
+            lanes::run(action)?;
         }
         Commands::Changelog {
             limit,

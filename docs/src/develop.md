@@ -97,10 +97,10 @@ Write the spec first, then write the code to match. Before committing, run:
 fledge spec check
 ```
 
-Add it to your CI flow:
+Add it to your CI lane:
 
 ```toml
-[flows.ci]
+[lanes.ci]
 steps = ["fmt", "lint", "test", "spec-check"]
 
 [tasks.spec-check]

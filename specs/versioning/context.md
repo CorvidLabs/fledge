@@ -6,4 +6,4 @@ Templates can declare `min_fledge_version` but fledge doesn't enforce it. Users 
 
 ## Solution
 
-A small versioning module with semver comparison. The init flow checks the constraint before scaffolding and gives a clear upgrade message if incompatible.
+A small versioning module with semver comparison. The init lane checks the constraint before scaffolding and gives a clear upgrade message if incompatible.

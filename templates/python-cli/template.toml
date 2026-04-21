@@ -8,7 +8,7 @@ requires = ["python3"]
 description = { message = "Project description", default = "A new Python CLI" }
 
 [files]
-render = ["**/*.py", "**/*.toml", "**/*.md", "**/*.yml", "**/*.cfg"]
+render = ["**/*.py", "**/*.toml", "**/*.md", "**/*.yml"]
 copy = []
 ignore = ["template.toml"]
 
