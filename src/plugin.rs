@@ -340,21 +340,24 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
 fn update_plugins(name: Option<&str>) -> Result<()> {
     let registry = load_registry()?;
 
-    if registry.plugins.is_empty() {
-        println!("{} No plugins installed.", style("*").cyan().bold());
-        return Ok(());
-    }
-
     let targets: Vec<&PluginEntry> = match name {
         Some(n) => {
             let entry = registry
                 .plugins
                 .iter()
                 .find(|p| p.name == n || p.name == format!("fledge-{n}"))
-                .ok_or_else(|| anyhow::anyhow!("Plugin '{}' is not installed.", n))?;
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Plugin '{n}' is not installed.")
+                })?;
             vec![entry]
         }
-        None => registry.plugins.iter().collect(),
+        None => {
+            if registry.plugins.is_empty() {
+                println!("{} No plugins installed.", style("*").cyan().bold());
+                return Ok(());
+            }
+            registry.plugins.iter().collect()
+        }
     };
 
     for entry in &targets {
