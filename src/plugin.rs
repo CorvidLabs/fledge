@@ -816,20 +816,29 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
 }
 
 fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
-    let hook_path = plugin_dir.join(hook);
-    if !hook_path.exists() {
-        return Ok(());
-    }
-    make_executable(&hook_path)?;
     println!(
         "  {} Running {} hook...",
         style("▶️").cyan().bold(),
         style(event).dim()
     );
-    let status = Command::new(&hook_path)
-        .current_dir(plugin_dir)
-        .status()
-        .with_context(|| format!("running {event} hook"))?;
+
+    let hook_path = plugin_dir.join(hook);
+    let status = if hook_path.exists() {
+        make_executable(&hook_path)?;
+        Command::new(&hook_path)
+            .current_dir(plugin_dir)
+            .status()
+            .with_context(|| format!("running {event} hook"))?
+    } else {
+        let shell = if cfg!(windows) { "cmd" } else { "sh" };
+        let flag = if cfg!(windows) { "/C" } else { "-c" };
+        Command::new(shell)
+            .args([flag, hook])
+            .current_dir(plugin_dir)
+            .status()
+            .with_context(|| format!("running {event} hook"))?
+    };
+
     if !status.success() {
         let code = status.code().unwrap_or(1);
         bail!("Hook '{}' exited with code {}", event, code);
