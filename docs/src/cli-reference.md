@@ -547,9 +547,9 @@ name = "deploy"
 description = "Deploy the project"
 binary = "fledge-deploy"
 
-[[hooks]]
-event = "lane:post"
-binary = "fledge-deploy-notify"
+[hooks]
+build = "cargo build --release"
+post_install = "echo 'Deploy plugin ready'"
 ```
 
 ```bash
