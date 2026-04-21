@@ -425,19 +425,20 @@ fn execute_parallel(
             let errors = Arc::clone(&errors);
             let handle = s.spawn(move || {
                 if let Err(e) = execute_task_with_deps(name, tasks, project_dir) {
-                    let mut errs = errors.lock().unwrap();
-                    errs.push(format!("{}: {}", name, e));
+                    if let Ok(mut errs) = errors.lock() {
+                        errs.push(format!("{}: {}", name, e));
+                    }
                 }
             });
             handles.push(handle);
         }
 
         for handle in handles {
-            handle.join().unwrap();
+            let _ = handle.join();
         }
     });
 
-    let errs = errors.lock().unwrap();
+    let errs = errors.lock().unwrap_or_else(|e| e.into_inner());
     if !errs.is_empty() {
         bail!("Parallel step failed:\n  {}", errs.join("\n  "));
     }

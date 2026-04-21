@@ -58,7 +58,7 @@ impl Config {
             return PathBuf::from(dir).join("config.toml");
         }
         dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("~/.config"))
+            .unwrap_or_else(std::env::temp_dir)
             .join("fledge")
             .join("config.toml")
     }

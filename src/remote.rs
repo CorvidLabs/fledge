@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 pub fn cache_dir() -> PathBuf {
     dirs::cache_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.cache"))
+        .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join("templates")
 }

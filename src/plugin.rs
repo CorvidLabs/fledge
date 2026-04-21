@@ -95,7 +95,7 @@ pub fn list_installed() -> Result<Vec<PluginEntry>> {
 
 fn plugins_dir() -> PathBuf {
     dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join("plugins")
 }
@@ -106,7 +106,7 @@ fn plugin_bin_dir() -> PathBuf {
 
 fn registry_path() -> PathBuf {
     dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join("plugins.toml")
 }
