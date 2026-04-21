@@ -10,6 +10,8 @@ struct PluginManifest {
     plugin: PluginMeta,
     #[serde(default)]
     commands: Vec<PluginCommand>,
+    #[serde(default)]
+    hooks: PluginHooks,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,6 +30,12 @@ struct PluginCommand {
     #[allow(dead_code)]
     description: Option<String>,
     binary: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct PluginHooks {
+    post_install: Option<String>,
+    post_remove: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -256,6 +264,11 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     if !command_names.is_empty() {
         println!("  Commands: {}", style(command_names.join(", ")).cyan());
     }
+
+    if let Some(hook) = &manifest.hooks.post_install {
+        run_hook(&plugin_dir, hook, "post_install")?;
+    }
+
     Ok(())
 }
 
@@ -287,6 +300,23 @@ fn remove_plugin(name: &str) -> Result<()> {
     }
 
     let plugin_dir = plugins_dir().join(&entry.name);
+
+    // Read manifest before deleting so we can run the post_remove hook
+    let post_remove_hook = plugin_dir
+        .join("plugin.toml")
+        .exists()
+        .then(|| {
+            fs::read_to_string(plugin_dir.join("plugin.toml"))
+                .ok()
+                .and_then(|s| toml::from_str::<PluginManifest>(&s).ok())
+                .and_then(|m| m.hooks.post_remove)
+        })
+        .flatten();
+
+    if let Some(ref hook) = post_remove_hook {
+        run_hook(&plugin_dir, hook, "post_remove")?;
+    }
+
     if plugin_dir.exists() {
         fs::remove_dir_all(&plugin_dir).context("removing plugin directory")?;
     }
@@ -476,6 +506,28 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
         bail!("Plugin '{}' exited with code {}", name, code);
     }
 
+    Ok(())
+}
+
+fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
+    let hook_path = plugin_dir.join(hook);
+    if !hook_path.exists() {
+        return Ok(());
+    }
+    make_executable(&hook_path)?;
+    println!(
+        "  {} Running {} hook...",
+        style("▸").cyan().bold(),
+        style(event).dim()
+    );
+    let status = Command::new(&hook_path)
+        .current_dir(plugin_dir)
+        .status()
+        .with_context(|| format!("running {event} hook"))?;
+    if !status.success() {
+        let code = status.code().unwrap_or(1);
+        bail!("Hook '{}' exited with code {}", event, code);
+    }
     Ok(())
 }
 

@@ -37,7 +37,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, List, Search, Run |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
-| `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands |
+| `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
 ### Functions
 
@@ -62,6 +62,10 @@ author = "someone"
 name = "deploy"
 description = "Deploy the project"
 binary = "fledge-deploy"  # relative to plugin dir
+
+[hooks]
+post_install = "hooks/post-install.sh"  # runs after `fledge plugin install`
+post_remove  = "hooks/post-remove.sh"   # runs after `fledge plugin remove`
 ```
 
 ### Plugin Discovery
