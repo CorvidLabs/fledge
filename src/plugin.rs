@@ -34,6 +34,7 @@ struct PluginCommand {
 
 #[derive(Debug, Deserialize, Default)]
 struct PluginHooks {
+    build: Option<String>,
     post_install: Option<String>,
     post_remove: Option<String>,
 }
@@ -52,6 +53,8 @@ pub struct PluginEntry {
     installed: String,
     #[serde(default)]
     commands: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pinned_ref: Option<String>,
 }
 
 pub struct PluginOptions {
@@ -62,6 +65,7 @@ pub struct PluginOptions {
 pub enum PluginAction {
     Install { source: String, force: bool },
     Remove { name: String },
+    Update { name: Option<String> },
     List,
     Search { query: Option<String>, limit: usize },
     Run { name: String, args: Vec<String> },
@@ -71,6 +75,7 @@ pub fn run(opts: PluginOptions) -> Result<()> {
     match opts.action {
         PluginAction::Install { source, force } => install_plugin(&source, force),
         PluginAction::Remove { name } => remove_plugin(&name),
+        PluginAction::Update { name } => update_plugins(name.as_deref()),
         PluginAction::List => list_plugins(opts.json),
         PluginAction::Search { query, limit } => search_plugins(query.as_deref(), limit, opts.json),
         PluginAction::Run { name, args } => run_plugin(&name, &args),
@@ -131,28 +136,153 @@ fn save_registry(registry: &PluginsRegistry) -> Result<()> {
     fs::write(&path, content).context("writing plugins.toml")
 }
 
+fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
+    if source.starts_with("git@") {
+        if let Some(rest) = source.strip_prefix("git@") {
+            if let Some((_, after)) = rest.rsplit_once('@') {
+                if !after.is_empty() {
+                    let split_pos = source.len() - after.len() - 1;
+                    return (&source[..split_pos], Some(after));
+                }
+            }
+        }
+        return (source, None);
+    }
+    match source.rsplit_once('@') {
+        Some((before, after))
+            if !after.is_empty() && !before.is_empty() && !after.contains('/') =>
+        {
+            (before, Some(after))
+        }
+        _ => (source, None),
+    }
+}
+
 fn normalize_source(source: &str) -> String {
-    if source.starts_with("https://") || source.starts_with("git@") {
-        source.to_string()
-    } else if source.contains('/') {
-        format!("https://github.com/{}.git", source)
+    let (base, _) = parse_source_ref(source);
+    if base.starts_with("https://") || base.starts_with("git@") {
+        base.to_string()
+    } else if base.contains('/') {
+        format!("https://github.com/{}.git", base)
     } else {
-        source.to_string()
+        base.to_string()
     }
 }
 
 fn extract_name_from_source(source: &str) -> String {
-    source
-        .rsplit('/')
+    let (base, _) = parse_source_ref(source);
+    base.rsplit('/')
         .next()
-        .unwrap_or(source)
+        .unwrap_or(base)
         .trim_end_matches(".git")
         .to_string()
 }
 
+fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, Vec<&'static str>)> {
+    if plugin_dir.join("Cargo.toml").exists() {
+        Some(("Rust", vec!["cargo", "build", "--release"]))
+    } else if plugin_dir.join("Package.swift").exists() {
+        Some(("Swift", vec!["swift", "build", "-c", "release"]))
+    } else if plugin_dir.join("go.mod").exists() {
+        Some(("Go", vec!["go", "build", "."]))
+    } else if plugin_dir.join("package.json").exists() {
+        Some(("Node", vec!["npm", "install"]))
+    } else {
+        None
+    }
+}
+
+fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    if let Some(hook) = &manifest.hooks.build {
+        run_hook(plugin_dir, hook, "build")?;
+        return Ok(());
+    }
+
+    if let Some((lang, cmd)) = detect_build_command(plugin_dir) {
+        let sp = crate::spinner::Spinner::start(&format!("Building ({lang}):"));
+        let status = Command::new(cmd[0])
+            .args(&cmd[1..])
+            .current_dir(plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("running {lang} build"))?;
+        sp.finish();
+        if !status.success() {
+            bail!("Build failed. Check your {lang} toolchain is installed.");
+        }
+    }
+
+    Ok(())
+}
+
+fn link_commands(
+    plugin_dir: &Path,
+    bin_dir: &Path,
+    manifest: &PluginManifest,
+) -> Result<Vec<String>> {
+    let mut command_names = Vec::new();
+    for cmd in &manifest.commands {
+        let binary_path = plugin_dir.join(&cmd.binary);
+        if !binary_path.exists() {
+            let mut hint = format!(
+                "Plugin '{}' references binary '{}' which does not exist.",
+                manifest.plugin.name, cmd.binary
+            );
+            if let Some((lang, _)) = detect_build_command(plugin_dir) {
+                hint.push_str(&format!(
+                    "\n  This looks like a {} project. Add a build hook to plugin.toml:",
+                    lang
+                ));
+                hint.push_str("\n  [hooks]");
+                let example = match lang {
+                    "Rust" => "build = \"cargo build --release\"",
+                    "Swift" => "build = \"swift build -c release\"",
+                    "Go" => "build = \"go build .\"",
+                    _ => "build = \"scripts/build.sh\"",
+                };
+                hint.push_str(&format!("\n  {example}"));
+            }
+            bail!("{hint}");
+        }
+
+        make_executable(&binary_path)?;
+
+        let link_name = format!("fledge-{}", cmd.name);
+        let link_path = bin_dir.join(&link_name);
+        if link_path.exists() || link_path.is_symlink() {
+            fs::remove_file(&link_path).ok();
+        }
+        create_symlink(&binary_path, &link_path).with_context(|| {
+            format!(
+                "creating symlink {} -> {}",
+                link_path.display(),
+                binary_path.display()
+            )
+        })?;
+
+        command_names.push(cmd.name.clone());
+    }
+    Ok(command_names)
+}
+
+fn validate_plugin_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.starts_with('.')
+        || name.contains('/')
+        || name.contains('\\')
+        || name == ".."
+    {
+        bail!("Invalid plugin source: repo name '{}' is not safe.", name);
+    }
+    Ok(())
+}
+
 fn install_plugin(source: &str, force: bool) -> Result<()> {
+    let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
+    validate_plugin_name(&repo_name)?;
 
     let plugins = plugins_dir();
     let bin_dir = plugin_bin_dir();
@@ -175,10 +305,21 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
         fs::remove_dir_all(&plugin_dir).context("removing existing plugin")?;
     }
 
-    let sp = crate::spinner::Spinner::start(&format!("Cloning {}:", &url));
+    let clone_msg = match git_ref {
+        Some(r) => format!("Cloning {}@{}:", &url, r),
+        None => format!("Cloning {}:", &url),
+    };
+    let sp = crate::spinner::Spinner::start(&clone_msg);
+
+    let mut clone_args = vec!["clone"];
+    if git_ref.is_none() {
+        clone_args.push("--depth");
+        clone_args.push("1");
+    }
+    clone_args.push(&url);
 
     let status = Command::new("git")
-        .args(["clone", "--depth", "1", &url])
+        .args(&clone_args)
         .arg(&plugin_dir)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
@@ -192,6 +333,25 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
             "Failed to clone '{}'. Check the repository URL and your network connection.",
             source
         );
+    }
+
+    if let Some(ref_str) = git_ref {
+        let status = Command::new("git")
+            .args(["checkout", ref_str])
+            .current_dir(&plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("checking out ref '{ref_str}'"))?;
+        if !status.success() {
+            fs::remove_dir_all(&plugin_dir).ok();
+            bail!(
+                "Git ref '{}' not found in '{}'. Check available tags with:\n  {}",
+                ref_str,
+                source,
+                style(format!("git ls-remote --tags {url}")).cyan()
+            );
+        }
     }
 
     let manifest_path = plugin_dir.join("plugin.toml");
@@ -208,42 +368,20 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let manifest: PluginManifest =
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
-    let mut command_names = Vec::new();
-    for cmd in &manifest.commands {
-        let binary_path = plugin_dir.join(&cmd.binary);
-        if !binary_path.exists() {
-            fs::remove_dir_all(&plugin_dir).ok();
-            bail!(
-                "Plugin '{}' references binary '{}' which does not exist in the repository.",
-                manifest.plugin.name,
-                cmd.binary
-            );
-        }
+    run_build(&plugin_dir, &manifest)?;
 
-        make_executable(&binary_path)?;
+    let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
+        fs::remove_dir_all(&plugin_dir).ok();
+    })?;
 
-        let link_name = format!("fledge-{}", cmd.name);
-        let link_path = bin_dir.join(&link_name);
-        if link_path.exists() || link_path.is_symlink() {
-            fs::remove_file(&link_path).ok();
-        }
-        create_symlink(&binary_path, &link_path).with_context(|| {
-            format!(
-                "creating symlink {} -> {}",
-                link_path.display(),
-                binary_path.display()
-            )
-        })?;
-
-        command_names.push(cmd.name.clone());
-    }
-
+    let (base_source, _) = parse_source_ref(source);
     let entry = PluginEntry {
         name: repo_name.clone(),
-        source: source.to_string(),
+        source: base_source.to_string(),
         version: manifest.plugin.version.clone(),
         installed: chrono::Local::now().format("%Y-%m-%d").to_string(),
         commands: command_names.clone(),
+        pinned_ref: git_ref.map(String::from),
     };
 
     if let Some(idx) = existing {
@@ -253,12 +391,22 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     }
     save_registry(&registry)?;
 
-    println!(
-        "{} Installed {} v{}",
-        style("✅").green().bold(),
-        style(&manifest.plugin.name).green(),
-        manifest.plugin.version
-    );
+    if let Some(ref pinned) = git_ref {
+        println!(
+            "{} Installed {} v{} (pinned to {})",
+            style("✅").green().bold(),
+            style(&manifest.plugin.name).green(),
+            manifest.plugin.version,
+            style(pinned).cyan()
+        );
+    } else {
+        println!(
+            "{} Installed {} v{}",
+            style("✅").green().bold(),
+            style(&manifest.plugin.name).green(),
+            manifest.plugin.version
+        );
+    }
     if !command_names.is_empty() {
         println!("  Commands: {}", style(command_names.join(", ")).cyan());
     }
@@ -268,6 +416,152 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn update_plugins(name: Option<&str>) -> Result<()> {
+    let registry = load_registry()?;
+
+    let targets: Vec<&PluginEntry> = match name {
+        Some(n) => {
+            let entry = registry
+                .plugins
+                .iter()
+                .find(|p| p.name == n || p.name == format!("fledge-{n}"))
+                .ok_or_else(|| anyhow::anyhow!("Plugin '{n}' is not installed."))?;
+            vec![entry]
+        }
+        None => {
+            if registry.plugins.is_empty() {
+                println!("{} No plugins installed.", style("*").cyan().bold());
+                return Ok(());
+            }
+            registry.plugins.iter().collect()
+        }
+    };
+
+    for entry in &targets {
+        let plugin_dir = plugins_dir().join(&entry.name);
+        if !plugin_dir.exists() {
+            println!(
+                "  {} {} — directory missing, reinstall with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
+            continue;
+        }
+
+        if let Some(ref pinned) = entry.pinned_ref {
+            let latest = find_latest_tag(&plugin_dir);
+            match latest {
+                Some(ref tag) if tag != pinned => {
+                    println!(
+                        "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
+                        style("*").cyan().bold(),
+                        style(&entry.name).cyan(),
+                        style(pinned).dim(),
+                        style(tag).green(),
+                        style(format!(
+                            "fledge plugin install {}@{} --force",
+                            entry.source, tag
+                        ))
+                        .cyan()
+                    );
+                }
+                _ => {
+                    println!(
+                        "  {} {} — pinned to {}, already up to date.",
+                        style("✅").green().bold(),
+                        style(&entry.name).green(),
+                        style(pinned).dim()
+                    );
+                }
+            }
+            continue;
+        }
+
+        let sp = crate::spinner::Spinner::start(&format!("Updating {}:", &entry.name));
+
+        let status = Command::new("git")
+            .args(["pull", "--ff-only"])
+            .current_dir(&plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("updating {}", entry.name))?;
+
+        sp.finish();
+
+        if !status.success() {
+            println!(
+                "  {} {} — git pull failed, try reinstalling with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
+            continue;
+        }
+
+        let manifest_path = plugin_dir.join("plugin.toml");
+        if manifest_path.exists() {
+            let manifest_content =
+                fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+            let manifest: PluginManifest =
+                toml::from_str(&manifest_content).context("parsing plugin.toml")?;
+
+            run_build(&plugin_dir, &manifest)?;
+
+            let bin_dir = plugin_bin_dir();
+            for old_cmd in &entry.commands {
+                let old_link = bin_dir.join(format!("fledge-{old_cmd}"));
+                if old_link.exists() || old_link.is_symlink() {
+                    fs::remove_file(&old_link).ok();
+                }
+            }
+            link_commands(&plugin_dir, &bin_dir, &manifest)?;
+
+            let new_cmds: Vec<String> = manifest.commands.iter().map(|c| c.name.clone()).collect();
+            let mut reg = load_registry()?;
+            if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
+                e.version = manifest.plugin.version.clone();
+                e.commands = new_cmds;
+            }
+            save_registry(&reg)?;
+
+            println!(
+                "  {} {} → v{}",
+                style("✅").green().bold(),
+                style(&entry.name).green(),
+                manifest.plugin.version
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn find_latest_tag(repo_dir: &Path) -> Option<String> {
+    Command::new("git")
+        .args(["fetch", "--tags"])
+        .current_dir(repo_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .ok();
+    let output = Command::new("git")
+        .args(["tag", "--sort=-v:refname"])
+        .current_dir(repo_dir)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .next()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn remove_plugin(name: &str) -> Result<()> {
@@ -359,6 +653,7 @@ fn list_plugins(json: bool) -> Result<()> {
                     "source": p.source,
                     "installed": p.installed,
                     "commands": p.commands,
+                    "pinned_ref": p.pinned_ref,
                 })
             })
             .collect();
@@ -375,10 +670,14 @@ fn list_plugins(json: bool) -> Result<()> {
         .unwrap_or(0);
 
     for plugin in &registry.plugins {
+        let version_str = match &plugin.pinned_ref {
+            Some(r) => format!("v{} (pinned: {})", plugin.version, r),
+            None => format!("v{}", plugin.version),
+        };
         println!(
             "  {:<width$}  {}  {}",
             style(&plugin.name).green(),
-            style(format!("v{}", plugin.version)).dim(),
+            style(&version_str).dim(),
             style(format!("({})", plugin.source)).dim(),
             width = max_name,
         );
@@ -621,6 +920,14 @@ mod tests {
     }
 
     #[test]
+    fn normalize_github_shorthand_with_ref() {
+        assert_eq!(
+            normalize_source("someone/fledge-deploy@v1.0.0"),
+            "https://github.com/someone/fledge-deploy.git"
+        );
+    }
+
+    #[test]
     fn normalize_full_url() {
         let url = "https://github.com/someone/fledge-deploy.git";
         assert_eq!(normalize_source(url), url);
@@ -636,6 +943,14 @@ mod tests {
     fn extract_name_from_github_shorthand() {
         assert_eq!(
             extract_name_from_source("someone/fledge-deploy"),
+            "fledge-deploy"
+        );
+    }
+
+    #[test]
+    fn extract_name_with_ref() {
+        assert_eq!(
+            extract_name_from_source("someone/fledge-deploy@v1.0.0"),
             "fledge-deploy"
         );
     }
@@ -683,6 +998,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 installed: "2026-04-20".to_string(),
                 commands: vec!["test-cmd".to_string()],
+                pinned_ref: None,
             }],
         };
         let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -690,6 +1006,83 @@ mod tests {
         assert_eq!(deserialized.plugins.len(), 1);
         assert_eq!(deserialized.plugins[0].name, "fledge-test");
         assert_eq!(deserialized.plugins[0].commands, vec!["test-cmd"]);
+        assert!(deserialized.plugins[0].pinned_ref.is_none());
+    }
+
+    #[test]
+    fn registry_roundtrip_with_pinned_ref() {
+        let registry = PluginsRegistry {
+            plugins: vec![PluginEntry {
+                name: "fledge-test".to_string(),
+                source: "someone/fledge-test".to_string(),
+                version: "1.0.0".to_string(),
+                installed: "2026-04-20".to_string(),
+                commands: vec!["test-cmd".to_string()],
+                pinned_ref: Some("v1.0.0".to_string()),
+            }],
+        };
+        let serialized = toml::to_string_pretty(&registry).unwrap();
+        let deserialized: PluginsRegistry = toml::from_str(&serialized).unwrap();
+        assert_eq!(
+            deserialized.plugins[0].pinned_ref,
+            Some("v1.0.0".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_source_ref_with_tag() {
+        let (base, git_ref) = parse_source_ref("someone/fledge-deploy@v1.2.0");
+        assert_eq!(base, "someone/fledge-deploy");
+        assert_eq!(git_ref, Some("v1.2.0"));
+    }
+
+    #[test]
+    fn parse_source_ref_without_tag() {
+        let (base, git_ref) = parse_source_ref("someone/fledge-deploy");
+        assert_eq!(base, "someone/fledge-deploy");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_source_ref_with_branch() {
+        let (base, git_ref) = parse_source_ref("someone/fledge-deploy@main");
+        assert_eq!(base, "someone/fledge-deploy");
+        assert_eq!(git_ref, Some("main"));
+    }
+
+    #[test]
+    fn parse_source_ref_full_url_with_tag() {
+        let (base, git_ref) =
+            parse_source_ref("https://github.com/someone/fledge-deploy.git@v2.0.0");
+        assert_eq!(base, "https://github.com/someone/fledge-deploy.git");
+        assert_eq!(git_ref, Some("v2.0.0"));
+    }
+
+    #[test]
+    fn parse_source_ref_credential_url_no_split() {
+        let (base, git_ref) = parse_source_ref("https://user:token@github.com/owner/repo.git");
+        assert_eq!(base, "https://user:token@github.com/owner/repo.git");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_dotdot() {
+        assert!(validate_plugin_name("..").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_hidden() {
+        assert!(validate_plugin_name(".secret").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_slashes() {
+        assert!(validate_plugin_name("../etc").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_accepts_normal() {
+        assert!(validate_plugin_name("fledge-deploy").is_ok());
     }
 
     #[test]
@@ -787,5 +1180,78 @@ version = "0.1.0"
         let pd = plugins_dir();
         let bd = plugin_bin_dir();
         assert!(bd.starts_with(&pd));
+    }
+
+    #[test]
+    fn detect_rust_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("Cargo.toml"), "[package]\nname = \"x\"").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, cmd) = result.unwrap();
+        assert_eq!(lang, "Rust");
+        assert_eq!(cmd[0], "cargo");
+    }
+
+    #[test]
+    fn detect_swift_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("Package.swift"), "// swift").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Swift");
+    }
+
+    #[test]
+    fn detect_go_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("go.mod"), "module x").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Go");
+    }
+
+    #[test]
+    fn detect_node_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("package.json"), "{}").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Node");
+    }
+
+    #[test]
+    fn detect_no_build_system() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(detect_build_command(tmp.path()).is_none());
+    }
+
+    #[test]
+    fn parse_manifest_with_build_hook() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-compiled"
+version = "0.1.0"
+
+[[commands]]
+name = "compiled"
+binary = "target/release/fledge-compiled"
+
+[hooks]
+build = "cargo build --release"
+post_install = "scripts/setup.sh"
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert_eq!(
+            manifest.hooks.build.as_deref(),
+            Some("cargo build --release")
+        );
+        assert_eq!(
+            manifest.hooks.post_install.as_deref(),
+            Some("scripts/setup.sh")
+        );
     }
 }

@@ -485,7 +485,7 @@ enum LaneSubcommand {
 enum PluginSubcommand {
     /// Install a plugin from GitHub
     Install {
-        /// GitHub repo (owner/repo) or full URL
+        /// GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version
         source: String,
         /// Reinstall if already present
         #[arg(long)]
@@ -495,6 +495,11 @@ enum PluginSubcommand {
     Remove {
         /// Plugin name
         name: String,
+    },
+    /// Update installed plugins (git pull + rebuild)
+    Update {
+        /// Plugin name (omit to update all)
+        name: Option<String>,
     },
     /// List installed plugins
     List,
@@ -753,6 +758,7 @@ fn run() -> Result<()> {
                     plugin::PluginAction::Install { source, force }
                 }
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
+                PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
                 PluginSubcommand::List => plugin::PluginAction::List,
                 PluginSubcommand::Search { query, limit } => {
                     plugin::PluginAction::Search { query, limit }

@@ -1703,6 +1703,28 @@ fn cli_plugin_list_json() {
     assert!(parsed.is_array() || parsed.is_object());
 }
 
+#[test]
+fn cli_plugin_update_no_plugins() {
+    let output = run_fledge(&["plugin", "update"]);
+    assert!(output.status.success());
+}
+
+#[test]
+fn cli_plugin_update_nonexistent_fails() {
+    let output = run_fledge(&["plugin", "update", "nonexistent"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("not installed"));
+}
+
+#[test]
+fn cli_plugin_update_help() {
+    let output = run_fledge(&["plugin", "update", "--help"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Update installed plugins"));
+}
+
 // ──────────────────────────────────────────────────────────
 // Special characters and unicode in project names
 // ──────────────────────────────────────────────────────────
