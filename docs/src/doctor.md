@@ -26,9 +26,9 @@ fledge doctor --json
 
 Doctor reports each check as passing, warning, or failing:
 
-- **Pass** — tool is installed and working
-- **Warn** — tool is missing but only needed for specific features
-- **Fail** — something is broken that will cause errors
+- **Pass**: tool is installed and working
+- **Warn**: tool is missing but only needed for specific features
+- **Fail**: something is broken that will cause errors
 
 ## When to Run It
 

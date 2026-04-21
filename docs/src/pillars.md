@@ -40,6 +40,6 @@ Manage issues, review PRs, check CI status, and generate changelogs. Everything 
 
 ## Extend: Grow the tool
 
-Install community plugins, write your own, set up shell completions, and browse templates interactively. fledge is designed to be extended.
+Install community plugins, write your own, set up shell completions, and browse templates interactively.
 
 **Commands:** `plugin`, `completions`, `tui`
