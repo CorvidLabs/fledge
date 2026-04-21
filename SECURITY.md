@@ -9,16 +9,16 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in fledge, please report it responsibly.
+If you discover a security vulnerability, **do not open a public issue**.
 
-**Do not open a public issue.** Instead, email **security@corvidlabs.com** with:
+Instead, please report it privately via [GitHub Security Advisories](https://github.com/CorvidLabs/fledge/security/advisories/new) or email the maintainers directly.
 
-1. A description of the vulnerability
-2. Steps to reproduce
-3. The impact (what an attacker could do)
-4. Any suggested fix, if you have one
+Include:
+- A description of the vulnerability and its potential impact
+- Steps to reproduce
+- Any suggested fix (optional but appreciated)
 
-We will acknowledge your report within 48 hours and aim to release a fix within 7 days for critical issues.
+We aim to acknowledge reports within 48 hours and provide a fix or mitigation plan within 7 days.
 
 ## Security Model
 
