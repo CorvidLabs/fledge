@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- SECURITY.md — vulnerability reporting policy and security model documentation
+- CONTRIBUTING.md — development setup, workflow, code guidelines, and contribution process
+- Doctor guide page in documentation (`docs/src/doctor.md`)
+- Troubleshooting page in documentation (`docs/src/troubleshooting.md`)
+
+### Fixed
+
+- CLI Reference: added missing `--author` and `--org` flags for `fledge init`
+- CLI Reference: added missing `--description`, `--render-patterns`, `--hooks`, `--prompts`, `--yes` flags for `fledge create-template`
+- CLI Reference: corrected `--type` to `--branch-type` for `fledge work start` (matching actual flag name)
+- CLI Reference: removed non-existent `-y, --yes` flag from `fledge update`
+- CLI Reference: updated `fledge flow` to document subcommand structure (`run`, `list`, `init`, `search`, `import`)
+- CLI Reference: added short flags (`-t`, `-b`) for `fledge work pr`
+- Removed misplaced TUI section from plugins documentation page
+- Fixed `--type` → `--branch-type` in develop guide, GitHub integration guide, and quick start
+- Updated SUMMARY.md with new documentation pages
+
 ## [1.0.0] - 2026-04-20
 
 ### Added

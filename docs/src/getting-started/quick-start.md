@@ -102,8 +102,8 @@ fledge plugin list
 
 ```bash
 fledge work start add-logging                # creates leif/feat/add-logging (default: {author}/{type}/{name})
-fledge work start fix-typo --type fix        # creates leif/fix/fix-typo
-fledge work start bump-deps --type chore     # creates chore/bump-deps
+fledge work start fix-typo --branch-type fix        # creates leif/fix/fix-typo
+fledge work start bump-deps --branch-type chore     # creates chore/bump-deps
 # ... hack on your branch ...
 fledge work pr                               # opens a PR
 fledge work status                           # where are we?

@@ -26,7 +26,7 @@ The repo is auto-detected from your git remote.
 fledge work start add-dark-mode
 # → creates leif/feat/add-dark-mode (default: {author}/{type}/{name})
 
-fledge work start login-crash --type fix
+fledge work start login-crash --branch-type fix
 # → creates leif/fix/login-crash
 
 fledge work start fix-login --base develop
@@ -39,7 +39,7 @@ fledge work start my-feature --prefix user/leif
 # → creates user/leif/my-feature (custom prefix, overrides format)
 ```
 
-Branch names get sanitized automatically (spaces → hyphens, special chars removed). The default type is `feat`, but you can use `fix`, `chore`, `docs`, `hotfix`, or `refactor` via `--type`. The branch format is configurable in `fledge.toml`.
+Branch names get sanitized automatically (spaces → hyphens, special chars removed). The default type is `feat`, but you can use `fix`, `chore`, `docs`, `hotfix`, or `refactor` via `--branch-type` (or `-t` for short). The branch format is configurable in `fledge.toml`.
 
 ### Open a PR
 
