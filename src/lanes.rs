@@ -143,7 +143,20 @@ fn load_lane_config() -> Result<FledgeFileWithLanes> {
     }
 
     let content = std::fs::read_to_string(&config_path).context("reading fledge.toml")?;
-    let config: FledgeFileWithLanes = toml::from_str(&content).context("parsing fledge.toml")?;
+    let config: FledgeFileWithLanes = toml::from_str(&content).map_err(|e| {
+        let msg = e.to_string();
+        if msg.contains("lanes") || msg.contains("steps") {
+            anyhow::anyhow!(
+                "Error parsing lanes in fledge.toml: {e}\n\n  \
+                 Lanes must use table syntax:\n    \
+                 [lanes.ci]\n    \
+                 steps = [\"lint\", \"test\", \"build\"]\n\n  \
+                 Not shorthand like: ci = [\"lint\", \"test\"]"
+            )
+        } else {
+            anyhow::anyhow!("parsing fledge.toml: {e}")
+        }
+    })?;
 
     if config.lanes.is_empty() {
         bail!(
@@ -533,7 +546,7 @@ steps = [
             r#"
 [lanes.ci]
 description = "Run full CI pipeline"
-steps = ["fmt", "lint", "typecheck", "test"]
+steps = ["fmt", "lint", "test"]
 
 [lanes.check]
 description = "Quick quality check"
@@ -541,6 +554,13 @@ steps = [
   { parallel = ["fmt", "lint"] },
   "test"
 ]
+"#
+        }
+        "swift" => {
+            r#"
+[lanes.ci]
+description = "Run full CI pipeline"
+steps = ["build", "test"]
 "#
         }
         _ => {
