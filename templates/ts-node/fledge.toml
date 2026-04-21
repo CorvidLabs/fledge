@@ -1,0 +1,8 @@
+# fledge.toml — project task definitions
+# Docs: https://github.com/CorvidLabs/fledge#task-runner
+
+[tasks]
+dev = "npm run dev"
+test = "npm test"
+lint = "npm run lint"
+build = "npm run build"

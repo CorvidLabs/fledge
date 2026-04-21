@@ -1,0 +1,8 @@
+# fledge.toml — project task definitions
+# Docs: https://github.com/CorvidLabs/fledge#task-runner
+
+[tasks]
+build = "go build ./..."
+test = "go test ./..."
+lint = "go vet ./..."
+fmt = "gofmt -l ."

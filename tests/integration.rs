@@ -1248,13 +1248,7 @@ fn e2e_rust_project_lifecycle() {
     let project = tmp.path().join("e2e-test");
     assert!(project.join("Cargo.toml").exists());
 
-    // Step 2: Generate task runner config
-    let output = run_fledge_in(&project, &["run", "--init"]);
-    assert!(
-        output.status.success(),
-        "run --init failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    // Step 2: Verify fledge.toml was created by init
     assert!(project.join("fledge.toml").exists());
     let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
     assert!(fledge_toml.contains("[tasks]"));
@@ -1330,9 +1324,11 @@ fn e2e_tsbun_project_lifecycle() {
     let project = tmp.path().join("e2e-ts");
     assert!(project.join("package.json").exists());
 
-    // Step 2: Generate task runner config
-    let output = run_fledge_in(&project, &["run", "--init"]);
-    assert!(output.status.success());
+    // Step 2: Verify fledge.toml was created by init
+    assert!(project.join("fledge.toml").exists());
+    let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
+    assert!(fledge_toml.contains("[tasks]"));
+    assert!(fledge_toml.contains("bun"));
 
     // Step 3: Doctor
     let output = run_fledge_in(&project, &["doctor"]);

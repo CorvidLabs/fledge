@@ -1,6 +1,6 @@
 ---
 module: init
-version: 5
+version: 6
 status: active
 files:
   - src/init.rs
@@ -8,6 +8,7 @@ files:
 db_tables: []
 depends_on:
   - templates
+  - run
 ---
 
 # Init
@@ -50,6 +51,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 3. Git init creates an initial commit with all scaffolded files
 4. Directory is created before template rendering begins
 5. `.fledge.toml` is written after rendering, before git init, recording template source and file hashes
+6. If the template does not include a `fledge.toml`, one is generated from auto-detected project type defaults
 
 ## Behavioral Examples
 
@@ -117,6 +119,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | `remote` | `is_remote_ref()`, `parse_remote_ref()`, `resolve_template_dir()` |
 | `prompts` | `select_template()`, `prompt_variables()` |
 | `update` | `write_project_meta()` for `.fledge.toml` generation |
+| `run` | `detect_project_type()`, `task_defaults()` for generating `fledge.toml` |
 | `console` | `style()` for colored output |
 | `anyhow` | Error handling |
 
