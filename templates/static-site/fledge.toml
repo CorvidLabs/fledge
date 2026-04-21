@@ -1,6 +1,0 @@
-# fledge.toml — project task definitions
-# Docs: https://github.com/CorvidLabs/fledge#task-runner
-
-[tasks]
-# serve = "python3 -m http.server 8080"
-# build = "echo 'add your build command'"
