@@ -1639,15 +1639,35 @@ fn cli_config_unset_unknown_key_fails() {
 
 #[test]
 fn cli_config_add_remove_list_key() {
-    let output = run_fledge(&["config", "add", "templates.paths", "/tmp/e2e-test-path"]);
+    let tmp = TempDir::new().unwrap();
+    let config_dir = tmp.path().join("fledge-config");
+    std::fs::create_dir_all(&config_dir).unwrap();
+
+    let bin = cargo_bin();
+    let output = Command::new(&bin)
+        .args(["config", "add", "templates.paths", "/tmp/e2e-test-path"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
     assert!(output.status.success());
 
-    let output = run_fledge(&["config", "get", "templates.paths"]);
+    let output = Command::new(&bin)
+        .args(["config", "get", "templates.paths"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("/tmp/e2e-test-path"));
+    assert!(
+        stdout.contains("/tmp/e2e-test-path"),
+        "expected /tmp/e2e-test-path in output, got: {stdout}"
+    );
 
-    let output = run_fledge(&["config", "remove", "templates.paths", "/tmp/e2e-test-path"]);
+    let output = Command::new(&bin)
+        .args(["config", "remove", "templates.paths", "/tmp/e2e-test-path"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
     assert!(output.status.success());
 }
 
