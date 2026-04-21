@@ -29,6 +29,7 @@ cargo fmt --check
 - `src/ask.rs` — AI-powered codebase Q&A
 - `src/search.rs` — Template discovery via GitHub
 - `src/publish.rs` — Template publishing to GitHub
+- `src/release.rs` — Release workflow (bump, changelog, tag, push)
 - `src/update.rs` — Template re-application
 - `src/create_template.rs` — Template scaffolding
 - `src/versioning.rs` — Version management
