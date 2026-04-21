@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# fledge-e2e — End-to-end test runner for all fledge commands
+# Exercises each command, records pass/fail, prints a status report.
+
+FLEDGE_INPUT="${FLEDGE_BIN:-fledge}"
+# Resolve to absolute path so pushd doesn't break relative paths
+if [[ "$FLEDGE_INPUT" == /* ]]; then
+    FLEDGE="$FLEDGE_INPUT"
+elif [[ "$FLEDGE_INPUT" == ./* || "$FLEDGE_INPUT" == ../* ]]; then
+    FLEDGE="$(cd "$(dirname "$FLEDGE_INPUT")" && pwd)/$(basename "$FLEDGE_INPUT")"
+else
+    FLEDGE="$FLEDGE_INPUT"
+fi
+PASS=0
+FAIL=0
+SKIP=0
+RESULTS=()
+SCRATCH=""
+START_TIME=$(date +%s)
+
+cleanup() {
+    if [[ -n "$SCRATCH" && -d "$SCRATCH" ]]; then
+        rm -rf "$SCRATCH"
+    fi
+}
+trap cleanup EXIT
+
+SCRATCH=$(mktemp -d)
+
+run_test() {
+    local name="$1"
+    shift
+    local start end elapsed
+    start=$(date +%s)
+
+    if output=$("$@" 2>&1); then
+        end=$(date +%s)
+        elapsed=$((end - start))
+        RESULTS+=("PASS|${name}|${elapsed}s")
+        PASS=$((PASS + 1))
+    else
+        end=$(date +%s)
+        elapsed=$((end - start))
+        RESULTS+=("FAIL|${name}|${elapsed}s|$(echo "$output" | tail -1)")
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+skip_test() {
+    local name="$1"
+    local reason="$2"
+    RESULTS+=("SKIP|${name}|0s|${reason}")
+    SKIP=$((SKIP + 1))
+}
+
+section() {
+    echo ""
+    echo "━━━ $1 ━━━"
+}
+
+# ── Basic / Meta ──────────────────────────────────────────
+
+section "Basic"
+
+run_test "--version" "$FLEDGE" --version
+run_test "--help" "$FLEDGE" --help
+run_test "doctor" "$FLEDGE" doctor
+run_test "doctor --json" "$FLEDGE" doctor --json
+run_test "config list" "$FLEDGE" config list
+run_test "completions bash" "$FLEDGE" completions bash
+
+# ── Templates ─────────────────────────────────────────────
+
+section "Templates"
+
+run_test "list" "$FLEDGE" list
+run_test "validate-template (built-in)" "$FLEDGE" validate-template templates/
+run_test "validate-template --json" "$FLEDGE" validate-template templates/ --json
+
+# Init a project in scratch dir for further tests
+E2E_TEMPLATE="${E2E_TEMPLATE:-rust-cli}"
+
+if "$FLEDGE" init test-project -t "$E2E_TEMPLATE" -o "$SCRATCH" --no-git --no-install --yes >/dev/null 2>&1; then
+    RESULTS+=("PASS|init ($E2E_TEMPLATE, non-interactive)|0s")
+    PASS=$((PASS + 1))
+    PROJECT_DIR="$SCRATCH/test-project"
+else
+    RESULTS+=("FAIL|init ($E2E_TEMPLATE, non-interactive)|0s|init failed")
+    FAIL=$((FAIL + 1))
+    PROJECT_DIR=""
+fi
+
+run_test "init --dry-run" "$FLEDGE" init dry-test -t "$E2E_TEMPLATE" -o "$SCRATCH" --no-git --no-install --yes --dry-run
+
+# create-template uses dialoguer prompts; skip in non-interactive mode
+skip_test "create-template" "requires TTY (interactive prompts)"
+
+if [[ -d "$SCRATCH/e2e-test-tpl" ]]; then
+    run_test "validate-template (created)" "$FLEDGE" validate-template "$SCRATCH/e2e-test-tpl"
+fi
+
+# ── Search (GitHub, may need network) ────────────────────
+
+section "Search"
+
+if "$FLEDGE" search rust --limit 1 --json >/dev/null 2>&1; then
+    RESULTS+=("PASS|search rust --json|0s")
+    PASS=$((PASS + 1))
+else
+    skip_test "search rust --json" "needs network/GitHub token"
+fi
+
+# ── Spec Management ──────────────────────────────────────
+
+section "Specs"
+
+if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
+    pushd "$PROJECT_DIR" >/dev/null
+    run_test "spec init" "$FLEDGE" spec init
+    run_test "spec new" "$FLEDGE" spec new e2e-test-spec
+    # spec check exits non-zero when specs don't match code (expected in scaffolded project)
+    run_test "spec check (expected err)" bash -c "\"$FLEDGE\" spec check 2>&1; [[ \$? -le 1 ]]"
+    popd >/dev/null
+else
+    skip_test "spec init" "no project dir"
+    skip_test "spec new" "no project dir"
+    skip_test "spec check" "no project dir"
+fi
+
+# ── Task Runner ──────────────────────────────────────────
+
+section "Task Runner"
+
+if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
+    pushd "$PROJECT_DIR" >/dev/null
+    run_test "run --list" "$FLEDGE" run --list
+    run_test "run --init" "$FLEDGE" run --init
+    popd >/dev/null
+else
+    skip_test "run --list" "no project dir"
+    skip_test "run --init" "no project dir"
+fi
+
+# ── Flows ────────────────────────────────────────────────
+
+section "Flows"
+
+if [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR" ]]; then
+    pushd "$PROJECT_DIR" >/dev/null
+    # flow list exits non-zero when no flows configured (expected in scaffolded project)
+    run_test "flow list (expected err)" bash -c "\"$FLEDGE\" flow list 2>&1; [[ \$? -le 1 ]]"
+    popd >/dev/null
+else
+    skip_test "flow list" "no project dir"
+fi
+
+# ── Git / GitHub Workflow ────────────────────────────────
+
+section "Git/GitHub"
+
+# These need a real git repo with a GitHub remote
+ORIG_DIR=$(pwd)
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    run_test "issues" "$FLEDGE" issues --limit 1 --json
+    run_test "prs" "$FLEDGE" prs --limit 1 --json
+    run_test "checks" "$FLEDGE" checks --branch main --json
+    run_test "changelog" "$FLEDGE" changelog --limit 1
+    run_test "changelog --json" "$FLEDGE" changelog --limit 1 --json
+    run_test "changelog --unreleased" "$FLEDGE" changelog --unreleased
+else
+    skip_test "issues" "not in a git repo"
+    skip_test "prs" "not in a git repo"
+    skip_test "checks" "not in a git repo"
+    skip_test "changelog" "not in a git repo"
+fi
+
+# work subcommands — only status (non-destructive)
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    run_test "work status" "$FLEDGE" work status
+else
+    skip_test "work status" "not in a git repo"
+fi
+
+# ── Code Analysis ────────────────────────────────────────
+
+section "Code Analysis"
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    run_test "metrics" "$FLEDGE" metrics
+    run_test "metrics --json" "$FLEDGE" metrics --json
+    run_test "metrics --churn" "$FLEDGE" metrics --churn --limit 5
+    run_test "metrics --tests" "$FLEDGE" metrics --tests
+    run_test "deps" "$FLEDGE" deps
+    run_test "deps --json" "$FLEDGE" deps --json
+else
+    skip_test "metrics" "not in a git repo"
+    skip_test "deps" "not in a git repo"
+fi
+
+# ── Plugins ──────────────────────────────────────────────
+
+section "Plugins"
+
+run_test "plugin list" "$FLEDGE" plugin list
+run_test "plugin list --json" "$FLEDGE" plugin list --json
+
+if "$FLEDGE" plugin search --limit 1 --json >/dev/null 2>&1; then
+    RESULTS+=("PASS|plugin search --json|0s")
+    PASS=$((PASS + 1))
+else
+    skip_test "plugin search --json" "needs network/GitHub token"
+fi
+
+# ── AI-Powered (skip unless API key is set) ──────────────
+
+section "AI-Powered"
+
+if [[ -n "${ANTHROPIC_API_KEY:-}" ]] || [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        run_test "review" "$FLEDGE" review
+        run_test "ask" "$FLEDGE" ask "what language is this project written in?"
+    else
+        skip_test "review" "not in a git repo"
+        skip_test "ask" "not in a git repo"
+    fi
+else
+    skip_test "review" "no API key set"
+    skip_test "ask" "no API key set"
+fi
+
+# ── Destructive tests (skipped by default) ───────────────
+
+section "Destructive (skipped)"
+
+skip_test "work start" "destructive — creates branch"
+skip_test "work pr" "destructive — creates PR"
+skip_test "work finish" "destructive — merges and deletes branch"
+skip_test "publish" "destructive — pushes to GitHub"
+skip_test "update" "destructive — modifies project files"
+skip_test "plugin install" "destructive — installs from git"
+skip_test "plugin remove" "destructive — removes plugin"
+
+# ── Report ───────────────────────────────────────────────
+
+END_TIME=$(date +%s)
+TOTAL_TIME=$((END_TIME - START_TIME))
+TOTAL=$((PASS + FAIL + SKIP))
+
+echo ""
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                    fledge e2e test report                   ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+echo "║                                                             ║"
+
+printf "║  %-58s ║\n" "Total: ${TOTAL} tests  |  ${TOTAL_TIME}s elapsed"
+printf "║  %-58s ║\n" "✅ Pass: ${PASS}  |  ❌ Fail: ${FAIL}  |  ⏭️  Skip: ${SKIP}"
+echo "║                                                             ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+
+for result in "${RESULTS[@]}"; do
+    IFS='|' read -r status name elapsed detail <<< "$result"
+    case "$status" in
+        PASS)
+            printf "║  ✅ %-42s %10s  ║\n" "$name" "$elapsed"
+            ;;
+        FAIL)
+            printf "║  ❌ %-42s %10s  ║\n" "$name" "$elapsed"
+            if [[ -n "${detail:-}" ]]; then
+                printf "║     └─ %-51s  ║\n" "$(echo "$detail" | cut -c1-51)"
+            fi
+            ;;
+        SKIP)
+            printf "║  ⏭️  %-42s %10s  ║\n" "$name" "$elapsed"
+            if [[ -n "${detail:-}" ]]; then
+                printf "║     └─ %-51s  ║\n" "$(echo "$detail" | cut -c1-51)"
+            fi
+            ;;
+    esac
+done
+
+echo "╚══════════════════════════════════════════════════════════════╝"
+
+# Exit with failure if any tests failed
+if [[ $FAIL -gt 0 ]]; then
+    exit 1
+fi
