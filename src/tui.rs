@@ -83,7 +83,7 @@ fn build_categories() -> Vec<CategoryDef> {
     vec![
         CategoryDef {
             name: "Work",
-            icon: "⎇",
+            icon: "🔀",
             description: "Branch workflow",
             actions: vec![
                 ActionDef {
@@ -143,7 +143,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "GitHub",
-            icon: "⊙",
+            icon: "🐙",
             description: "Issues, PRs, CI checks",
             actions: vec![
                 ActionDef {
@@ -189,7 +189,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "Run",
-            icon: "▶",
+            icon: "🚀",
             description: "Tasks and flows",
             actions: vec![
                 ActionDef {
@@ -301,7 +301,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "Config",
-            icon: "⚙",
+            icon: "⚙️",
             description: "Settings management",
             actions: vec![
                 ActionDef {
@@ -419,7 +419,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "AI",
-            icon: "✦",
+            icon: "🤖",
             description: "Code review and Q&A",
             actions: vec![
                 ActionDef {
@@ -1143,9 +1143,9 @@ fn draw_action_list(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
         .iter()
         .map(|act| {
             let tag = match &act.kind {
-                ActionKind::Direct(_) => Span::styled("  ", Style::default()),
-                ActionKind::WithInput { .. } => Span::styled(" ✎ ", Style::default().fg(YELLOW)),
-                ActionKind::TemplateBrowser => Span::styled(" ⊞ ", Style::default().fg(YELLOW)),
+                ActionKind::Direct(_) => Span::styled(" ▸ ", Style::default().fg(GREEN)),
+                ActionKind::WithInput { .. } => Span::styled(" ✏️ ", Style::default().fg(YELLOW)),
+                ActionKind::TemplateBrowser => Span::styled(" 📂 ", Style::default().fg(YELLOW)),
             };
             let line = Line::from(vec![
                 tag,
