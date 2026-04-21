@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 4
+version: 5
 status: active
 files:
   - src/plugin.rs
@@ -46,6 +46,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
 | `list_installed` | `() -> Result<Vec<PluginEntry>>` | List all installed plugins |
+| `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
 
 ## Plugin Format
 
@@ -67,6 +68,9 @@ binary = "target/release/fledge-deploy"  # relative to plugin dir
 build = "cargo build --release"          # runs after clone, before binary check
 post_install = "hooks/post-install.sh"   # runs after `fledge plugin install`
 post_remove  = "hooks/post-remove.sh"    # runs after `fledge plugin remove`
+pre_init = "hooks/pre-init.sh"           # runs before `fledge init`
+post_work_start = "hooks/setup-hooks.sh" # runs after `fledge work start`
+pre_pr = "hooks/lint-all.sh"             # runs before `fledge work pr` pushes
 ```
 
 ### Build System Auto-Detection
@@ -79,6 +83,18 @@ When no `build` hook is specified, fledge auto-detects the build system:
 | `Package.swift` | Swift | `swift build -c release` |
 | `go.mod` | Go | `go build .` |
 | `package.json` | Node | `npm install` |
+
+### Lifecycle Hooks
+
+Plugins can register hooks for lifecycle events beyond install/remove:
+
+| Hook | When | Use Case |
+|------|------|----------|
+| `pre_init` | Before `fledge init` | Inject custom template variables, validate prerequisites |
+| `post_work_start` | After `fledge work start` creates a branch | Set up git hooks, configure branch-specific env |
+| `pre_pr` | Before `fledge work pr` pushes and creates PR | Run lint, format, security scans before PR creation |
+
+Lifecycle hooks are called across all installed plugins. Hooks are optional — plugins only participate in events they declare.
 
 ### Plugin Discovery
 
@@ -196,6 +212,7 @@ $ fledge plugin update fledge-deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-04-21 | Add lifecycle hooks: pre_init, post_work_start, pre_pr — run across all installed plugins |
 | 4 | 2026-04-21 | Add version pinning with @ref syntax, pinned_ref in registry, smart update for pinned plugins |
 | 3 | 2026-04-21 | Add build hook, auto-detect build systems, plugin update command, improved error messages |
 | 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |

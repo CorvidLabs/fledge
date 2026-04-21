@@ -37,6 +37,9 @@ struct PluginHooks {
     build: Option<String>,
     post_install: Option<String>,
     post_remove: Option<String>,
+    pre_init: Option<String>,
+    post_work_start: Option<String>,
+    pre_pr: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,6 +99,41 @@ pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
 pub fn list_installed() -> Result<Vec<PluginEntry>> {
     let registry = load_registry()?;
     Ok(registry.plugins)
+}
+
+pub fn run_lifecycle_hook(event: &str) -> Result<()> {
+    let registry = load_registry()?;
+    for entry in &registry.plugins {
+        let plugin_dir = plugins_dir().join(&entry.name);
+        let manifest_path = plugin_dir.join("plugin.toml");
+        if !manifest_path.exists() {
+            continue;
+        }
+        let content = match fs::read_to_string(&manifest_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let manifest: PluginManifest = match toml::from_str(&content) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        let hook = match event {
+            "pre_init" => &manifest.hooks.pre_init,
+            "post_work_start" => &manifest.hooks.post_work_start,
+            "pre_pr" => &manifest.hooks.pre_pr,
+            _ => &None,
+        };
+        if let Some(hook_cmd) = hook {
+            println!(
+                "  {} {} ({})",
+                style("▶️").cyan().bold(),
+                style(format!("Plugin hook: {event}")).dim(),
+                style(&entry.name).cyan()
+            );
+            run_hook(&plugin_dir, hook_cmd, &format!("{}/{event}", entry.name))?;
+        }
+    }
+    Ok(())
 }
 
 fn plugins_dir() -> PathBuf {
@@ -1262,5 +1300,45 @@ post_install = "scripts/setup.sh"
             manifest.hooks.post_install.as_deref(),
             Some("scripts/setup.sh")
         );
+    }
+
+    #[test]
+    fn parse_manifest_with_lifecycle_hooks() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-lint"
+version = "0.1.0"
+
+[hooks]
+pre_init = "scripts/pre-init.sh"
+post_work_start = "scripts/setup-hooks.sh"
+pre_pr = "scripts/lint-all.sh"
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert_eq!(
+            manifest.hooks.pre_init.as_deref(),
+            Some("scripts/pre-init.sh")
+        );
+        assert_eq!(
+            manifest.hooks.post_work_start.as_deref(),
+            Some("scripts/setup-hooks.sh")
+        );
+        assert_eq!(
+            manifest.hooks.pre_pr.as_deref(),
+            Some("scripts/lint-all.sh")
+        );
+    }
+
+    #[test]
+    fn parse_manifest_lifecycle_hooks_default_none() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-simple"
+version = "0.1.0"
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert!(manifest.hooks.pre_init.is_none());
+        assert!(manifest.hooks.post_work_start.is_none());
+        assert!(manifest.hooks.pre_pr.is_none());
     }
 }

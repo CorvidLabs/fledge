@@ -156,14 +156,20 @@ Each entry registers a subcommand.
 | `description` | string | No | What it does |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
-### [[hooks]]
+### [hooks]
 
-Hooks fire in response to fledge events.
+Hooks fire in response to fledge lifecycle events. All fields are optional — plugins only participate in events they declare.
 
-| Field | Type | Required | |
-|-------|------|----------|-|
-| `event` | string | Yes | Event to hook (e.g. `lane:post`) |
-| `binary` | string | Yes | Path to executable (relative to plugin root) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `build` | string | Runs after clone, before binary check |
+| `post_install` | string | Runs after `fledge plugin install` |
+| `post_remove` | string | Runs before `fledge plugin remove` deletes files |
+| `pre_init` | string | Runs before `fledge init` starts |
+| `post_work_start` | string | Runs after `fledge work start` creates a branch |
+| `pre_pr` | string | Runs before `fledge work pr` pushes and creates a PR |
+
+Values can be a path to a script (relative to plugin root) or an inline shell command.
 
 ## Using Plugins in Lanes
 

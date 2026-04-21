@@ -113,6 +113,23 @@ fail_fast = false
 steps = ["lint", "test", "security-check", "license-check"]
 ```
 
+## Step Timing
+
+Every step prints its elapsed time, and the lane summary shows total time:
+
+```
+▶️ Lane: ci — Full CI pipeline
+  ▶️ Running parallel: fmt, lint
+  ✔ Step 1 done (245ms)
+  ▶️ Running task: test
+  ✔ Step 2 done (1.032s)
+  ▶️ Running task: build
+  ✔ Step 3 done (3.456s)
+✅ Lane ci completed (3 steps in 4.733s)
+```
+
+This helps identify slow steps in your pipeline without any extra tooling.
+
 ## Task Configuration
 
 ### Short Form
