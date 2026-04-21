@@ -19,12 +19,6 @@ pub struct SpecFrontmatter {
     pub status: String,
     #[serde(default)]
     pub files: Vec<String>,
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub db_tables: Vec<String>,
-    #[serde(default)]
-    #[allow(dead_code)]
-    pub depends_on: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -120,8 +114,6 @@ fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
     let mut version = None;
     let mut status = None;
     let mut files = Vec::new();
-    let mut db_tables = Vec::new();
-    let mut depends_on = Vec::new();
     let mut current_list: Option<&str> = None;
 
     for line in yaml.lines() {
@@ -132,11 +124,8 @@ fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
 
         if let Some(rest) = trimmed.strip_prefix("- ") {
             let value = rest.trim().to_string();
-            match current_list {
-                Some("files") => files.push(value),
-                Some("db_tables") => db_tables.push(value),
-                Some("depends_on") => depends_on.push(value),
-                _ => {}
+            if current_list == Some("files") {
+                files.push(value);
             }
             continue;
         }
@@ -148,29 +137,12 @@ fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
             let val = val.trim();
 
             if val.is_empty() || val == "[]" {
-                match key {
-                    "files" => {
-                        if val == "[]" {
-                            files.clear();
-                        } else {
-                            current_list = Some("files");
-                        }
+                if key == "files" {
+                    if val == "[]" {
+                        files.clear();
+                    } else {
+                        current_list = Some("files");
                     }
-                    "db_tables" => {
-                        if val == "[]" {
-                            db_tables.clear();
-                        } else {
-                            current_list = Some("db_tables");
-                        }
-                    }
-                    "depends_on" => {
-                        if val == "[]" {
-                            depends_on.clear();
-                        } else {
-                            current_list = Some("depends_on");
-                        }
-                    }
-                    _ => {}
                 }
                 continue;
             }
@@ -202,8 +174,6 @@ fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
         version: version.ok_or_else(|| anyhow::anyhow!("Missing required field: version"))?,
         status: status.ok_or_else(|| anyhow::anyhow!("Missing required field: status"))?,
         files,
-        db_tables,
-        depends_on,
     })
 }
 
@@ -797,8 +767,6 @@ Test purpose.
         assert_eq!(fm.version, 4);
         assert_eq!(fm.status, "active");
         assert_eq!(fm.files, vec!["src/init.rs", "src/main.rs"]);
-        assert!(fm.db_tables.is_empty());
-        assert_eq!(fm.depends_on, vec!["templates"]);
         assert!(body.contains("## Purpose"));
     }
 

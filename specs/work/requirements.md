@@ -5,7 +5,7 @@ spec: work.spec.md
 ## User Stories
 
 - As a developer, I want to run `fledge work start my-feature` to create a properly named feature branch
-- As a developer, I want to specify `--type fix` to create a fix branch instead of the default feat
+- As a developer, I want to specify `--branch-type fix` to create a fix branch instead of the default feat
 - As a developer, I want to link an issue with `--issue 42` so my branch includes the issue number
 - As a developer, I want `--prefix user/leif` to override the branch format entirely
 - As a developer, I want to configure the default branch format in `fledge.toml`
@@ -16,7 +16,7 @@ spec: work.spec.md
 ## Acceptance Criteria
 
 - `fledge work start <name>` creates a branch using the configured format (default: `{author}/{type}/{name}`)
-- `fledge work start <name> --type fix` creates a fix-type branch
+- `fledge work start <name> --branch-type fix` creates a fix-type branch
 - `fledge work start <name> --issue 42` includes issue number in branch name
 - `fledge work start <name> --prefix user/leif` creates `user/leif/<name>` branch
 - `fledge work start` refuses if working tree is dirty

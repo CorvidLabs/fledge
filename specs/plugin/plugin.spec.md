@@ -37,7 +37,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, List, Search, Run |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
-| `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
+| `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands |
 
 ### Functions
 
@@ -62,10 +62,6 @@ author = "someone"
 name = "deploy"
 description = "Deploy the project"
 binary = "fledge-deploy"  # relative to plugin dir
-
-[[hooks]]
-event = "flow:post"
-binary = "fledge-deploy-notify"
 ```
 
 ### Plugin Discovery
@@ -101,8 +97,7 @@ installed = "2026-04-20"
 6. `plugin list` shows installed plugins with name, version, source, and description
 7. `plugin search` uses GitHub topic search (same as template search)
 8. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
-9. Plugins with `hooks` entries can participate as flow steps via `{ plugin = "name" }` syntax
-10. `--json` outputs structured data for all list/search operations
+9. `--json` outputs structured data for all list/search operations
 
 ## Behavioral Examples
 

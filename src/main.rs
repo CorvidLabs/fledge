@@ -115,9 +115,6 @@ enum Commands {
         /// Force re-clone of cached remote templates
         #[arg(long)]
         refresh: bool,
-        /// Skip all confirmation prompts
-        #[arg(short, long)]
-        yes: bool,
     },
     /// Publish a template to GitHub
     Publish {
@@ -340,7 +337,7 @@ enum WorkSubcommand {
         /// Branch name (will be sanitized for git)
         name: String,
         /// Branch type: feat, fix, chore, docs, hotfix, refactor (default: feat)
-        #[arg(short = 't', long = "type", value_name = "TYPE")]
+        #[arg(short = 't', long = "branch-type", value_name = "TYPE")]
         branch_type: Option<String>,
         /// Link to GitHub issue (prefixes branch name with issue number)
         #[arg(short, long, value_name = "NUMBER")]
@@ -510,16 +507,8 @@ fn run() -> Result<()> {
         Commands::CreateTemplate { name, output } => {
             create_template::run(create_template::CreateTemplateOptions { name, output })?;
         }
-        Commands::Update {
-            dry_run,
-            refresh,
-            yes,
-        } => {
-            update::run(update::UpdateOptions {
-                dry_run,
-                refresh,
-                yes,
-            })?;
+        Commands::Update { dry_run, refresh } => {
+            update::run(update::UpdateOptions { dry_run, refresh })?;
         }
         Commands::Search { query, limit, json } => {
             search::run(search::SearchOptions { query, limit, json })?;

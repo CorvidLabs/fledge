@@ -79,14 +79,14 @@ $ fledge work start add-search
 
 ### work start — with explicit type
 ```
-$ fledge work start login-crash --type fix
+$ fledge work start login-crash --branch-type fix
 ✓ Created branch leif/fix/login-crash from main
 ✓ Switched to leif/fix/login-crash
 ```
 
 ### work start — with issue number
 ```
-$ fledge work start login-crash --type fix --issue 42
+$ fledge work start login-crash --branch-type fix --issue 42
 ✓ Created branch leif/fix/42-login-crash from main
 ✓ Switched to leif/fix/42-login-crash
 ```
@@ -147,7 +147,7 @@ $ fledge work status
 | Not a git repository | Any subcommand outside git repo | Bail with message |
 | Uncommitted changes | `work start` with dirty tree | Bail with message |
 | Branch already exists | `work start` with existing branch name | Bail with message |
-| Unknown branch type | `work start --type <invalid>` without `--prefix` | Bail with valid types list |
+| Unknown branch type | `work start --branch-type <invalid>` without `--prefix` | Bail with valid types list |
 | On main/master | `work pr` from default branch | Bail with message |
 | `gh` not installed | `work pr` | Bail with install instructions |
 | No commits ahead | `work pr` with no new commits | Bail with message |
