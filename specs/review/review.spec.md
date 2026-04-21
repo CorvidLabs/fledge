@@ -1,6 +1,6 @@
 ---
 module: review
-version: 1
+version: 2
 status: active
 files:
   - src/review.rs
@@ -22,13 +22,13 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point for the review command |
-| `ReviewOptions` | Options struct with base branch and file filter |
+| `ReviewOptions` | Options struct with base branch, file filter, and json flag |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `ReviewOptions` | `{ base: Option<String>, file: Option<String> }` |
+| `ReviewOptions` | `{ base: Option<String>, file: Option<String>, json: bool }` |
 
 ### Functions
 
@@ -43,6 +43,7 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 3. Empty diffs bail with a clear message
 4. Shows diff stats before the AI review output
 5. `--file` flag restricts review to a single file's changes
+6. `--json` outputs structured JSON review results
 
 ## Behavioral Examples
 
@@ -87,4 +88,5 @@ $ fledge review --file src/github.rs
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-21 | Add json field to ReviewOptions |
 | 1 | 2026-04-19 | Initial spec |

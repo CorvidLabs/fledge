@@ -1,6 +1,6 @@
 ---
 module: init
-version: 6
+version: 7
 status: active
 files:
   - src/init.rs
@@ -9,6 +9,7 @@ db_tables: []
 depends_on:
   - templates
   - run
+  - plugin
 ---
 
 # Init
@@ -31,7 +32,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Type | Description |
 |------|-------------|
-| `InitOptions` | Options for project creation: name, template, output, no_git, no_install, refresh, dry_run, yes |
+| `InitOptions` | Options for project creation: name, template, output, author, org, no_git, no_install, refresh, dry_run, yes |
 
 ### Traits
 
@@ -120,6 +121,8 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | `prompts` | `select_template()`, `prompt_variables()` |
 | `update` | `write_project_meta()` for `.fledge.toml` generation |
 | `run` | `detect_project_type()`, `task_defaults()` for generating `fledge.toml` |
+| `plugin` | `run_lifecycle_hook("pre_init")` |
+| `versioning` | `check_fledge_version()` for template minimum version |
 | `console` | `style()` for colored output |
 | `anyhow` | Error handling |
 
@@ -136,4 +139,5 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: fill in export descriptions, re-validate against source |
 | 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |
+| 2026-04-21 | CorvidAgent | v7: add author/org fields to InitOptions, document plugin pre_init hook and versioning check |
 | 2026-04-19 | CorvidAgent | v5: init now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |

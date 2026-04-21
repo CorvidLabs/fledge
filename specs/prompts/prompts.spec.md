@@ -1,6 +1,6 @@
 ---
 module: prompts
-version: 2
+version: 3
 status: active
 files:
   - src/prompts.rs
@@ -40,13 +40,13 @@ Interactive user prompts using dialoguer. Handles template selection and variabl
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `select_template` | `(&[Template]) -> Result<usize>` | Interactive template selection menu |
-| `prompt_variables` | `(&Template, &str, &Config, bool) -> Result<tera::Context>` | Collects all template variables via prompts; bool is `yes` flag to skip interactive prompts |
+| `prompt_variables` | `(&Template, &str, &Config, bool, Option<&str>, Option<&str>) -> Result<tera::Context>` | Collects all template variables via prompts; bool is `yes` flag, last two are `author_override` and `org_override` from CLI flags |
 
 ## Invariants
 
 1. Core variables (project_name, snake/pascal variants, year, date) are always set without prompting
-2. Author uses config/git before falling back to interactive prompt
-3. GitHub org defaults to "CorvidLabs" if not in config
+2. Author uses CLI override → config → git, falling back to interactive prompt
+3. GitHub org uses CLI override → config, defaulting to "CorvidLabs"
 4. License is always read from config (no interactive prompt)
 5. Template-specific prompts support Tera expressions in default values
 6. Template-specific prompts are processed in manifest iteration order; earlier prompt values are available as Tera context for later prompt defaults
@@ -107,4 +107,5 @@ Interactive user prompts using dialoguer. Handles template selection and variabl
 | Date | Author | Change |
 |------|--------|--------|
 | 2026-04-18 | CorvidAgent | Initial spec |
+| 2026-04-21 | CorvidAgent | v3: add author_override and org_override params to prompt_variables signature |
 | 2026-04-18 | CorvidAgent | v2: fill API descriptions, add license invariant, add prompt ordering invariant, add Tera/plain default scenarios |
