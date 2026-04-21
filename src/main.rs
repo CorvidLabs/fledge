@@ -225,6 +225,9 @@ enum Commands {
         /// List available tasks
         #[arg(short, long)]
         list: bool,
+        /// Override detected project language (e.g. swift, python, rust, node, go)
+        #[arg(long)]
+        lang: Option<String>,
     },
     /// Manage and run composable workflow pipelines
     Lane {
@@ -474,6 +477,8 @@ enum LaneSubcommand {
         /// GitHub repo (owner/repo) or full URL, optionally with @ref
         source: String,
     },
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[derive(clap::Subcommand)]
@@ -664,8 +669,18 @@ fn run() -> Result<()> {
         Commands::Checks { branch, json } => {
             checks::run(checks::ChecksOptions { branch, json })?;
         }
-        Commands::Run { task, init, list } => {
-            run::run(run::RunOptions { task, init, list })?;
+        Commands::Run {
+            task,
+            init,
+            list,
+            lang,
+        } => {
+            run::run(run::RunOptions {
+                task,
+                init,
+                list,
+                lang,
+            })?;
         }
         Commands::Review { base, file, json } => {
             review::run(review::ReviewOptions { base, file, json })?;
@@ -681,6 +696,11 @@ fn run() -> Result<()> {
                     lanes::LaneAction::Search { query, json }
                 }
                 Some(LaneSubcommand::Import { source }) => lanes::LaneAction::Import { source },
+                Some(LaneSubcommand::External(args)) => {
+                    let name = args.first().cloned().unwrap_or_default();
+                    let dry_run = args.iter().any(|a| a == "--dry-run");
+                    lanes::LaneAction::Run { name, dry_run }
+                }
                 None => lanes::LaneAction::List { json: false },
             };
             lanes::run(action)?;

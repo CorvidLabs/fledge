@@ -75,11 +75,12 @@ pub struct RunOptions {
     pub task: Option<String>,
     pub init: bool,
     pub list: bool,
+    pub lang: Option<String>,
 }
 
 pub fn run(opts: RunOptions) -> Result<()> {
     if opts.init {
-        return init_fledge_toml();
+        return init_fledge_toml(opts.lang.as_deref());
     }
 
     let project_dir = std::env::current_dir().context("getting current directory")?;
@@ -225,6 +226,8 @@ pub fn detect_project_type(dir: &Path) -> &'static str {
         "java-gradle"
     } else if dir.join("pom.xml").exists() {
         "java-maven"
+    } else if dir.join("Package.swift").exists() {
+        "swift"
     } else {
         "generic"
     }
@@ -258,7 +261,7 @@ fmt = "gofmt -l .""#
         "python" => r#"test = "pytest"
 lint = "ruff check ."
 fmt = "ruff format --check ."
-typecheck = "mypy .""#
+# typecheck = "mypy ."  # uncomment if mypy is installed"#
             .to_string(),
         "ruby" => r#"test = "bundle exec rake test"
 lint = "bundle exec rubocop"
@@ -271,6 +274,10 @@ lint = "./gradlew check""#
         "java-maven" => r#"build = "mvn compile"
 test = "mvn test"
 lint = "mvn checkstyle:check""#
+            .to_string(),
+        "swift" => r#"build = "swift build"
+test = "swift test"
+# lint = "swiftlint"  # uncomment if swiftlint is installed"#
             .to_string(),
         _ => r#"# build = "make build"
 # test = "make test"
@@ -370,14 +377,14 @@ fn auto_detect_tasks(project_type: &str, dir: &Path) -> BTreeMap<String, TaskDef
     tasks
 }
 
-fn init_fledge_toml() -> Result<()> {
+fn init_fledge_toml(lang_override: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let path = cwd.join("fledge.toml");
     if path.exists() {
         bail!("fledge.toml already exists in current directory");
     }
 
-    let project_type = detect_project_type(&cwd);
+    let project_type = lang_override.unwrap_or_else(|| detect_project_type(&cwd));
     let defaults = task_defaults(project_type, &cwd);
 
     let content = format!(

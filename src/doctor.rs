@@ -338,6 +338,17 @@ fn check_toolchain(project_type: &str) -> Section {
                 "https://maven.apache.org/install.html",
             ));
         }
+        "swift" => {
+            checks.push(check_tool(
+                "swift",
+                &["--version"],
+                "https://www.swift.org/install/",
+            ));
+            let swiftlint = check_tool("swiftlint", &["version"], "brew install swiftlint");
+            if swiftlint.status == CheckStatus::Ok {
+                checks.push(swiftlint);
+            }
+        }
         _ => {
             // generic — just check git (handled in git section)
         }
