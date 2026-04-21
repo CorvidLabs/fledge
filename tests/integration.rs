@@ -1747,12 +1747,16 @@ fn cli_init_name_with_special_chars() {
 #[test]
 fn cli_run_task_with_multiple_env_vars() {
     let tmp = TempDir::new().unwrap();
+    let cmd = if cfg!(windows) {
+        "echo %FOO% %BAR%"
+    } else {
+        "echo $FOO $BAR"
+    };
     fs::write(
         tmp.path().join("fledge.toml"),
-        r#"[tasks.multi]
-cmd = "echo $FOO $BAR"
-env = { FOO = "hello", BAR = "world" }
-"#,
+        format!(
+            "[tasks.multi]\ncmd = \"{cmd}\"\nenv = {{ FOO = \"hello\", BAR = \"world\" }}\n"
+        ),
     )
     .unwrap();
     let output = run_fledge_in(tmp.path(), &["run", "multi"]);
