@@ -1,5 +1,4 @@
 use anyhow::{Result, bail};
-use console::style;
 use std::process::Command;
 
 pub struct AskOptions {
@@ -9,7 +8,7 @@ pub struct AskOptions {
 pub fn run(options: AskOptions) -> Result<()> {
     ensure_claude_cli()?;
 
-    println!("{} Thinking...\n", style("🔵").cyan().bold(),);
+    let sp = crate::spinner::Spinner::start("Thinking...");
 
     let prompt = format!(
         "You are a helpful assistant answering questions about a codebase.\n\
@@ -19,6 +18,9 @@ pub fn run(options: AskOptions) -> Result<()> {
         Question: {}",
         options.question
     );
+
+    sp.finish();
+    println!();
 
     let status = Command::new("claude").args(["--print", &prompt]).status()?;
 

@@ -28,7 +28,10 @@ pub fn run(options: SearchOptions) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token();
 
-    let results = search_github(options.query.as_deref(), token.as_deref(), options.limit)?;
+    let sp = crate::spinner::Spinner::start("Searching GitHub for templates...");
+    let results = search_github(options.query.as_deref(), token.as_deref(), options.limit);
+    sp.finish();
+    let results = results?;
 
     if results.is_empty() {
         println!("No templates found.");

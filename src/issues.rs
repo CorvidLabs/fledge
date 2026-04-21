@@ -62,8 +62,11 @@ fn list(
         params.push(("labels", l));
     }
 
+    let sp = crate::spinner::Spinner::start("Fetching issues...");
     let path = format!("/repos/{}/{}/issues", owner, repo);
-    let items = github::github_api_get(&path, token, &params)?;
+    let items = github::github_api_get(&path, token, &params);
+    sp.finish();
+    let items = items?;
 
     let items = items
         .as_array()
@@ -105,8 +108,11 @@ fn list(
 }
 
 fn view(owner: &str, repo: &str, number: u64, json: bool, token: Option<&str>) -> Result<()> {
+    let sp = crate::spinner::Spinner::start(&format!("Fetching issue #{}...", number));
     let path = format!("/repos/{}/{}/issues/{}", owner, repo, number);
-    let issue = github::github_api_get(&path, token, &[])?;
+    let issue = github::github_api_get(&path, token, &[]);
+    sp.finish();
+    let issue = issue?;
 
     if issue.get("pull_request").is_some() {
         anyhow::bail!(

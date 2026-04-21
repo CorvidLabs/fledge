@@ -25,6 +25,7 @@ mod review;
 mod run;
 mod search;
 mod spec;
+mod spinner;
 mod templates;
 #[cfg(feature = "tui")]
 mod tui;
