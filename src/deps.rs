@@ -159,6 +159,11 @@ fn parse_node_lock(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
         return parse_yarn_lock(&yarn_lock);
     }
 
+    let bun_lock = dir.join("bun.lock");
+    if bun_lock.exists() {
+        return parse_bun_lock(&bun_lock);
+    }
+
     let pnpm_lock = dir.join("pnpm-lock.yaml");
     if pnpm_lock.exists() {
         bail!(
@@ -167,7 +172,7 @@ fn parse_node_lock(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     }
 
     bail!(
-        "No lock file found (package-lock.json, yarn.lock, or pnpm-lock.yaml). Run your package manager's install command first."
+        "No lock file found (package-lock.json, yarn.lock, bun.lock, or pnpm-lock.yaml). Run your package manager's install command first."
     );
 }
 
@@ -228,6 +233,85 @@ fn parse_yarn_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
 
     deps.sort_by(|a, b| a.name.cmp(&b.name));
     Ok((Some(path.to_path_buf()), deps))
+}
+
+fn parse_bun_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let content = std::fs::read_to_string(path).context("reading bun.lock")?;
+    let cleaned = strip_jsonc(&content);
+    let parsed: serde_json::Value = serde_json::from_str(&cleaned).context("parsing bun.lock")?;
+
+    let mut deps = Vec::new();
+
+    if let Some(packages) = parsed.get("packages").and_then(|p| p.as_object()) {
+        for (name, val) in packages {
+            let version = val
+                .as_array()
+                .and_then(|arr| arr.first())
+                .and_then(|v| v.as_str())
+                .and_then(|spec| spec.rsplit_once('@'))
+                .map(|(_, ver)| ver.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            deps.push(Dep {
+                name: name.clone(),
+                version,
+            });
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((Some(path.to_path_buf()), deps))
+}
+
+fn strip_jsonc(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    let mut in_string = false;
+
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if c == '\\' {
+                if let Some(&next) = chars.peek() {
+                    out.push(next);
+                    chars.next();
+                }
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match c {
+            '"' => {
+                in_string = true;
+                out.push(c);
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                chars.next();
+                for ch in chars.by_ref() {
+                    if ch == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut prev = '\0';
+                for ch in chars.by_ref() {
+                    if prev == '*' && ch == '/' {
+                        break;
+                    }
+                    prev = ch;
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+
+    // Strip trailing commas before } or ]
+    let re = regex_lite::Regex::new(r",(\s*[}\]])").unwrap();
+    re.replace_all(&out, "$1").to_string()
 }
 
 fn parse_go_sum(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
@@ -689,6 +773,70 @@ lodash@^4.17.0:
         assert_eq!(deps.len(), 2);
         assert_eq!(deps[0].name, "express");
         assert_eq!(deps[1].name, "lodash");
+    }
+
+    #[test]
+    fn parse_bun_lock_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), r#"{"name":"test"}"#).unwrap();
+        let lock_path = dir.path().join("bun.lock");
+        std::fs::write(
+            &lock_path,
+            r#"{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "test",
+      "dependencies": {
+        "hono": "^4.0.0",
+      },
+      "devDependencies": {
+        "@types/node": "^20.0.0",
+      },
+    },
+  },
+  "packages": {
+    "@types/node": ["@types/node@20.11.5", "", {}, "sha512-abc=="],
+    "hono": ["hono@4.4.0", "", {}, "sha512-def=="],
+    "zod": ["zod@3.23.0", "", {}, "sha512-ghi=="],
+  },
+}
+"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_bun_lock(&lock_path).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 3);
+        assert_eq!(deps[0].name, "@types/node");
+        assert_eq!(deps[0].version, "20.11.5");
+        assert_eq!(deps[1].name, "hono");
+        assert_eq!(deps[1].version, "4.4.0");
+        assert_eq!(deps[2].name, "zod");
+        assert_eq!(deps[2].version, "3.23.0");
+    }
+
+    #[test]
+    fn parse_bun_lock_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = parse_bun_lock(&dir.path().join("bun.lock"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn strip_jsonc_removes_trailing_commas() {
+        let input = r#"{"a": 1, "b": [2, 3,],}"#;
+        let cleaned = strip_jsonc(input);
+        let parsed: serde_json::Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(parsed["a"], 1);
+    }
+
+    #[test]
+    fn strip_jsonc_removes_comments() {
+        let input = "{\n// comment\n\"a\": 1\n/* block */\n}";
+        let cleaned = strip_jsonc(input);
+        let parsed: serde_json::Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(parsed["a"], 1);
     }
 
     #[test]
