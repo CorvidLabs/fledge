@@ -22,6 +22,8 @@ Provide a consistent loading spinner for long-running operations (network calls,
 | Export | Description |
 |--------|-------------|
 | `Spinner` | Loading spinner with random theme selection |
+| `start` | Create and start a spinner with a message (`Spinner::start`) |
+| `finish` | Stop the spinner and clear its line (`Spinner::finish`) |
 
 ### Structs & Enums
 
