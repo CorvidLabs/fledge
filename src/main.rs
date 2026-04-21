@@ -496,6 +496,11 @@ enum PluginSubcommand {
         /// Plugin name
         name: String,
     },
+    /// Update installed plugins (git pull + rebuild)
+    Update {
+        /// Plugin name (omit to update all)
+        name: Option<String>,
+    },
     /// List installed plugins
     List,
     /// Search for plugins on GitHub
@@ -753,6 +758,7 @@ fn run() -> Result<()> {
                     plugin::PluginAction::Install { source, force }
                 }
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
+                PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
                 PluginSubcommand::List => plugin::PluginAction::List,
                 PluginSubcommand::Search { query, limit } => {
                     plugin::PluginAction::Search { query, limit }

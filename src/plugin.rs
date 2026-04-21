@@ -34,6 +34,7 @@ struct PluginCommand {
 
 #[derive(Debug, Deserialize, Default)]
 struct PluginHooks {
+    build: Option<String>,
     post_install: Option<String>,
     post_remove: Option<String>,
 }
@@ -62,6 +63,7 @@ pub struct PluginOptions {
 pub enum PluginAction {
     Install { source: String, force: bool },
     Remove { name: String },
+    Update { name: Option<String> },
     List,
     Search { query: Option<String>, limit: usize },
     Run { name: String, args: Vec<String> },
@@ -71,6 +73,7 @@ pub fn run(opts: PluginOptions) -> Result<()> {
     match opts.action {
         PluginAction::Install { source, force } => install_plugin(&source, force),
         PluginAction::Remove { name } => remove_plugin(&name),
+        PluginAction::Update { name } => update_plugins(name.as_deref()),
         PluginAction::List => list_plugins(opts.json),
         PluginAction::Search { query, limit } => search_plugins(query.as_deref(), limit, opts.json),
         PluginAction::Run { name, args } => run_plugin(&name, &args),
@@ -150,6 +153,94 @@ fn extract_name_from_source(source: &str) -> String {
         .to_string()
 }
 
+fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, Vec<&'static str>)> {
+    if plugin_dir.join("Cargo.toml").exists() {
+        Some(("Rust", vec!["cargo", "build", "--release"]))
+    } else if plugin_dir.join("Package.swift").exists() {
+        Some(("Swift", vec!["swift", "build", "-c", "release"]))
+    } else if plugin_dir.join("go.mod").exists() {
+        Some(("Go", vec!["go", "build", "."]))
+    } else if plugin_dir.join("package.json").exists() {
+        Some(("Node", vec!["npm", "install"]))
+    } else {
+        None
+    }
+}
+
+fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    if let Some(hook) = &manifest.hooks.build {
+        run_hook(plugin_dir, hook, "build")?;
+        return Ok(());
+    }
+
+    if let Some((lang, cmd)) = detect_build_command(plugin_dir) {
+        let sp = crate::spinner::Spinner::start(&format!("Building ({lang}):"));
+        let status = Command::new(cmd[0])
+            .args(&cmd[1..])
+            .current_dir(plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("running {lang} build"))?;
+        sp.finish();
+        if !status.success() {
+            bail!("Build failed. Check your {lang} toolchain is installed.");
+        }
+    }
+
+    Ok(())
+}
+
+fn link_commands(
+    plugin_dir: &Path,
+    bin_dir: &Path,
+    manifest: &PluginManifest,
+) -> Result<Vec<String>> {
+    let mut command_names = Vec::new();
+    for cmd in &manifest.commands {
+        let binary_path = plugin_dir.join(&cmd.binary);
+        if !binary_path.exists() {
+            let mut hint = format!(
+                "Plugin '{}' references binary '{}' which does not exist.",
+                manifest.plugin.name, cmd.binary
+            );
+            if let Some((lang, _)) = detect_build_command(plugin_dir) {
+                hint.push_str(&format!(
+                    "\n  This looks like a {} project. Add a build hook to plugin.toml:",
+                    lang
+                ));
+                hint.push_str("\n  [hooks]");
+                let example = match lang {
+                    "Rust" => "build = \"cargo build --release\"",
+                    "Swift" => "build = \"swift build -c release\"",
+                    "Go" => "build = \"go build .\"",
+                    _ => "build = \"scripts/build.sh\"",
+                };
+                hint.push_str(&format!("\n  {example}"));
+            }
+            bail!("{hint}");
+        }
+
+        make_executable(&binary_path)?;
+
+        let link_name = format!("fledge-{}", cmd.name);
+        let link_path = bin_dir.join(&link_name);
+        if link_path.exists() || link_path.is_symlink() {
+            fs::remove_file(&link_path).ok();
+        }
+        create_symlink(&binary_path, &link_path).with_context(|| {
+            format!(
+                "creating symlink {} -> {}",
+                link_path.display(),
+                binary_path.display()
+            )
+        })?;
+
+        command_names.push(cmd.name.clone());
+    }
+    Ok(command_names)
+}
+
 fn install_plugin(source: &str, force: bool) -> Result<()> {
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
@@ -208,35 +299,11 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let manifest: PluginManifest =
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
-    let mut command_names = Vec::new();
-    for cmd in &manifest.commands {
-        let binary_path = plugin_dir.join(&cmd.binary);
-        if !binary_path.exists() {
-            fs::remove_dir_all(&plugin_dir).ok();
-            bail!(
-                "Plugin '{}' references binary '{}' which does not exist in the repository.",
-                manifest.plugin.name,
-                cmd.binary
-            );
-        }
+    run_build(&plugin_dir, &manifest)?;
 
-        make_executable(&binary_path)?;
-
-        let link_name = format!("fledge-{}", cmd.name);
-        let link_path = bin_dir.join(&link_name);
-        if link_path.exists() || link_path.is_symlink() {
-            fs::remove_file(&link_path).ok();
-        }
-        create_symlink(&binary_path, &link_path).with_context(|| {
-            format!(
-                "creating symlink {} -> {}",
-                link_path.display(),
-                binary_path.display()
-            )
-        })?;
-
-        command_names.push(cmd.name.clone());
-    }
+    let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
+        fs::remove_dir_all(&plugin_dir).ok();
+    })?;
 
     let entry = PluginEntry {
         name: repo_name.clone(),
@@ -265,6 +332,90 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
 
     if let Some(hook) = &manifest.hooks.post_install {
         run_hook(&plugin_dir, hook, "post_install")?;
+    }
+
+    Ok(())
+}
+
+fn update_plugins(name: Option<&str>) -> Result<()> {
+    let registry = load_registry()?;
+
+    if registry.plugins.is_empty() {
+        println!("{} No plugins installed.", style("*").cyan().bold());
+        return Ok(());
+    }
+
+    let targets: Vec<&PluginEntry> = match name {
+        Some(n) => {
+            let entry = registry
+                .plugins
+                .iter()
+                .find(|p| p.name == n || p.name == format!("fledge-{n}"))
+                .ok_or_else(|| anyhow::anyhow!("Plugin '{}' is not installed.", n))?;
+            vec![entry]
+        }
+        None => registry.plugins.iter().collect(),
+    };
+
+    for entry in &targets {
+        let plugin_dir = plugins_dir().join(&entry.name);
+        if !plugin_dir.exists() {
+            println!(
+                "  {} {} — directory missing, reinstall with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
+            continue;
+        }
+
+        let sp = crate::spinner::Spinner::start(&format!("Updating {}:", &entry.name));
+
+        let status = Command::new("git")
+            .args(["pull", "--ff-only"])
+            .current_dir(&plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("updating {}", entry.name))?;
+
+        sp.finish();
+
+        if !status.success() {
+            println!(
+                "  {} {} — git pull failed, try reinstalling with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
+            continue;
+        }
+
+        let manifest_path = plugin_dir.join("plugin.toml");
+        if manifest_path.exists() {
+            let manifest_content =
+                fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+            let manifest: PluginManifest =
+                toml::from_str(&manifest_content).context("parsing plugin.toml")?;
+
+            run_build(&plugin_dir, &manifest)?;
+
+            let bin_dir = plugin_bin_dir();
+            link_commands(&plugin_dir, &bin_dir, &manifest)?;
+
+            let mut reg = load_registry()?;
+            if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
+                e.version = manifest.plugin.version.clone();
+            }
+            save_registry(&reg)?;
+
+            println!(
+                "  {} {} → v{}",
+                style("✅").green().bold(),
+                style(&entry.name).green(),
+                manifest.plugin.version
+            );
+        }
     }
 
     Ok(())
@@ -787,5 +938,78 @@ version = "0.1.0"
         let pd = plugins_dir();
         let bd = plugin_bin_dir();
         assert!(bd.starts_with(&pd));
+    }
+
+    #[test]
+    fn detect_rust_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("Cargo.toml"), "[package]\nname = \"x\"").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, cmd) = result.unwrap();
+        assert_eq!(lang, "Rust");
+        assert_eq!(cmd[0], "cargo");
+    }
+
+    #[test]
+    fn detect_swift_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("Package.swift"), "// swift").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Swift");
+    }
+
+    #[test]
+    fn detect_go_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("go.mod"), "module x").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Go");
+    }
+
+    #[test]
+    fn detect_node_build() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("package.json"), "{}").unwrap();
+        let result = detect_build_command(tmp.path());
+        assert!(result.is_some());
+        let (lang, _) = result.unwrap();
+        assert_eq!(lang, "Node");
+    }
+
+    #[test]
+    fn detect_no_build_system() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(detect_build_command(tmp.path()).is_none());
+    }
+
+    #[test]
+    fn parse_manifest_with_build_hook() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-compiled"
+version = "0.1.0"
+
+[[commands]]
+name = "compiled"
+binary = "target/release/fledge-compiled"
+
+[hooks]
+build = "cargo build --release"
+post_install = "scripts/setup.sh"
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert_eq!(
+            manifest.hooks.build.as_deref(),
+            Some("cargo build --release")
+        );
+        assert_eq!(
+            manifest.hooks.post_install.as_deref(),
+            Some("scripts/setup.sh")
+        );
     }
 }

@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 2
+version: 3
 status: active
 files:
   - src/plugin.rs
@@ -35,7 +35,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | Type | Description |
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
-| `PluginAction` | Enum: Install, Remove, List, Search, Run |
+| `PluginAction` | Enum: Install, Remove, Update, List, Search, Run |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
@@ -61,12 +61,24 @@ author = "someone"
 [[commands]]
 name = "deploy"
 description = "Deploy the project"
-binary = "fledge-deploy"  # relative to plugin dir
+binary = "target/release/fledge-deploy"  # relative to plugin dir
 
 [hooks]
-post_install = "hooks/post-install.sh"  # runs after `fledge plugin install`
-post_remove  = "hooks/post-remove.sh"   # runs after `fledge plugin remove`
+build = "cargo build --release"          # runs after clone, before binary check
+post_install = "hooks/post-install.sh"   # runs after `fledge plugin install`
+post_remove  = "hooks/post-remove.sh"    # runs after `fledge plugin remove`
 ```
+
+### Build System Auto-Detection
+
+When no `build` hook is specified, fledge auto-detects the build system:
+
+| File | Language | Command |
+|------|----------|---------|
+| `Cargo.toml` | Rust | `cargo build --release` |
+| `Package.swift` | Swift | `swift build -c release` |
+| `go.mod` | Go | `go build .` |
+| `package.json` | Node | `npm install` |
 
 ### Plugin Discovery
 
@@ -77,7 +89,7 @@ Plugins are discovered via:
 
 ### Plugin Installation
 
-`fledge plugin install <repo>` clones the repo to `~/.config/fledge/plugins/<name>/`, reads `plugin.toml`, and symlinks binaries.
+`fledge plugin install <repo>` clones the repo to `~/.config/fledge/plugins/<name>/`, reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
 
 ## Config Format
 
@@ -96,12 +108,13 @@ installed = "2026-04-20"
 1. Plugins are installed to `~/.config/fledge/plugins/<name>/`
 2. Plugin binaries are symlinked to `~/.config/fledge/plugins/bin/`
 3. `resolve_plugin_command` checks `plugins/bin/` then PATH for `fledge-<name>`
-4. `plugin install` clones the repo, reads `plugin.toml`, creates symlinks
+4. `plugin install` clones the repo, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
 5. `plugin remove` deletes the plugin directory and its symlinks
-6. `plugin list` shows installed plugins with name, version, source, and description
-7. `plugin search` uses GitHub topic search (same as template search)
-8. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
-9. `--json` outputs structured data for all list/search operations
+6. `plugin update` git pulls and rebuilds plugins, re-symlinks binaries
+7. `plugin list` shows installed plugins with name, version, source, and description
+8. `plugin search` uses GitHub topic search (same as template search)
+9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
+10. `--json` outputs structured data for all list/search operations
 
 ## Behavioral Examples
 
@@ -125,6 +138,15 @@ $ fledge deploy staging
 $ fledge plugin remove deploy
 ✅ Removed fledge-deploy
 
+# Update all plugins
+$ fledge plugin update
+  ✅ fledge-deploy → v0.2.0
+  ✅ fledge-todo → v1.1.0
+
+# Update a specific plugin
+$ fledge plugin update fledge-deploy
+  ✅ fledge-deploy → v0.2.0
+
 # Search for plugins
 $ fledge plugin search deploy
   fledge-deploy   v0.1.0  Deploy to various cloud providers  (someone/fledge-deploy)
@@ -139,7 +161,8 @@ $ fledge plugin search deploy
 | No plugin.toml | Repo missing manifest | Error explaining requirement |
 | Already installed | install when present | Error with `--force` suggestion |
 | Not installed | remove when absent | Error listing installed plugins |
-| Binary not found | plugin.toml references missing binary | Error during install |
+| Binary not found | plugin.toml references missing binary | Error with build hint |
+| Build failed | build hook or auto-detect build fails | Error with toolchain suggestion |
 | Permission denied | Binary not executable | Error with guidance |
 
 ## Dependencies
@@ -151,5 +174,6 @@ $ fledge plugin search deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-21 | Add build hook, auto-detect build systems, plugin update command, improved error messages |
 | 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-20 | Initial spec |
