@@ -290,7 +290,7 @@ fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<(
     if report.errors.is_empty() && report.warnings.is_empty() {
         println!(
             "{} {} — valid",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(name).green()
         );
     } else {
@@ -323,9 +323,9 @@ fn print_reports(reports: &[ValidationReport], strict: bool, json: bool) -> Resu
         };
 
         if report.errors.is_empty() && report.warnings.is_empty() {
-            println!("  {} {}", style("✓").green().bold(), style(name).green());
+            println!("  {} {}", style("✅").green().bold(), style(name).green());
         } else {
-            println!("  {} {}", style("✗").red().bold(), style(name).red());
+            println!("  {} {}", style("❌").red().bold(), style(name).red());
             for e in &report.errors {
                 println!("    {} {}", style("error:").red().bold(), e);
             }

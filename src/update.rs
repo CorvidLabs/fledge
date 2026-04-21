@@ -88,7 +88,7 @@ pub fn run(opts: UpdateOptions) -> Result<()> {
         .collect();
 
     if adds.is_empty() && updates.is_empty() && removes.is_empty() {
-        println!("{} Already up to date.", style("✓").green().bold());
+        println!("{} Already up to date.", style("✅").green().bold());
         return Ok(());
     }
 
@@ -160,7 +160,7 @@ pub fn run(opts: UpdateOptions) -> Result<()> {
     println!();
     println!(
         "{} Updated {} file{}.",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         change_count,
         if change_count == 1 { "" } else { "s" }
     );

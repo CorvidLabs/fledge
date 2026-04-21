@@ -247,7 +247,7 @@ fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_gi
     println!();
     println!(
         "{} Created {} in {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(name).cyan().bold(),
         style(target_dir.display()).dim()
     );

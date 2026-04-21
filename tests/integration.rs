@@ -1762,9 +1762,7 @@ fn cli_run_task_with_multiple_env_vars() {
     };
     fs::write(
         tmp.path().join("fledge.toml"),
-        format!(
-            "[tasks.multi]\ncmd = \"{cmd}\"\nenv = {{ FOO = \"hello\", BAR = \"world\" }}\n"
-        ),
+        format!("[tasks.multi]\ncmd = \"{cmd}\"\nenv = {{ FOO = \"hello\", BAR = \"world\" }}\n"),
     )
     .unwrap();
     let output = run_fledge_in(tmp.path(), &["run", "multi"]);

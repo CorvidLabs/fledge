@@ -177,7 +177,7 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
 
     println!(
         "  {} Cloning {}...",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(&url).dim()
     );
 
@@ -257,7 +257,7 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
 
     println!(
         "{} Installed {} v{}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(&manifest.plugin.name).green(),
         manifest.plugin.version
     );
@@ -327,7 +327,7 @@ fn remove_plugin(name: &str) -> Result<()> {
 
     println!(
         "{} Removed {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(&removed_name).green()
     );
 
@@ -405,7 +405,7 @@ fn search_plugins(query: Option<&str>, limit: usize, json: bool) -> Result<()> {
 
     println!(
         "  {} Searching GitHub for plugins...",
-        style("▸").cyan().bold()
+        style("▶️").cyan().bold()
     );
 
     let config = crate::config::Config::load().ok();
@@ -474,7 +474,7 @@ fn search_plugins(query: Option<&str>, limit: usize, json: bool) -> Result<()> {
             "  {:<width$}  {}  {}",
             style(full_name).green(),
             style(desc).dim(),
-            style(format!("★ {stars}")).yellow(),
+            style(format!("⭐ {stars}")).yellow(),
             width = max_name,
         );
     }
@@ -527,7 +527,7 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
     make_executable(&hook_path)?;
     println!(
         "  {} Running {} hook...",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(event).dim()
     );
     let status = Command::new(&hook_path)

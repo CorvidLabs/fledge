@@ -365,7 +365,7 @@ fn check(root: &Path, strict: bool) -> Result<()> {
         if result.has_errors() || (strict && result.has_warnings()) {
             print!(
                 "{} {} (v{}, {})",
-                style("✗").red().bold(),
+                style("❌").red().bold(),
                 style(&result.name).red(),
                 result.version,
                 result.status,
@@ -373,7 +373,7 @@ fn check(root: &Path, strict: bool) -> Result<()> {
         } else if result.has_warnings() {
             print!(
                 "{} {} (v{}, {})",
-                style("⚠").yellow().bold(),
+                style("⚠️").yellow().bold(),
                 style(&result.name).yellow(),
                 result.version,
                 result.status,
@@ -381,7 +381,7 @@ fn check(root: &Path, strict: bool) -> Result<()> {
         } else {
             print!(
                 "{} {} (v{}, {})",
-                style("✓").green().bold(),
+                style("✅").green().bold(),
                 style(&result.name).green(),
                 result.version,
                 result.status,
@@ -483,24 +483,27 @@ hashes.json
     fs::write(specsync_dir.join("config.toml"), config_content)?;
     println!(
         "{} Created .specsync/config.toml",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(specsync_dir.join("registry.toml"), registry_content)?;
     println!(
         "{} Created .specsync/registry.toml",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(specsync_dir.join(".gitignore"), gitignore_content)?;
-    println!("{} Created .specsync/.gitignore", style("✓").green().bold());
+    println!(
+        "{} Created .specsync/.gitignore",
+        style("✅").green().bold()
+    );
 
     fs::write(specsync_dir.join("version"), "4.3.1\n")?;
-    println!("{} Created .specsync/version", style("✓").green().bold());
+    println!("{} Created .specsync/version", style("✅").green().bold());
 
     if !specs_dir.exists() {
         fs::create_dir_all(&specs_dir)?;
-        println!("{} Created specs/", style("✓").green().bold());
+        println!("{} Created specs/", style("✅").green().bold());
     }
 
     println!();
@@ -675,31 +678,31 @@ spec: {name}.spec.md
     fs::write(spec_dir.join(format!("{name}.spec.md")), &spec_content)?;
     println!(
         "{} Created specs/{name}/{name}.spec.md",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("requirements.md"), &requirements_content)?;
     println!(
         "{} Created specs/{name}/requirements.md",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("tasks.md"), &tasks_content)?;
     println!(
         "{} Created specs/{name}/tasks.md",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("context.md"), &context_content)?;
     println!(
         "{} Created specs/{name}/context.md",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("testing.md"), &testing_content)?;
     println!(
         "{} Created specs/{name}/testing.md",
-        style("✓").green().bold()
+        style("✅").green().bold()
     );
 
     // Update registry

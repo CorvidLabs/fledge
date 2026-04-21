@@ -65,19 +65,19 @@ pub fn run(opts: ChecksOptions) -> Result<()> {
         let (icon, display_text, display_style): (&str, String, &str) = match (status, conclusion) {
             ("completed", Some("success")) => {
                 passed += 1;
-                ("✓", "passed".into(), "green")
+                ("✅", "passed".into(), "green")
             }
             ("completed", Some("failure")) => {
                 failed += 1;
-                ("✗", "failed".into(), "red")
+                ("❌", "failed".into(), "red")
             }
             ("completed", Some("cancelled")) => {
                 failed += 1;
-                ("⊘", "cancelled".into(), "yellow")
+                ("🚫", "cancelled".into(), "yellow")
             }
             ("completed", Some("skipped")) => {
                 passed += 1;
-                ("⊘", "skipped".into(), "dim")
+                ("⏭️", "skipped".into(), "dim")
             }
             ("completed", Some(c)) => {
                 pending += 1;
@@ -85,7 +85,7 @@ pub fn run(opts: ChecksOptions) -> Result<()> {
             }
             _ => {
                 pending += 1;
-                ("◦", "running".into(), "yellow")
+                ("🔄", "running".into(), "yellow")
             }
         };
 

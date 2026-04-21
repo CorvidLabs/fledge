@@ -26,7 +26,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
 
     println!(
         "{} Reviewing changes against {} ...\n",
-        style("●").cyan().bold(),
+        style("🔵").cyan().bold(),
         style(&base).cyan()
     );
 

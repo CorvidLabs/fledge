@@ -89,30 +89,30 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
                         Some(d) => format!("{} — {}", label, d),
                         None => label,
                     };
-                    println!("    {} {}", style("✓").green().bold(), label);
+                    println!("    {} {}", style("✅").green().bold(), label);
                 }
                 CheckStatus::Missing => {
                     let detail = check.detail.as_deref().unwrap_or("not found");
                     println!(
                         "    {} {} — {}",
-                        style("✗").red().bold(),
+                        style("❌").red().bold(),
                         check.name,
                         detail
                     );
                     if let Some(fix) = &check.fix {
-                        println!("      {} {}", style("→").dim(), style(fix).cyan());
+                        println!("      {} {}", style("➡️").dim(), style(fix).cyan());
                     }
                 }
                 CheckStatus::Error => {
                     let detail = check.detail.as_deref().unwrap_or("error");
                     println!(
                         "    {} {} — {}",
-                        style("✗").red().bold(),
+                        style("❌").red().bold(),
                         check.name,
                         detail
                     );
                     if let Some(fix) = &check.fix {
-                        println!("      {} {}", style("→").dim(), style(fix).cyan());
+                        println!("      {} {}", style("➡️").dim(), style(fix).cyan());
                     }
                 }
             }
@@ -490,7 +490,7 @@ fn check_git(dir: &Path) -> Section {
                     name: "remote".to_string(),
                     status: CheckStatus::Ok,
                     version: None,
-                    detail: Some(format!("{} → {}", remote_name, remote_url)),
+                    detail: Some(format!("{} ➡️ {}", remote_name, remote_url)),
                     fix: None,
                 });
             }

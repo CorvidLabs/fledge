@@ -450,7 +450,7 @@ fn run_ecosystem_command(
 ) -> Result<()> {
     println!(
         "{} Running {} ({} {})...\n",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(action).bold(),
         cmd,
         args.join(" ")

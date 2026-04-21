@@ -268,7 +268,7 @@ fn execute_flow(
     let desc = flow.description.as_deref().unwrap_or("(no description)");
     println!(
         "{} {} — {}",
-        style("▸ Flow:").cyan().bold(),
+        style("▶️ Flow:").cyan().bold(),
         style(flow_name).bold(),
         style(desc).dim()
     );
@@ -300,7 +300,7 @@ fn execute_flow(
             }
             eprintln!(
                 "  {} Step {} ({}) failed: {}",
-                style("✗").red().bold(),
+                style("❌").red().bold(),
                 i + 1,
                 step_desc,
                 e
@@ -312,7 +312,7 @@ fn execute_flow(
     if failures.is_empty() {
         println!(
             "{} Flow {} completed ({} steps)",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(flow_name).green(),
             total_steps
         );
@@ -347,7 +347,7 @@ fn execute_task_with_deps(
 fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path) -> Result<()> {
     println!(
         "  {} {}",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(format!("Running task: {name}")).bold()
     );
 
@@ -382,7 +382,7 @@ fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path) -> Result
 fn execute_inline(cmd: &str, project_dir: &Path) -> Result<()> {
     println!(
         "  {} {}",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(format!("Running: {cmd}")).bold()
     );
 
@@ -412,7 +412,7 @@ fn execute_parallel(
     let names_display = task_names.join(", ");
     println!(
         "  {} {}",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(format!("Running parallel: {names_display}")).bold()
     );
 
@@ -537,7 +537,7 @@ fn init_flows() -> Result<()> {
 
     println!(
         "{} Added default flows to {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style("fledge.toml").cyan()
     );
     println!("  Run {} to see them.", style("fledge flow").cyan());
@@ -555,7 +555,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
 
     println!(
         "  {} Searching GitHub for community flows...",
-        style("▸").cyan().bold()
+        style("▶️").cyan().bold()
     );
 
     let body = crate::github::github_api_get(
@@ -603,7 +603,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
         println!(
             "  {:<width$}  {}  {}",
             style(&r.full_name()).green(),
-            style(format!("(★ {})", stars)).dim(),
+            style(format!("(⭐ {})", stars)).dim(),
             style(&desc).dim(),
             width = max_name,
         );
@@ -634,7 +634,7 @@ fn import_flows(source: &str) -> Result<()> {
 
     println!(
         "  {} Fetching flows from {}/{}{}...",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         owner,
         repo,
         git_ref
@@ -711,7 +711,7 @@ fn import_flows(source: &str) -> Result<()> {
 
     println!(
         "{} Imported {} flow(s) from {}/{}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         imported_flows.len(),
         owner,
         repo

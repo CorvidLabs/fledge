@@ -135,7 +135,7 @@ fn view(owner: &str, repo: &str, number: u64, json: bool, token: Option<&str>) -
         style(github::format_relative_time(created)).dim()
     );
     println!(
-        "  {} {} → {}",
+        "  {} {} ➡️ {}",
         style("Branch:").dim(),
         style(head).cyan(),
         style(base).dim()
@@ -173,17 +173,17 @@ fn print_pr_line(pr: &serde_json::Value) {
     let head = pr["head"]["ref"].as_str().unwrap_or("?");
 
     let state_icon = if draft {
-        style("◌").dim()
+        style("📝").dim()
     } else {
         match state {
-            "open" => style("●").green(),
-            "closed" => style("●").red(),
-            _ => style("●").dim(),
+            "open" => style("🟢").green(),
+            "closed" => style("🔴").red(),
+            _ => style("⚪").dim(),
         }
     };
 
     println!(
-        "  {} {} {}  {} → {}  {}",
+        "  {} {} {}  {} ➡️ {}  {}",
         state_icon,
         style(format!("#{:<5}", number)).cyan(),
         title,

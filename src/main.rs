@@ -775,7 +775,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             config.save()?;
             println!(
                 "{} Set {} = {}",
-                style("✓").green().bold(),
+                style("✅").green().bold(),
                 style(&key).cyan(),
                 style(&value).green()
             );
@@ -784,7 +784,11 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             let mut config = config::Config::load()?;
             config.unset(&key)?;
             config.save()?;
-            println!("{} Unset {}", style("✓").green().bold(), style(&key).cyan());
+            println!(
+                "{} Unset {}",
+                style("✅").green().bold(),
+                style(&key).cyan()
+            );
         }
         ConfigAction::Add { key, value } => {
             let mut config = config::Config::load()?;
@@ -792,7 +796,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             config.save()?;
             println!(
                 "{} Added {} to {}",
-                style("✓").green().bold(),
+                style("✅").green().bold(),
                 style(&value).green(),
                 style(&key).cyan()
             );
@@ -804,7 +808,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 config.save()?;
                 println!(
                     "{} Removed {} from {}",
-                    style("✓").green().bold(),
+                    style("✅").green().bold(),
                     style(&value).green(),
                     style(&key).cyan()
                 );
@@ -923,7 +927,7 @@ fn install_completions(shell: Option<Shell>) -> Result<()> {
 
     println!(
         "{} Installed {} completions to {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(format!("{shell:?}")).cyan(),
         style(dest.display()).dim()
     );
