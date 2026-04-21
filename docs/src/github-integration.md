@@ -45,7 +45,7 @@ Branch names get sanitized automatically (spaces → hyphens, special chars remo
 
 ```bash
 fledge work pr                                    # auto-title from branch
-fledge work pr --title "Add dark mode" --body "…" # custom
+fledge work pr --title "Add dark mode" --body "Adds dark mode toggle to settings" # custom
 fledge work pr --draft                            # draft PR
 fledge work pr --base develop                     # target branch
 ```

@@ -75,7 +75,7 @@ pub enum WorkAction {
 }
 
 pub fn run(action: WorkAction) -> Result<()> {
-    ensure_git_repo()?;
+    crate::github::ensure_git_repo()?;
     match action {
         WorkAction::Start {
             name,
@@ -98,16 +98,6 @@ pub fn run(action: WorkAction) -> Result<()> {
         } => pr(title.as_deref(), body.as_deref(), draft, base.as_deref()),
         WorkAction::Status => status(),
     }
-}
-
-fn ensure_git_repo() -> Result<()> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--is-inside-work-tree"])
-        .output()?;
-    if !output.status.success() {
-        bail!("Not a git repository. Run this command inside a git repo.");
-    }
-    Ok(())
 }
 
 fn git_output(args: &[&str]) -> Result<String> {

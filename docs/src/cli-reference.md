@@ -2,6 +2,14 @@
 
 Every command, every flag. If it's in fledge, it's here.
 
+**Jump to:**
+[Start](#start-scaffold-and-discover) |
+[Build](#build-configure-and-run) |
+[Develop](#develop-branch-and-spec) |
+[Review](#review-quality-and-insight) |
+[Ship](#ship-track-and-release) |
+[Extend](#extend-grow-the-tool)
+
 ## Start: Scaffold and discover
 
 ### fledge init `<name>`
@@ -419,9 +427,9 @@ fledge deps [OPTIONS]
 |-----------|------------|----------|-------|----------|
 | Rust | `Cargo.lock` | `cargo outdated` | `cargo audit` | `cargo license` |
 | Node.js | `package-lock.json` / `yarn.lock` | npm/yarn outdated | npm/yarn audit | `license-checker` |
-| Go | `go.sum` | `go list` | `govulncheck` | — |
-| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | pip outdated | `pip-audit` | — |
-| Ruby | `Gemfile.lock` | `bundle outdated` | `bundle audit` | — |
+| Go | `go.sum` | `go list` | `govulncheck` | N/A |
+| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | pip outdated | `pip-audit` | N/A |
+| Ruby | `Gemfile.lock` | `bundle outdated` | `bundle audit` | N/A |
 
 ```bash
 fledge deps
@@ -585,16 +593,16 @@ fledge tui [OPTIONS]
 - `--no-git` - Skip git init for template scaffolding
 
 **Categories:**
-- **Work** — start branches, create PRs, view status
-- **GitHub** — browse issues, PRs, CI checks
-- **Run** — execute tasks and workflow pipelines
-- **Specs** — check, init, create new spec modules
-- **Metrics** — LOC, file churn, test ratio, dependency health
-- **Config** — view and edit settings
-- **Templates** — browse, scaffold, search, create, publish, validate, update
-- **AI** — code review, codebase Q&A
-- **Doctor** — environment diagnostics
-- **Changelog** — generate from tags, view unreleased changes
-- **Plugins** — list, search, install, remove, run community extensions
+- **Work**: start branches, create PRs, view status
+- **GitHub**: browse issues, PRs, CI checks
+- **Run**: execute tasks and workflow pipelines
+- **Specs**: check, init, create new spec modules
+- **Metrics**: LOC, file churn, test ratio, dependency health
+- **Config**: view and edit settings
+- **Templates**: browse, scaffold, search, create, publish, validate, update
+- **AI**: code review, codebase Q&A
+- **Doctor**: environment diagnostics
+- **Changelog**: generate from tags, view unreleased changes
+- **Plugins**: list, search, install, remove, run community extensions
 
 **Navigation:** `↑↓`/`j`/`k` to navigate, `Enter` to run, `Tab`/`→` to open category, `Esc`/`←` to go back, `q` to quit. Actions that need input show an inline form. Output is displayed in a scrollable panel (`PgUp`/`PgDn`, `g`/`G` for top/bottom).

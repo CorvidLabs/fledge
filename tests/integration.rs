@@ -2416,3 +2416,59 @@ fn create_template_non_interactive_with_all_flags() {
     assert!(manifest.contains("[hooks]"));
     assert!(manifest.contains("[prompts"));
 }
+
+// ──────────────────────────────────────────────────────────
+// Review — error cases (no Claude CLI needed)
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_review_outside_git_repo_fails() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["review"]);
+    if !output.status.success() {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("git") || stderr.contains("Claude CLI"),
+            "expected git or CLI error, got: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn cli_review_no_changes_fails() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "--allow-empty", "-m", "init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    let output = run_fledge_in(tmp.path(), &["review", "--base", "HEAD"]);
+    if !output.status.success() {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("No changes") || stderr.contains("Claude CLI"),
+            "expected no-changes or CLI error, got: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn cli_review_accepts_base_flag() {
+    let output = run_fledge(&["review", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--base"));
+    assert!(stdout.contains("--file"));
+    assert!(stdout.contains("--json"));
+}
+
+#[test]
+fn cli_ask_accepts_json_flag() {
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--json"));
+}

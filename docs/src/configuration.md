@@ -66,6 +66,17 @@ Token priority:
 2. `GITHUB_TOKEN` env var
 3. Config file
 
+**Required token scopes:**
+
+| Feature | Scopes needed |
+|---------|--------------|
+| Issues, PRs, CI checks | `repo` (or `public_repo` for public repos only) |
+| Create PRs, push branches | `repo` |
+| Search templates/plugins | `public_repo` |
+| Publish templates | `repo`, `delete_repo` (if republishing) |
+
+A classic token with `repo` covers everything. For fine-grained tokens, grant Read/Write on Contents, Pull Requests, and Issues for each repo you work with.
+
 ## Full Example
 
 ```toml
