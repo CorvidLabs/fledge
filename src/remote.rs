@@ -167,6 +167,15 @@ pub fn resolve_template_dir(
             if !template_dir.exists() {
                 bail!("Subpath '{}' not found in {}/{}", sub, owner, repo);
             }
+            let canonical_template = template_dir
+                .canonicalize()
+                .with_context(|| format!("resolving subpath '{}'", sub))?;
+            let canonical_repo = repo_dir
+                .canonicalize()
+                .with_context(|| format!("resolving repo dir '{}'", repo_dir.display()))?;
+            if !canonical_template.starts_with(&canonical_repo) {
+                bail!("Subpath '{}' escapes repository directory", sub);
+            }
             Ok(template_dir)
         }
         None => Ok(repo_dir),
