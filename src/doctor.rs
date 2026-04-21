@@ -3,6 +3,7 @@ use console::style;
 use serde::Serialize;
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 use crate::run::detect_project_type;
 
@@ -130,8 +131,65 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
 }
 
 fn check_tool(name: &str, version_args: &[&str], fix: &str) -> CheckResult {
-    let output = Command::new(name).args(version_args).output();
+    let child = Command::new(name)
+        .args(version_args)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
 
+    let mut child = match child {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return CheckResult {
+                name: name.to_string(),
+                status: CheckStatus::Missing,
+                version: None,
+                detail: Some("not found".to_string()),
+                fix: Some(fix.to_string()),
+            };
+        }
+        Err(e) => {
+            return CheckResult {
+                name: name.to_string(),
+                status: CheckStatus::Error,
+                version: None,
+                detail: Some(format!("error: {}", e)),
+                fix: Some(fix.to_string()),
+            };
+        }
+    };
+
+    let timeout = Duration::from_secs(10);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    return CheckResult {
+                        name: name.to_string(),
+                        status: CheckStatus::Error,
+                        version: None,
+                        detail: Some("timed out after 10s".to_string()),
+                        fix: Some(fix.to_string()),
+                    };
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => {
+                return CheckResult {
+                    name: name.to_string(),
+                    status: CheckStatus::Error,
+                    version: None,
+                    detail: Some(format!("error: {}", e)),
+                    fix: Some(fix.to_string()),
+                };
+            }
+        }
+    }
+
+    let output = child.wait_with_output();
     match output {
         Ok(out) => {
             let text = String::from_utf8_lossy(&out.stdout);
@@ -150,13 +208,6 @@ fn check_tool(name: &str, version_args: &[&str], fix: &str) -> CheckResult {
                 fix: None,
             }
         }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => CheckResult {
-            name: name.to_string(),
-            status: CheckStatus::Missing,
-            version: None,
-            detail: Some("not found".to_string()),
-            fix: Some(fix.to_string()),
-        },
         Err(e) => CheckResult {
             name: name.to_string(),
             status: CheckStatus::Error,

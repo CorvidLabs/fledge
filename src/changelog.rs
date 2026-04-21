@@ -144,6 +144,13 @@ fn commits_between(from: Option<&str>, to: &str) -> Result<Vec<(String, String)>
         .context("running git log")?;
 
     if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!(
+            "  {} git log for range '{}' failed: {}",
+            style("⚠").yellow().bold(),
+            range,
+            stderr.trim()
+        );
         return Ok(Vec::new());
     }
 

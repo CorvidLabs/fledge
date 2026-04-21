@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, bail};
 use console::style;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -198,6 +198,8 @@ fn validate_flow(flow_name: &str, flow: &FlowDef, tasks: &BTreeMap<String, TaskD
                         name
                     );
                 }
+                check_dep_cycle(name, tasks, &mut HashSet::new())
+                    .map_err(|e| anyhow::anyhow!("Flow '{}' step {}: {}", flow_name, i + 1, e))?;
             }
             Step::Inline { .. } => {}
             Step::Parallel { parallel } => {
@@ -210,10 +212,30 @@ fn validate_flow(flow_name: &str, flow: &FlowDef, tasks: &BTreeMap<String, TaskD
                             name
                         );
                     }
+                    check_dep_cycle(name, tasks, &mut HashSet::new()).map_err(|e| {
+                        anyhow::anyhow!("Flow '{}' step {}: {}", flow_name, i + 1, e)
+                    })?;
                 }
             }
         }
     }
+    Ok(())
+}
+
+fn check_dep_cycle(
+    name: &str,
+    tasks: &BTreeMap<String, TaskDef>,
+    visiting: &mut HashSet<String>,
+) -> Result<()> {
+    if !visiting.insert(name.to_string()) {
+        bail!("circular dependency detected involving task '{}'", name);
+    }
+    if let Some(task) = tasks.get(name) {
+        for dep in task.deps() {
+            check_dep_cycle(dep, tasks, visiting)?;
+        }
+    }
+    visiting.remove(name);
     Ok(())
 }
 
@@ -333,12 +355,30 @@ fn execute_task_with_deps(
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
 ) -> Result<()> {
+    let mut visited = HashSet::new();
+    execute_task_recursive(name, tasks, project_dir, &mut visited)
+}
+
+fn execute_task_recursive(
+    name: &str,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_dir: &Path,
+    visited: &mut HashSet<String>,
+) -> Result<()> {
+    if !visited.insert(name.to_string()) {
+        bail!(
+            "Circular dependency detected: task '{}' depends on itself (chain: {})",
+            name,
+            visited.iter().cloned().collect::<Vec<_>>().join(" → ")
+        );
+    }
+
     let task = tasks
         .get(name)
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found", name))?;
 
     for dep in task.deps() {
-        execute_task_with_deps(dep, tasks, project_dir)?;
+        execute_task_recursive(dep, tasks, project_dir, visited)?;
     }
 
     execute_single_task(name, task, project_dir)
@@ -990,6 +1030,54 @@ build = "cargo build"
 
 [flows.ci]
 steps = ["lint", "test", "build"]
+"#,
+        );
+        let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_circular_deps() {
+        let config = parse_config(
+            r#"
+[tasks.a]
+cmd = "echo a"
+deps = ["b"]
+
+[tasks.b]
+cmd = "echo b"
+deps = ["a"]
+
+[flows.ci]
+steps = ["a"]
+"#,
+        );
+        let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("circular"),
+            "expected circular error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn validate_no_cycle_with_shared_deps() {
+        let config = parse_config(
+            r#"
+[tasks]
+common = "echo common"
+
+[tasks.a]
+cmd = "echo a"
+deps = ["common"]
+
+[tasks.b]
+cmd = "echo b"
+deps = ["common"]
+
+[flows.ci]
+steps = ["a", "b"]
 "#,
         );
         let result = validate_flow("ci", &config.flows["ci"], &config.tasks);
