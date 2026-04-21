@@ -293,6 +293,8 @@ enum Commands {
         #[arg(long)]
         no_git: bool,
     },
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[derive(clap::Subcommand)]
@@ -722,6 +724,25 @@ fn run() -> Result<()> {
         #[cfg(feature = "tui")]
         Commands::Tui { output, no_git } => {
             tui::run(output, no_git)?;
+        }
+        Commands::External(args) => {
+            let cmd_name = &args[0];
+            let cmd_args: Vec<String> = args[1..].to_vec();
+            if plugin::resolve_plugin_command(cmd_name).is_some() {
+                plugin::run(plugin::PluginOptions {
+                    action: plugin::PluginAction::Run {
+                        name: cmd_name.clone(),
+                        args: cmd_args,
+                    },
+                    json: false,
+                })?;
+            } else {
+                anyhow::bail!(
+                    "unrecognized subcommand '{}'\n\n  tip: use {} for help",
+                    cmd_name,
+                    style("fledge help").cyan()
+                );
+            }
         }
     }
 

@@ -488,13 +488,23 @@ fn search_plugins(query: Option<&str>, limit: usize, json: bool) -> Result<()> {
 }
 
 fn run_plugin(name: &str, args: &[String]) -> Result<()> {
-    let bin_path = resolve_plugin_command(name).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Plugin command '{}' not found.\n  Run {} to see installed plugins.",
-            name,
-            style("fledge plugin list").cyan()
-        )
-    })?;
+    let bin_path = resolve_plugin_command(name)
+        .or_else(|| resolve_plugin_by_name(name))
+        .ok_or_else(|| {
+            let hint = match find_commands_for_plugin(name) {
+                Some(cmds) if !cmds.is_empty() => format!(
+                    "\n  Did you mean one of its commands? {}",
+                    style(cmds.join(", ")).cyan()
+                ),
+                _ => String::new(),
+            };
+            anyhow::anyhow!(
+                "Plugin command '{}' not found.{}\n  Run {} to see installed plugins.",
+                name,
+                hint,
+                style("fledge plugin list").cyan()
+            )
+        })?;
 
     let status = Command::new(&bin_path)
         .args(args)
@@ -529,6 +539,25 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
         bail!("Hook '{}' exited with code {}", event, code);
     }
     Ok(())
+}
+
+fn resolve_plugin_by_name(plugin_name: &str) -> Option<PathBuf> {
+    let registry = load_registry().ok()?;
+    let entry = registry
+        .plugins
+        .iter()
+        .find(|p| p.name == plugin_name || p.name == format!("fledge-{plugin_name}"))?;
+    let first_cmd = entry.commands.first()?;
+    resolve_plugin_command(first_cmd)
+}
+
+fn find_commands_for_plugin(plugin_name: &str) -> Option<Vec<String>> {
+    let registry = load_registry().ok()?;
+    registry
+        .plugins
+        .iter()
+        .find(|p| p.name == plugin_name || p.name == format!("fledge-{plugin_name}"))
+        .map(|p| p.commands.clone())
 }
 
 fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
