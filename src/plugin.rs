@@ -15,20 +15,19 @@ struct PluginManifest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PluginMeta {
     name: String,
     version: String,
-    #[serde(rename = "description")]
-    _description: Option<String>,
-    #[serde(rename = "author")]
-    _author: Option<String>,
+    description: Option<String>,
+    author: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PluginCommand {
     name: String,
-    #[serde(rename = "description")]
-    _description: Option<String>,
+    description: Option<String>,
     binary: String,
 }
 
@@ -285,8 +284,11 @@ fn link_commands(
         }
 
         let binary_path = plugin_dir.join(&cmd.binary);
-        if let Ok(canonical) = binary_path.canonicalize() {
-            if !canonical.starts_with(plugin_dir) {
+        if let Ok(canonical_binary) = binary_path.canonicalize() {
+            let canonical_dir = plugin_dir
+                .canonicalize()
+                .unwrap_or_else(|_| plugin_dir.to_path_buf());
+            if !canonical_binary.starts_with(&canonical_dir) {
                 bail!(
                     "Plugin '{}' binary '{}' resolves outside the plugin directory",
                     manifest.plugin.name,

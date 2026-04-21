@@ -199,6 +199,25 @@ steps = [
 
 See [Lanes & Pipelines](./lanes.md) for full step type documentation.
 
+## Security Model
+
+Plugins run arbitrary code. Fledge has several safeguards:
+
+- **Install confirmation** — before cloning, fledge warns that plugins can execute arbitrary code and asks for confirmation. Pass `--force` to skip (CI/scripts).
+- **Plugin name validation** — repo names are checked for path traversal (`..`, `/`, `\`, leading `.`)
+- **Command name validation** — command names that become symlinks (`fledge-<name>`) are validated to reject `/`, `\`, `.` prefix, `-` prefix, and null bytes
+- **Binary path traversal** — plugin binaries cannot reference paths outside the plugin directory (both sides are canonicalized to defeat symlink bypass)
+- **Hook execution** — hooks run as direct processes, not via a shell. This prevents shell injection but means pipes, redirects, and shell expansions won't work in hook commands. Use a wrapper script if you need shell features.
+
+### CI / Non-Interactive Usage
+
+| Flag | Where | What it does |
+|------|-------|-------------|
+| `--force` | `fledge plugin install` | Skips the install confirmation prompt |
+| `--yes` | `fledge init` | Skips the post-create hook confirmation prompt |
+
+Without these flags, interactive prompts will cause CI pipelines to hang.
+
 ## File Locations
 
 | Path | What's there |

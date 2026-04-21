@@ -42,7 +42,12 @@ pub fn check_requirements(requires: &[String]) -> (Vec<String>, Vec<String>) {
     let mut found = Vec::new();
     let mut missing = Vec::new();
     for tool in requires {
-        if tool.is_empty() || tool.contains('/') || tool.contains('\\') || tool.contains('\0') {
+        if tool.is_empty()
+            || tool.contains('/')
+            || tool.contains('\\')
+            || tool.contains('\0')
+            || tool.starts_with('-')
+        {
             missing.push(tool.clone());
             continue;
         }
@@ -942,6 +947,13 @@ ignore = ["template.toml"]
         let (found, missing) = check_requirements(&[]);
         assert!(found.is_empty());
         assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn check_requirements_rejects_dash_prefix() {
+        let (found, missing) = check_requirements(&["--version".to_string()]);
+        assert!(found.is_empty());
+        assert_eq!(missing, vec!["--version"]);
     }
 
     #[test]

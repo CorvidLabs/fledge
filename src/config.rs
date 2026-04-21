@@ -73,6 +73,7 @@ impl Config {
         {
             use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
+            use std::os::unix::fs::PermissionsExt;
             let mut file = std::fs::OpenOptions::new()
                 .write(true)
                 .create(true)
@@ -80,6 +81,7 @@ impl Config {
                 .mode(0o600)
                 .open(&path)?;
             file.write_all(content.as_bytes())?;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
         }
         #[cfg(not(unix))]
         {

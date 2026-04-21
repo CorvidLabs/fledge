@@ -88,11 +88,13 @@ fn clone_repo(
         .stderr(std::process::Stdio::piped());
 
     if let Some(t) = token {
-        let header = format!(
-            "http.extraheader=Authorization: Basic {}",
-            base64_encode(&format!("x-access-token:{}", t))
-        );
-        cmd.args(["-c", &header]);
+        use base64::Engine;
+        let credentials = format!("x-access-token:{}", t);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
+        let header_value = format!("Authorization: Basic {}", encoded);
+        cmd.env("GIT_CONFIG_COUNT", "1")
+            .env("GIT_CONFIG_KEY_0", "http.extraheader")
+            .env("GIT_CONFIG_VALUE_0", &header_value);
     }
 
     let status = cmd.status().context("running git clone")?;
@@ -148,41 +150,6 @@ fn update_repo(repo_dir: &Path) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn base64_encode(input: &str) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let bytes = input.as_bytes();
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    let mut i = 0;
-    while i < bytes.len() {
-        let b0 = bytes[i] as u32;
-        let b1 = if i + 1 < bytes.len() {
-            bytes[i + 1] as u32
-        } else {
-            0
-        };
-        let b2 = if i + 2 < bytes.len() {
-            bytes[i + 2] as u32
-        } else {
-            0
-        };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        encoded.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
-        encoded.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
-        if i + 1 < bytes.len() {
-            encoded.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            encoded.push('=');
-        }
-        if i + 2 < bytes.len() {
-            encoded.push(CHARS[(triple & 0x3F) as usize] as char);
-        } else {
-            encoded.push('=');
-        }
-        i += 3;
-    }
-    encoded
 }
 
 pub fn resolve_template_dir(
@@ -288,15 +255,6 @@ mod tests {
         assert_eq!(repo, "templates");
         assert_eq!(sub, Some("rust-cli"));
         assert_eq!(git_ref, Some("v2.0"));
-    }
-
-    #[test]
-    fn base64_encode_basic() {
-        assert_eq!(base64_encode("hello"), "aGVsbG8=");
-        assert_eq!(
-            base64_encode("x-access-token:ghp_test"),
-            "eC1hY2Nlc3MtdG9rZW46Z2hwX3Rlc3Q="
-        );
     }
 
     #[test]
