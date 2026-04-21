@@ -24,6 +24,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 | `run` | Entry point — lists or executes tasks |
 | `RunOptions` | Options: `task`, `init`, `list` |
 | `detect_project_type` | Detects project ecosystem from directory contents |
+| `task_defaults` | Returns default task definitions for a given project type |
 
 ### Structs & Enums
 
@@ -37,6 +38,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 |----------|-----------|-------------|
 | `run` | `(RunOptions) -> Result<()>` | Main entry — dispatch to init/list/execute |
 | `detect_project_type` | `(&Path) -> &'static str` | Detect project ecosystem (rust, node, go, python, etc.) from marker files |
+| `task_defaults` | `(&str, &Path) -> String` | Return default task TOML entries for a given project type and directory |
 
 ## Invariants
 
