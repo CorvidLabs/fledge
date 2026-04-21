@@ -28,6 +28,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
 | `PluginAction` | Enum of plugin operations: Install, Remove, List, Search, Run |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
+| `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
 
 ### Structs & Enums
 

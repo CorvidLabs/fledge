@@ -1,0 +1,4 @@
+- Parse CLI arguments via clap derive
+- Dispatch each subcommand to its module's entry function
+- Forward unknown commands to installed plugins
+- Generate shell completions on demand

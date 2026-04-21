@@ -1,0 +1,4 @@
+- [x] Define Cli struct and Commands enum
+- [x] Route all subcommands to module handlers
+- [x] Plugin pass-through via External variant
+- [x] Shell completion generation with --install
