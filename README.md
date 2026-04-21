@@ -81,6 +81,14 @@ Browse community templates: `fledge search <keyword>`
 - **[Flows Guide](https://corvidlabs.github.io/fledge/flows.html)** — task pipelines and workflow automation
 - **[Plugins Guide](https://corvidlabs.github.io/fledge/plugins.html)** — extend fledge with community tools
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, guidelines, and how to submit changes.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the security policy and how to report vulnerabilities.
+
 ## License
 
 MIT

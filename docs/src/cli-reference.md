@@ -18,6 +18,8 @@ fledge init <name> [OPTIONS]
 **Options:**
 - `-t, --template <TEMPLATE>` - Template to use (skips interactive selection)
 - `-o, --output <OUTPUT>` - Where to put it [default: `.`]
+- `--author <AUTHOR>` - Author name (bypasses prompt; overrides config)
+- `--org <ORG>` - GitHub organization (bypasses prompt; overrides config)
 - `--no-git` - Skip git init and initial commit
 - `--no-install` - Skip post-create hooks
 - `--refresh` - Force re-clone of cached remote templates
@@ -32,6 +34,7 @@ fledge init my-app --template ts-bun --dry-run
 fledge init my-lib --template go-cli --yes
 fledge init my-project --template python-cli -o ~/projects
 fledge init my-app --template CorvidLabs/fledge-templates/deno-cli@v2.0
+fledge init my-tool --template rust-cli --author "Leif" --org CorvidLabs --yes
 ```
 
 ---
@@ -56,6 +59,18 @@ fledge create-template <name> [OPTIONS]
 
 **Options:**
 - `-o, --output <OUTPUT>` - Parent directory [default: `.`]
+- `-d, --description <DESC>` - Template description (bypasses prompt)
+- `--render-patterns <PATTERNS>` - Comma-separated file patterns to render through Tera (bypasses prompt)
+- `--hooks` - Include post-create hooks scaffold (bypasses prompt)
+- `--prompts` - Include custom prompts scaffold (bypasses prompt)
+- `-y, --yes` - Skip all interactive prompts (accept defaults)
+
+**Examples:**
+
+```bash
+fledge create-template my-template
+fledge create-template my-template -d "FastAPI starter" --render-patterns "**/*.py,**/*.toml" --hooks --yes
+```
 
 ---
 
@@ -125,7 +140,6 @@ fledge update [OPTIONS]
 **Options:**
 - `--dry-run` - Preview changes
 - `--refresh` - Force re-clone
-- `-y, --yes` - Skip prompts
 
 ---
 
@@ -168,21 +182,21 @@ fledge run build         # run a specific task
 
 ---
 
-### fledge flow `[name]`
+### fledge flow
 
 Run workflow pipelines. Flows chain tasks with parallel groups and failure control.
 
 ```
-fledge flow [name] [OPTIONS]
+fledge flow <run|list|init|search|import>
 ```
 
-**Options:**
-- `-l, --list` - List flows
-- `--init` - Generate default flows
-- `--dry-run` - Preview the plan
-- `--json` - JSON output
-- `--search` - Search GitHub for community flows
-- `--import <source>` - Import flows from a GitHub repo (owner/repo or owner/repo@ref)
+**Subcommands:**
+
+- `run <name>` - Run a flow by name (`--dry-run` to preview)
+- `list` - List available flows (`--json` for JSON output)
+- `init` - Add default flows to `fledge.toml`
+- `search [query]` - Search GitHub for community flows (`--json` for JSON output)
+- `import <source>` - Import flows from a GitHub repo (owner/repo or owner/repo@ref)
 
 **Flow config in fledge.toml:**
 
@@ -285,12 +299,12 @@ fledge work <start|pr|status> [OPTIONS]
 **Subcommands:**
 
 - `start <name>` - Create a work branch
-- `pr` - Open a PR (`--title`, `--body`, `--draft`, `--base`)
+- `pr` - Open a PR (`-t, --title`, `-b, --body`, `--draft`, `--base`)
 - `status` - Current branch + PR status
 
 **Options for `work start`:**
 
-- `-t, --type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-t, --branch-type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
 - `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
 - `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
 - `--base <BRANCH>` - Base branch [default: `main`]
@@ -307,8 +321,8 @@ branch_format = "{author}/{type}/{name}"
 
 ```bash
 fledge work start add-auth                    # leif/feat/add-auth (default: {author}/{type}/{name})
-fledge work start login-crash --type fix      # leif/fix/login-crash
-fledge work start bump-deps --type chore      # leif/chore/bump-deps
+fledge work start login-crash --branch-type fix      # leif/fix/login-crash
+fledge work start bump-deps --branch-type chore      # leif/chore/bump-deps
 fledge work start login-crash --issue 42      # leif/feat/42-login-crash
 fledge work start my-feature --prefix user/leif  # user/leif/my-feature
 ```

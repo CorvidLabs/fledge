@@ -11,10 +11,10 @@ Instead of manually creating branches and PRs, `fledge work` handles the git cer
 fledge work start add-auth
 
 # Start a bug fix branch
-fledge work start login-crash --type fix
+fledge work start login-crash --branch-type fix
 
 # Link to a GitHub issue
-fledge work start login-crash --type fix --issue 42
+fledge work start login-crash --branch-type fix --issue 42
 
 # Check where you are
 fledge work status
@@ -26,14 +26,14 @@ fledge work pr --title "Add auth middleware"
 This creates a branch using your configured format (default: `{author}/{type}/{name}`), and `fledge work pr` opens a pull request against your base branch with sensible defaults.
 
 **Options for `work start`:**
-- `-t, --type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-t, --branch-type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
 - `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
 - `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
 - `--base <branch>` - Base branch (defaults to `main`)
 
 **Options for `work pr`:**
-- `--title <title>` - PR title
-- `--body <body>` - PR description
+- `-t, --title <title>` - PR title
+- `-b, --body <body>` - PR description
 - `--draft` - Open as draft
 - `--base <branch>` - Target branch
 
