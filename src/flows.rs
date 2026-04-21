@@ -553,7 +553,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
         None => "topic:fledge-flow".to_string(),
     };
 
-    let sp = crate::spinner::Spinner::start("Searching GitHub for community flows...");
+    let sp = crate::spinner::Spinner::start("Searching GitHub for community flows:");
 
     let body = crate::github::github_api_get(
         "/search/repositories",
@@ -645,7 +645,7 @@ fn import_flows(source: &str) -> Result<()> {
             .unwrap_or_default()
     );
 
-    let sp = crate::spinner::Spinner::start(&format!("Fetching flows from {}...", display_source,));
+    let sp = crate::spinner::Spinner::start(&format!("Fetching flows from {}:", display_source,));
 
     let ref_param = git_ref.as_deref().unwrap_or("HEAD");
     let remote_path = match &subpath {

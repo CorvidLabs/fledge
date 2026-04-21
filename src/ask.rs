@@ -17,7 +17,7 @@ pub fn run(options: AskOptions) -> Result<()> {
         options.question
     );
 
-    let sp = crate::spinner::Spinner::start("Thinking...");
+    let sp = crate::spinner::Spinner::start("Thinking:");
 
     let output = Command::new("claude").args(["--print", &prompt]).output()?;
 

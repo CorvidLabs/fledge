@@ -65,7 +65,7 @@ impl Spinner {
         bar.set_style(
             ProgressStyle::default_spinner()
                 .tick_strings(theme.frames)
-                .template("  {spinner} {msg}")
+                .template("  {msg} {spinner}")
                 .expect("valid spinner template"),
         );
         bar.set_message(message.to_string());

@@ -46,7 +46,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
         style(repo_name).green()
     );
 
-    let sp = crate::spinner::Spinner::start("Checking repository...");
+    let sp = crate::spinner::Spinner::start("Checking repository:");
     let repo_exists = check_repo_exists(&owner, repo_name, &token)?;
     sp.finish();
 
@@ -64,7 +64,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
             return Ok(());
         }
     } else {
-        let sp = crate::spinner::Spinner::start("Creating repository...");
+        let sp = crate::spinner::Spinner::start("Creating repository:");
         create_github_repo(
             repo_name,
             description,
@@ -81,7 +81,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
         );
     }
 
-    let sp = crate::spinner::Spinner::start("Setting repository topics...");
+    let sp = crate::spinner::Spinner::start("Setting repository topics:");
     set_repo_topics(&owner, repo_name, &token)?;
     sp.finish();
     println!(
@@ -90,7 +90,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
         style("fledge-template").cyan()
     );
 
-    let sp = crate::spinner::Spinner::start("Pushing template files...");
+    let sp = crate::spinner::Spinner::start("Pushing template files:");
     push_template(&path, &owner, repo_name, &token)?;
     sp.finish();
     println!("  {} Pushed template files", style("✅").green().bold());

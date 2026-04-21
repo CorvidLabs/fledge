@@ -62,7 +62,7 @@ fn list(
         params.push(("labels", l));
     }
 
-    let sp = crate::spinner::Spinner::start("Fetching issues...");
+    let sp = crate::spinner::Spinner::start("Fetching issues:");
     let path = format!("/repos/{}/{}/issues", owner, repo);
     let items = github::github_api_get(&path, token, &params);
     sp.finish();
@@ -108,7 +108,7 @@ fn list(
 }
 
 fn view(owner: &str, repo: &str, number: u64, json: bool, token: Option<&str>) -> Result<()> {
-    let sp = crate::spinner::Spinner::start(&format!("Fetching issue #{}...", number));
+    let sp = crate::spinner::Spinner::start(&format!("Fetching issue #{}:", number));
     let path = format!("/repos/{}/{}/issues/{}", owner, repo, number);
     let issue = github::github_api_get(&path, token, &[]);
     sp.finish();
