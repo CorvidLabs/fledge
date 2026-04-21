@@ -25,7 +25,7 @@ Shared helpers for GitHub API interactions: repository detection from git remote
 | `github_api_get` | Makes an authenticated GET request to the GitHub REST API |
 | `format_relative_time` | Formats an ISO 8601 timestamp as a human-readable relative time |
 | `ensure_claude_cli` | Verifies that the Claude CLI is installed and accessible |
-| `ensure_git_repo` | Verifies that the current directory is inside a git repository |
+| `ensure_git_repo` | Verifies that the current directory is inside a git repository | main
 
 ### Functions
 
@@ -35,7 +35,7 @@ Shared helpers for GitHub API interactions: repository detection from git remote
 | `github_api_get` | `(path, token, query_params) -> Result<Value>` | GET request to GitHub API with optional auth |
 | `format_relative_time` | `(iso: &str) -> String` | Converts ISO timestamp to "5m ago", "3h ago", etc. |
 | `ensure_claude_cli` | `() -> Result<()>` | Checks `claude --version` succeeds, bails if not installed |
-| `ensure_git_repo` | `() -> Result<()>` | Runs `git rev-parse --is-inside-work-tree`, bails if not a repo |
+| `ensure_git_repo` | `() -> Result<()>` | Runs `git rev-parse --is-inside-work-tree`, bails if not a repo | main
 
 ## Invariants
 
@@ -45,7 +45,7 @@ Shared helpers for GitHub API interactions: repository detection from git remote
 4. Rate limit errors (403) produce a helpful message about setting a token
 5. `format_relative_time` gracefully falls back to the raw string for unparseable input
 6. `ensure_claude_cli` checks for the `claude` binary via `--version`
-7. `ensure_git_repo` uses `git rev-parse --is-inside-work-tree`
+7. `ensure_git_repo` uses `git rev-parse --is-inside-work-tree` main
 
 ## Behavioral Examples
 
