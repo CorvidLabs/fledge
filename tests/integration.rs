@@ -533,7 +533,7 @@ fn cli_lane_no_fledge_toml_fails() {
 }
 
 #[test]
-fn cli_lane_list_shows_flows() {
+fn cli_lane_list_shows_lanes() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -596,7 +596,7 @@ steps = ["step1", "step2"]
 }
 
 #[test]
-fn cli_lane_unknown_flow_fails() {
+fn cli_lane_unknown_lane_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -608,7 +608,7 @@ fn cli_lane_unknown_flow_fails() {
 }
 
 #[test]
-fn cli_lane_init_adds_default_flows() {
+fn cli_lane_init_adds_default_lanes() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("Cargo.toml"),
@@ -1599,7 +1599,7 @@ steps = ["a", "b"]
 }
 
 #[test]
-fn cli_lane_no_flows_section_fails() {
+fn cli_lane_no_lanes_section_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
