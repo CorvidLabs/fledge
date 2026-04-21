@@ -149,7 +149,11 @@ fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
         return (source, None);
     }
     match source.rsplit_once('@') {
-        Some((before, after)) if !after.is_empty() && !before.is_empty() => (before, Some(after)),
+        Some((before, after))
+            if !after.is_empty() && !before.is_empty() && !after.contains('/') =>
+        {
+            (before, Some(after))
+        }
         _ => (source, None),
     }
 }
@@ -262,10 +266,23 @@ fn link_commands(
     Ok(command_names)
 }
 
+fn validate_plugin_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.starts_with('.')
+        || name.contains('/')
+        || name.contains('\\')
+        || name == ".."
+    {
+        bail!("Invalid plugin source: repo name '{}' is not safe.", name);
+    }
+    Ok(())
+}
+
 fn install_plugin(source: &str, force: bool) -> Result<()> {
     let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
+    validate_plugin_name(&repo_name)?;
 
     let plugins = plugins_dir();
     let bin_dir = plugin_bin_dir();
@@ -410,9 +427,7 @@ fn update_plugins(name: Option<&str>) -> Result<()> {
                 .plugins
                 .iter()
                 .find(|p| p.name == n || p.name == format!("fledge-{n}"))
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Plugin '{n}' is not installed.")
-                })?;
+                .ok_or_else(|| anyhow::anyhow!("Plugin '{n}' is not installed."))?;
             vec![entry]
         }
         None => {
@@ -497,11 +512,19 @@ fn update_plugins(name: Option<&str>) -> Result<()> {
             run_build(&plugin_dir, &manifest)?;
 
             let bin_dir = plugin_bin_dir();
+            for old_cmd in &entry.commands {
+                let old_link = bin_dir.join(format!("fledge-{old_cmd}"));
+                if old_link.exists() || old_link.is_symlink() {
+                    fs::remove_file(&old_link).ok();
+                }
+            }
             link_commands(&plugin_dir, &bin_dir, &manifest)?;
 
+            let new_cmds: Vec<String> = manifest.commands.iter().map(|c| c.name.clone()).collect();
             let mut reg = load_registry()?;
             if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
                 e.version = manifest.plugin.version.clone();
+                e.commands = new_cmds;
             }
             save_registry(&reg)?;
 
@@ -518,6 +541,13 @@ fn update_plugins(name: Option<&str>) -> Result<()> {
 }
 
 fn find_latest_tag(repo_dir: &Path) -> Option<String> {
+    Command::new("git")
+        .args(["fetch", "--tags"])
+        .current_dir(repo_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .ok();
     let output = Command::new("git")
         .args(["tag", "--sort=-v:refname"])
         .current_dir(repo_dir)
@@ -1026,6 +1056,33 @@ mod tests {
             parse_source_ref("https://github.com/someone/fledge-deploy.git@v2.0.0");
         assert_eq!(base, "https://github.com/someone/fledge-deploy.git");
         assert_eq!(git_ref, Some("v2.0.0"));
+    }
+
+    #[test]
+    fn parse_source_ref_credential_url_no_split() {
+        let (base, git_ref) = parse_source_ref("https://user:token@github.com/owner/repo.git");
+        assert_eq!(base, "https://user:token@github.com/owner/repo.git");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_dotdot() {
+        assert!(validate_plugin_name("..").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_hidden() {
+        assert!(validate_plugin_name(".secret").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_rejects_slashes() {
+        assert!(validate_plugin_name("../etc").is_err());
+    }
+
+    #[test]
+    fn validate_plugin_name_accepts_normal() {
+        assert!(validate_plugin_name("fledge-deploy").is_ok());
     }
 
     #[test]
