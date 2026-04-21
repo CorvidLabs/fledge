@@ -73,7 +73,7 @@ steps = [
 
 ### Parallel Groups
 
-Run multiple tasks at the same time. Everything in the group finishes before the next step starts.
+Run multiple items at the same time. Everything in the group finishes before the next step starts. Items can be task references or inline commands.
 
 ```toml
 steps = [
@@ -84,6 +84,15 @@ steps = [
 ```
 
 Here `fmt` and `lint` run concurrently, then `test`, then `build`.
+
+You can mix task references and inline commands in a parallel group:
+
+```toml
+steps = [
+  { parallel = ["lint", { run = "echo checking..." }, "fmt"] },
+  "test"
+]
+```
 
 ## Failure Behavior
 
@@ -232,6 +241,13 @@ You can pin to a specific branch or tag:
 ```bash
 fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 ```
+
+## Related
+
+- [Configuration](./configuration.md) — global config, GitHub tokens
+- [Plugins](./plugins.md) — extend fledge with community commands, use plugins in lanes
+- [CLI Reference](./cli-reference.md) — full `fledge lane` subcommand reference
+- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
 
 ## Tips
 

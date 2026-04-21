@@ -165,6 +165,33 @@ Hooks fire in response to fledge events.
 | `event` | string | Yes | Event to hook (e.g. `lane:post`) |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
+## Using Plugins in Lanes
+
+Plugin commands can be called from lane steps as inline commands:
+
+```toml
+[lanes.deploy]
+description = "Test, build, and deploy"
+steps = [
+  "test",
+  { run = "cargo build --release" },
+  { run = "fledge deploy --target production" },
+]
+```
+
+You can also run plugin commands in parallel with other tasks:
+
+```toml
+[lanes.ci]
+steps = [
+  { parallel = ["lint", "test"] },
+  "build",
+  { parallel = [{ run = "fledge deploy --target staging" }, { run = "fledge notify --channel ci" }] },
+]
+```
+
+See [Lanes & Pipelines](./lanes.md) for full step type documentation.
+
 ## File Locations
 
 | Path | What's there |

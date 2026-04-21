@@ -84,7 +84,14 @@ fn default_true() -> bool {
 enum Step {
     TaskRef(String),
     Inline { run: String },
-    Parallel { parallel: Vec<String> },
+    Parallel { parallel: Vec<ParallelItem> },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ParallelItem {
+    TaskRef(String),
+    Inline { run: String },
 }
 
 pub enum LaneAction {
@@ -216,18 +223,20 @@ fn validate_lane(lane_name: &str, lane: &LaneDef, tasks: &BTreeMap<String, TaskD
             }
             Step::Inline { .. } => {}
             Step::Parallel { parallel } => {
-                for name in parallel {
-                    if !tasks.contains_key(name) {
-                        bail!(
-                            "Lane '{}' step {} parallel group references unknown task '{}'.\n  Define it in [tasks] first.",
-                            lane_name,
-                            i + 1,
-                            name
-                        );
+                for item in parallel {
+                    if let ParallelItem::TaskRef(name) = item {
+                        if !tasks.contains_key(name) {
+                            bail!(
+                                "Lane '{}' step {} parallel group references unknown task '{}'.\n  Define it in [tasks] first.",
+                                lane_name,
+                                i + 1,
+                                name
+                            );
+                        }
+                        check_dep_cycle(name, tasks, &mut HashSet::new()).map_err(|e| {
+                            anyhow::anyhow!("Lane '{}' step {}: {}", lane_name, i + 1, e)
+                        })?;
                     }
-                    check_dep_cycle(name, tasks, &mut HashSet::new()).map_err(|e| {
-                        anyhow::anyhow!("Lane '{}' step {}: {}", lane_name, i + 1, e)
-                    })?;
                 }
             }
         }
@@ -282,10 +291,17 @@ fn dry_run_lane(lane_name: &str, lane: &LaneDef) -> Result<()> {
                 );
             }
             Step::Parallel { parallel } => {
+                let names: Vec<String> = parallel
+                    .iter()
+                    .map(|item| match item {
+                        ParallelItem::TaskRef(name) => name.clone(),
+                        ParallelItem::Inline { run: cmd } => format!("run: {cmd}"),
+                    })
+                    .collect();
                 println!(
                     "  {}. {} {}",
                     i + 1,
-                    style(parallel.join(", ")).cyan(),
+                    style(names.join(", ")).cyan(),
                     style("(parallel)").dim()
                 );
             }
@@ -322,7 +338,16 @@ fn execute_lane(
             let step_desc = match step {
                 Step::TaskRef(name) => name.clone(),
                 Step::Inline { run: cmd } => cmd.clone(),
-                Step::Parallel { parallel } => format!("parallel({})", parallel.join(", ")),
+                Step::Parallel { parallel } => {
+                    let names: Vec<String> = parallel
+                        .iter()
+                        .map(|item| match item {
+                            ParallelItem::TaskRef(name) => name.clone(),
+                            ParallelItem::Inline { run: cmd } => cmd.clone(),
+                        })
+                        .collect();
+                    format!("parallel({})", names.join(", "))
+                }
             };
             if lane.fail_fast {
                 bail!(
@@ -458,15 +483,21 @@ fn execute_inline(cmd: &str, project_dir: &Path) -> Result<()> {
 }
 
 fn execute_parallel(
-    task_names: &[String],
+    items: &[ParallelItem],
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
 ) -> Result<()> {
-    let names_display = task_names.join(", ");
+    let names_display: Vec<String> = items
+        .iter()
+        .map(|item| match item {
+            ParallelItem::TaskRef(name) => name.clone(),
+            ParallelItem::Inline { run: cmd } => cmd.clone(),
+        })
+        .collect();
     println!(
         "  {} {}",
         style("▶️").cyan().bold(),
-        style(format!("Running parallel: {names_display}")).bold()
+        style(format!("Running parallel: {}", names_display.join(", "))).bold()
     );
 
     let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
@@ -474,12 +505,20 @@ fn execute_parallel(
     thread::scope(|s| {
         let mut handles = Vec::new();
 
-        for name in task_names {
+        for item in items {
             let errors = Arc::clone(&errors);
             let handle = s.spawn(move || {
-                if let Err(e) = execute_task_with_deps(name, tasks, project_dir) {
+                let result = match item {
+                    ParallelItem::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
+                    ParallelItem::Inline { run: cmd } => execute_inline(cmd, project_dir),
+                };
+                if let Err(e) = result {
+                    let label = match item {
+                        ParallelItem::TaskRef(name) => name.clone(),
+                        ParallelItem::Inline { run: cmd } => cmd.clone(),
+                    };
                     if let Ok(mut errs) = errors.lock() {
-                        errs.push(format!("{}: {}", name, e));
+                        errs.push(format!("{}: {}", label, e));
                     }
                 }
             });
@@ -851,8 +890,16 @@ fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
                 out.push_str(&format!("{{ run = \"{}\" }}", cmd));
             }
             Step::Parallel { parallel } => {
-                let names: Vec<String> = parallel.iter().map(|n| format!("\"{}\"", n)).collect();
-                out.push_str(&format!("{{ parallel = [{}] }}", names.join(", ")));
+                let items: Vec<String> = parallel
+                    .iter()
+                    .map(|item| match item {
+                        ParallelItem::TaskRef(name) => format!("\"{}\"", name),
+                        ParallelItem::Inline { run: cmd } => {
+                            format!("{{ run = \"{}\" }}", cmd)
+                        }
+                    })
+                    .collect();
+                out.push_str(&format!("{{ parallel = [{}] }}", items.join(", ")));
             }
         }
     }
@@ -956,7 +1003,9 @@ steps = [
         assert_eq!(config.lanes["check"].steps.len(), 2);
         match &config.lanes["check"].steps[0] {
             Step::Parallel { parallel } => {
-                assert_eq!(parallel, &["lint", "fmt"]);
+                assert_eq!(parallel.len(), 2);
+                assert!(matches!(&parallel[0], ParallelItem::TaskRef(n) if n == "lint"));
+                assert!(matches!(&parallel[1], ParallelItem::TaskRef(n) if n == "fmt"));
             }
             _ => panic!("expected parallel step"),
         }
@@ -1235,6 +1284,101 @@ steps = [{ parallel = ["a", "b"] }]
     }
 
     #[test]
+    fn parse_parallel_inline_items() {
+        let config = parse_config(
+            r#"
+[tasks]
+lint = "cargo clippy"
+
+[lanes.mixed]
+description = "Mixed parallel"
+steps = [
+  { parallel = ["lint", { run = "echo inline" }] },
+]
+"#,
+        );
+        match &config.lanes["mixed"].steps[0] {
+            Step::Parallel { parallel } => {
+                assert_eq!(parallel.len(), 2);
+                assert!(matches!(&parallel[0], ParallelItem::TaskRef(n) if n == "lint"));
+                assert!(
+                    matches!(&parallel[1], ParallelItem::Inline { run } if run == "echo inline")
+                );
+            }
+            _ => panic!("expected parallel step"),
+        }
+    }
+
+    #[test]
+    fn execute_parallel_with_inline() {
+        let config = parse_config(
+            r#"
+[tasks]
+a = "echo task-a"
+
+[lanes.mixed]
+steps = [{ parallel = ["a", { run = "echo inline-b" }] }]
+"#,
+        );
+        let project_dir = std::env::current_dir().unwrap();
+        let result = execute_lane("mixed", &config.lanes["mixed"], &config.tasks, &project_dir);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn execute_parallel_all_inline() {
+        let config = parse_config(
+            r#"
+[tasks]
+
+[lanes.inlines]
+steps = [{ parallel = [{ run = "echo one" }, { run = "echo two" }] }]
+"#,
+        );
+        let project_dir = std::env::current_dir().unwrap();
+        let result = execute_lane(
+            "inlines",
+            &config.lanes["inlines"],
+            &config.tasks,
+            &project_dir,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_parallel_inline_no_task_check() {
+        let config = parse_config(
+            r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ parallel = [{ run = "echo hello" }] }]
+"#,
+        );
+        let result = validate_lane("ci", &config.lanes["ci"], &config.tasks);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn format_lane_toml_with_parallel_inline() {
+        let lane = LaneDef {
+            description: None,
+            steps: vec![Step::Parallel {
+                parallel: vec![
+                    ParallelItem::TaskRef("lint".to_string()),
+                    ParallelItem::Inline {
+                        run: "echo done".to_string(),
+                    },
+                ],
+            }],
+            fail_fast: true,
+        };
+        let toml = format_lane_toml("mixed", &lane);
+        assert!(toml.contains("\"lint\""));
+        assert!(toml.contains("{ run = \"echo done\" }"));
+    }
+
+    #[test]
     fn execute_fail_fast_stops() {
         let config = parse_config(
             r#"
@@ -1428,7 +1572,10 @@ steps = ["build"]
         let lane = LaneDef {
             description: None,
             steps: vec![Step::Parallel {
-                parallel: vec!["lint".to_string(), "fmt".to_string()],
+                parallel: vec![
+                    ParallelItem::TaskRef("lint".to_string()),
+                    ParallelItem::TaskRef("fmt".to_string()),
+                ],
             }],
             fail_fast: true,
         };
