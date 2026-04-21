@@ -610,7 +610,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
     }
     println!(
         "\n{}",
-        style("Import with: fledge flow import <owner/repo>").dim()
+        style("Import with: fledge flow import <owner/repo[/path]>").dim()
     );
 
     Ok(())
@@ -630,26 +630,39 @@ fn import_flows(source: &str) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token();
 
-    let (owner, repo, git_ref) = parse_import_source(source);
+    let (owner, repo, subpath, git_ref) = parse_import_source(source);
 
-    println!(
-        "  {} Fetching flows from {}/{}{}...",
-        style("▶️").cyan().bold(),
+    let display_source = format!(
+        "{}/{}{}{}",
         owner,
         repo,
+        subpath
+            .as_ref()
+            .map(|p| format!("/{p}"))
+            .unwrap_or_default(),
         git_ref
             .as_ref()
             .map(|r| format!("@{r}"))
             .unwrap_or_default()
     );
 
+    println!(
+        "  {} Fetching flows from {}...",
+        style("▶️").cyan().bold(),
+        display_source,
+    );
+
     let ref_param = git_ref.as_deref().unwrap_or("HEAD");
+    let remote_path = match &subpath {
+        Some(p) => format!("{p}/fledge.toml"),
+        None => "fledge.toml".to_string(),
+    };
     let body = crate::github::github_api_get(
-        &format!("/repos/{owner}/{repo}/contents/fledge.toml"),
+        &format!("/repos/{owner}/{repo}/contents/{remote_path}"),
         token.as_deref(),
         &[("ref", ref_param)],
     )
-    .context("fetching fledge.toml from remote repo")?;
+    .context(format!("fetching {remote_path} from remote repo"))?;
 
     let content_b64 = body
         .get("content")
@@ -697,10 +710,9 @@ fn import_flows(source: &str) -> Result<()> {
 
     if imported_flows.is_empty() {
         println!(
-            "{} All flows from {}/{} already exist locally ({})",
+            "{} All flows from {} already exist locally ({})",
             style("*").cyan().bold(),
-            owner,
-            repo,
+            display_source,
             skipped.join(", ")
         );
         return Ok(());
@@ -710,11 +722,10 @@ fn import_flows(source: &str) -> Result<()> {
     std::fs::write(&local_path, new_content).context("writing fledge.toml")?;
 
     println!(
-        "{} Imported {} flow(s) from {}/{}",
+        "{} Imported {} flow(s) from {}",
         style("✅").green().bold(),
         imported_flows.len(),
-        owner,
-        repo
+        display_source
     );
     for name in &imported_flows {
         println!("  {} {}", style("+").green(), style(name).cyan());
@@ -738,7 +749,7 @@ fn import_flows(source: &str) -> Result<()> {
     Ok(())
 }
 
-fn parse_import_source(source: &str) -> (String, String, Option<String>) {
+fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<String>) {
     let source = source
         .strip_prefix("https://github.com/")
         .unwrap_or(source)
@@ -750,11 +761,15 @@ fn parse_import_source(source: &str) -> (String, String, Option<String>) {
         (source, None)
     };
 
-    let parts: Vec<&str> = path.splitn(2, '/').collect();
+    let parts: Vec<&str> = path.splitn(3, '/').collect();
     let owner = parts.first().unwrap_or(&"").to_string();
     let repo = parts.get(1).unwrap_or(&"").to_string();
+    let subpath = parts
+        .get(2)
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty());
 
-    (owner, repo, git_ref)
+    (owner, repo, subpath, git_ref)
 }
 
 fn format_flow_toml(name: &str, flow: &FlowDef) -> String {
@@ -1205,35 +1220,58 @@ steps = ["build"]
 
     #[test]
     fn parse_import_source_basic() {
-        let (owner, repo, git_ref) = parse_import_source("CorvidLabs/fledge-flows");
+        let (owner, repo, subpath, git_ref) = parse_import_source("CorvidLabs/fledge-flows");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-flows");
+        assert!(subpath.is_none());
         assert!(git_ref.is_none());
     }
 
     #[test]
     fn parse_import_source_with_ref() {
-        let (owner, repo, git_ref) = parse_import_source("CorvidLabs/fledge-flows@v1.0.0");
+        let (owner, repo, subpath, git_ref) = parse_import_source("CorvidLabs/fledge-flows@v1.0.0");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-flows");
+        assert!(subpath.is_none());
         assert_eq!(git_ref.unwrap(), "v1.0.0");
     }
 
     #[test]
+    fn parse_import_source_with_subpath() {
+        let (owner, repo, subpath, git_ref) = parse_import_source("CorvidLabs/fledge-flows/rust");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert_eq!(subpath.unwrap(), "rust");
+        assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_import_source_with_subpath_and_ref() {
+        let (owner, repo, subpath, git_ref) =
+            parse_import_source("CorvidLabs/fledge-flows/rust@main");
+        assert_eq!(owner, "CorvidLabs");
+        assert_eq!(repo, "fledge-flows");
+        assert_eq!(subpath.unwrap(), "rust");
+        assert_eq!(git_ref.unwrap(), "main");
+    }
+
+    #[test]
     fn parse_import_source_full_url() {
-        let (owner, repo, git_ref) =
+        let (owner, repo, subpath, git_ref) =
             parse_import_source("https://github.com/CorvidLabs/fledge-flows.git");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-flows");
+        assert!(subpath.is_none());
         assert!(git_ref.is_none());
     }
 
     #[test]
     fn parse_import_source_url_with_ref() {
-        let (owner, repo, git_ref) =
+        let (owner, repo, subpath, git_ref) =
             parse_import_source("https://github.com/CorvidLabs/fledge-flows@main");
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-flows");
+        assert!(subpath.is_none());
         assert_eq!(git_ref.unwrap(), "main");
     }
 
