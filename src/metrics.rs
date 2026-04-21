@@ -379,7 +379,13 @@ struct LineCounts {
 fn count_lines(path: &Path, language: &str) -> LineCounts {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
-        Err(_) => {
+        Err(e) => {
+            eprintln!(
+                "  {} skipping {}: {}",
+                console::style("⚠").yellow().bold(),
+                path.display(),
+                e
+            );
             return LineCounts {
                 lines: 0,
                 code: 0,

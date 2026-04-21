@@ -200,6 +200,7 @@ fn parse_npm_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
 fn parse_yarn_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     let content = std::fs::read_to_string(path).context("reading yarn.lock")?;
     let mut deps = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     let mut current_name: Option<String> = None;
 
     for line in content.lines() {
@@ -218,7 +219,7 @@ fn parse_yarn_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
         } else if trimmed.starts_with("version ") {
             if let Some(name) = current_name.take() {
                 let version = unquote(trimmed.trim_start_matches("version "));
-                if !deps.iter().any(|d: &Dep| d.name == name) {
+                if seen.insert(name.clone()) {
                     deps.push(Dep { name, version });
                 }
             }
