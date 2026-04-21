@@ -175,7 +175,7 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
         fs::remove_dir_all(&plugin_dir).context("removing existing plugin")?;
     }
 
-    let sp = crate::spinner::Spinner::start(&format!("Cloning {}...", &url));
+    let sp = crate::spinner::Spinner::start(&format!("Cloning {}:", &url));
 
     let status = Command::new("git")
         .args(["clone", "--depth", "1", &url])
@@ -401,7 +401,7 @@ fn search_plugins(query: Option<&str>, limit: usize, json: bool) -> Result<()> {
         None => "fledge-plugin".to_string(),
     };
 
-    let sp = crate::spinner::Spinner::start("Searching GitHub for plugins...");
+    let sp = crate::spinner::Spinner::start("Searching GitHub for plugins:");
 
     let config = crate::config::Config::load().ok();
     let token = config.as_ref().and_then(|c| c.github_token());

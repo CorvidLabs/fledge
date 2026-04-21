@@ -19,7 +19,7 @@ pub fn run(opts: ChecksOptions) -> Result<()> {
         None => current_branch()?,
     };
 
-    let sp = crate::spinner::Spinner::start("Fetching CI checks...");
+    let sp = crate::spinner::Spinner::start("Fetching CI checks:");
     let ref_path = format!("/repos/{owner}/{repo}/commits/{branch}/check-runs");
     let data = github::github_api_get(&ref_path, token.as_deref(), &[]);
     sp.finish();

@@ -284,7 +284,7 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
         );
     }
 
-    let sp = crate::spinner::Spinner::start(&format!("Pushing {} to origin...", &branch));
+    let sp = crate::spinner::Spinner::start(&format!("Pushing {} to origin:", &branch));
     let push_output = Command::new("git")
         .args(["push", "-u", "origin", &branch])
         .output()?;
@@ -326,7 +326,7 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
         gh_args.push(b.to_string());
     }
 
-    let sp = crate::spinner::Spinner::start("Creating pull request...");
+    let sp = crate::spinner::Spinner::start("Creating pull request:");
     let gh_output = Command::new("gh").args(&gh_args).output()?;
     sp.finish();
 

@@ -43,7 +43,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         diff
     );
 
-    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}...", &base));
+    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}:", &base));
 
     let output = Command::new("claude").args(["--print", &prompt]).output()?;
 
