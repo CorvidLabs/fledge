@@ -20,7 +20,7 @@ spec: work.spec.md
 - `fledge work start <name> --issue 42` includes issue number in branch name
 - `fledge work start <name> --prefix user/leif` creates `user/leif/<name>` branch
 - `fledge work start` refuses if working tree is dirty
-- `fledge work start` rejects invalid branch types (not in feat, fix, chore, docs, hotfix, refactor)
+- `fledge work start` rejects invalid branch types (not in feat, feature, fix, bug, chore, task, docs, hotfix, refactor)
 - `fledge work pr` pushes the branch and creates a PR via `gh`
 - `fledge work pr --title "X"` uses the given title
 - `fledge work pr --draft` creates a draft PR
