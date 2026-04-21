@@ -321,11 +321,16 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
             if dir.join("Cargo.lock").exists() {
                 let lock = std::fs::read_to_string(dir.join("Cargo.lock"))?;
                 if lock.contains(&format!("version = \"{}\"", old)) {
-                    let _ = Command::new("cargo")
+                    let status = Command::new("cargo")
                         .args(["generate-lockfile"])
                         .current_dir(dir)
-                        .output();
-                    bumped.push("Cargo.lock".to_string());
+                        .status()
+                        .with_context(|| "running cargo generate-lockfile")?;
+                    if status.success() {
+                        bumped.push("Cargo.lock".to_string());
+                    } else {
+                        eprintln!("Warning: cargo generate-lockfile failed, Cargo.lock not staged");
+                    }
                 }
             }
         }
@@ -359,20 +364,27 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
     }
 
     if let Ok(content) = std::fs::read_to_string(dir.join("pom.xml")) {
-        let re = Regex::new(r"(<version>)[^<]+(</version>)").unwrap();
-        let updated = re.replace(&content, format!("${{1}}{new_str}${{2}}"));
-        if updated != content {
-            std::fs::write(dir.join("pom.xml"), updated.as_bytes())?;
-            bumped.push("pom.xml".to_string());
+        let re = Regex::new(r"(<version>)([^<]+)(</version>)").unwrap();
+        let old_version_str = old.to_string();
+        if let Some(caps) = re.captures(&content) {
+            if caps
+                .get(2)
+                .map(|m| m.as_str().trim() == old_version_str.as_str())
+                .unwrap_or(false)
+            {
+                let updated = re.replace(&content, format!("${{1}}{new_str}${{3}}"));
+                std::fs::write(dir.join("pom.xml"), updated.as_bytes())?;
+                bumped.push("pom.xml".to_string());
+            }
         }
     }
 
     for name in &["build.gradle", "build.gradle.kts"] {
         let path = dir.join(name);
         if let Ok(content) = std::fs::read_to_string(&path) {
-            let re = Regex::new(r#"(version\s*=\s*["'])[^"']+["']"#).unwrap();
+            let re = Regex::new(r#"(version\s*=\s*)(["'])[^"']+["']"#).unwrap();
             if re.is_match(&content) {
-                let updated = re.replace(&content, format!("${{1}}{new_str}\""));
+                let updated = re.replace(&content, format!("${{1}}${{2}}{new_str}${{2}}"));
                 std::fs::write(&path, updated.as_bytes())?;
                 bumped.push(name.to_string());
             }
@@ -392,6 +404,15 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
                         if !bumped.iter().any(|b| b == file_name) {
                             let path = dir.join(file_name);
                             if path.exists() {
+                                let canonical_path = path
+                                    .canonicalize()
+                                    .with_context(|| format!("canonicalizing '{}'", file_name))?;
+                                let canonical_dir = dir
+                                    .canonicalize()
+                                    .with_context(|| "canonicalizing project dir")?;
+                                if !canonical_path.starts_with(&canonical_dir) {
+                                    bail!("Release file '{}' escapes project directory", file_name);
+                                }
                                 if let Ok(content) = std::fs::read_to_string(&path) {
                                     let re = Regex::new(
                                         r#"(?m)(version\s*[=:]\s*["']?)(\d+\.\d+\.\d+)"#,

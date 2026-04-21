@@ -920,6 +920,15 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
 
     let hook_path = plugin_dir.join(hook);
     let status = if hook_path.exists() {
+        let canonical_hook = hook_path
+            .canonicalize()
+            .with_context(|| format!("canonicalizing hook path '{}'", hook))?;
+        let canonical_plugin_dir = plugin_dir
+            .canonicalize()
+            .unwrap_or_else(|_| plugin_dir.to_path_buf());
+        if !canonical_hook.starts_with(&canonical_plugin_dir) {
+            bail!("Hook path '{}' escapes plugin directory", hook);
+        }
         make_executable(&hook_path)?;
         Command::new(&hook_path)
             .current_dir(plugin_dir)
