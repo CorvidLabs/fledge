@@ -216,12 +216,13 @@ steps = [
 
 ```bash
 fledge flow
-fledge flow ci
-fledge flow ci --dry-run
-fledge flow --init
-fledge flow --search
-fledge flow rust --search
-fledge flow --import CorvidLabs/fledge-flows
+fledge flow run ci
+fledge flow run ci --dry-run
+fledge flow list
+fledge flow init
+fledge flow search
+fledge flow search rust
+fledge flow import CorvidLabs/fledge-flows
 ```
 
 ---

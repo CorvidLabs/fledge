@@ -87,29 +87,51 @@ enum Step {
     Parallel { parallel: Vec<String> },
 }
 
-pub struct FlowOptions {
-    pub flow: Option<String>,
-    pub list: bool,
-    pub init: bool,
-    pub dry_run: bool,
-    pub json: bool,
-    pub search: bool,
-    pub import: Option<String>,
+pub enum FlowAction {
+    Run { name: String, dry_run: bool },
+    List { json: bool },
+    Init,
+    Search { query: Option<String>, json: bool },
+    Import { source: String },
 }
 
-pub fn run(opts: FlowOptions) -> Result<()> {
-    if opts.search {
-        return search_flows(opts.flow.as_deref(), opts.json);
-    }
+pub fn run(action: FlowAction) -> Result<()> {
+    match action {
+        FlowAction::Search { query, json } => search_flows(query.as_deref(), json),
+        FlowAction::Import { source } => import_flows(&source),
+        FlowAction::Init => init_flows(),
+        FlowAction::List { json } => {
+            let config = load_flow_config()?;
+            list_flows(&config.flows, json)
+        }
+        FlowAction::Run { name, dry_run } => {
+            let config = load_flow_config()?;
+            let flow = config.flows.get(&name).ok_or_else(|| {
+                let available: Vec<&str> = config.flows.keys().map(|s| s.as_str()).collect();
+                anyhow::anyhow!(
+                    "Unknown flow '{}'. Available flows: {}",
+                    name,
+                    available.join(", ")
+                )
+            })?;
 
-    if let Some(ref source) = opts.import {
-        return import_flows(source);
-    }
+            if flow.steps.is_empty() {
+                bail!("Flow '{}' has no steps defined", name);
+            }
 
-    if opts.init {
-        return init_flows();
-    }
+            validate_flow(&name, flow, &config.tasks)?;
 
+            if dry_run {
+                dry_run_flow(&name, flow)
+            } else {
+                let project_dir = std::env::current_dir().context("getting current directory")?;
+                execute_flow(&name, flow, &config.tasks, &project_dir)
+            }
+        }
+    }
+}
+
+fn load_flow_config() -> Result<FledgeFileWithFlows> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
     let config_path = project_dir.join("fledge.toml");
 
@@ -126,35 +148,11 @@ pub fn run(opts: FlowOptions) -> Result<()> {
     if config.flows.is_empty() {
         bail!(
             "No flows defined in fledge.toml.\n  Add a [flows] section or run {} to add defaults.",
-            style("fledge flow --init").cyan()
+            style("fledge flow init").cyan()
         );
     }
 
-    if opts.list || opts.flow.is_none() {
-        return list_flows(&config.flows, opts.json);
-    }
-
-    let flow_name = opts.flow.as_ref().unwrap();
-    let flow = config.flows.get(flow_name).ok_or_else(|| {
-        let available: Vec<&str> = config.flows.keys().map(|s| s.as_str()).collect();
-        anyhow::anyhow!(
-            "Unknown flow '{}'. Available flows: {}",
-            flow_name,
-            available.join(", ")
-        )
-    })?;
-
-    if flow.steps.is_empty() {
-        bail!("Flow '{}' has no steps defined", flow_name);
-    }
-
-    validate_flow(flow_name, flow, &config.tasks)?;
-
-    if opts.dry_run {
-        return dry_run_flow(flow_name, flow);
-    }
-
-    execute_flow(flow_name, flow, &config.tasks, &project_dir)
+    Ok(config)
 }
 
 fn list_flows(flows: &BTreeMap<String, FlowDef>, json: bool) -> Result<()> {
@@ -612,7 +610,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
     }
     println!(
         "\n{}",
-        style("Import with: fledge flow --import <owner/repo>").dim()
+        style("Import with: fledge flow import <owner/repo>").dim()
     );
 
     Ok(())
