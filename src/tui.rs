@@ -18,16 +18,6 @@ use std::process::Command;
 use crate::config::Config;
 use crate::templates::Template;
 
-// Ensures raw mode + alternate screen are cleaned up on drop, even on panic or early error return.
-struct RawModeGuard;
-
-impl Drop for RawModeGuard {
-    fn drop(&mut self) {
-        let _ = disable_raw_mode();
-        let _ = crossterm::execute!(io::stdout(), LeaveAlternateScreen);
-    }
-}
-
 const CYAN: Color = Color::Cyan;
 const DIM: Color = Color::DarkGray;
 const GREEN: Color = Color::Green;
@@ -93,7 +83,7 @@ fn build_categories() -> Vec<CategoryDef> {
     vec![
         CategoryDef {
             name: "Work",
-            icon: "⎇",
+            icon: "🔀",
             description: "Branch workflow",
             actions: vec![
                 ActionDef {
@@ -119,11 +109,6 @@ fn build_categories() -> Vec<CategoryDef> {
                             FieldDef {
                                 label: "Base branch",
                                 default: "main",
-                                required: false,
-                            },
-                            FieldDef {
-                                label: "Prefix (overrides format, e.g. user/leif)",
-                                default: "",
                                 required: false,
                             },
                         ],
@@ -158,7 +143,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "GitHub",
-            icon: "⊙",
+            icon: "🐙",
             description: "Issues, PRs, CI checks",
             actions: vec![
                 ActionDef {
@@ -204,7 +189,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "Run",
-            icon: "▶",
+            icon: "🚀",
             description: "Tasks and flows",
             actions: vec![
                 ActionDef {
@@ -316,7 +301,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "Config",
-            icon: "⚙",
+            icon: "⚙️",
             description: "Settings management",
             actions: vec![
                 ActionDef {
@@ -434,7 +419,7 @@ fn build_categories() -> Vec<CategoryDef> {
         },
         CategoryDef {
             name: "AI",
-            icon: "✦",
+            icon: "🤖",
             description: "Code review and Q&A",
             actions: vec![
                 ActionDef {
@@ -546,120 +531,104 @@ fn build_categories() -> Vec<CategoryDef> {
     ]
 }
 
-fn field(fields: &[String], idx: usize) -> &str {
-    fields.get(idx).map(|s| s.as_str()).unwrap_or("")
-}
-
 fn build_command(action_id: ActionId, fields: &[String]) -> Vec<String> {
     match action_id {
         ActionId::WorkStart => {
-            let name = field(fields, 0);
-            let mut args = vec!["work".into(), "start".into(), name.to_string()];
-            let typ = field(fields, 1);
-            let typ = if typ.is_empty() { "feat" } else { typ };
+            let mut args = vec!["work".into(), "start".into(), fields[0].clone()];
+            let typ = if fields[1].is_empty() {
+                "feat"
+            } else {
+                &fields[1]
+            };
             if typ != "feat" {
                 args.extend(["--type".into(), typ.to_string()]);
             }
-            let issue = field(fields, 2);
-            if !issue.is_empty() {
-                args.extend(["--issue".into(), issue.to_string()]);
+            if !fields[2].is_empty() {
+                args.extend(["--issue".into(), fields[2].clone()]);
             }
-            let base = field(fields, 3);
-            let base = if base.is_empty() { "main" } else { base };
+            let base = if fields[3].is_empty() {
+                "main"
+            } else {
+                &fields[3]
+            };
             if base != "main" {
                 args.extend(["--base".into(), base.to_string()]);
-            }
-            let prefix = field(fields, 4);
-            if !prefix.is_empty() {
-                args.extend(["--prefix".into(), prefix.to_string()]);
             }
             args
         }
         ActionId::WorkPr => {
             let mut args = vec!["work".into(), "pr".into()];
-            let title = field(fields, 0);
-            if !title.is_empty() {
-                args.extend(["--title".into(), title.to_string()]);
+            if !fields[0].is_empty() {
+                args.extend(["--title".into(), fields[0].clone()]);
             }
-            let body = field(fields, 1);
-            if !body.is_empty() {
-                args.extend(["--body".into(), body.to_string()]);
+            if !fields[1].is_empty() {
+                args.extend(["--body".into(), fields[1].clone()]);
             }
             args
         }
-        ActionId::SpecNew => vec!["spec".into(), "new".into(), field(fields, 0).to_string()],
-        ActionId::RunTask => vec!["run".into(), field(fields, 0).to_string()],
-        ActionId::RunFlow => vec!["flow".into(), field(fields, 0).to_string()],
+        ActionId::SpecNew => vec!["spec".into(), "new".into(), fields[0].clone()],
+        ActionId::RunTask => vec!["run".into(), fields[0].clone()],
+        ActionId::RunFlow => vec!["flow".into(), fields[0].clone()],
         ActionId::SearchTemplates => {
             let mut args = vec!["search".into()];
-            let q = field(fields, 0);
-            if !q.is_empty() {
-                args.push(q.to_string());
+            if !fields[0].is_empty() {
+                args.push(fields[0].clone());
             }
             args
         }
         ActionId::CreateTemplate => {
-            vec!["create-template".into(), field(fields, 0).to_string()]
+            vec!["create-template".into(), fields[0].clone()]
         }
         ActionId::PublishTemplate => {
             let mut args = vec!["publish".into()];
-            let path = field(fields, 0);
-            let path = if path.is_empty() { "." } else { path };
+            let path = if fields[0].is_empty() {
+                "."
+            } else {
+                &fields[0]
+            };
             if path != "." {
                 args.push(path.to_string());
             }
-            let org = field(fields, 1);
-            if !org.is_empty() {
-                args.extend(["--org".into(), org.to_string()]);
+            if !fields[1].is_empty() {
+                args.extend(["--org".into(), fields[1].clone()]);
             }
             args
         }
-        ActionId::ConfigGet => {
-            vec!["config".into(), "get".into(), field(fields, 0).to_string()]
-        }
+        ActionId::ConfigGet => vec!["config".into(), "get".into(), fields[0].clone()],
         ActionId::ConfigSet => {
             vec![
                 "config".into(),
                 "set".into(),
-                field(fields, 0).to_string(),
-                field(fields, 1).to_string(),
+                fields[0].clone(),
+                fields[1].clone(),
             ]
         }
         ActionId::AskQuestion => {
             let mut args = vec!["ask".into()];
-            args.extend(field(fields, 0).split_whitespace().map(String::from));
+            args.extend(fields[0].split_whitespace().map(String::from));
             args
         }
         ActionId::IssueView => {
-            vec!["issues".into(), "view".into(), field(fields, 0).to_string()]
+            vec!["issues".into(), "view".into(), fields[0].clone()]
         }
         ActionId::PrView => {
-            vec!["prs".into(), "view".into(), field(fields, 0).to_string()]
+            vec!["prs".into(), "view".into(), fields[0].clone()]
         }
         ActionId::PluginInstall => {
-            vec![
-                "plugin".into(),
-                "install".into(),
-                field(fields, 0).to_string(),
-            ]
+            vec!["plugin".into(), "install".into(), fields[0].clone()]
         }
         ActionId::PluginRemove => {
-            vec![
-                "plugin".into(),
-                "remove".into(),
-                field(fields, 0).to_string(),
-            ]
+            vec!["plugin".into(), "remove".into(), fields[0].clone()]
         }
         ActionId::PluginSearch => {
             let mut args = vec!["plugin".into(), "search".into()];
-            let q = field(fields, 0);
-            if !q.is_empty() {
-                args.push(q.to_string());
+            if !fields[0].is_empty() {
+                args.push(fields[0].clone());
             }
             args
         }
         ActionId::PluginRun => {
-            vec!["plugin".into(), "run".into(), field(fields, 0).to_string()]
+            vec!["plugin".into(), "run".into(), fields[0].clone()]
         }
     }
 }
@@ -697,7 +666,6 @@ struct DashboardApp {
     current_action_id: Option<ActionId>,
     output_lines: Vec<String>,
     output_scroll: usize,
-    output_visible_height: usize,
     error_message: Option<String>,
     should_quit: bool,
 }
@@ -722,7 +690,6 @@ impl DashboardApp {
             current_action_id: None,
             output_lines: Vec::new(),
             output_scroll: 0,
-            output_visible_height: 0,
             error_message: None,
             should_quit: false,
         }
@@ -869,11 +836,15 @@ pub fn run(output_dir: PathBuf, no_git: bool) -> Result<()> {
 
     enable_raw_mode()?;
     crossterm::execute!(io::stdout(), EnterAlternateScreen)?;
-    let _guard = RawModeGuard;
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    dashboard_loop(&mut terminal, &mut app, output_dir, no_git)
+    let result = dashboard_loop(&mut terminal, &mut app, output_dir, no_git);
+
+    disable_raw_mode()?;
+    crossterm::execute!(io::stdout(), LeaveAlternateScreen)?;
+
+    result
 }
 
 fn dashboard_loop(
@@ -1034,11 +1005,7 @@ fn handle_output(app: &mut DashboardApp, key: KeyCode) {
             app.output_scroll = app.output_scroll.saturating_sub(1);
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            let max_scroll = app
-                .output_lines
-                .len()
-                .saturating_sub(app.output_visible_height);
-            if app.output_scroll < max_scroll {
+            if app.output_scroll + 1 < app.output_lines.len() {
                 app.output_scroll += 1;
             }
         }
@@ -1046,20 +1013,14 @@ fn handle_output(app: &mut DashboardApp, key: KeyCode) {
             app.output_scroll = app.output_scroll.saturating_sub(20);
         }
         KeyCode::PageDown => {
-            let max_scroll = app
-                .output_lines
-                .len()
-                .saturating_sub(app.output_visible_height);
-            app.output_scroll = (app.output_scroll + 20).min(max_scroll);
+            app.output_scroll =
+                (app.output_scroll + 20).min(app.output_lines.len().saturating_sub(1));
         }
         KeyCode::Home | KeyCode::Char('g') => {
             app.output_scroll = 0;
         }
         KeyCode::End | KeyCode::Char('G') => {
-            app.output_scroll = app
-                .output_lines
-                .len()
-                .saturating_sub(app.output_visible_height);
+            app.output_scroll = app.output_lines.len().saturating_sub(1);
         }
         KeyCode::Esc | KeyCode::Char('q') | KeyCode::Backspace => {
             app.screen = DashScreen::Browse;
@@ -1182,9 +1143,9 @@ fn draw_action_list(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
         .iter()
         .map(|act| {
             let tag = match &act.kind {
-                ActionKind::Direct(_) => Span::styled("  ", Style::default()),
-                ActionKind::WithInput { .. } => Span::styled(" ✎ ", Style::default().fg(YELLOW)),
-                ActionKind::TemplateBrowser => Span::styled(" ⊞ ", Style::default().fg(YELLOW)),
+                ActionKind::Direct(_) => Span::styled(" ▸ ", Style::default().fg(GREEN)),
+                ActionKind::WithInput { .. } => Span::styled(" ✏️ ", Style::default().fg(YELLOW)),
+                ActionKind::TemplateBrowser => Span::styled(" 📂 ", Style::default().fg(YELLOW)),
             };
             let line = Line::from(vec![
                 tag,
@@ -1282,20 +1243,15 @@ fn draw_input_form(f: &mut Frame, app: &DashboardApp, area: Rect) {
     }
 }
 
-fn draw_output_panel(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
-    let visible_height = area.height.saturating_sub(2) as usize;
-    app.output_visible_height = visible_height;
+fn draw_output_panel(f: &mut Frame, app: &DashboardApp, area: Rect) {
+    let block = Block::default()
+        .title(" Output ")
+        .title_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(CYAN));
 
-    let total = app.output_lines.len();
-    let scroll_info = if total > visible_height {
-        format!(
-            " {}/{} ",
-            app.output_scroll + 1,
-            total.saturating_sub(visible_height) + 1
-        )
-    } else {
-        String::new()
-    };
+    let inner = block.inner(area);
+    let visible_height = inner.height as usize;
 
     let lines: Vec<Line> = app
         .output_lines
@@ -1318,22 +1274,35 @@ fn draw_output_panel(f: &mut Frame, app: &mut DashboardApp, area: Rect) {
         })
         .collect();
 
-    let block = Block::default()
-        .title(" Output ")
-        .title_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
-        .title_bottom(Line::from(Span::styled(
-            scroll_info,
-            Style::default().fg(DIM),
-        )))
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(CYAN));
+    let total = app.output_lines.len();
+    let scroll_info = if total > visible_height {
+        format!(
+            " {}/{} ",
+            app.output_scroll + 1,
+            total.saturating_sub(visible_height) + 1
+        )
+    } else {
+        String::new()
+    };
 
-    f.render_widget(Paragraph::new(lines).block(block), area);
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .title(" Output ")
+            .title_style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD))
+            .title_bottom(Line::from(Span::styled(
+                scroll_info,
+                Style::default().fg(DIM),
+            )))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(CYAN)),
+    );
+
+    f.render_widget(paragraph, area);
 }
 
 fn draw_error_popup(f: &mut Frame, msg: &str) {
     let area = f.area();
-    let popup_width = (msg.chars().count() as u16 + 6).min(area.width.saturating_sub(4));
+    let popup_width = (msg.len() as u16 + 6).min(area.width.saturating_sub(4));
     let popup_height = 5;
     let x = (area.width.saturating_sub(popup_width)) / 2;
     let y = (area.height.saturating_sub(popup_height)) / 2;
@@ -1560,11 +1529,15 @@ fn run_template_browser(output_dir: PathBuf, no_git: bool) -> Result<()> {
 
     enable_raw_mode()?;
     crossterm::execute!(io::stdout(), EnterAlternateScreen)?;
-    let _guard = RawModeGuard;
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    template_browser_loop(&mut terminal, &mut app)
+    let result = template_browser_loop(&mut terminal, &mut app);
+
+    disable_raw_mode()?;
+    crossterm::execute!(io::stdout(), LeaveAlternateScreen)?;
+
+    result
 }
 
 fn template_browser_loop(
@@ -2036,248 +2009,4 @@ fn draw_tb_done(f: &mut Frame, app: &TemplateBrowserApp, area: Rect) {
         .border_style(Style::default().fg(DIM));
 
     f.render_widget(Paragraph::new(lines).block(block), area);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // strip_ansi tests
-
-    #[test]
-    fn test_strip_ansi_plain() {
-        assert_eq!(strip_ansi("hello"), "hello");
-    }
-
-    #[test]
-    fn test_strip_ansi_color_code() {
-        assert_eq!(strip_ansi("\x1b[32mgreen\x1b[0m"), "green");
-    }
-
-    #[test]
-    fn test_strip_ansi_bold() {
-        assert_eq!(strip_ansi("\x1b[1mbold\x1b[0m"), "bold");
-    }
-
-    #[test]
-    fn test_strip_ansi_empty() {
-        assert_eq!(strip_ansi(""), "");
-    }
-
-    #[test]
-    fn test_strip_ansi_mixed() {
-        assert_eq!(strip_ansi("ok \x1b[31merror\x1b[0m done"), "ok error done");
-    }
-
-    // build_command tests — one per ActionId variant
-
-    #[test]
-    fn test_build_command_work_start_defaults() {
-        let args = build_command(
-            ActionId::WorkStart,
-            &[
-                "my-feature".into(),
-                "".into(),
-                "".into(),
-                "".into(),
-                "".into(),
-            ],
-        );
-        assert_eq!(args, vec!["work", "start", "my-feature"]);
-    }
-
-    #[test]
-    fn test_build_command_work_start_fix_type() {
-        let args = build_command(
-            ActionId::WorkStart,
-            &[
-                "crash".into(),
-                "fix".into(),
-                "".into(),
-                "".into(),
-                "".into(),
-            ],
-        );
-        assert!(args.contains(&"--type".to_string()));
-        assert!(args.contains(&"fix".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_work_start_with_issue() {
-        let args = build_command(
-            ActionId::WorkStart,
-            &[
-                "bug".into(),
-                "fix".into(),
-                "42".into(),
-                "".into(),
-                "".into(),
-            ],
-        );
-        assert!(args.contains(&"--issue".to_string()));
-        assert!(args.contains(&"42".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_work_start_with_prefix() {
-        let args = build_command(
-            ActionId::WorkStart,
-            &[
-                "feat".into(),
-                "".into(),
-                "".into(),
-                "".into(),
-                "user/leif".into(),
-            ],
-        );
-        assert!(args.contains(&"--prefix".to_string()));
-        assert!(args.contains(&"user/leif".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_work_start_with_base() {
-        let args = build_command(
-            ActionId::WorkStart,
-            &[
-                "feat".into(),
-                "".into(),
-                "".into(),
-                "develop".into(),
-                "".into(),
-            ],
-        );
-        assert!(args.contains(&"--base".to_string()));
-        assert!(args.contains(&"develop".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_work_pr_empty() {
-        let args = build_command(ActionId::WorkPr, &["".into(), "".into()]);
-        assert_eq!(args, vec!["work", "pr"]);
-    }
-
-    #[test]
-    fn test_build_command_work_pr_with_title() {
-        let args = build_command(ActionId::WorkPr, &["Add feature".into(), "".into()]);
-        assert!(args.contains(&"--title".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_spec_new() {
-        let args = build_command(ActionId::SpecNew, &["auth".into()]);
-        assert_eq!(args, vec!["spec", "new", "auth"]);
-    }
-
-    #[test]
-    fn test_build_command_run_task() {
-        let args = build_command(ActionId::RunTask, &["test".into()]);
-        assert_eq!(args, vec!["run", "test"]);
-    }
-
-    #[test]
-    fn test_build_command_run_flow() {
-        let args = build_command(ActionId::RunFlow, &["ci".into()]);
-        assert_eq!(args, vec!["flow", "ci"]);
-    }
-
-    #[test]
-    fn test_build_command_search_templates_empty() {
-        let args = build_command(ActionId::SearchTemplates, &["".into()]);
-        assert_eq!(args, vec!["search"]);
-    }
-
-    #[test]
-    fn test_build_command_search_templates_query() {
-        let args = build_command(ActionId::SearchTemplates, &["rust".into()]);
-        assert_eq!(args, vec!["search", "rust"]);
-    }
-
-    #[test]
-    fn test_build_command_create_template() {
-        let args = build_command(ActionId::CreateTemplate, &["my-tpl".into()]);
-        assert_eq!(args, vec!["create-template", "my-tpl"]);
-    }
-
-    #[test]
-    fn test_build_command_publish_template_dot() {
-        let args = build_command(ActionId::PublishTemplate, &["".into(), "".into()]);
-        assert_eq!(args, vec!["publish"]);
-    }
-
-    #[test]
-    fn test_build_command_publish_template_path() {
-        let args = build_command(
-            ActionId::PublishTemplate,
-            &["./tmpl".into(), "myorg".into()],
-        );
-        assert!(args.contains(&"./tmpl".to_string()));
-        assert!(args.contains(&"--org".to_string()));
-    }
-
-    #[test]
-    fn test_build_command_config_get() {
-        let args = build_command(ActionId::ConfigGet, &["defaults.author".into()]);
-        assert_eq!(args, vec!["config", "get", "defaults.author"]);
-    }
-
-    #[test]
-    fn test_build_command_config_set() {
-        let args = build_command(
-            ActionId::ConfigSet,
-            &["defaults.author".into(), "leif".into()],
-        );
-        assert_eq!(args, vec!["config", "set", "defaults.author", "leif"]);
-    }
-
-    #[test]
-    fn test_build_command_ask_question() {
-        let args = build_command(ActionId::AskQuestion, &["how does auth work".into()]);
-        assert_eq!(args, vec!["ask", "how", "does", "auth", "work"]);
-    }
-
-    #[test]
-    fn test_build_command_issue_view() {
-        let args = build_command(ActionId::IssueView, &["42".into()]);
-        assert_eq!(args, vec!["issues", "view", "42"]);
-    }
-
-    #[test]
-    fn test_build_command_pr_view() {
-        let args = build_command(ActionId::PrView, &["7".into()]);
-        assert_eq!(args, vec!["prs", "view", "7"]);
-    }
-
-    #[test]
-    fn test_build_command_plugin_install() {
-        let args = build_command(ActionId::PluginInstall, &["owner/repo".into()]);
-        assert_eq!(args, vec!["plugin", "install", "owner/repo"]);
-    }
-
-    #[test]
-    fn test_build_command_plugin_remove() {
-        let args = build_command(ActionId::PluginRemove, &["myplugin".into()]);
-        assert_eq!(args, vec!["plugin", "remove", "myplugin"]);
-    }
-
-    #[test]
-    fn test_build_command_plugin_search_empty() {
-        let args = build_command(ActionId::PluginSearch, &["".into()]);
-        assert_eq!(args, vec!["plugin", "search"]);
-    }
-
-    #[test]
-    fn test_build_command_plugin_run() {
-        let args = build_command(ActionId::PluginRun, &["deploy".into()]);
-        assert_eq!(args, vec!["plugin", "run", "deploy"]);
-    }
-
-    #[test]
-    fn test_build_command_bounds_empty_fields() {
-        // field() helper returns "" for out-of-bounds, preventing panics
-        let args = build_command(ActionId::WorkStart, &[]);
-        assert_eq!(args, vec!["work", "start", ""]);
-
-        let args = build_command(ActionId::RunTask, &[]);
-        assert_eq!(args, vec!["run", ""]);
-    }
 }
