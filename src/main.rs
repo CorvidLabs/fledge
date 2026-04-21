@@ -20,6 +20,7 @@ mod plugin;
 mod prompts;
 mod prs;
 mod publish;
+mod release;
 mod remote;
 mod review;
 mod run;
@@ -305,6 +306,29 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// Cut a release — bump version, changelog, tag, and optionally push
+    Release {
+        /// Version bump: major, minor, patch, or explicit version (e.g. "1.0.0")
+        bump: String,
+        /// Show what would happen without making changes
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip creating a git tag
+        #[arg(long)]
+        no_tag: bool,
+        /// Skip changelog generation
+        #[arg(long)]
+        no_changelog: bool,
+        /// Push commit and tag to remote after release
+        #[arg(long)]
+        push: bool,
+        /// Run a lane before releasing (e.g. "ci")
+        #[arg(long)]
+        pre_lane: Option<String>,
+        /// Allow releasing with uncommitted changes
+        #[arg(long)]
+        allow_dirty: bool,
     },
     /// Ask a question about your codebase
     Ask {
@@ -769,6 +793,25 @@ fn run() -> Result<()> {
         }
         Commands::ValidateTemplate { path, strict, json } => {
             validate::run(validate::ValidateOptions { path, strict, json })?;
+        }
+        Commands::Release {
+            bump,
+            dry_run,
+            no_tag,
+            no_changelog,
+            push,
+            pre_lane,
+            allow_dirty,
+        } => {
+            release::run(release::ReleaseOptions {
+                bump,
+                dry_run,
+                no_tag,
+                no_changelog,
+                push,
+                pre_lane,
+                allow_dirty,
+            })?;
         }
         Commands::Ask { question, json } => {
             if question.is_empty() {
