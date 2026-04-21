@@ -202,6 +202,9 @@ enum Commands {
         /// Review only a specific file
         #[arg(short, long)]
         file: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// View CI/CD check status for a branch
     Checks {
@@ -304,6 +307,9 @@ enum Commands {
     Ask {
         /// The question to ask
         question: Vec<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Interactive TUI dashboard — browse and run all fledge commands (requires --features tui)
     #[cfg(feature = "tui")]
@@ -661,8 +667,8 @@ fn run() -> Result<()> {
         Commands::Run { task, init, list } => {
             run::run(run::RunOptions { task, init, list })?;
         }
-        Commands::Review { base, file } => {
-            review::run(review::ReviewOptions { base, file })?;
+        Commands::Review { base, file, json } => {
+            review::run(review::ReviewOptions { base, file, json })?;
         }
         Commands::Flow { action } => {
             let action = match action {
@@ -738,12 +744,13 @@ fn run() -> Result<()> {
         Commands::ValidateTemplate { path, strict, json } => {
             validate::run(validate::ValidateOptions { path, strict, json })?;
         }
-        Commands::Ask { question } => {
+        Commands::Ask { question, json } => {
             if question.is_empty() {
                 anyhow::bail!("Please provide a question. Usage: fledge ask <question>");
             }
             ask::run(ask::AskOptions {
                 question: question.join(" "),
+                json,
             })?;
         }
         Commands::Completions { shell, install } => {

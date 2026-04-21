@@ -113,6 +113,31 @@ pub fn format_relative_time(iso: &str) -> String {
     format!("{}y ago", days / 365)
 }
 
+pub fn ensure_claude_cli() -> Result<()> {
+    if Command::new("claude")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_err()
+    {
+        bail!(
+            "Claude CLI is not installed. Install it from https://docs.anthropic.com/en/docs/claude-code and run `claude` to authenticate."
+        );
+    }
+    Ok(())
+}
+
+pub fn ensure_git_repo() -> Result<()> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()?;
+    if !output.status.success() {
+        bail!("Not a git repository.");
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
