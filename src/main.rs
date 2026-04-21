@@ -485,7 +485,7 @@ enum LaneSubcommand {
 enum PluginSubcommand {
     /// Install a plugin from GitHub
     Install {
-        /// GitHub repo (owner/repo) or full URL
+        /// GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version
         source: String,
         /// Reinstall if already present
         #[arg(long)]

@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 3
+version: 4
 status: active
 files:
   - src/plugin.rs
@@ -36,7 +36,7 @@ Plugin system for community extensions. Plugins are external executables that re
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, Update, List, Search, Run |
-| `PluginEntry` | Installed plugin record: name, source, version, installed date, commands |
+| `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
 ### Functions
@@ -89,7 +89,11 @@ Plugins are discovered via:
 
 ### Plugin Installation
 
-`fledge plugin install <repo>` clones the repo to `~/.config/fledge/plugins/<name>/`, reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+`fledge plugin install <repo>[@ref]` clones the repo to `~/.config/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+
+### Version Pinning
+
+Install a specific version with `@ref` syntax: `fledge plugin install owner/repo@v1.2.0`. The ref is stored in `plugins.toml` as `pinned_ref`. Pinned plugins skip `git pull` on update and instead check for newer tags, suggesting an upgrade command if one exists.
 
 ## Config Format
 
@@ -98,9 +102,16 @@ Plugins are tracked in `~/.config/fledge/plugins.toml`:
 ```toml
 [[plugins]]
 name = "deploy"
-source = "github:someone/fledge-deploy"
+source = "someone/fledge-deploy"
 version = "0.1.0"
 installed = "2026-04-20"
+
+[[plugins]]
+name = "fledge-pet"
+source = "corvid-agent/fledge-plugin-pet"
+version = "0.2.0"
+installed = "2026-04-21"
+pinned_ref = "v0.2.0"
 ```
 
 ## Invariants
@@ -110,7 +121,7 @@ installed = "2026-04-20"
 3. `resolve_plugin_command` checks `plugins/bin/` then PATH for `fledge-<name>`
 4. `plugin install` clones the repo, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
 5. `plugin remove` deletes the plugin directory and its symlinks
-6. `plugin update` git pulls and rebuilds plugins, re-symlinks binaries
+6. `plugin update` git pulls and rebuilds unpinned plugins; pinned plugins check for newer tags
 7. `plugin list` shows installed plugins with name, version, source, and description
 8. `plugin search` uses GitHub topic search (same as template search)
 9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
@@ -151,6 +162,16 @@ $ fledge plugin update fledge-deploy
 $ fledge plugin search deploy
   fledge-deploy   v0.1.0  Deploy to various cloud providers  (someone/fledge-deploy)
   fledge-k8s      v0.3.0  Kubernetes deployment helpers       (other/fledge-k8s)
+
+# Install a specific version
+$ fledge plugin install someone/fledge-deploy@v1.2.0
+✅ Installed fledge-deploy v1.2.0 (pinned to v1.2.0)
+  Commands: deploy
+
+# Update pinned plugin — shows newer tags without changing
+$ fledge plugin update fledge-deploy
+  * fledge-deploy — pinned to v1.2.0, latest tag is v1.3.0. To upgrade:
+    fledge plugin install someone/fledge-deploy@v1.3.0 --force
 ```
 
 ## Error Cases
@@ -163,6 +184,7 @@ $ fledge plugin search deploy
 | Not installed | remove when absent | Error listing installed plugins |
 | Binary not found | plugin.toml references missing binary | Error with build hint |
 | Build failed | build hook or auto-detect build fails | Error with toolchain suggestion |
+| Ref not found | `@ref` doesn't exist in repo | Error with `git ls-remote` hint |
 | Permission denied | Binary not executable | Error with guidance |
 
 ## Dependencies
@@ -174,6 +196,7 @@ $ fledge plugin search deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-21 | Add version pinning with @ref syntax, pinned_ref in registry, smart update for pinned plugins |
 | 3 | 2026-04-21 | Add build hook, auto-detect build systems, plugin update command, improved error messages |
 | 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-20 | Initial spec |
