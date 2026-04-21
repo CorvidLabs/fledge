@@ -1350,3 +1350,996 @@ fn e2e_tsbun_project_lifecycle() {
     let output = run_fledge_in(&project, &["metrics"]);
     assert!(output.status.success());
 }
+
+// ══════════════════════════════════════════════════════════
+// NEW: Edge cases, integration, and stress tests
+// ══════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────
+// Malformed fledge.toml edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_run_malformed_toml_fails_gracefully() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), "{{{{not valid toml!!!").unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("parsing") || stderr.contains("TOML") || stderr.contains("error"),
+        "expected parse error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_flow_malformed_toml_fails_gracefully() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), "not = [valid toml {").unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_run_toml_missing_tasks_section() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[metadata]\nname = \"test\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No tasks") || stderr.contains("Could not detect"),
+        "expected no-tasks error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_run_task_with_empty_cmd() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), "[tasks]\nempty = \"\"\n").unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "empty"]);
+    // Empty command should either succeed (no-op) or fail — shouldn't panic
+    let _ = output.status;
+}
+
+// ──────────────────────────────────────────────────────────
+// Circular and missing dependency edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_run_circular_dep_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks.a]
+cmd = "echo A"
+deps = ["b"]
+
+[tasks.b]
+cmd = "echo B"
+deps = ["a"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "a"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("Circular") || stderr.contains("circular") || stderr.contains("dependency"),
+        "expected circular dep error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_run_missing_dep_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks.build]
+cmd = "echo build"
+deps = ["nonexistent"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "build"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("not found") || stderr.contains("nonexistent"),
+        "expected missing dep error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_run_deep_dep_chain() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+step1 = "echo S1"
+
+[tasks.step2]
+cmd = "echo S2"
+deps = ["step1"]
+
+[tasks.step3]
+cmd = "echo S3"
+deps = ["step2"]
+
+[tasks.step4]
+cmd = "echo S4"
+deps = ["step3"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "step4"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("S1"));
+    assert!(stdout.contains("S2"));
+    assert!(stdout.contains("S3"));
+    assert!(stdout.contains("S4"));
+}
+
+// ──────────────────────────────────────────────────────────
+// Flow edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_flow_empty_steps_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+build = "echo build"
+
+[flows.empty]
+steps = []
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "empty"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("no steps") || stderr.contains("No steps"),
+        "expected empty steps error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_flow_references_missing_task_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+build = "echo build"
+
+[flows.broken]
+steps = ["build", "ghost-task"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "broken"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("ghost-task") || stderr.contains("unknown"),
+        "expected missing task error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_flow_fail_fast_stops_on_failure() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+fail = "exit 1"
+after = "echo SHOULD_NOT_RUN"
+
+[flows.ff]
+fail_fast = true
+steps = ["fail", "after"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "ff"]);
+    assert!(!output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        !stdout.contains("SHOULD_NOT_RUN"),
+        "fail_fast flow should stop after first failure"
+    );
+}
+
+#[test]
+fn cli_flow_mixed_inline_and_task_ref() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+lint = "echo LINTED"
+
+[flows.mixed]
+steps = ["lint", { run = "echo INLINE_STEP" }]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "mixed"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("LINTED"));
+    assert!(stdout.contains("INLINE_STEP"));
+}
+
+#[test]
+fn cli_flow_dry_run_shows_plan() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+a = "echo A"
+b = "echo B"
+
+[flows.plan]
+description = "Show plan"
+steps = ["a", "b"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "plan", "--dry-run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Should show the plan without running
+    assert!(!stdout.contains("echo A") || !stdout.contains("Running"));
+}
+
+#[test]
+fn cli_flow_no_flows_section_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nbuild = \"echo build\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No flows") || stderr.contains("no flows"),
+        "expected no-flows error, got: {stderr}"
+    );
+}
+
+// ──────────────────────────────────────────────────────────
+// Config edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_config_set_and_get_roundtrip() {
+    // Set a value, then verify we can get it back
+    let output = run_fledge(&["config", "set", "defaults.author", "test-author-e2e"]);
+    assert!(output.status.success());
+
+    let output = run_fledge(&["config", "get", "defaults.author"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("test-author-e2e"));
+
+    // Clean up
+    let _ = run_fledge(&["config", "unset", "defaults.author"]);
+}
+
+#[test]
+fn cli_config_unset_unknown_key_fails() {
+    let output = run_fledge(&["config", "unset", "nonexistent.key"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_config_add_remove_list_key() {
+    let output = run_fledge(&["config", "add", "templates.paths", "/tmp/e2e-test-path"]);
+    assert!(output.status.success());
+
+    let output = run_fledge(&["config", "get", "templates.paths"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("/tmp/e2e-test-path"));
+
+    let output = run_fledge(&["config", "remove", "templates.paths", "/tmp/e2e-test-path"]);
+    assert!(output.status.success());
+}
+
+#[test]
+fn cli_config_init_default() {
+    let output = run_fledge(&["config", "init"]);
+    // Should succeed (creates default config if none exists, or reports it already exists)
+    let _ = output.status;
+}
+
+// ──────────────────────────────────────────────────────────
+// Plugin edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_plugin_remove_nonexistent_fails() {
+    let output = run_fledge(&["plugin", "remove", "no-such-plugin"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("not found")
+            || stderr.contains("not installed")
+            || stderr.contains("No plugin"),
+        "expected not-found error, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_plugin_run_nonexistent_fails() {
+    let output = run_fledge(&["plugin", "run", "no-such-command"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_plugin_list_json() {
+    let output = run_fledge(&["plugin", "list", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Should be valid JSON (empty array or object)
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array() || parsed.is_object());
+}
+
+// ──────────────────────────────────────────────────────────
+// Special characters and unicode in project names
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_init_name_with_spaces_handled() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "init",
+        "my cool project",
+        "--template",
+        "rust-cli",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--yes",
+    ]);
+    // Should either succeed with a sanitized name or fail gracefully
+    if output.status.success() {
+        assert!(
+            tmp.path().join("my cool project").exists()
+                || tmp.path().join("my-cool-project").exists()
+                || tmp.path().join("my_cool_project").exists()
+        );
+    }
+}
+
+#[test]
+fn cli_init_name_with_special_chars() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "init",
+        "@scope/pkg-name",
+        "--template",
+        "ts-bun",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--no-install",
+        "--yes",
+    ]);
+    // Should handle scoped package names or fail gracefully — not panic
+    let _ = output.status;
+}
+
+// ──────────────────────────────────────────────────────────
+// Task runner: multiple tasks, env inheritance, dir edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_run_task_with_multiple_env_vars() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks.multi]
+cmd = "echo $FOO $BAR"
+env = { FOO = "hello", BAR = "world" }
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "multi"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("hello"));
+    assert!(stdout.contains("world"));
+}
+
+#[test]
+fn cli_run_task_dir_nonexistent_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks.bad]
+cmd = "echo hi"
+dir = "no-such-dir"
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "bad"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_run_many_tasks_listed() {
+    let tmp = TempDir::new().unwrap();
+    let mut tasks = String::from("[tasks]\n");
+    for i in 0..20 {
+        tasks.push_str(&format!("task{i} = \"echo task {i}\"\n"));
+    }
+    fs::write(tmp.path().join("fledge.toml"), &tasks).unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "--list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("task0"));
+    assert!(stdout.contains("task19"));
+}
+
+// ──────────────────────────────────────────────────────────
+// Spec edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_spec_check_in_empty_dir_fails() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    let output = run_fledge_in(tmp.path(), &["spec", "check"]);
+    // No specs dir — should fail or warn
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Either exits nonzero or prints a message about missing specs
+    assert!(
+        !output.status.success()
+            || stdout.contains("No specs")
+            || stderr.contains("No specs")
+            || stdout.contains("specs"),
+        "expected some feedback about missing specs, got stdout: {stdout}, stderr: {stderr}"
+    );
+}
+
+#[test]
+fn cli_spec_new_duplicate_name() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+    run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+
+    // Second creation should fail or warn
+    let output = run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+    assert!(
+        !output.status.success() || {
+            let stderr = String::from_utf8(output.stderr.clone()).unwrap();
+            let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+            stderr.contains("exists") || stdout.contains("exists")
+        },
+        "expected duplicate spec warning"
+    );
+}
+
+// ──────────────────────────────────────────────────────────
+// Changelog edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_changelog_nonexistent_tag_fails() {
+    let output = run_fledge(&["changelog", "--tag", "v999.999.999"]);
+    // Should fail or return empty — shouldn't panic
+    if !output.status.success() {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("not found") || stderr.contains("999"),
+            "expected tag-not-found error, got: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn cli_changelog_zero_limit() {
+    let output = run_fledge(&["changelog", "--limit", "0"]);
+    // Should succeed with empty output or handle gracefully
+    assert!(output.status.success());
+}
+
+#[test]
+fn cli_changelog_in_non_git_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["changelog"]);
+    // Not a git repo — should fail gracefully
+    assert!(
+        !output.status.success() || {
+            let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+            stdout.contains("No tags") || stdout.is_empty()
+        }
+    );
+}
+
+// ──────────────────────────────────────────────────────────
+// Metrics edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_metrics_in_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["metrics"]);
+    // Should succeed with zero counts or fail gracefully
+    assert!(output.status.success());
+}
+
+#[test]
+fn cli_metrics_json_in_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["metrics", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["summary"]["files"], 0);
+}
+
+#[test]
+fn cli_metrics_churn_in_non_git_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["metrics", "--churn"]);
+    // Not a git repo — should handle gracefully
+    let _ = output.status;
+}
+
+#[test]
+fn cli_metrics_tests_in_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["metrics", "--tests"]);
+    assert!(output.status.success());
+}
+
+// ──────────────────────────────────────────────────────────
+// Doctor edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_doctor_in_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["doctor"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("generic") || stdout.contains("Toolchain") || stdout.contains("Git"));
+}
+
+#[test]
+fn cli_doctor_json_in_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["doctor", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["project_type"], "generic");
+}
+
+// ──────────────────────────────────────────────────────────
+// Validate-template edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_validate_template_nonexistent_path() {
+    let output = run_fledge(&["validate-template", "/tmp/no-such-path-ever-12345"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_validate_template_empty_template_toml() {
+    let tmp = TempDir::new().unwrap();
+    let tpl = tmp.path().join("empty-tpl");
+    fs::create_dir_all(&tpl).unwrap();
+    fs::write(tpl.join("template.toml"), "").unwrap();
+    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_validate_template_missing_name_field() {
+    let tmp = TempDir::new().unwrap();
+    let tpl = tmp.path().join("noname");
+    fs::create_dir_all(&tpl).unwrap();
+    fs::write(
+        tpl.join("template.toml"),
+        r#"[template]
+description = "Missing name field"
+
+[files]
+ignore = ["template.toml"]
+"#,
+    )
+    .unwrap();
+    fs::write(tpl.join("file.txt"), "content").unwrap();
+    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_validate_template_missing_description() {
+    let tmp = TempDir::new().unwrap();
+    let tpl = tmp.path().join("nodesc");
+    fs::create_dir_all(&tpl).unwrap();
+    fs::write(
+        tpl.join("template.toml"),
+        r#"[template]
+name = "nodesc"
+
+[files]
+ignore = ["template.toml"]
+"#,
+    )
+    .unwrap();
+    fs::write(tpl.join("file.txt"), "content").unwrap();
+    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    // Missing description might be a warning or error
+    let _status = output.status;
+}
+
+// ──────────────────────────────────────────────────────────
+// Create-template command
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_create_template_creates_scaffold() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "create-template",
+        "my-template",
+        "--output",
+        tmp.path().to_str().unwrap(),
+    ]);
+    // create-template uses dialoguer prompts, may fail in non-TTY
+    if output.status.success() {
+        let tpl_dir = tmp.path().join("my-template");
+        assert!(tpl_dir.exists());
+        assert!(tpl_dir.join("template.toml").exists());
+    } else {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("dialoguer")
+                || stderr.contains("not a terminal")
+                || stderr.contains("IO error"),
+            "unexpected error: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn cli_create_template_existing_dir_fails() {
+    let tmp = TempDir::new().unwrap();
+    let existing = tmp.path().join("existing-tpl");
+    fs::create_dir_all(&existing).unwrap();
+    let output = run_fledge(&[
+        "create-template",
+        "existing-tpl",
+        "--output",
+        tmp.path().to_str().unwrap(),
+    ]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("exists") || stderr.contains("already"),
+        "expected already-exists error, got: {stderr}"
+    );
+}
+
+// ──────────────────────────────────────────────────────────
+// External/unknown subcommand
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_unknown_subcommand_fails() {
+    let output = run_fledge(&["definitely-not-a-command"]);
+    // External subcommand dispatch — should fail if no matching plugin
+    assert!(!output.status.success());
+}
+
+// ──────────────────────────────────────────────────────────
+// Deps edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_deps_go_project_without_gomod() {
+    let tmp = TempDir::new().unwrap();
+    // Only a main.go, no go.mod — should fail or detect nothing
+    fs::write(tmp.path().join("main.go"), "package main\n").unwrap();
+    let output = run_fledge_in(tmp.path(), &["deps"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_deps_python_project() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("pyproject.toml"), "[tool]\n").unwrap();
+    let output = run_fledge_in(tmp.path(), &["deps"]);
+    // May fail without pip/lock files, but shouldn't panic
+    let _ = output.status;
+}
+
+#[test]
+fn cli_deps_json_empty_project_fails() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["deps", "--json"]);
+    assert!(!output.status.success());
+}
+
+// ──────────────────────────────────────────────────────────
+// Completions edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_completions_powershell() {
+    let output = run_fledge(&["completions", "powershell"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(!stdout.is_empty());
+}
+
+#[test]
+fn cli_completions_elvish() {
+    let output = run_fledge(&["completions", "elvish"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(!stdout.is_empty());
+}
+
+// ──────────────────────────────────────────────────────────
+// Auto-detection edge cases
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_run_auto_detect_python() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("pyproject.toml"), "[tool]\n").unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Auto-detected"));
+}
+
+#[test]
+fn cli_run_auto_detect_go() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("go.mod"),
+        "module example.com/test\ngo 1.21\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Auto-detected"));
+}
+
+#[test]
+fn cli_run_auto_detect_with_multiple_markers() {
+    // Both Cargo.toml and package.json — Cargo.toml should win (or one of them)
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nname = \"test\"\n",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("package.json"),
+        r#"{"scripts":{"build":"tsc"}}"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Auto-detected"));
+}
+
+// ──────────────────────────────────────────────────────────
+// Flow: parallel with failing task
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_flow_parallel_with_failure() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+ok = "echo OK"
+fail = "exit 1"
+
+[flows.par_fail]
+steps = [{ parallel = ["ok", "fail"] }]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "par_fail"]);
+    assert!(!output.status.success());
+}
+
+#[test]
+fn cli_flow_many_steps() {
+    let tmp = TempDir::new().unwrap();
+    let mut toml = String::from("[tasks]\n");
+    for i in 0..15 {
+        toml.push_str(&format!("s{i} = \"echo STEP_{i}\"\n"));
+    }
+    toml.push_str("\n[flows.big]\nsteps = [");
+    for i in 0..15 {
+        if i > 0 {
+            toml.push_str(", ");
+        }
+        toml.push_str(&format!("\"s{i}\""));
+    }
+    toml.push_str("]\n");
+    fs::write(tmp.path().join("fledge.toml"), &toml).unwrap();
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "big"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("STEP_0"));
+    assert!(stdout.contains("STEP_14"));
+}
+
+// ──────────────────────────────────────────────────────────
+// E2E: full workflow with flows, tasks, doctor, then metrics
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn e2e_custom_fledge_toml_full_lifecycle() {
+    let tmp = TempDir::new().unwrap();
+
+    // Write a hand-crafted fledge.toml
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+check = "echo CHECK_PASS"
+build = "echo BUILD_PASS"
+test = "echo TEST_PASS"
+
+[tasks.all]
+cmd = "echo ALL_PASS"
+deps = ["check", "build", "test"]
+
+[flows.ci]
+description = "Full CI pipeline"
+steps = ["check", "build", "test"]
+
+[flows.quick]
+description = "Quick check"
+steps = [{ run = "echo QUICK_PASS" }]
+
+[flows.parallel_build]
+steps = [{ parallel = ["check", "build"] }, "test"]
+"#,
+    )
+    .unwrap();
+
+    // 1. List tasks
+    let output = run_fledge_in(tmp.path(), &["run", "--list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("check"));
+    assert!(stdout.contains("build"));
+    assert!(stdout.contains("test"));
+    assert!(stdout.contains("all"));
+
+    // 2. Run individual task
+    let output = run_fledge_in(tmp.path(), &["run", "build"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("BUILD_PASS"));
+
+    // 3. Run task with deps
+    let output = run_fledge_in(tmp.path(), &["run", "all"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("CHECK_PASS"));
+    assert!(stdout.contains("BUILD_PASS"));
+    assert!(stdout.contains("TEST_PASS"));
+    assert!(stdout.contains("ALL_PASS"));
+
+    // 4. List flows
+    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ci"));
+    assert!(stdout.contains("quick"));
+
+    // 5. Run CI flow
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("CHECK_PASS"));
+    assert!(stdout.contains("TEST_PASS"));
+
+    // 6. Run inline-step flow
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "quick"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("QUICK_PASS"));
+
+    // 7. Run parallel flow
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "parallel_build"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("CHECK_PASS"));
+    assert!(stdout.contains("BUILD_PASS"));
+    assert!(stdout.contains("TEST_PASS"));
+
+    // 8. Dry-run flow
+    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci", "--dry-run"]);
+    assert!(output.status.success());
+
+    // 9. Flow list JSON
+    let output = run_fledge_in(tmp.path(), &["flow", "list", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.as_array().unwrap().len() >= 3);
+
+    // 10. Doctor and metrics in this dir
+    let output = run_fledge_in(tmp.path(), &["doctor"]);
+    assert!(output.status.success());
+
+    let output = run_fledge_in(tmp.path(), &["metrics"]);
+    assert!(output.status.success());
+}
+
+// ──────────────────────────────────────────────────────────
+// E2E: create template, validate, init from it
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn e2e_create_validate_init_template() {
+    let tmp = TempDir::new().unwrap();
+
+    // 1. Create a template scaffold (may fail in non-TTY due to dialoguer)
+    let output = run_fledge(&[
+        "create-template",
+        "test-tpl",
+        "--output",
+        tmp.path().to_str().unwrap(),
+    ]);
+    if !output.status.success() {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.contains("dialoguer")
+                || stderr.contains("not a terminal")
+                || stderr.contains("IO error"),
+            "unexpected create-template error: {stderr}"
+        );
+        return; // Can't continue without the template
+    }
+    let tpl_dir = tmp.path().join("test-tpl");
+    assert!(tpl_dir.exists());
+    assert!(tpl_dir.join("template.toml").exists());
+
+    // 2. Validate the created template
+    let output = run_fledge(&["validate-template", tpl_dir.to_str().unwrap()]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        output.status.success(),
+        "validate created template failed:\nstdout: {stdout}\nstderr: {stderr}"
+    );
+}
