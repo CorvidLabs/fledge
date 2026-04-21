@@ -202,6 +202,17 @@ fledge flow --import owner/repo@v1.0.0  # pin to a version
 
 Share and discover flows via GitHub. Repos with the `fledge-flow` topic are discoverable through `--search`.
 
+### Official Examples
+
+[CorvidLabs/fledge-flows](https://github.com/CorvidLabs/fledge-flows) is the official collection of language-specific flow examples. Each subdirectory contains a fully-documented `fledge.toml`.
+
+| Language | Import command |
+|----------|---------------|
+| Rust | `fledge flow --import CorvidLabs/fledge-flows/rust` |
+| Python | `fledge flow --import CorvidLabs/fledge-flows/python` |
+| Node/TypeScript | `fledge flow --import CorvidLabs/fledge-flows/node-typescript` |
+| Go | `fledge flow --import CorvidLabs/fledge-flows/go` |
+
 ### Publishing Flows
 
 1. Create a repo with a `fledge.toml` containing your flows and tasks
