@@ -82,7 +82,8 @@ enum Commands {
         yes: bool,
     },
     /// List available templates
-    List,
+    #[command(alias = "list")]
+    Templates,
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for (auto-detects if omitted with --install)
@@ -232,7 +233,8 @@ enum Commands {
         lang: Option<String>,
     },
     /// Manage and run composable workflow pipelines
-    Lane {
+    #[command(alias = "lane")]
+    Lanes {
         #[command(subcommand)]
         action: Option<LaneSubcommand>,
     },
@@ -288,7 +290,8 @@ enum Commands {
         json: bool,
     },
     /// Manage plugins (install, remove, list, search)
-    Plugin {
+    #[command(alias = "plugin")]
+    Plugins {
         #[command(subcommand)]
         action: PluginSubcommand,
         /// Output as JSON
@@ -582,7 +585,7 @@ fn run() -> Result<()> {
                 yes,
             })?;
         }
-        Commands::List => {
+        Commands::Templates => {
             list_templates()?;
         }
         Commands::Config { action } => {
@@ -715,7 +718,7 @@ fn run() -> Result<()> {
         Commands::Review { base, file, json } => {
             review::run(review::ReviewOptions { base, file, json })?;
         }
-        Commands::Lane { action } => {
+        Commands::Lanes { action } => {
             let action = match action {
                 Some(LaneSubcommand::Run { name, dry_run }) => {
                     lanes::LaneAction::Run { name, dry_run }
@@ -777,7 +780,7 @@ fn run() -> Result<()> {
                 json,
             })?;
         }
-        Commands::Plugin { action, json } => {
+        Commands::Plugins { action, json } => {
             let action = match action {
                 PluginSubcommand::Install { source, force } => {
                     plugin::PluginAction::Install { source, force }
