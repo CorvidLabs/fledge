@@ -10,8 +10,6 @@ struct PluginManifest {
     plugin: PluginMeta,
     #[serde(default)]
     commands: Vec<PluginCommand>,
-    #[serde(default)]
-    hooks: Vec<PluginHook>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,14 +27,6 @@ struct PluginCommand {
     name: String,
     #[allow(dead_code)]
     description: Option<String>,
-    binary: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct PluginHook {
-    #[allow(dead_code)]
-    event: String,
-    #[allow(dead_code)]
     binary: String,
 }
 
@@ -266,10 +256,6 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     if !command_names.is_empty() {
         println!("  Commands: {}", style(command_names.join(", ")).cyan());
     }
-    if !manifest.hooks.is_empty() {
-        println!("  Hooks: {} registered", style(manifest.hooks.len()).cyan());
-    }
-
     Ok(())
 }
 
@@ -641,18 +627,12 @@ author = "someone"
 name = "deploy"
 description = "Deploy the project"
 binary = "fledge-deploy"
-
-[[hooks]]
-event = "flow:post"
-binary = "fledge-deploy-notify"
 "#;
         let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
         assert_eq!(manifest.plugin.name, "fledge-deploy");
         assert_eq!(manifest.plugin.version, "0.1.0");
         assert_eq!(manifest.commands.len(), 1);
         assert_eq!(manifest.commands[0].name, "deploy");
-        assert_eq!(manifest.hooks.len(), 1);
-        assert_eq!(manifest.hooks[0].event, "flow:post");
     }
 
     #[test]
@@ -665,7 +645,6 @@ version = "0.1.0"
         let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
         assert_eq!(manifest.plugin.name, "fledge-minimal");
         assert!(manifest.commands.is_empty());
-        assert!(manifest.hooks.is_empty());
     }
 
     #[test]

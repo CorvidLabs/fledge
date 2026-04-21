@@ -11,8 +11,6 @@ use crate::templates;
 pub struct UpdateOptions {
     pub dry_run: bool,
     pub refresh: bool,
-    #[allow(dead_code)]
-    pub yes: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

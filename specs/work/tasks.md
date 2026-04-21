@@ -11,7 +11,7 @@ spec: work.spec.md
 - [x] Wire up CLI subcommands in main.rs
 - [x] Write unit tests
 - [x] Run verification suite
-- [x] Add flexible branch types (--type flag)
+- [x] Add flexible branch types (--branch-type flag)
 - [x] Add issue linking (--issue flag)
 - [x] Add custom prefix override (--prefix flag)
 - [x] Add WorkConfig with fledge.toml [work] section support

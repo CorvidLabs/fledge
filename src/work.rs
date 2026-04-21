@@ -13,6 +13,7 @@ pub struct WorkConfig {
     pub branch_format: String,
     #[serde(default = "default_type")]
     pub default_type: String,
+    pub branch_types: Option<Vec<String>>,
 }
 
 impl Default for WorkConfig {
@@ -20,6 +21,7 @@ impl Default for WorkConfig {
         Self {
             branch_format: default_branch_format(),
             default_type: default_type(),
+            branch_types: None,
         }
     }
 }
@@ -184,11 +186,16 @@ fn start(
     let config = load_work_config();
 
     let btype = branch_type.unwrap_or(&config.default_type);
-    if prefix.is_none() && !VALID_BRANCH_TYPES.contains(&btype) {
+    let valid_types: Vec<&str> = if let Some(ref custom) = config.branch_types {
+        custom.iter().map(|s| s.as_str()).collect()
+    } else {
+        VALID_BRANCH_TYPES.to_vec()
+    };
+    if prefix.is_none() && !valid_types.contains(&btype) {
         bail!(
             "Unknown branch type '{}'. Valid types: {}",
             btype,
-            VALID_BRANCH_TYPES.join(", ")
+            valid_types.join(", ")
         );
     }
 
@@ -546,6 +553,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "{type}/{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("login-page", "feat", None, None, &config),
@@ -558,6 +566,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "{type}/{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("login-crash", "fix", None, None, &config),
@@ -570,6 +579,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "{type}/{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("login-crash", "fix", Some(42), None, &config),
@@ -600,6 +610,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "user/leif/{type}/{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("search", "feat", None, None, &config),
@@ -612,6 +623,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "{type}/{issue}-{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("login-crash", "fix", Some(42), None, &config),
@@ -624,6 +636,7 @@ mod tests {
         let config = WorkConfig {
             branch_format: "{type}/{name}".to_string(),
             default_type: "feat".to_string(),
+            branch_types: None,
         };
         assert_eq!(
             build_branch_name("search", "feat", None, None, &config),
