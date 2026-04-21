@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 
 pub fn cache_dir() -> PathBuf {
@@ -72,7 +72,7 @@ fn clone_repo(
 ) -> Result<()> {
     std::fs::create_dir_all(target.parent().unwrap_or(target))?;
 
-    let url = repo_url(owner, repo, token);
+    let url = format!("https://github.com/{}/{}.git", owner, repo);
 
     let mut args = vec!["clone", "--depth", "1"];
     if let Some(r) = git_ref {
@@ -81,13 +81,23 @@ fn clone_repo(
     }
     args.push(&url);
 
-    let status = std::process::Command::new("git")
-        .args(&args)
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(&args)
         .arg(target)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .status()
-        .context("running git clone")?;
+        .stderr(std::process::Stdio::piped());
+
+    if let Some(t) = token {
+        use base64::Engine;
+        let credentials = format!("x-access-token:{}", t);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
+        let header_value = format!("Authorization: Basic {}", encoded);
+        cmd.env("GIT_CONFIG_COUNT", "1")
+            .env("GIT_CONFIG_KEY_0", "http.extraheader")
+            .env("GIT_CONFIG_VALUE_0", &header_value);
+    }
+
+    let status = cmd.status().context("running git clone")?;
 
     if !status.success() {
         if let Some(r) = git_ref {
@@ -140,13 +150,6 @@ fn update_repo(repo_dir: &Path) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn repo_url(owner: &str, repo: &str, token: Option<&str>) -> String {
-    match token {
-        Some(t) => format!("https://{}@github.com/{}/{}.git", t, owner, repo),
-        None => format!("https://github.com/{}/{}.git", owner, repo),
-    }
 }
 
 pub fn resolve_template_dir(
@@ -252,18 +255,6 @@ mod tests {
         assert_eq!(repo, "templates");
         assert_eq!(sub, Some("rust-cli"));
         assert_eq!(git_ref, Some("v2.0"));
-    }
-
-    #[test]
-    fn repo_url_without_token() {
-        let url = repo_url("CorvidLabs", "fledge", None);
-        assert_eq!(url, "https://github.com/CorvidLabs/fledge.git");
-    }
-
-    #[test]
-    fn repo_url_with_token() {
-        let url = repo_url("CorvidLabs", "fledge", Some("ghp_abc123"));
-        assert_eq!(url, "https://ghp_abc123@github.com/CorvidLabs/fledge.git");
     }
 
     #[test]

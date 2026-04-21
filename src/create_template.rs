@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use console::style;
-use dialoguer::{Confirm, Input, theme::ColorfulTheme};
+use dialoguer::{theme::ColorfulTheme, Confirm, Input};
 use std::path::{Path, PathBuf};
 
 pub struct CreateTemplateOptions {

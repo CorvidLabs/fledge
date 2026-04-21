@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -15,19 +15,18 @@ struct PluginManifest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PluginMeta {
     name: String,
     version: String,
-    #[allow(dead_code)]
     description: Option<String>,
-    #[allow(dead_code)]
     author: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PluginCommand {
     name: String,
-    #[allow(dead_code)]
     description: Option<String>,
     binary: String,
 }
@@ -93,12 +92,6 @@ pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
     }
 
     which_fledge_plugin(name)
-}
-
-#[allow(dead_code)]
-pub fn list_installed() -> Result<Vec<PluginEntry>> {
-    let registry = load_registry()?;
-    Ok(registry.plugins)
 }
 
 pub fn run_lifecycle_hook(event: &str) -> Result<()> {
@@ -254,6 +247,23 @@ fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
     Ok(())
 }
 
+fn validate_command_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+        || name.starts_with('.')
+        || name.starts_with('-')
+        || name == ".."
+    {
+        bail!(
+            "Invalid plugin command name '{}'. Names must be alphanumeric with hyphens/underscores.",
+            name
+        );
+    }
+    Ok(())
+}
+
 fn link_commands(
     plugin_dir: &Path,
     bin_dir: &Path,
@@ -261,7 +271,31 @@ fn link_commands(
 ) -> Result<Vec<String>> {
     let mut command_names = Vec::new();
     for cmd in &manifest.commands {
+        validate_command_name(&cmd.name)?;
+
+        for component in std::path::Path::new(&cmd.binary).components() {
+            if matches!(component, std::path::Component::ParentDir) {
+                bail!(
+                    "Plugin '{}' binary '{}' contains path traversal (..)",
+                    manifest.plugin.name,
+                    cmd.binary
+                );
+            }
+        }
+
         let binary_path = plugin_dir.join(&cmd.binary);
+        if let Ok(canonical_binary) = binary_path.canonicalize() {
+            let canonical_dir = plugin_dir
+                .canonicalize()
+                .unwrap_or_else(|_| plugin_dir.to_path_buf());
+            if !canonical_binary.starts_with(&canonical_dir) {
+                bail!(
+                    "Plugin '{}' binary '{}' resolves outside the plugin directory",
+                    manifest.plugin.name,
+                    cmd.binary
+                );
+            }
+        }
         if !binary_path.exists() {
             let mut hint = format!(
                 "Plugin '{}' references binary '{}' which does not exist.",
@@ -321,6 +355,30 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
     validate_plugin_name(&repo_name)?;
+
+    println!(
+        "\n{} Installing plugin from: {}",
+        style("!").yellow().bold(),
+        style(&url).cyan()
+    );
+    println!(
+        "  {} Plugins can execute arbitrary code on your system.",
+        style("*").yellow()
+    );
+    println!(
+        "  {} Only install plugins from sources you trust.\n",
+        style("*").yellow()
+    );
+
+    if !force {
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!("Install plugin '{repo_name}' from {url}?"))
+            .default(true)
+            .interact()?;
+        if !confirm {
+            bail!("Plugin installation cancelled.");
+        }
+    }
 
     let plugins = plugins_dir();
     let bin_dir = plugin_bin_dir();
@@ -868,10 +926,12 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
             .status()
             .with_context(|| format!("running {event} hook"))?
     } else {
-        let shell = if cfg!(windows) { "cmd" } else { "sh" };
-        let flag = if cfg!(windows) { "/C" } else { "-c" };
-        Command::new(shell)
-            .args([flag, hook])
+        let parts: Vec<&str> = hook.split_whitespace().collect();
+        if parts.is_empty() {
+            bail!("Empty hook command for {event}");
+        }
+        Command::new(parts[0])
+            .args(&parts[1..])
             .current_dir(plugin_dir)
             .status()
             .with_context(|| format!("running {event} hook"))?
@@ -1130,6 +1190,29 @@ mod tests {
     #[test]
     fn validate_plugin_name_accepts_normal() {
         assert!(validate_plugin_name("fledge-deploy").is_ok());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_slashes() {
+        assert!(validate_command_name("../evil").is_err());
+        assert!(validate_command_name("foo/bar").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_dot_prefix() {
+        assert!(validate_command_name(".hidden").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_dash_prefix() {
+        assert!(validate_command_name("-flag").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_accepts_normal() {
+        assert!(validate_command_name("deploy").is_ok());
+        assert!(validate_command_name("my-tool").is_ok());
+        assert!(validate_command_name("tool_v2").is_ok());
     }
 
     #[test]

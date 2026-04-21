@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security**: GitHub token no longer leaked via process table — auth passed via environment variables instead of CLI args
+- **Security**: config files now enforce 0600 permissions on both new and pre-existing files
+- **Security**: plugin binary path traversal hardened — both plugin dir and binary path are canonicalized before comparison
+- **Security**: plugin command names validated to prevent symlink injection (rejects `/`, `\`, `.`, `-` prefix)
+- **Security**: plugin install now shows security warning and requires confirmation (use `--force` to skip in CI)
+- **Security**: post-create hooks always require confirmation regardless of template source (use `--yes` to skip in CI)
+- **Security**: template requirement checker rejects tool names starting with `-` to prevent `which` false positives
+- **Security**: replaced hand-rolled base64 with audited `base64` crate
 - CLI Reference: added missing `--author` and `--org` flags for `fledge init`
 - CLI Reference: added missing `--description`, `--render-patterns`, `--hooks`, `--prompts`, `--yes` flags for `fledge create-template`
 - CLI Reference: corrected `--type` to `--branch-type` for `fledge work start` (matching actual flag name)
@@ -28,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed misplaced TUI section from plugins documentation page
 - Fixed `--type` → `--branch-type` in develop guide, GitHub integration guide, and quick start
 - Updated SUMMARY.md with new documentation pages
+
+### Changed
+
+- **Breaking**: post-create hooks now always prompt for confirmation (pass `--yes` to auto-approve for CI/scripts)
+- **Breaking**: `fledge plugin install` now requires confirmation before cloning (pass `--force` to skip for CI/scripts)
+- **Breaking**: hook execution uses direct process invocation instead of shell — pipes, redirects, and shell expansions in hook commands are no longer supported; use a wrapper script instead
 
 ## [1.0.0] - 2026-04-20
 

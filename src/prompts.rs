@@ -1,5 +1,5 @@
 use anyhow::Result;
-use dialoguer::{Input, Select, theme::ColorfulTheme};
+use dialoguer::{theme::ColorfulTheme, Input, Select};
 
 use crate::config::Config;
 use crate::templates::Template;

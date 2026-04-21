@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::Deserialize;
 use std::fs;
@@ -963,12 +963,10 @@ depends_on: []
 
         let result = validate_spec(&spec_path, tmp.path(), &required);
         assert!(result.has_errors());
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|i| i.message.contains("file not found"))
-        );
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.message.contains("file not found")));
     }
 
     #[test]
@@ -1005,12 +1003,10 @@ Test
 
         let result = validate_spec(&spec_path, tmp.path(), &required);
         assert!(result.has_errors());
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|i| i.message.contains("Invariants"))
-        );
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.message.contains("Invariants")));
     }
 
     #[test]
@@ -1054,12 +1050,10 @@ depends_on: []
         let result = validate_spec(&spec_path, tmp.path(), &required);
         assert!(!result.has_errors());
         assert!(result.has_warnings());
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|i| i.message.contains("companion file missing"))
-        );
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.message.contains("companion file missing")));
     }
 
     #[test]
@@ -1102,12 +1096,10 @@ depends_on: []
 
         let result = validate_spec(&spec_path, tmp.path(), &required);
         assert!(result.has_errors());
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|i| i.message.contains("Invalid status"))
-        );
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.message.contains("Invalid status")));
     }
 
     #[test]

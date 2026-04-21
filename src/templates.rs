@@ -1,5 +1,5 @@
-use anyhow::{Context, Result, bail};
-use include_dir::{Dir, include_dir};
+use anyhow::{bail, Context, Result};
+use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
@@ -42,8 +42,18 @@ pub fn check_requirements(requires: &[String]) -> (Vec<String>, Vec<String>) {
     let mut found = Vec::new();
     let mut missing = Vec::new();
     for tool in requires {
-        let ok = std::process::Command::new("sh")
-            .args(["-c", &format!("command -v {}", tool)])
+        if tool.is_empty()
+            || tool.contains('/')
+            || tool.contains('\\')
+            || tool.contains('\0')
+            || tool.starts_with('-')
+        {
+            missing.push(tool.clone());
+            continue;
+        }
+        let which_cmd = if cfg!(windows) { "where" } else { "which" };
+        let ok = std::process::Command::new(which_cmd)
+            .arg(tool)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
@@ -937,6 +947,13 @@ ignore = ["template.toml"]
         let (found, missing) = check_requirements(&[]);
         assert!(found.is_empty());
         assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn check_requirements_rejects_dash_prefix() {
+        let (found, missing) = check_requirements(&["--version".to_string()]);
+        assert!(found.is_empty());
+        assert_eq!(missing, vec!["--version"]);
     }
 
     #[test]

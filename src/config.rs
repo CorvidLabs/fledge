@@ -69,7 +69,24 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(&path, content)?;
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            use std::os::unix::fs::PermissionsExt;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&path)?;
+            file.write_all(content.as_bytes())?;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::write(&path, content)?;
+        }
         Ok(())
     }
 
