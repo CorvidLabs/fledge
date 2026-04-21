@@ -40,11 +40,15 @@ run_test() {
         elapsed=$((end - start))
         RESULTS+=("PASS|${name}|${elapsed}s")
         PASS=$((PASS + 1))
+        echo "  ✅ ${name} (${elapsed}s)"
     else
         end=$(date +%s)
         elapsed=$((end - start))
-        RESULTS+=("FAIL|${name}|${elapsed}s|$(echo "$output" | tail -1)")
+        local last_line
+        last_line=$(echo "$output" | tail -1)
+        RESULTS+=("FAIL|${name}|${elapsed}s|${last_line}")
         FAIL=$((FAIL + 1))
+        echo "  ❌ ${name} (${elapsed}s)"
     fi
 }
 
@@ -53,6 +57,7 @@ skip_test() {
     local reason="$2"
     RESULTS+=("SKIP|${name}|0s|${reason}")
     SKIP=$((SKIP + 1))
+    echo "  ⏭️  ${name} — ${reason}"
 }
 
 section() {
@@ -85,10 +90,12 @@ E2E_TEMPLATE="${E2E_TEMPLATE:-rust-cli}"
 if "$FLEDGE" init test-project -t "$E2E_TEMPLATE" -o "$SCRATCH" --no-git --no-install --yes >/dev/null 2>&1; then
     RESULTS+=("PASS|init ($E2E_TEMPLATE, non-interactive)|0s")
     PASS=$((PASS + 1))
+    echo "  ✅ init ($E2E_TEMPLATE, non-interactive) (0s)"
     PROJECT_DIR="$SCRATCH/test-project"
 else
     RESULTS+=("FAIL|init ($E2E_TEMPLATE, non-interactive)|0s|init failed")
     FAIL=$((FAIL + 1))
+    echo "  ❌ init ($E2E_TEMPLATE, non-interactive) (0s)"
     PROJECT_DIR=""
 fi
 
@@ -108,6 +115,7 @@ section "Search"
 if "$FLEDGE" search rust --limit 1 --json >/dev/null 2>&1; then
     RESULTS+=("PASS|search rust --json|0s")
     PASS=$((PASS + 1))
+    echo "  ✅ search rust --json (0s)"
 else
     skip_test "search rust --json" "needs network/GitHub token"
 fi
@@ -209,6 +217,7 @@ run_test "plugin list --json" "$FLEDGE" plugin list --json
 if "$FLEDGE" plugin search --limit 1 --json >/dev/null 2>&1; then
     RESULTS+=("PASS|plugin search --json|0s")
     PASS=$((PASS + 1))
+    echo "  ✅ plugin search --json (0s)"
 else
     skip_test "plugin search --json" "needs network/GitHub token"
 fi
