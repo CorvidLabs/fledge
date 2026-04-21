@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 5
+version: 6
 status: active
 files:
   - src/lanes.rs
@@ -106,6 +106,7 @@ steps = ["deps-audit", "license-check", "security-scan"]
 7. `--init` appends language-aware default lanes to an existing `fledge.toml`
 8. `--dry-run` prints the execution plan without running anything
 9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself
+10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
 
 ## Behavioral Examples
 
@@ -116,13 +117,16 @@ Available lanes:
   ci       Full CI pipeline
   release  Build and publish a release
 
-# Run a lane
+# Run a lane (with step timing)
 $ fledge lane ci
 ▶️ Lane: ci — Full CI pipeline
   ▶️ Running task: lint
+  ✔ Step 1 done (245ms)
   ▶️ Running task: test
+  ✔ Step 2 done (1.032s)
   ▶️ Running task: build
-✅ Lane ci completed (3 steps)
+  ✔ Step 3 done (3.456s)
+✅ Lane ci completed (3 steps in 4.733s)
 
 # Dry run
 $ fledge lane ci --dry-run
@@ -192,6 +196,7 @@ $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-04-21 | Add step timing — each step prints elapsed time, lane summary includes total |
 | 5 | 2026-04-21 | Generalize parallel groups to accept inline commands, not just task refs |
 | 4 | 2026-04-21 | Rename from flows to lanes — 1.0 branding |
 | 3 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |

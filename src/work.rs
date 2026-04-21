@@ -246,6 +246,8 @@ fn start(
         style(&branch_name).cyan()
     );
 
+    crate::plugin::run_lifecycle_hook("post_work_start").ok();
+
     Ok(())
 }
 
@@ -273,6 +275,8 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
             base.unwrap_or(&default)
         );
     }
+
+    crate::plugin::run_lifecycle_hook("pre_pr")?;
 
     let sp = crate::spinner::Spinner::start(&format!("Pushing {} to origin:", &branch));
     let push_output = Command::new("git")

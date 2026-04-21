@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 use crate::run::detect_project_type;
 
@@ -326,13 +327,16 @@ fn execute_lane(
 
     let total_steps = lane.steps.len();
     let mut failures: Vec<String> = Vec::new();
+    let lane_start = Instant::now();
 
     for (i, step) in lane.steps.iter().enumerate() {
+        let step_start = Instant::now();
         let result = match step {
             Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
             Step::Inline { run: cmd } => execute_inline(cmd, project_dir),
             Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir),
         };
+        let elapsed = step_start.elapsed();
 
         if let Err(e) = result {
             let step_desc = match step {
@@ -351,41 +355,68 @@ fn execute_lane(
             };
             if lane.fail_fast {
                 bail!(
-                    "Lane '{}' failed at step {} ({}): {}",
+                    "Lane '{}' failed at step {} ({}) after {}: {}",
                     lane_name,
                     i + 1,
                     step_desc,
+                    format_duration(elapsed),
                     e
                 );
             }
             eprintln!(
-                "  {} Step {} ({}) failed: {}",
+                "  {} Step {} ({}) failed after {}: {}",
                 style("❌").red().bold(),
                 i + 1,
                 step_desc,
+                format_duration(elapsed),
                 e
             );
             failures.push(step_desc);
+        } else {
+            println!(
+                "  {} Step {} done {}",
+                style("✔").green(),
+                i + 1,
+                style(format!("({})", format_duration(elapsed))).dim()
+            );
         }
     }
 
+    let total_elapsed = lane_start.elapsed();
+
     if failures.is_empty() {
         println!(
-            "{} Lane {} completed ({} steps)",
+            "{} Lane {} completed ({} steps in {})",
             style("✅").green().bold(),
             style(lane_name).green(),
-            total_steps
+            total_steps,
+            format_duration(total_elapsed)
         );
     } else {
         bail!(
-            "Lane '{}' completed with {} failure(s): {}",
+            "Lane '{}' completed with {} failure(s) in {}: {}",
             lane_name,
             failures.len(),
+            format_duration(total_elapsed),
             failures.join(", ")
         );
     }
 
     Ok(())
+}
+
+fn format_duration(d: std::time::Duration) -> String {
+    let secs = d.as_secs();
+    let millis = d.subsec_millis();
+    if secs >= 60 {
+        let mins = secs / 60;
+        let remaining = secs % 60;
+        format!("{mins}m {remaining}.{millis:03}s")
+    } else if secs > 0 {
+        format!("{secs}.{millis:03}s")
+    } else {
+        format!("{millis}ms")
+    }
 }
 
 fn execute_task_with_deps(
@@ -1631,5 +1662,29 @@ steps = ["build"]
         let cleaned: String = encoded.chars().filter(|c| !c.is_whitespace()).collect();
         let decoded = base64_decode(&cleaned).unwrap();
         assert_eq!(String::from_utf8(decoded).unwrap(), "Hello");
+    }
+
+    #[test]
+    fn format_duration_millis() {
+        let d = std::time::Duration::from_millis(42);
+        assert_eq!(format_duration(d), "42ms");
+    }
+
+    #[test]
+    fn format_duration_seconds() {
+        let d = std::time::Duration::from_millis(3456);
+        assert_eq!(format_duration(d), "3.456s");
+    }
+
+    #[test]
+    fn format_duration_minutes() {
+        let d = std::time::Duration::from_secs(125) + std::time::Duration::from_millis(100);
+        assert_eq!(format_duration(d), "2m 5.100s");
+    }
+
+    #[test]
+    fn format_duration_zero() {
+        let d = std::time::Duration::from_millis(0);
+        assert_eq!(format_duration(d), "0ms");
     }
 }
