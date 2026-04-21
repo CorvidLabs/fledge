@@ -106,9 +106,10 @@ name = "rollback"
 description = "Rollback to previous deployment"
 binary = "fledge-rollback"
 
-[[hooks]]
-event = "lane:post"
-binary = "fledge-deploy-notify"
+[hooks]
+build = "cargo build --release"
+post_install = "echo 'fledge-deploy installed'"
+post_work_start = "scripts/setup-env.sh"
 ```
 
 ### 3. Add the executables

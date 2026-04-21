@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Step timing for lanes — each step shows elapsed time, lane summary shows total time
+- Plugin lifecycle hooks — `pre_init`, `post_work_start`, `pre_pr` fire at fledge lifecycle events
+- Parallel lane steps accept inline commands alongside task references
 - SECURITY.md — vulnerability reporting policy and security model documentation
 - CONTRIBUTING.md — development setup, workflow, code guidelines, and contribution process
 - Doctor guide page in documentation (`docs/src/doctor.md`)
@@ -20,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI Reference: added missing `--description`, `--render-patterns`, `--hooks`, `--prompts`, `--yes` flags for `fledge create-template`
 - CLI Reference: corrected `--type` to `--branch-type` for `fledge work start` (matching actual flag name)
 - CLI Reference: removed non-existent `-y, --yes` flag from `fledge update`
-- CLI Reference: updated `fledge flow` to document subcommand structure (`run`, `list`, `init`, `search`, `import`)
+- CLI Reference: updated `fledge lane` to document subcommand structure (`run`, `list`, `init`, `search`, `import`)
 - CLI Reference: added short flags (`-t`, `-b`) for `fledge work pr`
 - Removed misplaced TUI section from plugins documentation page
 - Fixed `--type` → `--branch-type` in develop guide, GitHub integration guide, and quick start
@@ -30,12 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `fledge flow` - composable workflow pipelines with sequential, parallel, and inline steps
-- `fledge flow --init` - auto-generate flows for your project type
+- `fledge lane` - composable workflow pipelines with sequential, parallel, and inline steps
+- `fledge lane --init` - auto-generate lanes for your project type
 - `fledge plugin` - plugin architecture (install, remove, list, search, run) via GitHub repos
 - `fledge validate-template` - validate templates for correctness with `--strict` and `--json` output
 - `fledge run` zero-config mode - auto-detects project type and runs tasks without `fledge.toml`
-- Community flow registry - search and import flows from GitHub
+- Community lane registry - search and import lanes from GitHub
 - `fledge.toml` in the repo root - fledge now dogfoods its own CLI for development workflows
 - "Using Fledge with Existing Projects" documentation guide
 
@@ -46,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking**: `fledge flow` now uses subcommands — `fledge flow run <name>` replaces `fledge flow <name>`, `fledge flow list` replaces `fledge flow --list`, etc.
+- **Breaking**: `fledge lane` now uses subcommands — `fledge lane run <name>` replaces `fledge lane <name>`, `fledge lane list` replaces `fledge lane --list`, etc.
 - Full end-to-end dev lifecycle coverage from scaffold to ship
 - Homebrew formula updated to 1.0.0
 - Promoted to 1.0.0 - stable API
