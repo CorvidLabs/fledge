@@ -522,7 +522,7 @@ fn cli_run_failing_task_exits_nonzero() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow commands
+// Lane commands
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -1064,7 +1064,7 @@ fn cli_subcommand_help() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow with inline and parallel steps
+// Lane with inline and parallel steps
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -1486,7 +1486,7 @@ deps = ["step3"]
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow edge cases
+// Lane edge cases
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -2166,7 +2166,7 @@ fn cli_run_auto_detect_with_multiple_markers() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow: parallel with failing task
+// Lane: parallel with failing task
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -2300,7 +2300,7 @@ steps = [{ parallel = ["check", "build"] }, "test"]
     let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
-    // 9. Flow list JSON
+    // 9. Lane list JSON
     let output = run_fledge_in(tmp.path(), &["lane", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();

@@ -11,7 +11,7 @@
 ```bash
 fledge init my-tool --template rust-cli
 cd my-tool
-fledge flow ci     # lint + test + build, works out of the box
+fledge lane ci     # lint + test + build, works out of the box
 ```
 
 ## Install
@@ -56,7 +56,7 @@ fledge init my-app                         # interactive picker
 | Stage | Commands | What it does |
 |-------|----------|-------------|
 | **Start** | `init`, `list`, `search`, `create-template` | Scaffold projects from local or remote templates |
-| **Build** | `run`, `flow`, `config`, `doctor` | Task runner, workflow pipelines, environment checks |
+| **Build** | `run`, `lane`, `config`, `doctor` | Task runner, workflow pipelines, environment checks |
 | **Develop** | `work`, `spec` | Feature branches, PRs, spec-sync |
 | **Review** | `review`, `ask`, `metrics`, `deps` | AI code review, codebase Q&A, health checks |
 | **Ship** | `issues`, `prs`, `checks`, `changelog` | GitHub integration, CI status, release notes |
@@ -71,14 +71,14 @@ Browse community templates: `fledge search <keyword>`
 ## Examples
 
 - **[Official Templates](https://github.com/CorvidLabs/fledge-templates)** — hello-world, bun-api, ts-lib, and more
-- **[Example Flows](https://github.com/CorvidLabs/fledge-flows)** — language-specific CI/CD pipelines
+- **[Example Lanes](https://github.com/CorvidLabs/fledge-lanes)** — language-specific CI/CD pipelines
 - **[Example Plugin](https://github.com/CorvidLabs/fledge-deploy)** — deploy/rollback plugin reference
 
 ## Learn More
 
 - **[Full Documentation](https://corvidlabs.github.io/fledge/)** — commands, configuration, guides
 - **[Template Authoring](https://corvidlabs.github.io/fledge/template-authoring.html)** — create and publish your own templates
-- **[Flows Guide](https://corvidlabs.github.io/fledge/flows.html)** — task pipelines and workflow automation
+- **[Lanes Guide](https://corvidlabs.github.io/fledge/lanes.html)** — task pipelines and workflow automation
 - **[Plugins Guide](https://corvidlabs.github.io/fledge/plugins.html)** — extend fledge with community tools
 
 ## Contributing

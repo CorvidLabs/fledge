@@ -60,7 +60,7 @@ enum ActionId {
     WorkPr,
     SpecNew,
     RunTask,
-    RunFlow,
+    RunLane,
     SearchTemplates,
     CreateTemplate,
     PublishTemplate,
@@ -225,20 +225,20 @@ fn build_categories() -> Vec<CategoryDef> {
                     },
                 },
                 ActionDef {
-                    name: "List Flows",
+                    name: "List Lanes",
                     description: "Show available workflow pipelines",
                     kind: ActionKind::Direct(vec!["lane", "--list"]),
                 },
                 ActionDef {
-                    name: "Run Flow",
+                    name: "Run Lane",
                     description: "Execute a workflow pipeline",
                     kind: ActionKind::WithInput {
                         fields: vec![FieldDef {
-                            label: "Flow name",
+                            label: "Lane name",
                             default: "",
                             required: true,
                         }],
-                        action_id: ActionId::RunFlow,
+                        action_id: ActionId::RunLane,
                     },
                 },
                 ActionDef {
@@ -589,7 +589,7 @@ fn build_command(action_id: ActionId, fields: &[String]) -> Vec<String> {
         }
         ActionId::SpecNew => vec!["spec".into(), "new".into(), field(fields, 0).to_string()],
         ActionId::RunTask => vec!["run".into(), field(fields, 0).to_string()],
-        ActionId::RunFlow => vec!["lane".into(), field(fields, 0).to_string()],
+        ActionId::RunLane => vec!["lane".into(), field(fields, 0).to_string()],
         ActionId::SearchTemplates => {
             let mut args = vec!["search".into()];
             let q = field(fields, 0);
@@ -2175,8 +2175,8 @@ mod tests {
     }
 
     #[test]
-    fn test_build_command_run_flow() {
-        let args = build_command(ActionId::RunFlow, &["ci".into()]);
+    fn test_build_command_run_lane() {
+        let args = build_command(ActionId::RunLane, &["ci".into()]);
         assert_eq!(args, vec!["lane", "ci"]);
     }
 

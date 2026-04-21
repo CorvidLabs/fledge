@@ -89,9 +89,9 @@ Create new templates and publish them with `fledge publish`. See the [Template A
 
 Build plugins that extend fledge with new commands. See the [Plugins Guide](https://corvidlabs.github.io/fledge/plugins.html) for the plugin format.
 
-### Flows
+### Lanes
 
-Share workflow pipelines via the community flow registry. Push a repo with a `fledge.toml` and add the `fledge-flow` topic.
+Share workflow pipelines via the community lane registry. Push a repo with a `fledge.toml` and add the `fledge-lane` topic.
 
 ### Documentation
 
