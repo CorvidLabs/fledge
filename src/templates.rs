@@ -180,7 +180,7 @@ fn builtin_template_dir() -> PathBuf {
 fn extract_embedded_templates() -> PathBuf {
     let version = env!("CARGO_PKG_VERSION");
     let cache_dir = dirs::cache_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join(format!("templates-v{}", version));
 
