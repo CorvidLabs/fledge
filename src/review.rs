@@ -24,10 +24,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
 
     let diff_stats = get_diff_stats(&base, options.file.as_deref())?;
 
-    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}...", &base));
-
     if !diff_stats.is_empty() {
-        sp.finish();
         println!("{}\n", style(&diff_stats).dim());
     }
 
@@ -46,14 +43,22 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         diff
     );
 
+    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}...", &base));
+
+    let output = Command::new("claude").args(["--print", &prompt]).output()?;
+
     sp.finish();
     println!();
 
-    let status = Command::new("claude").args(["--print", &prompt]).status()?;
-
-    if !status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            eprintln!("{stderr}");
+        }
         bail!("claude CLI exited with an error.");
     }
+
+    print!("{}", String::from_utf8_lossy(&output.stdout));
 
     Ok(())
 }
