@@ -1,6 +1,6 @@
 ---
 module: tui
-version: 1
+version: 2
 status: active
 files:
   - src/tui.rs
@@ -66,14 +66,14 @@ Interactive dashboard for the entire fledge dev lifecycle. Provides a two-panel 
 $ fledge tui
 
   ┌─ Categories ──────┬─ Work ──────────────────────────┐
-  │ ▶ ⎇ Work          │ ▶ Start Branch     Create a new │
-  │   ⊙ GitHub        │   Create PR        Open a pull  │
-  │   ▶ Run           │   Status           Show current │
+  │ 👉 🔀 Work          │ 👉 Start Branch     Create a new │
+  │   🐙 GitHub        │   Create PR        Open a pull  │
+  │   ▶️ Run           │   Status           Show current │
   │   📋 Specs         │                                  │
   │   📊 Metrics       │                                  │
-  │   ⚙ Config        │                                  │
+  │   ⚙️ Config        │                                  │
   │   📦 Templates     │                                  │
-  │   ✦ AI            │                                  │
+  │   🤖 AI            │                                  │
   │   🩺 Doctor        │                                  │
   │   📝 Changelog     │                                  │
   │   🔌 Plugins       │                                  │
@@ -102,4 +102,5 @@ $ fledge tui
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-20 | Initial spec — full dashboard with 11 categories, 40+ actions |

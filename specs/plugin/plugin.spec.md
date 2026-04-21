@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 1
+version: 2
 status: active
 files:
   - src/plugin.rs
@@ -108,7 +108,7 @@ installed = "2026-04-20"
 ```
 # Install a plugin from GitHub
 $ fledge plugin install someone/fledge-deploy
-✓ Installed fledge-deploy v0.1.0
+✅ Installed fledge-deploy v0.1.0
   Commands: deploy
 
 # List installed plugins
@@ -118,12 +118,12 @@ Installed plugins:
 
 # Run a plugin command
 $ fledge deploy staging
-▸ Running plugin: deploy
+▶️ Running plugin: deploy
 [plugin output here]
 
 # Remove a plugin
 $ fledge plugin remove deploy
-✓ Removed fledge-deploy
+✅ Removed fledge-deploy
 
 # Search for plugins
 $ fledge plugin search deploy
@@ -151,4 +151,5 @@ $ fledge plugin search deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-20 | Initial spec |
