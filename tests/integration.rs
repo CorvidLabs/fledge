@@ -1595,8 +1595,7 @@ steps = ["a", "b"]
     let output = run_fledge_in(tmp.path(), &["flow", "run", "plan", "--dry-run"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Should show the plan without running
-    assert!(!stdout.contains("echo A") || !stdout.contains("Running"));
+    assert!(!stdout.contains("Running"));
 }
 
 #[test]
@@ -1622,17 +1621,26 @@ fn cli_flow_no_flows_section_fails() {
 
 #[test]
 fn cli_config_set_and_get_roundtrip() {
-    // Set a value, then verify we can get it back
-    let output = run_fledge(&["config", "set", "defaults.author", "test-author-e2e"]);
+    let tmp = TempDir::new().unwrap();
+    let config_dir = tmp.path().join("fledge-config");
+    std::fs::create_dir_all(&config_dir).unwrap();
+
+    let bin = cargo_bin();
+    let output = Command::new(&bin)
+        .args(["config", "set", "defaults.author", "test-author-e2e"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
     assert!(output.status.success());
 
-    let output = run_fledge(&["config", "get", "defaults.author"]);
+    let output = Command::new(&bin)
+        .args(["config", "get", "defaults.author"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("test-author-e2e"));
-
-    // Clean up
-    let _ = run_fledge(&["config", "unset", "defaults.author"]);
 }
 
 #[test]

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking**: `fledge flow` now uses subcommands — `fledge flow run <name>` replaces `fledge flow <name>`, `fledge flow list` replaces `fledge flow --list`, etc.
 - Full end-to-end dev lifecycle coverage from scaffold to ship
 - Homebrew formula updated to 1.0.0
 - Promoted to 1.0.0 - stable API

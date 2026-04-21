@@ -726,7 +726,12 @@ fn run() -> Result<()> {
             tui::run(output, no_git)?;
         }
         Commands::External(args) => {
-            let cmd_name = &args[0];
+            let cmd_name = args.first().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "no subcommand provided\n\n  tip: use {} for help",
+                    style("fledge help").cyan()
+                )
+            })?;
             let cmd_args: Vec<String> = args[1..].to_vec();
             if plugin::resolve_plugin_command(cmd_name).is_some() {
                 plugin::run(plugin::PluginOptions {

@@ -54,6 +54,9 @@ impl Config {
     }
 
     pub fn config_path() -> PathBuf {
+        if let Ok(dir) = std::env::var("FLEDGE_CONFIG_DIR") {
+            return PathBuf::from(dir).join("config.toml");
+        }
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
             .join("fledge")
