@@ -524,9 +524,10 @@ fledge plugin <install|remove|list|search|run> [OPTIONS]
 
 **Subcommands:**
 
-- `install <source>` - Install from GitHub (`owner/repo` or URL). `--force` to reinstall.
+- `install <source[@ref]>` - Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit.
 - `remove <name>` - Uninstall a plugin
-- `list` - Show installed plugins
+- `update [name]` - Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
+- `list` - Show installed plugins (includes pinned version info)
 - `search [query]` - Find plugins on GitHub (`--limit`)
 - `run <name> [args...]` - Run a plugin command
 
@@ -553,6 +554,8 @@ binary = "fledge-deploy-notify"
 
 ```bash
 fledge plugin install someone/fledge-deploy
+fledge plugin install someone/fledge-deploy@v1.2.0   # pin to version
+fledge plugin update                                   # update all
 fledge plugin list
 fledge plugin search deploy
 fledge plugin remove fledge-deploy

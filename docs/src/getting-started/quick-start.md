@@ -94,7 +94,8 @@ Community extensions, git-style:
 
 ```bash
 fledge plugin search deploy
-fledge plugin install someone/fledge-deploy
+fledge plugin install someone/fledge-deploy           # latest
+fledge plugin install someone/fledge-deploy@v1.0.0    # pinned version
 fledge plugin list
 ```
 

@@ -8,18 +8,26 @@ Plugins extend fledge with community-built commands. They're external executable
 # From GitHub
 fledge plugin install someone/fledge-deploy
 
+# Pin to a specific version (tag, branch, or commit)
+fledge plugin install someone/fledge-deploy@v1.2.0
+
 # Full URL works too
 fledge plugin install https://github.com/someone/fledge-deploy.git
 
-# Reinstall
-fledge plugin install someone/fledge-deploy --force
+# Full URL with version pin
+fledge plugin install https://github.com/someone/fledge-deploy.git@v1.2.0
+
+# Reinstall (or upgrade a pinned plugin)
+fledge plugin install someone/fledge-deploy@v2.0.0 --force
 ```
 
 What happens when you install:
 1. Repo gets cloned to `~/.config/fledge/plugins/<name>/`
-2. fledge reads `plugin.toml`
-3. Command binaries get symlinked to `~/.config/fledge/plugins/bin/`
-4. Plugin is registered in `~/.config/fledge/plugins.toml`
+2. If `@ref` was specified, that tag/branch/commit is checked out
+3. fledge reads `plugin.toml`
+4. Build hook runs (or auto-detects Rust/Swift/Go/Node)
+5. Command binaries get symlinked to `~/.config/fledge/plugins/bin/`
+6. Plugin is registered in `~/.config/fledge/plugins.toml` (with `pinned_ref` if pinned)
 
 ## Using Plugins
 
@@ -36,8 +44,27 @@ fledge deploy --target production
 ```bash
 fledge plugin list              # what's installed
 fledge plugin search deploy     # find plugins on GitHub
+fledge plugin update            # update all unpinned plugins
+fledge plugin update fledge-deploy  # update a specific plugin
 fledge plugin remove fledge-deploy
 fledge plugin list --json       # for scripting
+```
+
+## Version Pinning
+
+Use `@ref` to pin a plugin to a specific version:
+
+```bash
+fledge plugin install someone/fledge-deploy@v1.2.0
+```
+
+Pinned plugins behave differently on update:
+- **Unpinned** plugins get `git pull` and rebuild automatically
+- **Pinned** plugins check for newer tags and suggest an upgrade command, but don't change automatically
+
+To upgrade a pinned plugin:
+```bash
+fledge plugin install someone/fledge-deploy@v2.0.0 --force
 ```
 
 ## Discovery
