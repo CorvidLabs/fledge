@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

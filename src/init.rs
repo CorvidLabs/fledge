@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use std::path::{Path, PathBuf};
 
@@ -664,12 +664,10 @@ ignore = ["template.toml"]
         let hooks = vec!["false".to_string()];
         let result = run_post_create_hooks(&hooks, tmp.path(), false, false);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Post-create hook failed")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Post-create hook failed"));
     }
 
     #[test]

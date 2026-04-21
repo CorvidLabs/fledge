@@ -28,7 +28,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
 | `PluginAction` | Enum of plugin operations: Install, Remove, List, Search, Run |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
-| `list_installed` | List all installed plugins with metadata |
 
 ### Structs & Enums
 
@@ -45,7 +44,6 @@ Plugin system for community extensions. Plugins are external executables that re
 |----------|-----------|-------------|
 | `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
-| `list_installed` | `() -> Result<Vec<PluginEntry>>` | List all installed plugins |
 | `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
 
 ## Plugin Format

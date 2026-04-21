@@ -1,5 +1,5 @@
-use anyhow::{Context, Result, bail};
-use include_dir::{Dir, include_dir};
+use anyhow::{bail, Context, Result};
+use include_dir::{include_dir, Dir};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};

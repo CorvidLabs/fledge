@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
@@ -492,12 +492,10 @@ deps = ["a"]
         let mut visited = HashSet::new();
         let result = execute_task("a", &config.tasks, &project_dir, &mut visited);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Circular dependency")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Circular dependency"));
     }
 
     #[test]

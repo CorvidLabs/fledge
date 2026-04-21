@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tera::Tera;
 use walkdir::WalkDir;
 
-use crate::templates::{TemplateManifest, matches_glob_pub};
+use crate::templates::{matches_glob_pub, TemplateManifest};
 
 pub struct ValidateOptions {
     pub path: PathBuf,

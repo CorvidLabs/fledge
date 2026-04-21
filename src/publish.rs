@@ -1,6 +1,6 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use console::style;
-use dialoguer::{Confirm, theme::ColorfulTheme};
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -382,12 +382,10 @@ render = ["**/*.md"]
     fn validate_nonexistent_dir_fails() {
         let result = validate_template(Path::new("/nonexistent/path/to/template"));
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Directory not found")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Directory not found"));
     }
 
     #[test]

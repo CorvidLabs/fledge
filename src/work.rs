@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use console::style;
 use serde::Deserialize;
 use std::process::Command;
