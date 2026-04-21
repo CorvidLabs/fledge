@@ -8,8 +8,6 @@ pub struct AskOptions {
 pub fn run(options: AskOptions) -> Result<()> {
     ensure_claude_cli()?;
 
-    let sp = crate::spinner::Spinner::start("Thinking...");
-
     let prompt = format!(
         "You are a helpful assistant answering questions about a codebase.\n\
         The user is in a project directory and wants to understand their code.\n\
@@ -19,14 +17,22 @@ pub fn run(options: AskOptions) -> Result<()> {
         options.question
     );
 
+    let sp = crate::spinner::Spinner::start("Thinking...");
+
+    let output = Command::new("claude").args(["--print", &prompt]).output()?;
+
     sp.finish();
     println!();
 
-    let status = Command::new("claude").args(["--print", &prompt]).status()?;
-
-    if !status.success() {
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            eprintln!("{stderr}");
+        }
         bail!("claude CLI exited with an error.");
     }
+
+    print!("{}", String::from_utf8_lossy(&output.stdout));
 
     Ok(())
 }
