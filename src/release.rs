@@ -663,7 +663,19 @@ fn push_release(dir: &Path, version: &Version, has_tag: bool) -> Result<()> {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::Mutex;
     use tempfile::TempDir;
+
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_cwd<F: FnOnce() -> R, R>(dir: &Path, f: F) -> R {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let saved = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir).unwrap();
+        let result = f();
+        let _ = std::env::set_current_dir(saved);
+        result
+    }
 
     fn init_git_repo(dir: &Path) {
         Command::new("git")
@@ -945,23 +957,21 @@ edition = "2021"
             "[package]\nname = \"test\"\nversion = \"0.1.0\"\n",
         );
 
-        let saved_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(tmp.path()).unwrap();
-
-        let result = run(ReleaseOptions {
-            bump: "patch".to_string(),
-            dry_run: true,
-            no_tag: false,
-            no_changelog: false,
-            push: false,
-            pre_lane: None,
-            allow_dirty: false,
+        let tmp_path = tmp.path().to_path_buf();
+        let result = with_cwd(&tmp_path, || {
+            run(ReleaseOptions {
+                bump: "patch".to_string(),
+                dry_run: true,
+                no_tag: false,
+                no_changelog: false,
+                push: false,
+                pre_lane: None,
+                allow_dirty: false,
+            })
         });
 
-        let _ = std::env::set_current_dir(saved_dir);
-
         assert!(result.is_ok());
-        let content = fs::read_to_string(tmp.path().join("Cargo.toml")).unwrap();
+        let content = fs::read_to_string(tmp_path.join("Cargo.toml")).unwrap();
         assert!(content.contains("0.1.0"), "dry run should not modify files");
     }
 
@@ -983,31 +993,29 @@ edition = "2021"
 
         commit_file(tmp.path(), "src.rs", "fn main() {}");
 
-        let saved_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(tmp.path()).unwrap();
-
-        let result = run(ReleaseOptions {
-            bump: "minor".to_string(),
-            dry_run: false,
-            no_tag: false,
-            no_changelog: false,
-            push: false,
-            pre_lane: None,
-            allow_dirty: false,
+        let tmp_path = tmp.path().to_path_buf();
+        let result = with_cwd(&tmp_path, || {
+            run(ReleaseOptions {
+                bump: "minor".to_string(),
+                dry_run: false,
+                no_tag: false,
+                no_changelog: false,
+                push: false,
+                pre_lane: None,
+                allow_dirty: false,
+            })
         });
-
-        let _ = std::env::set_current_dir(saved_dir);
 
         assert!(result.is_ok());
 
-        let content = fs::read_to_string(tmp.path().join("Cargo.toml")).unwrap();
+        let content = fs::read_to_string(tmp_path.join("Cargo.toml")).unwrap();
         assert!(content.contains("version = \"0.2.0\""));
 
-        assert!(tmp.path().join("CHANGELOG.md").exists());
+        assert!(tmp_path.join("CHANGELOG.md").exists());
 
         let tag_output = Command::new("git")
             .args(["tag", "-l", "v0.2.0"])
-            .current_dir(tmp.path())
+            .current_dir(&tmp_path)
             .output()
             .unwrap();
         assert!(String::from_utf8_lossy(&tag_output.stdout).contains("v0.2.0"));
@@ -1027,26 +1035,24 @@ edition = "2021"
 
         commit_file(tmp.path(), "main_test.go", "package main");
 
-        let saved_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(tmp.path()).unwrap();
-
-        let result = run(ReleaseOptions {
-            bump: "patch".to_string(),
-            dry_run: false,
-            no_tag: false,
-            no_changelog: false,
-            push: false,
-            pre_lane: None,
-            allow_dirty: false,
+        let tmp_path = tmp.path().to_path_buf();
+        let result = with_cwd(&tmp_path, || {
+            run(ReleaseOptions {
+                bump: "patch".to_string(),
+                dry_run: false,
+                no_tag: false,
+                no_changelog: false,
+                push: false,
+                pre_lane: None,
+                allow_dirty: false,
+            })
         });
-
-        let _ = std::env::set_current_dir(saved_dir);
 
         assert!(result.is_ok());
 
         let tag_output = Command::new("git")
             .args(["tag", "-l", "v0.1.1"])
-            .current_dir(tmp.path())
+            .current_dir(&tmp_path)
             .output()
             .unwrap();
         assert!(String::from_utf8_lossy(&tag_output.stdout).contains("v0.1.1"));
@@ -1076,16 +1082,12 @@ edition = "2021"
             .output()
             .unwrap();
 
-        let saved_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(tmp.path()).unwrap();
-
+        let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.2.0").unwrap();
-        let result = generate_changelog_entry(tmp.path(), &version);
-
-        let _ = std::env::set_current_dir(saved_dir);
+        let result = with_cwd(&tmp_path, || generate_changelog_entry(&tmp_path, &version));
 
         assert!(result.is_ok());
-        let changelog = fs::read_to_string(tmp.path().join("CHANGELOG.md")).unwrap();
+        let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
         assert!(changelog.contains("[v0.2.0]"));
         assert!(changelog.contains("### Features"));
         assert!(changelog.contains("add feature b"));
@@ -1117,15 +1119,13 @@ edition = "2021"
             .output()
             .unwrap();
 
-        let saved_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(tmp.path()).unwrap();
-
+        let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.1.1").unwrap();
-        generate_changelog_entry(tmp.path(), &version).unwrap();
+        with_cwd(&tmp_path, || {
+            generate_changelog_entry(&tmp_path, &version).unwrap();
+        });
 
-        let _ = std::env::set_current_dir(saved_dir);
-
-        let changelog = fs::read_to_string(tmp.path().join("CHANGELOG.md")).unwrap();
+        let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
         assert!(changelog.contains("[v0.1.1]"));
         assert!(changelog.contains("[v0.1.0]"));
         let pos_new = changelog.find("[v0.1.1]").unwrap();

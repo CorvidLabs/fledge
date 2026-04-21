@@ -488,7 +488,7 @@ cmd = "echo b"
 deps = ["a"]
 "#;
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
-        let project_dir = std::env::current_dir().unwrap();
+        let project_dir = std::env::temp_dir();
         let mut visited = HashSet::new();
         let result = execute_task("a", &config.tasks, &project_dir, &mut visited);
         assert!(result.is_err());
