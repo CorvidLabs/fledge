@@ -68,6 +68,12 @@ fledge init my-app                         # interactive picker
 
 Browse community templates: `fledge search <keyword>`
 
+## Examples
+
+- **[Official Templates](https://github.com/CorvidLabs/fledge-templates)** — hello-world, bun-api, ts-lib, and more
+- **[Example Flows](https://github.com/CorvidLabs/fledge-flows)** — language-specific CI/CD pipelines
+- **[Example Plugin](https://github.com/CorvidLabs/fledge-deploy)** — deploy/rollback plugin reference
+
 ## Learn More
 
 - **[Full Documentation](https://corvidlabs.github.io/fledge/)** — commands, configuration, guides

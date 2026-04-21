@@ -5,7 +5,9 @@ use std::process::Command;
 
 use crate::config::Config;
 
-const VALID_BRANCH_TYPES: &[&str] = &["feat", "fix", "chore", "docs", "hotfix", "refactor"];
+const VALID_BRANCH_TYPES: &[&str] = &[
+    "feat", "feature", "fix", "bug", "chore", "task", "docs", "hotfix", "refactor",
+];
 
 #[derive(Debug, Deserialize)]
 pub struct WorkConfig {
@@ -696,8 +698,11 @@ test = "cargo test"
     #[test]
     fn test_valid_branch_types() {
         assert!(VALID_BRANCH_TYPES.contains(&"feat"));
+        assert!(VALID_BRANCH_TYPES.contains(&"feature"));
         assert!(VALID_BRANCH_TYPES.contains(&"fix"));
+        assert!(VALID_BRANCH_TYPES.contains(&"bug"));
         assert!(VALID_BRANCH_TYPES.contains(&"chore"));
+        assert!(VALID_BRANCH_TYPES.contains(&"task"));
         assert!(VALID_BRANCH_TYPES.contains(&"docs"));
         assert!(VALID_BRANCH_TYPES.contains(&"hotfix"));
         assert!(VALID_BRANCH_TYPES.contains(&"refactor"));

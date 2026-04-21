@@ -57,7 +57,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 
 1. Branch names are normalized via `sanitize_branch_name`: lowercase, special chars become hyphens, no consecutive or trailing hyphens
 2. Default branch format is `{author}/{type}/{name}` — configurable via `[work]` in `fledge.toml`
-3. Valid branch types: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` (enforced unless `--prefix` is used)
+3. Valid branch types: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` (enforced unless `--prefix` is used)
 4. Default branch type is `feat` — configurable via `[work] default_type` in `fledge.toml`
 5. `{author}` resolves from global config `defaults.author` or `git config user.name`
 6. `start` refuses to create a branch if there are uncommitted changes
@@ -66,7 +66,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 9. `status` works without `gh` (gracefully degrades if not available)
 10. `--prefix` bypasses type validation and format template, using raw `prefix/name`
 11. `--issue N` prepends the issue number to the branch name segment: `N-name`
-12. `generate_title_from_branch` strips any valid branch type prefix (feat/, fix/, chore/, docs/, hotfix/, refactor/)
+12. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
 
 ## Behavioral Examples
 
@@ -114,7 +114,7 @@ error: uncommitted changes detected. Commit or stash before starting work.
 ### work start — invalid branch type
 ```
 $ fledge work start foo --type yolo
-error: Unknown branch type 'yolo'. Valid types: feat, fix, chore, docs, hotfix, refactor
+error: Unknown branch type 'yolo'. Valid types: feat, feature, fix, bug, chore, task, docs, hotfix, refactor
 ```
 
 ### work pr — create pull request
@@ -166,3 +166,4 @@ $ fledge work status
 |---------|------|---------|
 | 1 | 2026-04-19 | Initial spec for fledge work |
 | 2 | 2026-04-20 | Flexible branch types, configurable format, `{author}` support, `--type`/`--issue`/`--prefix` flags |
+| 3 | 2026-04-20 | Added `feature`, `bug`, `task` as valid branch types |
