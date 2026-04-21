@@ -24,10 +24,10 @@ fn run_fledge_in(dir: &Path, args: &[&str]) -> std::process::Output {
 #[test]
 fn cli_list_shows_templates() {
     let bin = cargo_bin();
-    let output = Command::new(&bin).arg("list").output().unwrap();
+    let output = Command::new(&bin).arg("templates").output().unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(output.status.success(), "list failed: {stdout}");
+    assert!(output.status.success(), "templates failed: {stdout}");
     assert!(stdout.contains("rust-cli"));
     assert!(stdout.contains("ts-bun"));
 }
@@ -39,6 +39,7 @@ fn cli_init_with_template_creates_project() {
 
     let output = Command::new(&bin)
         .args([
+            "templates",
             "init",
             "test-project",
             "--template",
@@ -84,6 +85,7 @@ fn cli_init_unknown_template_fails() {
 
     let output = Command::new(&bin)
         .args([
+            "templates",
             "init",
             "test-project",
             "--template",
@@ -113,6 +115,7 @@ fn cli_init_existing_dir_fails() {
 
     let output = Command::new(&bin)
         .args([
+            "templates",
             "init",
             "existing-project",
             "--template",
@@ -166,8 +169,7 @@ fn cli_completions_bash() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("_fledge"));
-    assert!(stdout.contains("init"));
-    assert!(stdout.contains("list"));
+    assert!(stdout.contains("templates"));
 }
 
 #[test]
@@ -203,6 +205,7 @@ fn cli_dry_run_does_not_create_files() {
 
     let output = Command::new(&bin)
         .args([
+            "templates",
             "init",
             "dry-test",
             "--template",
@@ -769,7 +772,7 @@ ignore = ["template.toml"]
     )
     .unwrap();
 
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap()]);
     assert!(output.status.success());
 }
 
@@ -780,7 +783,7 @@ fn cli_validate_template_invalid_toml_fails() {
     fs::create_dir_all(&tpl).unwrap();
     fs::write(tpl.join("template.toml"), "not valid {{{}}\n").unwrap();
 
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap()]);
     assert!(!output.status.success());
 }
 
@@ -802,7 +805,7 @@ ignore = ["template.toml"]
     .unwrap();
     fs::write(tpl.join("file.txt"), "hello").unwrap();
 
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap(), "--json"]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap(), "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -827,7 +830,7 @@ render = ["**/*.py"]
     .unwrap();
     fs::write(tpl.join("file.txt"), "hello").unwrap();
 
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap(), "--strict"]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap(), "--strict"]);
     assert!(!output.status.success());
 }
 
@@ -854,14 +857,14 @@ ignore = ["template.toml"]
         fs::write(tpl.join("file.txt"), "hello").unwrap();
     }
 
-    let output = run_fledge(&["validate-template", tmp.path().to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tmp.path().to_str().unwrap()]);
     assert!(output.status.success());
 }
 
 #[test]
 fn cli_validate_template_no_templates_fails() {
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge(&["validate-template", tmp.path().to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tmp.path().to_str().unwrap()]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("No templates found"));
@@ -952,6 +955,7 @@ fn cli_changelog_with_limit() {
 fn cli_init_yes_flag_skips_prompts() {
     let tmp = TempDir::new().unwrap();
     let output = run_fledge(&[
+        "templates",
         "init",
         "yes-test",
         "--template",
@@ -974,6 +978,7 @@ fn cli_init_yes_with_each_builtin_template() {
     for tpl in &templates {
         let tmp = TempDir::new().unwrap();
         let output = run_fledge(&[
+            "templates",
             "init",
             &format!("{tpl}-test"),
             "--template",
@@ -1003,7 +1008,7 @@ fn cli_init_yes_with_each_builtin_template() {
 
 #[test]
 fn cli_list_shows_all_builtin_templates() {
-    let output = run_fledge(&["list"]);
+    let output = run_fledge(&["templates"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let expected = ["rust-cli", "ts-bun"];
@@ -1024,7 +1029,6 @@ fn cli_help_flag_shows_usage() {
     let output = run_fledge(&["--help"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("init"));
     assert!(stdout.contains("templates"));
     assert!(stdout.contains("run"));
     assert!(stdout.contains("lanes"));
@@ -1035,7 +1039,7 @@ fn cli_help_flag_shows_usage() {
 #[test]
 fn cli_subcommand_help() {
     let subcommands = [
-        "init",
+        "templates",
         "run",
         "lane",
         "config",
@@ -1146,7 +1150,7 @@ dir = "subdir"
 #[test]
 fn cli_validate_builtin_templates() {
     let templates_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates");
-    let output = run_fledge(&["validate-template", templates_dir.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", templates_dir.to_str().unwrap()]);
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -1231,6 +1235,7 @@ fn e2e_rust_project_lifecycle() {
 
     // Step 1: Init a Rust project
     let output = run_fledge(&[
+        "templates",
         "init",
         "e2e-test",
         "--template",
@@ -1306,6 +1311,7 @@ fn e2e_tsbun_project_lifecycle() {
 
     // Step 1: Init a ts-bun project
     let output = run_fledge(&[
+        "templates",
         "init",
         "e2e-ts",
         "--template",
@@ -1741,6 +1747,7 @@ fn cli_plugin_update_help() {
 fn cli_init_name_with_spaces_handled() {
     let tmp = TempDir::new().unwrap();
     let output = run_fledge(&[
+        "templates",
         "init",
         "my cool project",
         "--template",
@@ -1764,6 +1771,7 @@ fn cli_init_name_with_spaces_handled() {
 fn cli_init_name_with_special_chars() {
     let tmp = TempDir::new().unwrap();
     let output = run_fledge(&[
+        "templates",
         "init",
         "@scope/pkg-name",
         "--template",
@@ -1984,7 +1992,7 @@ fn cli_doctor_json_in_empty_dir() {
 
 #[test]
 fn cli_validate_template_nonexistent_path() {
-    let output = run_fledge(&["validate-template", "/tmp/no-such-path-ever-12345"]);
+    let output = run_fledge(&["templates", "validate", "/tmp/no-such-path-ever-12345"]);
     assert!(!output.status.success());
 }
 
@@ -1994,7 +2002,7 @@ fn cli_validate_template_empty_template_toml() {
     let tpl = tmp.path().join("empty-tpl");
     fs::create_dir_all(&tpl).unwrap();
     fs::write(tpl.join("template.toml"), "").unwrap();
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap()]);
     assert!(!output.status.success());
 }
 
@@ -2014,7 +2022,7 @@ ignore = ["template.toml"]
     )
     .unwrap();
     fs::write(tpl.join("file.txt"), "content").unwrap();
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap()]);
     assert!(!output.status.success());
 }
 
@@ -2034,7 +2042,7 @@ ignore = ["template.toml"]
     )
     .unwrap();
     fs::write(tpl.join("file.txt"), "content").unwrap();
-    let output = run_fledge(&["validate-template", tpl.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl.to_str().unwrap()]);
     // Missing description might be a warning or error
     let _status = output.status;
 }
@@ -2047,7 +2055,8 @@ ignore = ["template.toml"]
 fn cli_create_template_creates_scaffold() {
     let tmp = TempDir::new().unwrap();
     let output = run_fledge(&[
-        "create-template",
+        "templates",
+        "create",
         "my-template",
         "--output",
         tmp.path().to_str().unwrap(),
@@ -2074,7 +2083,8 @@ fn cli_create_template_existing_dir_fails() {
     let existing = tmp.path().join("existing-tpl");
     fs::create_dir_all(&existing).unwrap();
     let output = run_fledge(&[
-        "create-template",
+        "templates",
+        "create",
         "existing-tpl",
         "--output",
         tmp.path().to_str().unwrap(),
@@ -2355,7 +2365,8 @@ fn e2e_create_validate_init_template() {
 
     // 1. Create a template scaffold (may fail in non-TTY due to dialoguer)
     let output = run_fledge(&[
-        "create-template",
+        "templates",
+        "create",
         "test-tpl",
         "--output",
         tmp.path().to_str().unwrap(),
@@ -2375,7 +2386,7 @@ fn e2e_create_validate_init_template() {
     assert!(tpl_dir.join("template.toml").exists());
 
     // 2. Validate the created template
-    let output = run_fledge(&["validate-template", tpl_dir.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl_dir.to_str().unwrap()]);
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -2389,7 +2400,8 @@ fn create_template_non_interactive_with_yes() {
     let tmp = TempDir::new().unwrap();
 
     let output = run_fledge(&[
-        "create-template",
+        "templates",
+        "create",
         "my-tpl",
         "--output",
         tmp.path().to_str().unwrap(),
@@ -2407,7 +2419,7 @@ fn create_template_non_interactive_with_yes() {
     assert!(tpl_dir.join("README.md").exists());
 
     // Validate the generated template is well-formed
-    let output = run_fledge(&["validate-template", tpl_dir.to_str().unwrap()]);
+    let output = run_fledge(&["templates", "validate", tpl_dir.to_str().unwrap()]);
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -2421,7 +2433,8 @@ fn create_template_non_interactive_with_all_flags() {
     let tmp = TempDir::new().unwrap();
 
     let output = run_fledge(&[
-        "create-template",
+        "templates",
+        "create",
         "flagged-tpl",
         "--output",
         tmp.path().to_str().unwrap(),
