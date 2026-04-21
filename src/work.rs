@@ -43,8 +43,9 @@ fn load_work_config() -> WorkConfig {
     let path = cwd.join("fledge.toml");
     if path.exists() {
         if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(file) = toml::from_str::<FledgeWorkFile>(&content) {
-                return file.work;
+            match toml::from_str::<FledgeWorkFile>(&content) {
+                Ok(file) => return file.work,
+                Err(e) => eprintln!("Warning: failed to parse fledge.toml: {e}"),
             }
         }
     }
@@ -204,6 +205,13 @@ fn start(
         .and_then(|c| c.author_or_git())
         .map(|a| sanitize_branch_name(&a))
         .unwrap_or_default();
+
+    if author.is_empty() && config.branch_format.contains("{author}") {
+        bail!(
+            "No author configured for branch format '{}'. Set one with `fledge config set defaults.author <name>` or configure git user.name.",
+            config.branch_format
+        );
+    }
 
     let branch_name = if let Some(pfx) = prefix {
         format!("{}/{sanitized}", pfx.trim_end_matches('/'))

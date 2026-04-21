@@ -305,10 +305,10 @@ branch_format = "{author}/{type}/{name}"
 **Examples:**
 
 ```bash
-fledge work start add-auth                    # feat/add-auth (default)
-fledge work start login-crash --type fix      # fix/login-crash
-fledge work start bump-deps --type chore      # chore/bump-deps
-fledge work start login-crash --issue 42      # feat/42-login-crash
+fledge work start add-auth                    # leif/feat/add-auth (default: {author}/{type}/{name})
+fledge work start login-crash --type fix      # leif/fix/login-crash
+fledge work start bump-deps --type chore      # leif/chore/bump-deps
+fledge work start login-crash --issue 42      # leif/feat/42-login-crash
 fledge work start my-feature --prefix user/leif  # user/leif/my-feature
 ```
 

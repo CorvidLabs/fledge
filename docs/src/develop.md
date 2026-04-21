@@ -23,7 +23,7 @@ fledge work status
 fledge work pr --title "Add auth middleware"
 ```
 
-This creates a branch using your configured format (default: `{type}/{name}`), and `fledge work pr` opens a pull request against your base branch with sensible defaults.
+This creates a branch using your configured format (default: `{author}/{type}/{name}`), and `fledge work pr` opens a pull request against your base branch with sensible defaults.
 
 **Options for `work start`:**
 - `-t, --type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
