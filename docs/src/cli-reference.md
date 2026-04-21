@@ -190,36 +190,36 @@ fledge run build         # run a specific task
 
 ---
 
-### fledge flow
+### fledge lane
 
-Run workflow pipelines. Flows chain tasks with parallel groups and failure control.
+Run workflow pipelines. Lanes chain tasks with parallel groups and failure control.
 
 ```
-fledge flow <run|list|init|search|import>
+fledge lane <run|list|init|search|import>
 ```
 
 **Subcommands:**
 
-- `run <name>` - Run a flow by name (`--dry-run` to preview)
-- `list` - List available flows (`--json` for JSON output)
-- `init` - Add default flows to `fledge.toml`
-- `search [query]` - Search GitHub for community flows (`--json` for JSON output)
-- `import <source>` - Import flows from a GitHub repo (owner/repo or owner/repo@ref)
+- `run <name>` - Run a lane by name (`--dry-run` to preview)
+- `list` - List available lanes (`--json` for JSON output)
+- `init` - Add default lanes to `fledge.toml`
+- `search [query]` - Search GitHub for community lanes (`--json` for JSON output)
+- `import <source>` - Import lanes from a GitHub repo (owner/repo or owner/repo@ref)
 
-**Flow config in fledge.toml:**
+**Lane config in fledge.toml:**
 
 ```toml
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = ["lint", "test", "build"]
 
-[flows.check]
+[lanes.check]
 steps = [
   { parallel = ["lint", "fmt"] },
   "test"
 ]
 
-[flows.release]
+[lanes.release]
 fail_fast = false
 steps = [
   "test",
@@ -237,14 +237,14 @@ steps = [
 | Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
 ```bash
-fledge flow
-fledge flow run ci
-fledge flow run ci --dry-run
-fledge flow list
-fledge flow init
-fledge flow search
-fledge flow search rust
-fledge flow import CorvidLabs/fledge-flows
+fledge lane
+fledge lane run ci
+fledge lane run ci --dry-run
+fledge lane list
+fledge lane init
+fledge lane search
+fledge lane search rust
+fledge lane import CorvidLabs/fledge-lanes
 ```
 
 ---
@@ -547,7 +547,7 @@ description = "Deploy the project"
 binary = "fledge-deploy"
 
 [[hooks]]
-event = "flow:post"
+event = "lane:post"
 binary = "fledge-deploy-notify"
 ```
 
@@ -595,7 +595,7 @@ fledge tui [OPTIONS]
 **Categories:**
 - **Work**: start branches, create PRs, view status
 - **GitHub**: browse issues, PRs, CI checks
-- **Run**: execute tasks and workflow pipelines
+- **Run**: execute tasks and lanes
 - **Specs**: check, init, create new spec modules
 - **Metrics**: LOC, file churn, test ratio, dependency health
 - **Config**: view and edit settings

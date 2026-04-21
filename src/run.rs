@@ -230,52 +230,52 @@ pub fn detect_project_type(dir: &Path) -> &'static str {
     }
 }
 
-fn task_defaults(project_type: &str) -> &'static str {
+fn task_defaults(project_type: &str, dir: &Path) -> String {
     match project_type {
-        "rust" => {
-            r#"build = "cargo build"
+        "rust" => r#"build = "cargo build"
 test = "cargo test"
 lint = "cargo clippy -- -D warnings"
 fmt = "cargo fmt --check""#
-        }
+            .to_string(),
         "node" => {
-            r#"build = "npm run build"
-test = "npm test"
-lint = "npm run lint"
-dev = "npm run dev""#
+            let runner = detect_node_runner(dir);
+            let (run_prefix, test_cmd) = match runner {
+                "npm" => ("npm run", "npm test".to_string()),
+                other => (other, format!("{other} test")),
+            };
+            format!(
+                r#"build = "{run_prefix} build"
+test = "{test_cmd}"
+lint = "{run_prefix} lint"
+dev = "{run_prefix} dev""#
+            )
         }
-        "go" => {
-            r#"build = "go build ./..."
+        "go" => r#"build = "go build ./..."
 test = "go test ./..."
 lint = "go vet ./..."
 fmt = "gofmt -l .""#
-        }
-        "python" => {
-            r#"test = "pytest"
+            .to_string(),
+        "python" => r#"test = "pytest"
 lint = "ruff check ."
 fmt = "ruff format --check ."
 typecheck = "mypy .""#
-        }
-        "ruby" => {
-            r#"test = "bundle exec rake test"
+            .to_string(),
+        "ruby" => r#"test = "bundle exec rake test"
 lint = "bundle exec rubocop"
 console = "bundle exec irb""#
-        }
-        "java-gradle" => {
-            r#"build = "./gradlew build"
+            .to_string(),
+        "java-gradle" => r#"build = "./gradlew build"
 test = "./gradlew test"
 lint = "./gradlew check""#
-        }
-        "java-maven" => {
-            r#"build = "mvn compile"
+            .to_string(),
+        "java-maven" => r#"build = "mvn compile"
 test = "mvn test"
 lint = "mvn checkstyle:check""#
-        }
-        _ => {
-            r#"# build = "make build"
+            .to_string(),
+        _ => r#"# build = "make build"
 # test = "make test"
 # lint = "echo 'add your linter'"#
-        }
+            .to_string(),
     }
 }
 
@@ -378,7 +378,7 @@ fn init_fledge_toml() -> Result<()> {
     }
 
     let project_type = detect_project_type(&cwd);
-    let defaults = task_defaults(project_type);
+    let defaults = task_defaults(project_type, &cwd);
 
     let content = format!(
         r#"# fledge.toml — project task definitions
@@ -592,6 +592,7 @@ dir = "client"
 
     #[test]
     fn task_defaults_are_valid_toml() {
+        let dir = tempfile::tempdir().unwrap();
         for project_type in &[
             "rust",
             "node",
@@ -602,7 +603,7 @@ dir = "client"
             "java-maven",
             "generic",
         ] {
-            let defaults = task_defaults(project_type);
+            let defaults = task_defaults(project_type, dir.path());
             let toml_str = format!("[tasks]\n{}", defaults);
             let result: Result<FledgeFile, _> = toml::from_str(&toml_str);
             assert!(
@@ -612,6 +613,26 @@ dir = "client"
                 result.err()
             );
         }
+    }
+
+    #[test]
+    fn task_defaults_bun_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
+        let defaults = task_defaults("node", dir.path());
+        assert!(defaults.contains("bun build"), "should use bun commands");
+        assert!(defaults.contains("bun test"), "should use bun test");
+        assert!(!defaults.contains("npm"), "should not contain npm");
+    }
+
+    #[test]
+    fn task_defaults_yarn_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("yarn.lock"), "").unwrap();
+        let defaults = task_defaults("node", dir.path());
+        assert!(defaults.contains("yarn build"), "should use yarn commands");
+        assert!(defaults.contains("yarn test"), "should use yarn test");
+        assert!(!defaults.contains("npm"), "should not contain npm");
     }
 
     #[test]

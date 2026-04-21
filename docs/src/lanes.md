@@ -1,24 +1,24 @@
-# Flows & Pipelines
+# Lanes & Pipelines
 
-Flows let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge flow ci`. They support parallel groups and configurable failure behavior.
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
-Already have tasks in `fledge.toml`? Generate flows automatically:
+Already have tasks in `fledge.toml`? Generate lanes automatically:
 
 ```bash
-fledge flow --init
+fledge lane --init
 ```
 
 This looks at your project type and creates sensible defaults. Then just run one:
 
 ```bash
-fledge flow ci
+fledge lane ci
 ```
 
-## Defining Flows
+## Defining Lanes
 
-Flows go in `fledge.toml` alongside your tasks:
+Lanes go in `fledge.toml` alongside your tasks:
 
 ```toml
 [tasks]
@@ -27,11 +27,11 @@ lint = "cargo clippy -- -D warnings"
 test = "cargo test"
 build = "cargo build"
 
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = ["fmt", "lint", "test", "build"]
 
-[flows.check]
+[lanes.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -39,17 +39,17 @@ steps = [
 ]
 ```
 
-### Flow Options
+### Lane Options
 
 | Field | Type | Default | What it does |
 |-------|------|---------|-------------|
-| `description` | string | `(no description)` | Shows up when listing flows |
+| `description` | string | `(no description)` | Shows up when listing lanes |
 | `steps` | array | required | Ordered list of steps |
 | `fail_fast` | bool | `true` | Stop on first failure vs. run everything and report |
 
 ## Step Types
 
-You can mix these freely in a flow:
+You can mix these freely in a lane:
 
 ### Task References
 
@@ -90,7 +90,7 @@ Here `fmt` and `lint` run concurrently, then `test`, then `build`.
 Default is `fail_fast = true`. Pipeline stops on the first failure.
 
 ```toml
-[flows.ci]
+[lanes.ci]
 description = "Stop on first failure"
 steps = ["lint", "test", "build"]
 ```
@@ -98,7 +98,7 @@ steps = ["lint", "test", "build"]
 Set `fail_fast = false` when you want the full picture:
 
 ```toml
-[flows.audit]
+[lanes.audit]
 description = "Run everything, report all failures"
 fail_fast = false
 steps = ["lint", "test", "security-check", "license-check"]
@@ -137,7 +137,7 @@ dir = "crates/core"
 ### CI Pipeline
 
 ```toml
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -149,7 +149,7 @@ steps = [
 ### Release
 
 ```toml
-[flows.release]
+[lanes.release]
 description = "Build and package a release"
 steps = [
   "test",
@@ -162,7 +162,7 @@ steps = [
 ### Full Audit
 
 ```toml
-[flows.audit]
+[lanes.audit]
 description = "All quality checks"
 fail_fast = false
 steps = [
@@ -175,7 +175,7 @@ steps = [
 
 ## Auto-Generated Defaults
 
-`fledge flow --init` detects your project type:
+`fledge lane --init` detects your project type:
 
 | Project | How it's detected | What you get |
 |---------|------------------|-------------|
@@ -187,56 +187,56 @@ steps = [
 ## CLI
 
 ```bash
-fledge flow              # list flows (same as fledge flow list)
-fledge flow run ci       # run one
-fledge flow run ci --dry-run # preview the plan
-fledge flow init         # generate defaults
-fledge flow list --json
-fledge flow search              # find community flows
-fledge flow search rust         # search with keyword
-fledge flow import owner/repo   # import flows from GitHub
-fledge flow import owner/repo@v1.0.0  # pin to a version
+fledge lane              # list lanes (same as fledge lane list)
+fledge lane run ci       # run one
+fledge lane run ci --dry-run # preview the plan
+fledge lane init         # generate defaults
+fledge lane list --json
+fledge lane search              # find community lanes
+fledge lane search rust         # search with keyword
+fledge lane import owner/repo   # import lanes from GitHub
+fledge lane import owner/repo@v1.0.0  # pin to a version
 ```
 
-## Community Flow Registry
+## Community Lane Registry
 
-Share and discover flows via GitHub. Repos with the `fledge-flow` topic are discoverable through `fledge flow search`.
+Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are discoverable through `fledge lane search`.
 
 ### Official Examples
 
-[CorvidLabs/fledge-flows](https://github.com/CorvidLabs/fledge-flows) is the official collection of language-specific flow examples. Each subdirectory contains a fully-documented `fledge.toml`.
+[CorvidLabs/fledge-lanes](https://github.com/CorvidLabs/fledge-lanes) is the official collection of language-specific lane examples. Each subdirectory contains a fully-documented `fledge.toml`.
 
 | Language | Import command |
 |----------|---------------|
-| Rust | `fledge flow import CorvidLabs/fledge-flows/rust` |
-| Python | `fledge flow import CorvidLabs/fledge-flows/python` |
-| Node/TypeScript | `fledge flow import CorvidLabs/fledge-flows/node-typescript` |
-| Go | `fledge flow import CorvidLabs/fledge-flows/go` |
+| Rust | `fledge lane import CorvidLabs/fledge-lanes/rust` |
+| Python | `fledge lane import CorvidLabs/fledge-lanes/python` |
+| Node/TypeScript | `fledge lane import CorvidLabs/fledge-lanes/node-typescript` |
+| Go | `fledge lane import CorvidLabs/fledge-lanes/go` |
 
-### Publishing Flows
+### Publishing Lanes
 
-1. Create a repo with a `fledge.toml` containing your flows and tasks
-2. Add the `fledge-flow` topic to the repo on GitHub
-3. Others can find it with `fledge flow search` and import it
+1. Create a repo with a `fledge.toml` containing your lanes and tasks
+2. Add the `fledge-lane` topic to the repo on GitHub
+3. Others can find it with `fledge lane search` and import it
 
-### Importing Flows
+### Importing Lanes
 
 ```bash
-fledge flow import CorvidLabs/fledge-flows
+fledge lane import CorvidLabs/fledge-lanes
 ```
 
-This fetches the remote repo's `fledge.toml`, extracts its flows and any required tasks, and merges them into your local `fledge.toml`. Existing flows with the same name are skipped (not overwritten).
+This fetches the remote repo's `fledge.toml`, extracts its lanes and any required tasks, and merges them into your local `fledge.toml`. Existing lanes with the same name are skipped (not overwritten).
 
 You can pin to a specific branch or tag:
 
 ```bash
-fledge flow import CorvidLabs/fledge-flows@v1.0.0
+fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 ```
 
 ## Tips
 
-- Start with `fledge flow init` and customize from there.
+- Start with `fledge lane init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
-- Use `fail_fast = false` for audit flows where you want the full report.
+- Use `fail_fast = false` for audit lanes where you want the full report.
 - Inline commands are great for one-off steps that don't need to be named tasks.

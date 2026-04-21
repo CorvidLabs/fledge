@@ -4,7 +4,7 @@ spec: init.spec.md
 
 ## Tasks
 
-- [x] Implement core init flow: resolve template → prompt variables → render → git init → hooks → summary
+- [x] Implement core init lane: resolve template → prompt variables → render → git init → hooks → summary
 - [x] Add template selection by name (`--template`)
 - [x] Add interactive template selector when no template specified
 - [x] Add remote template support (`--template owner/repo`)

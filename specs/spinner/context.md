@@ -17,7 +17,7 @@ spec: spinner.spec.md
 
 ## Current Status
 
-- Fully implemented and used by 13 modules (checks, work, prs, issues, flows, search, publish, update, plugin, review, ask)
+- Fully implemented and used by 13 modules (checks, work, prs, issues, lanes, search, publish, update, plugin, review, ask)
 - No configuration or user-facing options — purely internal UX detail
 - Spec at v1
 

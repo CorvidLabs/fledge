@@ -2,7 +2,7 @@
 
 - [x] Write versioning spec
 - [x] Implement versioning.rs with Version struct and comparison
-- [ ] Integrate check into init.rs flow
+- [ ] Integrate check into init.rs lane
 - [ ] Add version pinning to remote.rs
 - [ ] Add template_version field to TemplateInfo
 - [ ] Register spec and run full verification

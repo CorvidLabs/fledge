@@ -37,7 +37,7 @@ When you want to customize tasks, generate a `fledge.toml`:
 fledge run --init
 ```
 
-This creates a config file pre-filled with the detected tasks. Edit it to add custom commands, change defaults, or define flows:
+This creates a config file pre-filled with the detected tasks. Edit it to add custom commands, change defaults, or define lanes:
 
 ```toml
 [tasks]
@@ -46,7 +46,7 @@ test = "cargo test"
 lint = "cargo clippy -- -D warnings"
 fmt = "cargo fmt --check"
 
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = ["fmt", "lint", "test", "build"]
 ```
@@ -60,7 +60,7 @@ These commands work in any git repo regardless of how the project was created:
 | Command | What it does |
 |---------|-------------|
 | `fledge run` | Task runner (zero-config or from fledge.toml) |
-| `fledge flow` | Workflow pipelines |
+| `fledge lane` | Workflow pipelines |
 | `fledge review` | AI code review of your current branch |
 | `fledge ask` | Ask questions about your codebase |
 | `fledge work` | Feature branch and PR workflow |
@@ -96,6 +96,6 @@ fledge publish ./my-stack
 
 1. **Start using fledge today**: `cd your-project && fledge run test`
 2. **Optionally lock in config**: `fledge run --init` to generate `fledge.toml`
-3. **Set up flows**: `fledge flow --init` for CI pipelines
+3. **Set up lanes**: `fledge lane --init` for CI pipelines
 4. **Use the full toolkit**: `fledge review`, `fledge work start feature-x`, `fledge checks`
 5. **Create templates**: Once you have a setup you like, `fledge create-template` to reuse it

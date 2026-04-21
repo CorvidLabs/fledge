@@ -8,7 +8,7 @@
 - [The Six Pillars](./pillars.md)
 - [Start: Scaffold and Discover](./templates.md)
   - [Template Authoring Guide](./template-authoring.md)
-- [Build: Configure and Run](./flows.md)
+- [Build: Configure and Run](./lanes.md)
   - [Configuration](./configuration.md)
   - [Doctor: Environment Diagnostics](./doctor.md)
 - [Develop: Branch and Spec](./develop.md)

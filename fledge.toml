@@ -15,18 +15,18 @@ docs-serve = "mdbook serve docs --open"
 cmd = "cargo run -- validate-template templates/"
 description = "Validate all built-in templates"
 
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
 
-[flows.check]
+[lanes.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["fmt", "lint"] },
   "test",
 ]
 
-[flows.pre-commit]
+[lanes.pre-commit]
 description = "Run before committing"
 steps = [
   { parallel = ["fmt", "lint"] },
@@ -34,21 +34,22 @@ steps = [
   "spec-check",
 ]
 
-[flows.docs]
+[lanes.docs]
 description = "Build and validate documentation"
 steps = ["docs-build"]
 
-[flows.release]
+[lanes.release]
 description = "Pre-release validation"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates", "docs-build"]
 [tasks.audit]
-cmd = "echo 'Replace with your audit command (e.g. cargo audit, pip-audit, npm audit)'"
+cmd = "cargo audit"
+description = "Check dependencies for known vulnerabilities"
 
-[flows.audit]
+[lanes.audit]
 description = "All quality checks and security audit (reports all failures)"
 fail_fast = false
 steps = ["lint", "fmt", "test", "audit"]
 
-[flows.ci-fast]
+[lanes.ci-fast]
 description = "CI with parallel static checks (faster on multi-core)"
 steps = [{ parallel = ["fmt", "lint"] }, "test", "build"]

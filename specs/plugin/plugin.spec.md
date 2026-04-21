@@ -15,7 +15,7 @@ depends_on:
 
 ## Purpose
 
-Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, flow steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`).
+Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, lane steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`).
 
 ## Public API
 

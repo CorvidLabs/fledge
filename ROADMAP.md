@@ -4,7 +4,7 @@ Fledge started as a scaffolding tool and grew into a full dev-lifecycle CLI. Sca
 
 ## Current State (v1.0.0)
 
-Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, `checks`, `run`, `changelog`, `flow`, `doctor`, `deps`, `metrics`, `plugin`, `validate-template`, TUI (feature-gated). 6 built-in templates (rust-cli, ts-bun, python-cli, go-cli, ts-node, static-site), community templates via `CorvidLabs/fledge-templates`. Hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A, CI/CD status, task runner with language-aware defaults, changelog generation from git history, composable workflow pipelines (flows), environment diagnostics, dependency health (outdated/audit/licenses), project metrics (LOC/churn/test ratio), plugin architecture (install/remove/search/run). Distribution via Homebrew, install script, Nix flake, and shell completions auto-install.
+Shipped: `init`, `list`, `config`, `create-template`, `search`, `publish`, `update`, `spec`, `work`, `completions`, `issues`, `prs`, `review`, `ask`, `checks`, `run`, `changelog`, `lane`, `doctor`, `deps`, `metrics`, `plugin`, `validate-template`, TUI (feature-gated). 6 built-in templates (rust-cli, ts-bun, python-cli, go-cli, ts-node, static-site), community templates via `CorvidLabs/fledge-templates`. Hook security, dry-run support, template versioning, version pinning with `@ref` syntax, project lifecycle commands, GitHub ops, AI-powered code review and Q&A, CI/CD status, task runner with language-aware defaults, changelog generation from git history, composable workflow pipelines (lanes), environment diagnostics, dependency health (outdated/audit/licenses), project metrics (LOC/churn/test ratio), plugin architecture (install/remove/search/run). Distribution via Homebrew, install script, Nix flake, and shell completions auto-install.
 
 ---
 
@@ -62,13 +62,13 @@ Dependency management, project metrics, and environment diagnostics.
 - [x] `fledge metrics` - project stats (LOC, test coverage, complexity, churn)
 - [x] `fledge doctor` - environment diagnostics (toolchain versions, missing deps, config issues)
 
-## 1.0: Flows & Plugins
+## 1.0: Lanes & Plugins
 
 Extensible workflow automation. Workflow-as-code, but in Rust.
 
-- [x] Flow system - composable, typed workflow pipelines (#36)
+- [x] Lane system - composable, typed workflow pipelines (#36)
 - [x] Plugin architecture - install, remove, list, search, run plugins from GitHub
-- [x] Community flow registry - search and import flows from GitHub
+- [x] Community lane registry - search and import lanes from GitHub
 - [x] Full end-to-end dev lifecycle coverage - scaffold, spec, build, ship, monitor
 
 ---

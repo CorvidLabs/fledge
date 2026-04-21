@@ -522,18 +522,18 @@ fn cli_run_failing_task_exits_nonzero() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow commands
+// Lane commands
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_flow_no_fledge_toml_fails() {
+fn cli_lane_no_fledge_toml_fails() {
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow"]);
+    let output = run_fledge_in(tmp.path(), &["lane"]);
     assert!(!output.status.success());
 }
 
 #[test]
-fn cli_flow_list_shows_flows() {
+fn cli_lane_list_shows_lanes() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -542,40 +542,40 @@ fmt = "echo fmt"
 lint = "echo lint"
 test = "echo test"
 
-[flows.ci]
+[lanes.ci]
 description = "CI pipeline"
 steps = ["fmt", "lint", "test"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
 }
 
 #[test]
-fn cli_flow_dry_run_does_not_execute() {
+fn cli_lane_dry_run_does_not_execute() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo BUILT"
 
-[flows.ci]
+[lanes.ci]
 description = "CI"
 steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci", "--dry-run"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(!stdout.contains("BUILT"));
 }
 
 #[test]
-fn cli_flow_executes_steps() {
+fn cli_lane_executes_steps() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -583,12 +583,12 @@ fn cli_flow_executes_steps() {
 step1 = "echo STEP1"
 step2 = "echo STEP2"
 
-[flows.pipeline]
+[lanes.pipeline]
 steps = ["step1", "step2"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "pipeline"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "pipeline"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("STEP1"));
@@ -596,19 +596,19 @@ steps = ["step1", "step2"]
 }
 
 #[test]
-fn cli_flow_unknown_flow_fails() {
+fn cli_lane_unknown_lane_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
-        "[tasks]\nbuild = \"echo build\"\n[flows.ci]\nsteps = [\"build\"]\n",
+        "[tasks]\nbuild = \"echo build\"\n[lanes.ci]\nsteps = [\"build\"]\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "nonexistent"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "nonexistent"]);
     assert!(!output.status.success());
 }
 
 #[test]
-fn cli_flow_init_adds_default_flows() {
+fn cli_lane_init_adds_default_lanes() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("Cargo.toml"),
@@ -620,27 +620,27 @@ fn cli_flow_init_adds_default_flows() {
         "[tasks]\nbuild = \"echo build\"\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "init"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "init"]);
     assert!(output.status.success());
     let content = fs::read_to_string(tmp.path().join("fledge.toml")).unwrap();
-    assert!(content.contains("[flows"));
+    assert!(content.contains("[lanes"));
 }
 
 #[test]
-fn cli_flow_json_output() {
+fn cli_lane_json_output() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo build"
 
-[flows.ci]
+[lanes.ci]
 description = "CI"
 steps = ["build"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "list", "--json"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -1035,7 +1035,7 @@ fn cli_help_flag_shows_usage() {
     assert!(stdout.contains("init"));
     assert!(stdout.contains("list"));
     assert!(stdout.contains("run"));
-    assert!(stdout.contains("flow"));
+    assert!(stdout.contains("lane"));
     assert!(stdout.contains("doctor"));
     assert!(stdout.contains("metrics"));
 }
@@ -1045,7 +1045,7 @@ fn cli_subcommand_help() {
     let subcommands = [
         "init",
         "run",
-        "flow",
+        "lane",
         "config",
         "spec",
         "doctor",
@@ -1064,29 +1064,29 @@ fn cli_subcommand_help() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow with inline and parallel steps
+// Lane with inline and parallel steps
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_flow_inline_step() {
+fn cli_lane_inline_step() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 
-[flows.greet]
+[lanes.greet]
 steps = [{ run = "echo INLINE_HELLO" }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "greet"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "greet"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("INLINE_HELLO"));
 }
 
 #[test]
-fn cli_flow_parallel_steps() {
+fn cli_lane_parallel_steps() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -1094,12 +1094,12 @@ fn cli_flow_parallel_steps() {
 a = "echo ALPHA"
 b = "echo BRAVO"
 
-[flows.par]
+[lanes.par]
 steps = [{ parallel = ["a", "b"] }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "par"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "par"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ALPHA"));
@@ -1230,7 +1230,7 @@ fn cli_deps_node_project_no_lock_fails() {
 }
 
 // ──────────────────────────────────────────────────────────
-// E2E workflow: init → run → flow → doctor → metrics → deps
+// E2E workflow: init → run → lane → doctor → metrics → deps
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -1274,24 +1274,24 @@ fn e2e_rust_project_lifecycle() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("build") || stdout.contains("test"));
 
-    // Step 4: Generate default flows
-    let output = run_fledge_in(&project, &["flow", "init"]);
+    // Step 4: Generate default lanes
+    let output = run_fledge_in(&project, &["lane", "init"]);
     assert!(
         output.status.success(),
-        "flow init failed: {}",
+        "lane init failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
     let fledge_toml = fs::read_to_string(project.join("fledge.toml")).unwrap();
-    assert!(fledge_toml.contains("[flows"));
+    assert!(fledge_toml.contains("[lanes"));
 
-    // Step 5: List flows
-    let output = run_fledge_in(&project, &["flow", "list"]);
+    // Step 5: List lanes
+    let output = run_fledge_in(&project, &["lane", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
 
-    // Step 6: Dry-run a flow
-    let output = run_fledge_in(&project, &["flow", "run", "ci", "--dry-run"]);
+    // Step 6: Dry-run a lane
+    let output = run_fledge_in(&project, &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
     // Step 7: Doctor check
@@ -1373,10 +1373,10 @@ fn cli_run_malformed_toml_fails_gracefully() {
 }
 
 #[test]
-fn cli_flow_malformed_toml_fails_gracefully() {
+fn cli_lane_malformed_toml_fails_gracefully() {
     let tmp = TempDir::new().unwrap();
     fs::write(tmp.path().join("fledge.toml"), "not = [valid toml {").unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "list"]);
     assert!(!output.status.success());
 }
 
@@ -1486,23 +1486,23 @@ deps = ["step3"]
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow edge cases
+// Lane edge cases
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_flow_empty_steps_fails() {
+fn cli_lane_empty_steps_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo build"
 
-[flows.empty]
+[lanes.empty]
 steps = []
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "empty"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "empty"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -1512,19 +1512,19 @@ steps = []
 }
 
 #[test]
-fn cli_flow_references_missing_task_fails() {
+fn cli_lane_references_missing_task_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 build = "echo build"
 
-[flows.broken]
+[lanes.broken]
 steps = ["build", "ghost-task"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "broken"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "broken"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -1534,7 +1534,7 @@ steps = ["build", "ghost-task"]
 }
 
 #[test]
-fn cli_flow_fail_fast_stops_on_failure() {
+fn cli_lane_fail_fast_stops_on_failure() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -1542,35 +1542,35 @@ fn cli_flow_fail_fast_stops_on_failure() {
 fail = "exit 1"
 after = "echo SHOULD_NOT_RUN"
 
-[flows.ff]
+[lanes.ff]
 fail_fast = true
 steps = ["fail", "after"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "ff"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ff"]);
     assert!(!output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         !stdout.contains("SHOULD_NOT_RUN"),
-        "fail_fast flow should stop after first failure"
+        "fail_fast lane should stop after first failure"
     );
 }
 
 #[test]
-fn cli_flow_mixed_inline_and_task_ref() {
+fn cli_lane_mixed_inline_and_task_ref() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         r#"[tasks]
 lint = "echo LINTED"
 
-[flows.mixed]
+[lanes.mixed]
 steps = ["lint", { run = "echo INLINE_STEP" }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "mixed"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "mixed"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("LINTED"));
@@ -1578,7 +1578,7 @@ steps = ["lint", { run = "echo INLINE_STEP" }]
 }
 
 #[test]
-fn cli_flow_dry_run_shows_plan() {
+fn cli_lane_dry_run_shows_plan() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -1586,32 +1586,32 @@ fn cli_flow_dry_run_shows_plan() {
 a = "echo A"
 b = "echo B"
 
-[flows.plan]
+[lanes.plan]
 description = "Show plan"
 steps = ["a", "b"]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "plan", "--dry-run"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "plan", "--dry-run"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(!stdout.contains("Running"));
 }
 
 #[test]
-fn cli_flow_no_flows_section_fails() {
+fn cli_lane_no_lanes_section_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
         "[tasks]\nbuild = \"echo build\"\n",
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "list"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("No flows") || stderr.contains("no flows"),
-        "expected no-flows error, got: {stderr}"
+        stderr.contains("No lanes") || stderr.contains("no lanes"),
+        "expected no-lanes error, got: {stderr}"
     );
 }
 
@@ -2166,11 +2166,11 @@ fn cli_run_auto_detect_with_multiple_markers() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Flow: parallel with failing task
+// Lane: parallel with failing task
 // ──────────────────────────────────────────────────────────
 
 #[test]
-fn cli_flow_parallel_with_failure() {
+fn cli_lane_parallel_with_failure() {
     let tmp = TempDir::new().unwrap();
     fs::write(
         tmp.path().join("fledge.toml"),
@@ -2178,23 +2178,23 @@ fn cli_flow_parallel_with_failure() {
 ok = "echo OK"
 fail = "exit 1"
 
-[flows.par_fail]
+[lanes.par_fail]
 steps = [{ parallel = ["ok", "fail"] }]
 "#,
     )
     .unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "par_fail"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "par_fail"]);
     assert!(!output.status.success());
 }
 
 #[test]
-fn cli_flow_many_steps() {
+fn cli_lane_many_steps() {
     let tmp = TempDir::new().unwrap();
     let mut toml = String::from("[tasks]\n");
     for i in 0..15 {
         toml.push_str(&format!("s{i} = \"echo STEP_{i}\"\n"));
     }
-    toml.push_str("\n[flows.big]\nsteps = [");
+    toml.push_str("\n[lanes.big]\nsteps = [");
     for i in 0..15 {
         if i > 0 {
             toml.push_str(", ");
@@ -2203,7 +2203,7 @@ fn cli_flow_many_steps() {
     }
     toml.push_str("]\n");
     fs::write(tmp.path().join("fledge.toml"), &toml).unwrap();
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "big"]);
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "big"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("STEP_0"));
@@ -2211,7 +2211,7 @@ fn cli_flow_many_steps() {
 }
 
 // ──────────────────────────────────────────────────────────
-// E2E: full workflow with flows, tasks, doctor, then metrics
+// E2E: full workflow with lanes, tasks, doctor, then metrics
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -2230,15 +2230,15 @@ test = "echo TEST_PASS"
 cmd = "echo ALL_PASS"
 deps = ["check", "build", "test"]
 
-[flows.ci]
+[lanes.ci]
 description = "Full CI pipeline"
 steps = ["check", "build", "test"]
 
-[flows.quick]
+[lanes.quick]
 description = "Quick check"
 steps = [{ run = "echo QUICK_PASS" }]
 
-[flows.parallel_build]
+[lanes.parallel_build]
 steps = [{ parallel = ["check", "build"] }, "test"]
 "#,
     )
@@ -2268,40 +2268,40 @@ steps = [{ parallel = ["check", "build"] }, "test"]
     assert!(stdout.contains("TEST_PASS"));
     assert!(stdout.contains("ALL_PASS"));
 
-    // 4. List flows
-    let output = run_fledge_in(tmp.path(), &["flow", "list"]);
+    // 4. List lanes
+    let output = run_fledge_in(tmp.path(), &["lane", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ci"));
     assert!(stdout.contains("quick"));
 
-    // 5. Run CI flow
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci"]);
+    // 5. Run CI lane
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ci"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("CHECK_PASS"));
     assert!(stdout.contains("TEST_PASS"));
 
-    // 6. Run inline-step flow
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "quick"]);
+    // 6. Run inline-step lane
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "quick"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("QUICK_PASS"));
 
-    // 7. Run parallel flow
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "parallel_build"]);
+    // 7. Run parallel lane
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "parallel_build"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("CHECK_PASS"));
     assert!(stdout.contains("BUILD_PASS"));
     assert!(stdout.contains("TEST_PASS"));
 
-    // 8. Dry-run flow
-    let output = run_fledge_in(tmp.path(), &["flow", "run", "ci", "--dry-run"]);
+    // 8. Dry-run lane
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
-    // 9. Flow list JSON
-    let output = run_fledge_in(tmp.path(), &["flow", "list", "--json"]);
+    // 9. Lane list JSON
+    let output = run_fledge_in(tmp.path(), &["lane", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();

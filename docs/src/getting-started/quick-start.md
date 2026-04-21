@@ -66,16 +66,16 @@ fledge run test
 
 ## Workflow Pipelines
 
-Flows chain tasks together. Think of `fledge flow ci` as your local CI:
+Lanes chain tasks together. Think of `fledge lane ci` as your local CI:
 
 ```bash
-fledge flow --init       # generate default flows for your project type
-fledge flow              # see what's available
-fledge flow ci           # run the full pipeline
-fledge flow ci --dry-run # just show the plan
+fledge lane --init       # generate default lanes for your project type
+fledge lane              # see what's available
+fledge lane ci           # run the full pipeline
+fledge lane ci --dry-run # just show the plan
 ```
 
-Flows support parallel groups and inline commands. More on that in [Flows & Pipelines](../flows.md).
+Lanes support parallel groups and inline commands. More on that in [Lanes & Pipelines](../lanes.md).
 
 ## Project Health
 

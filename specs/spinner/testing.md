@@ -16,7 +16,7 @@ spec: spinner.spec.md
 
 ### Integration Tests
 
-- Spinner is exercised implicitly by all commands that make network calls (checks, work, prs, issues, search, publish, review, ask, flows, plugin, update)
+- Spinner is exercised implicitly by all commands that make network calls (checks, work, prs, issues, search, publish, review, ask, lanes, plugin, update)
 
 ### Manual Testing
 

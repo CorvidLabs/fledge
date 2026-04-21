@@ -31,4 +31,4 @@ spec: config.spec.md
 
 - Config file encryption or secure credential storage
 - Config migration between versions
-- Interactive config wizard (prompts module handles interactive flows)
+- Interactive config wizard (prompts module handles interactive lanes)

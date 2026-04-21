@@ -34,7 +34,7 @@ cargo fmt --check
 - `src/versioning.rs` — Version management
 - `src/github.rs` — Shared GitHub API helpers
 - `src/remote.rs` — Remote template fetching and caching
-- `src/flows.rs` — Composable workflow pipelines
+- `src/lanes.rs` — Composable workflow pipelines
 - `src/deps.rs` — Cross-language dependency health checker
 - `src/metrics.rs` — Code metrics (LOC, churn, test ratio)
 - `src/plugin.rs` — Plugin system for community extensions
