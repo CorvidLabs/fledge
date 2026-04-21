@@ -11,4 +11,7 @@
 - [x] Pre-release lane support
 - [x] Custom version files via [release] config
 - [x] 32 unit tests covering all paths
-- [ ] Add [lanes.release] to built-in templates
+
+## Gaps
+
+- No `[lanes.release]` in built-in templates yet (users must define their own)

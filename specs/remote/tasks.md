@@ -8,8 +8,9 @@
 - [x] Add unit tests for all public functions
 - [x] Integrate with init and templates modules
 
+- [x] Add `--refresh` flag to force re-clone cached repos
+
 ## Future
 
-- [ ] Add `--refresh` flag to force re-clone cached repos
 - [ ] Support non-GitHub git hosts (GitLab, Bitbucket)
 - [ ] Template registry / index for discoverability

@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 5
+version: 6
 status: active
 files:
   - src/plugin.rs
@@ -26,7 +26,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `run` | Entry point — install, list, remove, or run plugins |
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
-| `PluginAction` | Enum of plugin operations: Install, Remove, List, Search, Run |
+| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
 
@@ -211,6 +211,7 @@ $ fledge plugin update fledge-deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-04-21 | Fix: add missing Update variant to exported functions table |
 | 5 | 2026-04-21 | Add lifecycle hooks: pre_init, post_work_start, pre_pr — run across all installed plugins |
 | 4 | 2026-04-21 | Add version pinning with @ref syntax, pinned_ref in registry, smart update for pinned plugins |
 | 3 | 2026-04-21 | Add build hook, auto-detect build systems, plugin update command, improved error messages |

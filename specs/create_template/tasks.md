@@ -12,7 +12,5 @@ spec: create_template.spec.md
 - [x] Unit tests (5 tests covering scaffold output, manifest validity, error cases)
 - [x] Spec files (spec, context, requirements, tasks, testing)
 
-## Backlog
-
-- [ ] Add `--yes` flag to skip prompts and accept all defaults
-- [ ] Add `fledge validate` command for template validation (issue TBD)
+- [x] Add `--yes` flag to skip prompts and accept all defaults
+- [x] Add `fledge validate` command for template validation

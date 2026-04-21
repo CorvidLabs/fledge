@@ -5,14 +5,14 @@ spec: update.spec.md
 ## Tasks
 
 - [x] Write spec files for update module
-- [ ] Add `.fledge.toml` generation to `fledge init`
-- [ ] Implement `ProjectMeta` struct and parsing
-- [ ] Implement file hash computation (SHA-256)
-- [ ] Implement diff logic (compare old hashes vs new template vs current files)
-- [ ] Implement `fledge update` command with dry-run support
-- [ ] Wire up CLI subcommand in `main.rs`
-- [ ] Unit tests for meta parsing, hashing, diff logic
-- [ ] Integration: init → modify → update cycle
+- [x] Add `.fledge.toml` generation to `fledge init`
+- [x] Implement `ProjectMeta` struct and parsing
+- [x] Implement file hash computation (SHA-256)
+- [x] Implement diff logic (compare old hashes vs new template vs current files)
+- [x] Implement `fledge update` command with dry-run support
+- [x] Wire up CLI subcommand in `main.rs`
+- [x] Unit tests for meta parsing, hashing, diff logic
+- [x] Integration: init → modify → update cycle
 
 ## Gaps
 

@@ -1,6 +1,6 @@
 ---
 module: ask
-version: 1
+version: 2
 status: active
 files:
   - src/ask.rs
@@ -22,13 +22,13 @@ Ask questions about your codebase using AI. Sends the question to Claude CLI whi
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point for the ask command |
-| `AskOptions` | Options struct with the question text |
+| `AskOptions` | Options struct with the question text and json flag |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `AskOptions` | `{ question: String }` |
+| `AskOptions` | `{ question: String, json: bool }` |
 
 ### Functions
 
@@ -41,6 +41,7 @@ Ask questions about your codebase using AI. Sends the question to Claude CLI whi
 1. Requires Claude CLI (`claude`) to be installed and authenticated
 2. Question is joined from multiple args (no quotes required)
 3. Claude CLI runs in the current project directory for context
+4. `--json` outputs structured JSON response
 
 ## Behavioral Examples
 
@@ -74,4 +75,5 @@ error: Please provide a question. Usage: fledge ask <question>
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-21 | Add json field to AskOptions |
 | 1 | 2026-04-19 | Initial spec |

@@ -1,6 +1,6 @@
 ---
 module: doctor
-version: 1
+version: 2
 status: active
 files:
   - src/doctor.rs
@@ -51,7 +51,7 @@ Diagnoses project environment health by checking toolchain availability, depende
 7. `--json` outputs a structured `DoctorReport`
 8. Exit summary shows count of passed checks and issues found
 9. Tool version is extracted by running `<tool> --version` and parsing first version-like string
-10. Supported project types: rust, node, go, python, ruby, java-gradle, java-maven, generic
+10. Supported project types: rust, node, go, python, ruby, java-gradle, java-maven, swift, generic
 
 ## Behavioral Examples
 
@@ -100,4 +100,5 @@ $ fledge doctor --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-21 | Add swift to supported project types |
 | 1 | 2026-04-20 | Initial spec |

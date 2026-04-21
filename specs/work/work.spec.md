@@ -1,6 +1,6 @@
 ---
 module: work
-version: 2
+version: 4
 status: active
 files:
   - src/work.rs
@@ -50,8 +50,10 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | `status` | `() -> Result<()>` | Shows current branch, commits ahead, and PR status |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
 | `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
-| `load_work_config` | `() -> WorkConfig` | Reads `[work]` section from `fledge.toml`, falls back to defaults |
 | `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
+
+**Internal (not exported):**
+- `load_work_config() -> WorkConfig` — Reads `[work]` section from `fledge.toml`, falls back to defaults
 
 ## Invariants
 
@@ -166,4 +168,5 @@ $ fledge work status
 |---------|------|---------|
 | 1 | 2026-04-19 | Initial spec for fledge work |
 | 2 | 2026-04-20 | Flexible branch types, configurable format, `{author}` support, `--type`/`--issue`/`--prefix` flags |
+| 4 | 2026-04-21 | Correct load_work_config as internal (not exported) |
 | 3 | 2026-04-20 | Added `feature`, `bug`, `task` as valid branch types |
