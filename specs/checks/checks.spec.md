@@ -1,6 +1,6 @@
 ---
 module: checks
-version: 1
+version: 2
 status: active
 files:
   - src/checks.rs
@@ -52,10 +52,10 @@ View CI/CD check run status for a branch using the GitHub Check Runs API. Shows 
 $ fledge checks
 * CI checks for feat/v0.7.0:
 
-  ✓ lint          passed      12s
-  ✓ test-ubuntu   passed      1m 30s
-  ✗ test-windows  failed      45s
-  ◦ audit         running     running...
+  ✅ lint          passed      12s
+  ✅ test-ubuntu   passed      1m 30s
+  ❌ test-windows  failed      45s
+  🔄 audit         running     running...
 
   3 checks: 2 passed, 1 failed, 1 pending
 
@@ -81,4 +81,5 @@ $ fledge checks --branch main --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-19 | Initial spec |

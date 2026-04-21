@@ -176,9 +176,9 @@ fn print_issue_line(issue: &serde_json::Value) {
         .unwrap_or_default();
 
     let state_icon = match state {
-        "open" => style("●").green(),
-        "closed" => style("●").red(),
-        _ => style("●").dim(),
+        "open" => style("🟢").green(),
+        "closed" => style("🔴").red(),
+        _ => style("⚪").dim(),
     };
 
     let label_str = if labels.is_empty() {

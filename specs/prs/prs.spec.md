@@ -1,6 +1,6 @@
 ---
 module: prs
-version: 1
+version: 2
 status: active
 files:
   - src/prs.rs
@@ -53,8 +53,8 @@ Lists and views GitHub pull requests for the current repository. Provides `fledg
 $ fledge prs
 Open pull requests in CorvidLabs/fledge:
 
-  ● #45    Add spec command           feat/spec-command → base  1h ago
-  ◌ #44    WIP: work command          feat/work → base          3h ago
+  🟢 #45    Add spec command           feat/spec-command ➡️ base  1h ago
+  📝 #44    WIP: work command          feat/work ➡️ base          3h ago
 ```
 
 ### prs view — view specific PR
@@ -87,4 +87,5 @@ PR description here...
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-19 | Initial spec |

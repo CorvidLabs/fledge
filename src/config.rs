@@ -54,6 +54,9 @@ impl Config {
     }
 
     pub fn config_path() -> PathBuf {
+        if let Ok(dir) = std::env::var("FLEDGE_CONFIG_DIR") {
+            return PathBuf::from(dir).join("config.toml");
+        }
         dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
             .join("fledge")
@@ -266,7 +269,7 @@ pub fn init_config(preset: Option<&str>) -> Result<()> {
         config.save()?;
         println!(
             "{} Created config with {} preset at {}",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(preset_name).cyan(),
             style(path.display()).dim()
         );
@@ -274,7 +277,7 @@ pub fn init_config(preset: Option<&str>) -> Result<()> {
         config.save()?;
         println!(
             "{} Created default config at {}",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(path.display()).dim()
         );
     }

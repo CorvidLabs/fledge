@@ -1,6 +1,6 @@
 ---
 module: flows
-version: 2
+version: 3
 status: active
 files:
   - src/flows.rs
@@ -108,11 +108,11 @@ Available flows:
 
 # Run a flow
 $ fledge flow ci
-▸ Flow: ci — Full CI pipeline
-  ▸ Running task: lint
-  ▸ Running task: test
-  ▸ Running task: build
-✓ Flow ci completed (3 steps)
+▶️ Flow: ci — Full CI pipeline
+  ▶️ Running task: lint
+  ▶️ Running task: test
+  ▶️ Running task: build
+✅ Flow ci completed (3 steps)
 
 # Dry run
 $ fledge flow ci --dry-run
@@ -123,29 +123,29 @@ Flow: ci — Full CI pipeline
 
 # Parallel steps
 $ fledge flow run check
-▸ Flow: check — Quick quality check
-  ▸ Running parallel: lint, fmt
-  ▸ Running task: test
-✓ Flow check completed (2 steps)
+▶️ Flow: check — Quick quality check
+  ▶️ Running parallel: lint, fmt
+  ▶️ Running task: test
+✅ Flow check completed (2 steps)
 
 # Init default flows
 $ fledge flow init
-✓ Added default flows to fledge.toml
+✅ Added default flows to fledge.toml
 
 # Search community flows on GitHub
 $ fledge flow search
 Community flows on GitHub:
-  CorvidLabs/fledge-flows  (★ 12)  Official community flow collection
-  user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
+  CorvidLabs/fledge-flows  (⭐ 12)  Official community flow collection
+  user/rust-release-flow   (⭐ 3)   Rust release pipeline with cargo-dist
 
 # Search with keyword
 $ fledge flow search rust
 Community flows on GitHub:
-  user/rust-release-flow   (★ 3)   Rust release pipeline with cargo-dist
+  user/rust-release-flow   (⭐ 3)   Rust release pipeline with cargo-dist
 
 # Import flows from a remote repo
 $ fledge flow import CorvidLabs/fledge-flows
-✓ Imported 3 flow(s) from CorvidLabs/fledge-flows
+✅ Imported 3 flow(s) from CorvidLabs/fledge-flows
   + release
   + deploy
   + audit
@@ -182,5 +182,6 @@ $ fledge flow import CorvidLabs/fledge-flows@v1.0.0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 2 | 2026-04-20 | Add community flow registry (search + import) |
 | 1 | 2026-04-20 | Initial spec |

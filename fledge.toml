@@ -41,3 +41,14 @@ steps = ["docs-build"]
 [flows.release]
 description = "Pre-release validation"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates", "docs-build"]
+[tasks.audit]
+cmd = "echo 'Replace with your audit command (e.g. cargo audit, pip-audit, npm audit)'"
+
+[flows.audit]
+description = "All quality checks and security audit (reports all failures)"
+fail_fast = false
+steps = ["lint", "fmt", "test", "audit"]
+
+[flows.ci-fast]
+description = "CI with parallel static checks (faster on multi-core)"
+steps = [{ parallel = ["fmt", "lint"] }, "test", "build"]

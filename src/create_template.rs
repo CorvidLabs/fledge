@@ -28,7 +28,7 @@ pub fn run(options: CreateTemplateOptions) -> Result<()> {
 
     println!(
         "\n{} Created template at {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(target.display()).cyan()
     );
     println!(

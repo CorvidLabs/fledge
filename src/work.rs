@@ -246,13 +246,13 @@ fn start(
 
     println!(
         "{} Created branch {} from {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(&branch_name).cyan(),
         style(&base_branch).dim()
     );
     println!(
         "{} Switched to {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(&branch_name).cyan()
     );
 
@@ -294,7 +294,7 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
 
     println!(
         "{} Pushed {} to origin",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(&branch).cyan()
     );
 
@@ -338,7 +338,7 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
     let draft_label = if draft { "draft " } else { "" };
     println!(
         "{} Created {}PR: \"{}\"",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         draft_label,
         style(&pr_title).green()
     );

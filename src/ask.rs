@@ -9,7 +9,7 @@ pub struct AskOptions {
 pub fn run(options: AskOptions) -> Result<()> {
     ensure_claude_cli()?;
 
-    println!("{} Thinking...\n", style("●").cyan().bold(),);
+    println!("{} Thinking...\n", style("🔵").cyan().bold(),);
 
     let prompt = format!(
         "You are a helpful assistant answering questions about a codebase.\n\

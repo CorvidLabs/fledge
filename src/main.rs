@@ -726,7 +726,12 @@ fn run() -> Result<()> {
             tui::run(output, no_git)?;
         }
         Commands::External(args) => {
-            let cmd_name = &args[0];
+            let cmd_name = args.first().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "no subcommand provided\n\n  tip: use {} for help",
+                    style("fledge help").cyan()
+                )
+            })?;
             let cmd_args: Vec<String> = args[1..].to_vec();
             if plugin::resolve_plugin_command(cmd_name).is_some() {
                 plugin::run(plugin::PluginOptions {
@@ -770,7 +775,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             config.save()?;
             println!(
                 "{} Set {} = {}",
-                style("✓").green().bold(),
+                style("✅").green().bold(),
                 style(&key).cyan(),
                 style(&value).green()
             );
@@ -779,7 +784,11 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             let mut config = config::Config::load()?;
             config.unset(&key)?;
             config.save()?;
-            println!("{} Unset {}", style("✓").green().bold(), style(&key).cyan());
+            println!(
+                "{} Unset {}",
+                style("✅").green().bold(),
+                style(&key).cyan()
+            );
         }
         ConfigAction::Add { key, value } => {
             let mut config = config::Config::load()?;
@@ -787,7 +796,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             config.save()?;
             println!(
                 "{} Added {} to {}",
-                style("✓").green().bold(),
+                style("✅").green().bold(),
                 style(&value).green(),
                 style(&key).cyan()
             );
@@ -799,7 +808,7 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 config.save()?;
                 println!(
                     "{} Removed {} from {}",
-                    style("✓").green().bold(),
+                    style("✅").green().bold(),
                     style(&value).green(),
                     style(&key).cyan()
                 );
@@ -918,7 +927,7 @@ fn install_completions(shell: Option<Shell>) -> Result<()> {
 
     println!(
         "{} Installed {} completions to {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(format!("{shell:?}")).cyan(),
         style(dest.display()).dim()
     );

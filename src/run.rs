@@ -177,7 +177,7 @@ fn execute_task(
 
     println!(
         "{} {}",
-        style("▸").cyan().bold(),
+        style("▶️").cyan().bold(),
         style(format!("Running task: {name}")).bold()
     );
 
@@ -402,7 +402,7 @@ fn init_fledge_toml() -> Result<()> {
     std::fs::write(&path, content).context("writing fledge.toml")?;
     println!(
         "{} Created {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style("fledge.toml").cyan()
     );
     println!(

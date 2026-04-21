@@ -40,7 +40,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
 
     println!(
         "{} Publishing {} as {}/{}",
-        style("→").cyan().bold(),
+        style("➡️").cyan().bold(),
         style(path.display()).dim(),
         style(&owner).green(),
         style(repo_name).green()
@@ -71,7 +71,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
         )?;
         println!(
             "  {} Created repository {}/{}",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             owner,
             repo_name
         );
@@ -80,16 +80,16 @@ pub fn run(options: PublishOptions) -> Result<()> {
     set_repo_topics(&owner, repo_name, &token)?;
     println!(
         "  {} Set {} topic",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style("fledge-template").cyan()
     );
 
     push_template(&path, &owner, repo_name, &token)?;
-    println!("  {} Pushed template files", style("✓").green().bold());
+    println!("  {} Pushed template files", style("✅").green().bold());
 
     println!(
         "\n{} Published! Install with:\n\n  {}",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(format!(
             "fledge init <project-name> -t {}/{}",
             owner, repo_name
