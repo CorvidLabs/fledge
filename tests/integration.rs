@@ -4,15 +4,7 @@ use std::process::Command;
 use tempfile::TempDir;
 
 fn cargo_bin() -> String {
-    let output = Command::new("cargo")
-        .args(["build", "--quiet"])
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .status()
-        .expect("cargo build failed");
-    assert!(output.success());
-
-    let target_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/debug/fledge");
-    target_dir.to_string_lossy().to_string()
+    env!("CARGO_BIN_EXE_fledge").to_string()
 }
 
 fn run_fledge(args: &[&str]) -> std::process::Output {

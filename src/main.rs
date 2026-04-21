@@ -31,6 +31,7 @@ mod templates;
 #[cfg(feature = "tui")]
 mod tui;
 mod update;
+mod utils;
 mod validate;
 mod versioning;
 mod work;
@@ -1073,8 +1074,7 @@ fn list_templates() -> Result<()> {
     )?;
 
     if available.is_empty() {
-        println!("No templates found.");
-        return Ok(());
+        anyhow::bail!("No templates found. Add templates to the templates/ directory or configure template_repos in ~/.config/fledge/config.toml.");
     }
 
     println!("{}", style("Available templates:").bold());

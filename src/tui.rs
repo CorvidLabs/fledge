@@ -1012,10 +1012,14 @@ fn handle_input(app: &mut DashboardApp, key: KeyCode) {
             };
         }
         KeyCode::Char(c) => {
-            app.input_fields[app.active_field].value.push(c);
+            if let Some(field) = app.input_fields.get_mut(app.active_field) {
+                field.value.push(c);
+            }
         }
         KeyCode::Backspace => {
-            app.input_fields[app.active_field].value.pop();
+            if let Some(field) = app.input_fields.get_mut(app.active_field) {
+                field.value.pop();
+            }
         }
         KeyCode::Enter => {
             app.submit_input();
@@ -1471,8 +1475,8 @@ impl TemplateBrowserApp {
             match field.key.as_str() {
                 "__project_name__" => {
                     ctx.insert("project_name", &val);
-                    ctx.insert("project_name_snake", &to_snake_case(&val));
-                    ctx.insert("project_name_pascal", &to_pascal_case(&val));
+                    ctx.insert("project_name_snake", &crate::utils::to_snake_case(&val));
+                    ctx.insert("project_name_pascal", &crate::utils::to_pascal_case(&val));
                 }
                 "__author__" => ctx.insert("author", &val),
                 "__github_org__" => ctx.insert("github_org", &val),
@@ -1489,7 +1493,9 @@ impl TemplateBrowserApp {
     }
 
     fn scaffold(&mut self) -> Result<()> {
-        let tpl_idx = self.selected_template.unwrap();
+        let tpl_idx = self
+            .selected_template
+            .ok_or_else(|| anyhow::anyhow!("no template selected"))?;
         let template = &self.templates[tpl_idx];
 
         let project_name = self.project_name.clone();
@@ -1512,34 +1518,6 @@ impl TemplateBrowserApp {
 
         Ok(())
     }
-}
-
-fn to_snake_case(s: &str) -> String {
-    s.chars()
-        .map(|c| {
-            if c == '-' {
-                '_'
-            } else {
-                c.to_ascii_lowercase()
-            }
-        })
-        .collect()
-}
-
-fn to_pascal_case(s: &str) -> String {
-    s.split(['-', '_'])
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                None => String::new(),
-                Some(first) => {
-                    let mut s = first.to_uppercase().to_string();
-                    s.extend(chars);
-                    s
-                }
-            }
-        })
-        .collect()
 }
 
 fn run_template_browser(output_dir: PathBuf, no_git: bool) -> Result<()> {
@@ -1704,10 +1682,14 @@ fn handle_input_variables(app: &mut TemplateBrowserApp, key: KeyCode) {
             };
         }
         KeyCode::Char(c) => {
-            app.variables[app.active_field].value.push(c);
+            if let Some(field) = app.variables.get_mut(app.active_field) {
+                field.value.push(c);
+            }
         }
         KeyCode::Backspace => {
-            app.variables[app.active_field].value.pop();
+            if let Some(field) = app.variables.get_mut(app.active_field) {
+                field.value.pop();
+            }
         }
         KeyCode::Enter => {
             let project_name = app.effective_value(&app.variables[0]);
@@ -1831,7 +1813,9 @@ fn draw_template_list(f: &mut Frame, app: &mut TemplateBrowserApp, area: Rect) {
 }
 
 fn draw_variable_form(f: &mut Frame, app: &TemplateBrowserApp, area: Rect) {
-    let tpl_idx = app.selected_template.unwrap();
+    let Some(tpl_idx) = app.selected_template else {
+        return;
+    };
     let tpl_name = &app.templates[tpl_idx].name;
 
     let block = Block::default()
@@ -1897,7 +1881,9 @@ fn draw_variable_form(f: &mut Frame, app: &TemplateBrowserApp, area: Rect) {
 }
 
 fn draw_tb_confirm(f: &mut Frame, app: &TemplateBrowserApp, area: Rect) {
-    let tpl_idx = app.selected_template.unwrap();
+    let Some(tpl_idx) = app.selected_template else {
+        return;
+    };
     let tpl = &app.templates[tpl_idx];
 
     let mut lines = vec![
