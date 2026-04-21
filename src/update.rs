@@ -62,7 +62,10 @@ pub fn run(opts: UpdateOptions) -> Result<()> {
     );
 
     let config = Config::load().context("loading config")?;
-    let template = resolve_source_template(&meta, &config, opts.refresh)?;
+    let sp = crate::spinner::Spinner::start("Fetching latest template...");
+    let template = resolve_source_template(&meta, &config, opts.refresh);
+    sp.finish();
+    let template = template?;
 
     let variables = meta_to_tera_context(&meta);
 

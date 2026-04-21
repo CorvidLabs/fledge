@@ -553,10 +553,7 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
         None => "topic:fledge-flow".to_string(),
     };
 
-    println!(
-        "  {} Searching GitHub for community flows...",
-        style("▶️").cyan().bold()
-    );
+    let sp = crate::spinner::Spinner::start("Searching GitHub for community flows...");
 
     let body = crate::github::github_api_get(
         "/search/repositories",
@@ -564,6 +561,8 @@ fn search_flows(keyword: Option<&str>, json: bool) -> Result<()> {
         &[("q", &query), ("sort", "stars"), ("per_page", "30")],
     )
     .context("searching GitHub for flow repos")?;
+
+    sp.finish();
 
     let results = crate::search::parse_search_response(&body)?;
 
@@ -646,11 +645,10 @@ fn import_flows(source: &str) -> Result<()> {
             .unwrap_or_default()
     );
 
-    println!(
-        "  {} Fetching flows from {}...",
-        style("▶️").cyan().bold(),
+    let sp = crate::spinner::Spinner::start(&format!(
+        "Fetching flows from {}...",
         display_source,
-    );
+    ));
 
     let ref_param = git_ref.as_deref().unwrap_or("HEAD");
     let remote_path = match &subpath {
@@ -663,6 +661,8 @@ fn import_flows(source: &str) -> Result<()> {
         &[("ref", ref_param)],
     )
     .context(format!("fetching {remote_path} from remote repo"))?;
+
+    sp.finish();
 
     let content_b64 = body
         .get("content")

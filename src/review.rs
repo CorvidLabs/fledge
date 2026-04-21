@@ -24,13 +24,10 @@ pub fn run(options: ReviewOptions) -> Result<()> {
 
     let diff_stats = get_diff_stats(&base, options.file.as_deref())?;
 
-    println!(
-        "{} Reviewing changes against {} ...\n",
-        style("🔵").cyan().bold(),
-        style(&base).cyan()
-    );
+    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}...", &base));
 
     if !diff_stats.is_empty() {
+        sp.finish();
         println!("{}\n", style(&diff_stats).dim());
     }
 
@@ -48,6 +45,9 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         ```diff\n{}\n```",
         diff
     );
+
+    sp.finish();
+    println!();
 
     let status = Command::new("claude").args(["--print", &prompt]).status()?;
 

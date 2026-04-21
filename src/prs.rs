@@ -45,8 +45,11 @@ fn list(
         ("direction", "desc"),
     ];
 
+    let sp = crate::spinner::Spinner::start("Fetching pull requests...");
     let path = format!("/repos/{}/{}/pulls", owner, repo);
-    let items = github::github_api_get(&path, token, &params)?;
+    let items = github::github_api_get(&path, token, &params);
+    sp.finish();
+    let items = items?;
 
     let items = items
         .as_array()
@@ -82,8 +85,11 @@ fn list(
 }
 
 fn view(owner: &str, repo: &str, number: u64, json: bool, token: Option<&str>) -> Result<()> {
+    let sp = crate::spinner::Spinner::start(&format!("Fetching PR #{}...", number));
     let path = format!("/repos/{}/{}/pulls/{}", owner, repo, number);
-    let pr = github::github_api_get(&path, token, &[])?;
+    let pr = github::github_api_get(&path, token, &[]);
+    sp.finish();
+    let pr = pr?;
 
     if json {
         let json_out = serde_json::to_string_pretty(&pr)?;
