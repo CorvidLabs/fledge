@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 4
+version: 5
 status: active
 files:
   - src/lanes.rs
@@ -36,6 +36,7 @@ Composable workflow pipelines defined in `fledge.toml`. Lanes chain multiple tas
 | `LaneAction` | Action enum for the lane subcommand (Run, List, Init, Search, Import) |
 | `LaneDef` | A named lane with description, steps, and fail_fast flag |
 | `Step` | A single step: task reference, inline command, or parallel group |
+| `ParallelItem` | An item within a parallel group: task reference or inline command |
 
 ### Functions
 
@@ -62,11 +63,20 @@ steps = [
   "publish"
 ]
 
-# Parallel groups — steps inside { parallel = [...] } run concurrently
+# Parallel groups — items inside { parallel = [...] } run concurrently
+# Items can be task references or inline commands
 [lanes.check]
 description = "Quick quality check"
 steps = [
   { parallel = ["lint", "fmt"] },
+  "test"
+]
+
+# Parallel with mixed types
+[lanes.prep]
+description = "Parallel tasks and inline commands"
+steps = [
+  { parallel = ["lint", { run = "echo checking" }] },
   "test"
 ]
 
@@ -83,12 +93,12 @@ steps = ["deps-audit", "license-check", "security-scan"]
 |------|--------|-------------|
 | Task reference | `"task_name"` | Runs a task defined in `[tasks]` |
 | Inline command | `{ run = "command" }` | Runs a shell command directly |
-| Parallel group | `{ parallel = ["a", "b"] }` | Runs referenced tasks concurrently |
+| Parallel group | `{ parallel = ["a", "b"] }` | Runs items concurrently (task refs or inline commands) |
 
 ## Invariants
 
 1. Lanes are read from `fledge.toml` alongside tasks
-2. Each step in a lane is either a task reference (string), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`)
+2. Each step in a lane is either a task reference (string), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`) — parallel groups accept both task references and inline commands
 3. Task references must resolve to tasks defined in `[tasks]` — unknown references produce an error before execution
 4. Parallel groups spawn threads and collect results; if any thread fails and `fail_fast` is true, remaining steps are skipped
 5. Steps execute sequentially by default; only `{ parallel = [...] }` groups run concurrently
@@ -182,6 +192,7 @@ $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-04-21 | Generalize parallel groups to accept inline commands, not just task refs |
 | 4 | 2026-04-21 | Rename from flows to lanes — 1.0 branding |
 | 3 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 2 | 2026-04-20 | Add community lane registry (search + import) |

@@ -100,6 +100,14 @@ token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (overrides config) |
 | `GITHUB_TOKEN` | GitHub token (fallback) |
 
+## Project Configuration (fledge.toml)
+
+Per-project settings live in `fledge.toml` in your project root. This file defines tasks, lanes, and project metadata. It's created by `fledge run --init` or `fledge init`.
+
+For task and lane configuration, see:
+- [Lanes & Pipelines](./lanes.md) — defining lanes, step types, parallel groups, importing community lanes
+- [Plugins](./plugins.md) — extending fledge with community plugins
+
 ## Priority Order
 
 When creating a project, values come from (highest to lowest):
