@@ -42,8 +42,13 @@ pub fn check_requirements(requires: &[String]) -> (Vec<String>, Vec<String>) {
     let mut found = Vec::new();
     let mut missing = Vec::new();
     for tool in requires {
-        let ok = std::process::Command::new("sh")
-            .args(["-c", &format!("command -v {}", tool)])
+        if tool.is_empty() || tool.contains('/') || tool.contains('\\') || tool.contains('\0') {
+            missing.push(tool.clone());
+            continue;
+        }
+        let which_cmd = if cfg!(windows) { "where" } else { "which" };
+        let ok = std::process::Command::new(which_cmd)
+            .arg(tool)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()

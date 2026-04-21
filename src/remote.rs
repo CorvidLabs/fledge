@@ -72,7 +72,7 @@ fn clone_repo(
 ) -> Result<()> {
     std::fs::create_dir_all(target.parent().unwrap_or(target))?;
 
-    let url = repo_url(owner, repo, token);
+    let url = format!("https://github.com/{}/{}.git", owner, repo);
 
     let mut args = vec!["clone", "--depth", "1"];
     if let Some(r) = git_ref {
@@ -81,13 +81,21 @@ fn clone_repo(
     }
     args.push(&url);
 
-    let status = std::process::Command::new("git")
-        .args(&args)
+    let mut cmd = std::process::Command::new("git");
+    cmd.args(&args)
         .arg(target)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .status()
-        .context("running git clone")?;
+        .stderr(std::process::Stdio::piped());
+
+    if let Some(t) = token {
+        let header = format!(
+            "http.extraheader=Authorization: Basic {}",
+            base64_encode(&format!("x-access-token:{}", t))
+        );
+        cmd.args(["-c", &header]);
+    }
+
+    let status = cmd.status().context("running git clone")?;
 
     if !status.success() {
         if let Some(r) = git_ref {
@@ -142,11 +150,39 @@ fn update_repo(repo_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn repo_url(owner: &str, repo: &str, token: Option<&str>) -> String {
-    match token {
-        Some(t) => format!("https://{}@github.com/{}/{}.git", t, owner, repo),
-        None => format!("https://github.com/{}/{}.git", owner, repo),
+fn base64_encode(input: &str) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let bytes = input.as_bytes();
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let mut i = 0;
+    while i < bytes.len() {
+        let b0 = bytes[i] as u32;
+        let b1 = if i + 1 < bytes.len() {
+            bytes[i + 1] as u32
+        } else {
+            0
+        };
+        let b2 = if i + 2 < bytes.len() {
+            bytes[i + 2] as u32
+        } else {
+            0
+        };
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        encoded.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        encoded.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if i + 1 < bytes.len() {
+            encoded.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+        if i + 2 < bytes.len() {
+            encoded.push(CHARS[(triple & 0x3F) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+        i += 3;
     }
+    encoded
 }
 
 pub fn resolve_template_dir(
@@ -255,15 +291,12 @@ mod tests {
     }
 
     #[test]
-    fn repo_url_without_token() {
-        let url = repo_url("CorvidLabs", "fledge", None);
-        assert_eq!(url, "https://github.com/CorvidLabs/fledge.git");
-    }
-
-    #[test]
-    fn repo_url_with_token() {
-        let url = repo_url("CorvidLabs", "fledge", Some("ghp_abc123"));
-        assert_eq!(url, "https://ghp_abc123@github.com/CorvidLabs/fledge.git");
+    fn base64_encode_basic() {
+        assert_eq!(base64_encode("hello"), "aGVsbG8=");
+        assert_eq!(
+            base64_encode("x-access-token:ghp_test"),
+            "eC1hY2Nlc3MtdG9rZW46Z2hwX3Rlc3Q="
+        );
     }
 
     #[test]

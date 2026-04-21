@@ -284,14 +284,14 @@ fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_gi
 fn run_post_create_hooks(
     hooks: &[String],
     project_dir: &Path,
-    is_remote: bool,
+    _is_remote: bool,
     auto_yes: bool,
 ) -> Result<()> {
     if hooks.is_empty() {
         return Ok(());
     }
 
-    if is_remote && !auto_yes {
+    if !auto_yes {
         println!();
         println!(
             "{} This template wants to run the following post-create hooks:",
@@ -321,8 +321,13 @@ fn run_post_create_hooks(
     for cmd in hooks {
         println!("  {} {}", style("$").dim(), style(cmd).dim());
 
-        let status = std::process::Command::new("sh")
-            .args(["-c", cmd])
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        if parts.is_empty() {
+            bail!("Empty post-create hook command");
+        }
+
+        let status = std::process::Command::new(parts[0])
+            .args(&parts[1..])
             .current_dir(project_dir)
             .status()
             .with_context(|| format!("running hook: {}", cmd))?;
@@ -646,7 +651,7 @@ ignore = ["template.toml"]
         fs::create_dir(&dir).unwrap();
 
         let hooks = vec!["touch hook-ran.txt".to_string()];
-        run_post_create_hooks(&hooks, &dir, false, false).unwrap();
+        run_post_create_hooks(&hooks, &dir, false, true).unwrap();
 
         assert!(dir.join("hook-ran.txt").exists());
     }
@@ -654,7 +659,7 @@ ignore = ["template.toml"]
     #[test]
     fn run_post_create_hooks_empty_is_noop() {
         let tmp = TempDir::new().unwrap();
-        let result = run_post_create_hooks(&[], tmp.path(), false, false);
+        let result = run_post_create_hooks(&[], tmp.path(), false, true);
         assert!(result.is_ok());
     }
 
@@ -662,7 +667,7 @@ ignore = ["template.toml"]
     fn run_post_create_hooks_failing_command_errors() {
         let tmp = TempDir::new().unwrap();
         let hooks = vec!["false".to_string()];
-        let result = run_post_create_hooks(&hooks, tmp.path(), false, false);
+        let result = run_post_create_hooks(&hooks, tmp.path(), false, true);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -671,7 +676,7 @@ ignore = ["template.toml"]
     }
 
     #[test]
-    fn run_post_create_hooks_remote_with_yes_runs_without_prompt() {
+    fn run_post_create_hooks_with_yes_runs_without_prompt() {
         let tmp = TempDir::new().unwrap();
         let dir = tmp.path().join("project");
         fs::create_dir(&dir).unwrap();

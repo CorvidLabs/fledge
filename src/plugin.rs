@@ -248,6 +248,23 @@ fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
     Ok(())
 }
 
+fn validate_command_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+        || name.starts_with('.')
+        || name.starts_with('-')
+        || name == ".."
+    {
+        bail!(
+            "Invalid plugin command name '{}'. Names must be alphanumeric with hyphens/underscores.",
+            name
+        );
+    }
+    Ok(())
+}
+
 fn link_commands(
     plugin_dir: &Path,
     bin_dir: &Path,
@@ -255,6 +272,18 @@ fn link_commands(
 ) -> Result<Vec<String>> {
     let mut command_names = Vec::new();
     for cmd in &manifest.commands {
+        validate_command_name(&cmd.name)?;
+
+        for component in std::path::Path::new(&cmd.binary).components() {
+            if matches!(component, std::path::Component::ParentDir) {
+                bail!(
+                    "Plugin '{}' binary '{}' contains path traversal (..)",
+                    manifest.plugin.name,
+                    cmd.binary
+                );
+            }
+        }
+
         let binary_path = plugin_dir.join(&cmd.binary);
         if let Ok(canonical) = binary_path.canonicalize() {
             if !canonical.starts_with(plugin_dir) {
@@ -324,6 +353,30 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
     validate_plugin_name(&repo_name)?;
+
+    println!(
+        "\n{} Installing plugin from: {}",
+        style("!").yellow().bold(),
+        style(&url).cyan()
+    );
+    println!(
+        "  {} Plugins can execute arbitrary code on your system.",
+        style("*").yellow()
+    );
+    println!(
+        "  {} Only install plugins from sources you trust.\n",
+        style("*").yellow()
+    );
+
+    if !force {
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!("Install plugin '{repo_name}' from {url}?"))
+            .default(true)
+            .interact()?;
+        if !confirm {
+            bail!("Plugin installation cancelled.");
+        }
+    }
 
     let plugins = plugins_dir();
     let bin_dir = plugin_bin_dir();
@@ -1135,6 +1188,29 @@ mod tests {
     #[test]
     fn validate_plugin_name_accepts_normal() {
         assert!(validate_plugin_name("fledge-deploy").is_ok());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_slashes() {
+        assert!(validate_command_name("../evil").is_err());
+        assert!(validate_command_name("foo/bar").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_dot_prefix() {
+        assert!(validate_command_name(".hidden").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_rejects_dash_prefix() {
+        assert!(validate_command_name("-flag").is_err());
+    }
+
+    #[test]
+    fn validate_command_name_accepts_normal() {
+        assert!(validate_command_name("deploy").is_ok());
+        assert!(validate_command_name("my-tool").is_ok());
+        assert!(validate_command_name("tool_v2").is_ok());
     }
 
     #[test]
