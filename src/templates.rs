@@ -123,7 +123,7 @@ pub fn discover_templates_with_repos(
         if !crate::remote::is_remote_ref(repo_ref) {
             continue;
         }
-        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(repo_ref);
+        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(repo_ref)?;
         match crate::remote::resolve_template_dir(owner, repo, subpath, token, git_ref) {
             Ok(dir) => {
                 if dir.join("template.toml").exists() {

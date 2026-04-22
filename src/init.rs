@@ -143,7 +143,7 @@ fn run_remote(
     config: &Config,
     token: Option<&str>,
 ) -> Result<()> {
-    let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref);
+    let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref)?;
 
     if opts.refresh {
         crate::remote::clear_cache(owner, repo)?;

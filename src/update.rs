@@ -211,11 +211,11 @@ fn resolve_source_template(
 ) -> Result<templates::Template> {
     if let Some(ref remote_ref) = meta.source.remote {
         if refresh {
-            let (owner, repo, _, _) = crate::remote::parse_remote_ref(remote_ref);
+            let (owner, repo, _, _) = crate::remote::parse_remote_ref(remote_ref)?;
             crate::remote::clear_cache(owner, repo)?;
         }
 
-        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref);
+        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref)?;
         let ref_override = meta.source.git_ref.as_deref().or(git_ref);
         let token = config.github_token();
         let template_dir = crate::remote::resolve_template_dir(

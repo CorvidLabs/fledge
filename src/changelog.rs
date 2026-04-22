@@ -91,7 +91,7 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
             for commit in &section.commits {
                 println!(
                     "    {} {}",
-                    style(&commit.hash[..7.min(commit.hash.len())]).dim(),
+                    style(&commit.hash.chars().take(7).collect::<String>()).dim(),
                     commit.message
                 );
             }
