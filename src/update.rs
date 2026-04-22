@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -44,16 +44,34 @@ pub enum UpdateAction {
     Remove(PathBuf),
 }
 
+pub fn resolve_meta_path(project_dir: &Path) -> Option<PathBuf> {
+    let new_path = project_dir.join(".fledge").join("meta.toml");
+    if new_path.exists() {
+        return Some(new_path);
+    }
+    let legacy_path = project_dir.join(".fledge.toml");
+    if legacy_path.exists() {
+        return Some(legacy_path);
+    }
+    None
+}
+
+fn ensure_dot_fledge_dir(project_dir: &Path) -> Result<PathBuf> {
+    let dir = project_dir.join(".fledge");
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir).context("creating .fledge directory")?;
+    }
+    Ok(dir)
+}
+
 pub fn run(opts: UpdateOptions) -> Result<()> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
-    let meta_path = project_dir.join(".fledge.toml");
+    let meta_path = resolve_meta_path(&project_dir).ok_or_else(|| {
+        anyhow::anyhow!("No .fledge/meta.toml found. Was this project created with fledge?")
+    })?;
 
-    if !meta_path.exists() {
-        bail!("No .fledge.toml found. Was this project created with fledge?");
-    }
-
-    let meta_content = std::fs::read_to_string(&meta_path).context("reading .fledge.toml")?;
-    let meta: ProjectMeta = toml::from_str(&meta_content).context("parsing .fledge.toml")?;
+    let meta_content = std::fs::read_to_string(&meta_path).context("reading project metadata")?;
+    let meta: ProjectMeta = toml::from_str(&meta_content).context("parsing project metadata")?;
 
     println!(
         "{} Updating project from template: {}",
@@ -156,8 +174,16 @@ pub fn run(opts: UpdateOptions) -> Result<()> {
         files: updated_files,
     };
 
-    let meta_toml = toml::to_string_pretty(&updated_meta).context("serializing .fledge.toml")?;
-    std::fs::write(&meta_path, meta_toml).context("writing .fledge.toml")?;
+    let meta_toml =
+        toml::to_string_pretty(&updated_meta).context("serializing project metadata")?;
+
+    let dot_fledge = ensure_dot_fledge_dir(&project_dir)?;
+    let new_meta_path = dot_fledge.join("meta.toml");
+    std::fs::write(&new_meta_path, meta_toml).context("writing .fledge/meta.toml")?;
+
+    if meta_path != new_meta_path && meta_path.exists() {
+        std::fs::remove_file(&meta_path).ok();
+    }
 
     let change_count = adds.len() + updates.len();
     println!();
@@ -444,10 +470,22 @@ pub fn write_project_meta(
         files: file_hashes,
     };
 
-    let toml_str = toml::to_string_pretty(&meta).context("serializing .fledge.toml")?;
-    let meta_path = project_dir.join(".fledge.toml");
-    std::fs::write(&meta_path, &toml_str).context("writing .fledge.toml")?;
+    let toml_str = toml::to_string_pretty(&meta).context("serializing project metadata")?;
+    let dot_fledge = ensure_dot_fledge_dir(project_dir)?;
+    let meta_path = dot_fledge.join("meta.toml");
+    std::fs::write(&meta_path, &toml_str).context("writing .fledge/meta.toml")?;
 
+    write_dot_fledge_gitignore(&dot_fledge)?;
+
+    Ok(())
+}
+
+fn write_dot_fledge_gitignore(dot_fledge_dir: &Path) -> Result<()> {
+    let gitignore_path = dot_fledge_dir.join(".gitignore");
+    if !gitignore_path.exists() {
+        std::fs::write(&gitignore_path, "# Cache and local overrides\n/cache/\n")
+            .context("writing .fledge/.gitignore")?;
+    }
     Ok(())
 }
 
@@ -812,7 +850,7 @@ created = "2026-04-19"
         )
         .unwrap();
 
-        let meta_path = project_dir.join(".fledge.toml");
+        let meta_path = project_dir.join(".fledge").join("meta.toml");
         assert!(meta_path.exists());
 
         let content = fs::read_to_string(&meta_path).unwrap();
@@ -842,12 +880,56 @@ created = "2026-04-19"
         )
         .unwrap();
 
-        let content = fs::read_to_string(project_dir.join(".fledge.toml")).unwrap();
+        let content = fs::read_to_string(project_dir.join(".fledge").join("meta.toml")).unwrap();
         let meta: ProjectMeta = toml::from_str(&content).unwrap();
         assert_eq!(
             meta.source.remote.as_deref(),
             Some("CorvidLabs/templates/rust-cli")
         );
         assert_eq!(meta.source.git_ref.as_deref(), Some("v1.0"));
+    }
+
+    #[test]
+    fn resolve_meta_path_prefers_new_location() {
+        let tmp = TempDir::new().unwrap();
+        let project = tmp.path().join("project");
+        fs::create_dir_all(project.join(".fledge")).unwrap();
+        fs::write(project.join(".fledge").join("meta.toml"), "[source]\ntemplate = \"t\"\nfledge_version = \"0.1\"\ncreated = \"2026-01-01\"\n[variables]\n[files]").unwrap();
+        fs::write(project.join(".fledge.toml"), "legacy").unwrap();
+
+        let path = resolve_meta_path(&project).unwrap();
+        assert_eq!(path, project.join(".fledge").join("meta.toml"));
+    }
+
+    #[test]
+    fn resolve_meta_path_falls_back_to_legacy() {
+        let tmp = TempDir::new().unwrap();
+        let project = tmp.path().join("project");
+        fs::create_dir(&project).unwrap();
+        fs::write(project.join(".fledge.toml"), "legacy").unwrap();
+
+        let path = resolve_meta_path(&project).unwrap();
+        assert_eq!(path, project.join(".fledge.toml"));
+    }
+
+    #[test]
+    fn resolve_meta_path_none_when_missing() {
+        let tmp = TempDir::new().unwrap();
+        assert!(resolve_meta_path(tmp.path()).is_none());
+    }
+
+    #[test]
+    fn write_project_meta_creates_gitignore() {
+        let tmp = TempDir::new().unwrap();
+        let project = tmp.path().join("project");
+        fs::create_dir(&project).unwrap();
+
+        let ctx = tera::Context::new();
+        write_project_meta(&project, "test", None, None, None, &ctx, &[]).unwrap();
+
+        let gitignore = project.join(".fledge").join(".gitignore");
+        assert!(gitignore.exists());
+        let content = fs::read_to_string(gitignore).unwrap();
+        assert!(content.contains("/cache/"));
     }
 }

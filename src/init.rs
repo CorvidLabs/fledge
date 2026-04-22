@@ -105,7 +105,7 @@ pub fn run(opts: InitOptions) -> Result<()> {
     // Generate fledge.toml if the template didn't include one
     generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
-    // Write .fledge.toml for future `fledge update`
+    // Write .fledge/meta.toml for future `fledge update`
     update::write_project_meta(
         &target_dir,
         &template.name,
@@ -236,7 +236,7 @@ fn run_remote(
     // Generate fledge.toml if the template didn't include one
     generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
-    // Write .fledge.toml for future `fledge update`
+    // Write .fledge/meta.toml for future `fledge update`
     update::write_project_meta(
         &target_dir,
         &template.name,
