@@ -8,7 +8,7 @@ spec: config.spec.md
 - Scalar keys (`defaults.author`, `defaults.license`, etc.) use `set`/`unset`; list keys (`templates.paths`, `templates.repos`) use `add`/`remove` — mixing the two is a hard error with guidance
 - `author_or_git()` falls back to `git config user.name` when no config author is set
 - License defaults to "MIT" when unset (explicit `None` still yields "MIT")
-- GitHub token lookup order: `FLEDGE_GITHUB_TOKEN` env → `GITHUB_TOKEN` env → `config.github.token`
+- GitHub token lookup order: `FLEDGE_GITHUB_TOKEN` env → `GITHUB_TOKEN` env → `config.github.token` → `gh auth token` CLI fallback
 - Tilde expansion in `templates.paths` maps `~/` to the user's home directory
 
 ## Files to Read First
