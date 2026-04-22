@@ -1,6 +1,6 @@
 ---
 module: checks
-version: 3
+version: 4
 status: active
 files:
   - src/checks.rs
@@ -44,7 +44,7 @@ View CI/CD check run status for a branch using the GitHub Check Runs API. Shows 
 2. Uses GitHub token from config if available
 3. Displays check name, status, and duration for each check run
 4. Shows summary counts (passed/failed/pending)
-5. Cancelled checks display with 🚫 and count as failed; skipped checks display with ⏭️ and count as passed
+5. Cancelled checks display with 🚫 and count as failed; skipped checks display with ⏭️, show "—" for duration, and count as passed
 6. Supports `--json` for raw API output
 
 ## Behavioral Examples
@@ -84,6 +84,7 @@ $ fledge checks --branch main --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-22 | Clarify skipped check duration displays "—" |
 | 3 | 2026-04-21 | Document cancelled (🚫) and skipped (⏭️) check statuses |
 | 2 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 1 | 2026-04-19 | Initial spec |

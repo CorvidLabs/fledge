@@ -1,6 +1,6 @@
 ---
 module: review
-version: 2
+version: 3
 status: active
 files:
   - src/review.rs
@@ -39,7 +39,7 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 ## Invariants
 
 1. Requires Claude CLI (`claude`) to be installed and authenticated
-2. Base branch defaults to auto-detected default (main/master)
+2. Base branch defaults to auto-detected default: tries `git symbolic-ref refs/remotes/origin/HEAD`, then checks `main` and `master` via `git rev-parse --verify`, falls back to `main`
 3. Empty diffs bail with a clear message
 4. Shows diff stats before the AI review output
 5. `--file` flag restricts review to a single file's changes
@@ -88,5 +88,6 @@ $ fledge review --file src/github.rs
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-22 | Document default branch fallback algorithm (symbolic-ref → main → master → fallback main) |
 | 2 | 2026-04-21 | Add json field to ReviewOptions |
 | 1 | 2026-04-19 | Initial spec |

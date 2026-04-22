@@ -36,6 +36,14 @@ fledge templates init <name> [OPTIONS]
 - `--dry-run` - Preview without writing anything
 - `-y, --yes` - Accept all defaults, skip prompts
 
+**Behavior:**
+
+- If the template specifies `min_fledge_version`, fledge checks compatibility before proceeding.
+- If the template specifies `requires` (tool dependencies), fledge checks they're on PATH and warns about missing ones.
+- If the template doesn't include a `fledge.toml`, one is auto-generated from detected project type defaults.
+- If no git user is configured, defaults to `user.name=fledge` and `user.email=fledge@localhost`.
+- Plugin `pre_init` lifecycle hooks run before template rendering (if any plugins define them).
+
 **Examples:**
 
 ```bash
@@ -71,8 +79,8 @@ fledge templates create <name> [OPTIONS]
 - `-o, --output <OUTPUT>` - Parent directory [default: `.`]
 - `-d, --description <DESC>` - Template description (bypasses prompt)
 - `--render-patterns <PATTERNS>` - Comma-separated file patterns to render through Tera (bypasses prompt)
-- `--hooks` - Include post-create hooks scaffold (bypasses prompt)
-- `--prompts` - Include custom prompts scaffold (bypasses prompt)
+- `--hooks [BOOL]` - Include post-create hooks scaffold (bypasses prompt; accepts optional `true`/`false`, defaults to `true`)
+- `--prompts [BOOL]` - Include custom prompts scaffold (bypasses prompt; accepts optional `true`/`false`, defaults to `true`)
 - `-y, --yes` - Skip all interactive prompts (accept defaults)
 
 **Examples:**
@@ -86,7 +94,7 @@ fledge templates create my-template -d "FastAPI starter" --render-patterns "**/*
 
 ### fledge templates validate `[path]`
 
-Check a template for issues: manifest parsing, Tera syntax, undefined variables, glob coverage.
+Check a template for issues: manifest parsing, Tera syntax, undefined variables, glob coverage. GitHub Actions `${{ }}` syntax is automatically filtered out so it isn't flagged as Tera.
 
 ```
 fledge templates validate [path] [OPTIONS]
@@ -120,8 +128,10 @@ fledge templates search [query] [OPTIONS]
 
 **Options:**
 - `-a, --author <OWNER>` - Filter by author/owner
-- `-l, --limit <N>` - Max results [default: `20`]
+- `-l, --limit <N>` - Max results [default: `20`, max: `100`]
 - `--json` - JSON output
+
+**Output format:** Results show repo name, star count (abbreviated with "k" suffix for 1000+), and description (truncated to 60 characters). Topics are shown below each result.
 
 ---
 
@@ -136,7 +146,13 @@ fledge templates publish [path] [OPTIONS]
 **Options:**
 - `--org <ORG>` - Publish under an org
 - `--private` - Private repo
-- `--description <DESC>` - Override repo description
+- `--description <DESC>` - Override repo description (falls back to description in `template.toml`)
+
+**Behavior:**
+
+- If the repo already exists on GitHub, prompts for confirmation before updating.
+- Auto-initializes git (`.git`) if the template directory doesn't have one.
+- Cleans up embedded tokens from the remote URL after push.
 
 ---
 
@@ -182,6 +198,7 @@ fledge run [task] [OPTIONS]
 | Go | `go.mod` | build, test, vet |
 | Python | `pyproject.toml` / `setup.py` | pytest, ruff, mypy |
 | Ruby | `Gemfile` | rake, rspec |
+| Swift | `Package.swift` | build, test |
 | Gradle | `build.gradle` | build, test |
 | Maven | `pom.xml` | compile, test |
 
@@ -384,6 +401,8 @@ fledge review [OPTIONS]
 - `-b, --base <BRANCH>` - Base branch [default: auto-detect]
 - `-f, --file <FILE>` - Review a single file
 - `--json` - JSON output
+
+**Default branch detection:** When `--base` is not specified, fledge tries `git symbolic-ref refs/remotes/origin/HEAD`, then checks for `main` and `master` branches. Falls back to `main` if none exist.
 
 ---
 

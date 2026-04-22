@@ -33,15 +33,15 @@ fledge follows [Conventional Commits](https://www.conventionalcommits.org/). The
 | `test` | Tests |
 | `ci` | CI/CD |
 
-Breaking changes use `!` after the type (`feat!: ...`) or a `BREAKING CHANGE:` footer. They get their own section at the top.
+Commits that don't match any type are grouped under "Other".
 
 **Examples:**
 
 ```
 feat: add dark mode toggle
 fix(auth): handle expired tokens
-feat!: remove legacy config format
 chore: bump dependencies
+refactor: simplify config loader
 ```
 
 ## Versioning
@@ -51,13 +51,6 @@ fledge reads git tags that follow semver (`v1.2.3`). Each tag becomes a changelo
 ## Config
 
 No config required. fledge reads your git history directly.
-
-Optional `fledge.toml` settings:
-
-```toml
-[changelog]
-types = ["feat", "fix", "perf"]   # only include these types
-```
 
 ## Full Changelog
 

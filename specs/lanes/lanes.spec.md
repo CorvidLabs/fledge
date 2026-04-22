@@ -100,7 +100,7 @@ steps = ["deps-audit", "license-check", "security-scan"]
 1. Lanes are loaded from `fledge.toml` and merged with any `.fledge/lanes/*.toml` files; `fledge.toml` definitions take precedence
 2. Each step in a lane is either a task reference (string), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`) — parallel groups accept both task references and inline commands
 3. Task references must resolve to tasks defined in `[tasks]` — unknown references produce an error before execution
-4. Parallel groups spawn threads and collect results; if any thread fails and `fail_fast` is true, remaining steps are skipped
+4. Parallel groups spawn threads and collect results; if any thread fails and `fail_fast` is true, remaining steps are skipped. If a thread panics, it is treated as a failure.
 5. Steps execute sequentially by default; only `{ parallel = [...] }` groups run concurrently
 6. `fail_fast` defaults to `true` — first failure stops the lane
 7. `--init` appends language-aware default lanes to an existing `fledge.toml`

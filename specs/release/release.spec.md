@@ -45,6 +45,7 @@ Provides a unified release workflow: version bumping across language ecosystems,
 7. Tags are annotated (`git tag -a`) with message `Release vX.Y.Z`
 8. Custom version files can be specified in `[release]` section of `fledge.toml`
 9. All git commands use explicit `current_dir` for correctness in any working directory context
+10. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations
 
 ## Behavioral Examples
 
