@@ -262,7 +262,7 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         run_git(path, &["checkout", "-b", "main"])?;
     }
 
-    let remote_url = format!("https://{}@github.com/{}/{}.git", token, owner, repo);
+    let remote_url = format!("https://github.com/{}/{}.git", owner, repo);
 
     let has_remote = std::process::Command::new("git")
         .args(["remote", "get-url", "origin"])
@@ -292,9 +292,17 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         run_git(path, &["commit", "-m", "Publish fledge template"])?;
     }
 
+    use base64::Engine;
+    let credentials = format!("x-access-token:{}", token);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
+    let header_value = format!("Authorization: Basic {}", encoded);
+
     let status = std::process::Command::new("git")
         .args(["push", "-u", "origin", "main", "--force"])
         .current_dir(path)
+        .env("GIT_CONFIG_COUNT", "1")
+        .env("GIT_CONFIG_KEY_0", "http.extraheader")
+        .env("GIT_CONFIG_VALUE_0", &header_value)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()

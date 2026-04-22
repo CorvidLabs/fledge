@@ -18,6 +18,14 @@ pub struct PluginContext {
     project: Option<ProjectContext>,
     plugin: PluginInfo,
     fledge: FledgeInfo,
+    capabilities: CapabilitiesInfo,
+}
+
+#[derive(Debug, Serialize)]
+struct CapabilitiesInfo {
+    exec: bool,
+    store: bool,
+    metadata: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -133,6 +141,7 @@ pub fn run_protocol_plugin(
     plugin_name: &str,
     plugin_version: &str,
     plugin_dir: &Path,
+    capabilities: &crate::plugin::PluginCapabilities,
 ) -> Result<()> {
     let mut child = Command::new(bin_path)
         .stdin(Stdio::piped())
@@ -155,11 +164,16 @@ pub fn run_protocol_plugin(
         fledge: FledgeInfo {
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
+        capabilities: CapabilitiesInfo {
+            exec: capabilities.exec,
+            store: capabilities.store,
+            metadata: capabilities.metadata,
+        },
     };
 
     send_message(&mut child, &init_msg)?;
 
-    let result = run_message_loop(&mut child, plugin_name, plugin_dir);
+    let result = run_message_loop(&mut child, plugin_name, plugin_dir, capabilities);
 
     let status = child.wait().context("waiting for plugin to exit")?;
 
@@ -173,7 +187,12 @@ pub fn run_protocol_plugin(
     Ok(())
 }
 
-fn run_message_loop(child: &mut Child, plugin_name: &str, plugin_dir: &Path) -> Result<()> {
+fn run_message_loop(
+    child: &mut Child,
+    plugin_name: &str,
+    plugin_dir: &Path,
+    capabilities: &crate::plugin::PluginCapabilities,
+) -> Result<()> {
     let stdout = child
         .stdout
         .take()
@@ -266,9 +285,26 @@ fn run_message_loop(child: &mut Child, plugin_name: &str, plugin_dir: &Path) -> 
                 print!("{}", text);
             }
             OutboundMessage::Store { key, value } => {
+                if !capabilities.store {
+                    eprintln!(
+                        "  {} [{}] store blocked — capability not granted",
+                        style("WARN").yellow(),
+                        style(plugin_name).dim()
+                    );
+                    continue;
+                }
                 handle_store(plugin_dir, &key, &value)?;
             }
             OutboundMessage::Load { id, key } => {
+                if !capabilities.store {
+                    eprintln!(
+                        "  {} [{}] load blocked — capability not granted",
+                        style("WARN").yellow(),
+                        style(plugin_name).dim()
+                    );
+                    send_response(child, &id, serde_json::Value::Null)?;
+                    continue;
+                }
                 let value = handle_load(plugin_dir, &key)?;
                 send_response(child, &id, value)?;
             }
@@ -278,10 +314,37 @@ fn run_message_loop(child: &mut Child, plugin_name: &str, plugin_dir: &Path) -> 
                 cwd,
                 timeout,
             } => {
+                if !capabilities.exec {
+                    eprintln!(
+                        "  {} [{}] exec blocked — capability not granted",
+                        style("WARN").yellow(),
+                        style(plugin_name).dim()
+                    );
+                    send_response(
+                        child,
+                        &id,
+                        serde_json::json!({
+                            "code": 126,
+                            "stdout": "",
+                            "stderr": "exec capability not granted"
+                        }),
+                    )?;
+                    continue;
+                }
                 let result = handle_exec(&command, cwd.as_deref(), timeout, plugin_dir)?;
                 send_response(child, &id, result)?;
             }
             OutboundMessage::Metadata { id, keys } => {
+                if !capabilities.metadata {
+                    eprintln!(
+                        "  {} [{}] metadata blocked — capability not granted",
+                        style("WARN").yellow(),
+                        style(plugin_name).dim()
+                    );
+                    let empty = serde_json::Value::Object(serde_json::Map::new());
+                    send_response(child, &id, empty)?;
+                    continue;
+                }
                 let result = handle_metadata(&keys)?;
                 send_response(child, &id, result)?;
             }
@@ -914,6 +977,22 @@ fn kill_child(child: &mut Child) {
 mod tests {
     use super::*;
 
+    fn all_capabilities() -> crate::plugin::PluginCapabilities {
+        crate::plugin::PluginCapabilities {
+            exec: true,
+            store: true,
+            metadata: true,
+        }
+    }
+
+    fn no_capabilities() -> crate::plugin::PluginCapabilities {
+        crate::plugin::PluginCapabilities {
+            exec: false,
+            store: false,
+            metadata: false,
+        }
+    }
+
     #[test]
     fn parse_prompt_message() {
         let json = r#"{"type":"prompt","id":"1","message":"Deploy target:","default":"staging"}"#;
@@ -1194,10 +1273,18 @@ mod tests {
             fledge: FledgeInfo {
                 version: "0.9.1".to_string(),
             },
+            capabilities: CapabilitiesInfo {
+                exec: true,
+                store: true,
+                metadata: false,
+            },
         };
         let json = serde_json::to_string(&ctx).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed["type"], "init");
+        assert_eq!(parsed["capabilities"]["exec"], true);
+        assert_eq!(parsed["capabilities"]["store"], true);
+        assert_eq!(parsed["capabilities"]["metadata"], false);
         assert_eq!(parsed["protocol"], "fledge-v1");
         assert_eq!(parsed["args"][0], "--dry-run");
         assert_eq!(parsed["project"]["name"], "test");
@@ -1282,8 +1369,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result =
-            super::run_protocol_plugin(&bin, &[], "test-plugin", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-plugin",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(result.is_ok(), "protocol plugin failed: {:?}", result.err());
 
         let state_path = store_dir.path().join("state.json");
@@ -1326,7 +1419,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result = super::run_protocol_plugin(&bin, &[], "test-exec", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-exec",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(
             result.is_ok(),
             "exec/metadata test failed: {:?}",
@@ -1350,7 +1450,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result = super::run_protocol_plugin(&bin, &[], "test-noop", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-noop",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(
             result.is_ok(),
             "noop plugin should succeed: {:?}",
@@ -1374,7 +1481,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result = super::run_protocol_plugin(&bin, &[], "test-fail", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-fail",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(result.is_err(), "nonzero exit should be an error");
         let err_msg = result.unwrap_err().to_string();
         assert!(
@@ -1406,8 +1520,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result =
-            super::run_protocol_plugin(&bin, &[], "test-malformed", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-malformed",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         // Plugin exits 0, malformed lines are skipped
         assert!(
             result.is_ok(),
@@ -1457,8 +1577,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result =
-            super::run_protocol_plugin(&bin, &[], "test-multi-store", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-multi-store",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(
             result.is_ok(),
             "multi store/load failed: {:?}",
@@ -1492,7 +1618,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result = super::run_protocol_plugin(&bin, &[], "test-init", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-init",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(
             result.is_ok(),
             "init context test failed: {:?}",
@@ -1525,8 +1658,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result =
-            super::run_protocol_plugin(&bin, &[], "test-sandbox", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-sandbox",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(result.is_ok(), "sandbox test failed: {:?}", result.err());
     }
 
@@ -1552,8 +1691,14 @@ fn main() {
             tmp.path(),
         );
         let store_dir = tempfile::tempdir().unwrap();
-        let result =
-            super::run_protocol_plugin(&bin, &[], "test-timeout", "0.1.0", store_dir.path());
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-timeout",
+            "0.1.0",
+            store_dir.path(),
+            &all_capabilities(),
+        );
         assert!(result.is_ok(), "timeout test failed: {:?}", result.err());
     }
 
@@ -1615,5 +1760,175 @@ fn main() {
         handle_store(tmp.path(), "key", "value").unwrap();
         assert!(tmp.path().join("state.json").exists());
         assert!(!tmp.path().join("state.json.tmp").exists());
+    }
+
+    #[test]
+    fn capability_blocks_exec() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    send("{\"type\":\"exec\",\"id\":\"e1\",\"command\":\"echo blocked\"}");
+    let resp = lines.next().unwrap().unwrap();
+    assert!(resp.contains("\"code\":126"), "exec should be blocked with code 126: {}", resp);
+    assert!(resp.contains("not granted"), "should mention not granted: {}", resp);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let caps = no_capabilities();
+        let result =
+            super::run_protocol_plugin(&bin, &[], "test-no-exec", "0.1.0", store_dir.path(), &caps);
+        assert!(
+            result.is_ok(),
+            "blocked exec should not crash: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn capability_blocks_store() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    send("{\"type\":\"store\",\"key\":\"secret\",\"value\":\"data\"}");
+    send("{\"type\":\"load\",\"id\":\"l1\",\"key\":\"secret\"}");
+    let resp = lines.next().unwrap().unwrap();
+    assert!(resp.contains("null"), "load should return null when store blocked: {}", resp);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let caps = no_capabilities();
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-no-store",
+            "0.1.0",
+            store_dir.path(),
+            &caps,
+        );
+        assert!(
+            result.is_ok(),
+            "blocked store should not crash: {:?}",
+            result.err()
+        );
+        assert!(
+            !store_dir.path().join("state.json").exists(),
+            "state.json should not be created when store is blocked"
+        );
+    }
+
+    #[test]
+    fn capability_blocks_metadata() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    send("{\"type\":\"metadata\",\"id\":\"m1\",\"keys\":[\"env\"]}");
+    let resp = lines.next().unwrap().unwrap();
+    assert!(resp.contains("\"id\":\"m1\""), "should echo id: {}", resp);
+    // Should get empty object, not env data
+    assert!(!resp.contains("PATH"), "should not contain env data when blocked: {}", resp);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let caps = no_capabilities();
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-no-metadata",
+            "0.1.0",
+            store_dir.path(),
+            &caps,
+        );
+        assert!(
+            result.is_ok(),
+            "blocked metadata should not crash: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn init_message_includes_capabilities() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let init_line = lines.next().unwrap().unwrap();
+
+    assert!(init_line.contains("\"capabilities\""), "init should contain capabilities: {}", init_line);
+    assert!(init_line.contains("\"exec\":true"), "should have exec:true: {}", init_line);
+    assert!(init_line.contains("\"store\":false"), "should have store:false: {}", init_line);
+    assert!(init_line.contains("\"metadata\":true"), "should have metadata:true: {}", init_line);
+
+    send("{\"type\":\"log\",\"level\":\"info\",\"message\":\"caps validated\"}");
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let caps = crate::plugin::PluginCapabilities {
+            exec: true,
+            store: false,
+            metadata: true,
+        };
+        let result = super::run_protocol_plugin(
+            &bin,
+            &[],
+            "test-caps-init",
+            "0.1.0",
+            store_dir.path(),
+            &caps,
+        );
+        assert!(result.is_ok(), "caps init test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn capabilities_parse_from_toml() {
+        let caps_str = r#"
+exec = true
+store = true
+metadata = false
+"#;
+        let caps: crate::plugin::PluginCapabilities = toml::from_str(caps_str).unwrap();
+        assert!(caps.exec);
+        assert!(caps.store);
+        assert!(!caps.metadata);
+    }
+
+    #[test]
+    fn capabilities_default_to_false() {
+        let caps: crate::plugin::PluginCapabilities = toml::from_str("").unwrap();
+        assert!(!caps.exec);
+        assert!(!caps.store);
+        assert!(!caps.metadata);
     }
 }
