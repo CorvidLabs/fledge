@@ -91,7 +91,7 @@ pub fn run(options: PublishOptions) -> Result<()> {
     );
 
     let sp = crate::spinner::Spinner::start("Pushing template files:");
-    push_template(&path, &owner, repo_name, &token)?;
+    push_directory(&path, &owner, repo_name, &token)?;
     sp.finish();
     println!("  {} Pushed template files", style("✅").green().bold());
 
@@ -130,7 +130,7 @@ pub fn validate_template(path: &Path) -> Result<crate::templates::TemplateManife
     Ok(manifest)
 }
 
-fn get_authenticated_user(token: &str) -> Result<String> {
+pub fn get_authenticated_user(token: &str) -> Result<String> {
     let text = ureq::get("https://api.github.com/user")
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
@@ -150,7 +150,7 @@ fn get_authenticated_user(token: &str) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("Could not determine GitHub username"))
 }
 
-fn check_repo_exists(owner: &str, repo: &str, token: &str) -> Result<bool> {
+pub fn check_repo_exists(owner: &str, repo: &str, token: &str) -> Result<bool> {
     let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
     let result = ureq::get(&url)
         .header("Authorization", &format!("Bearer {}", token))
@@ -206,6 +206,10 @@ pub fn create_github_repo(
 }
 
 pub fn set_repo_topics(owner: &str, repo: &str, token: &str) -> Result<()> {
+    set_repo_topic(owner, repo, "fledge-template", token)
+}
+
+pub fn set_repo_topic(owner: &str, repo: &str, topic: &str, token: &str) -> Result<()> {
     let url = format!("https://api.github.com/repos/{}/{}/topics", owner, repo);
 
     let text = ureq::get(&url)
@@ -230,8 +234,8 @@ pub fn set_repo_topics(owner: &str, repo: &str, token: &str) -> Result<()> {
         })
         .unwrap_or_default();
 
-    if !topics.iter().any(|t| t == "fledge-template") {
-        topics.push("fledge-template".to_string());
+    if !topics.iter().any(|t| t == topic) {
+        topics.push(topic.to_string());
     }
 
     let body = json!({ "names": topics });
@@ -249,7 +253,7 @@ pub fn set_repo_topics(owner: &str, repo: &str, token: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn push_template(path: &Path, owner: &str, repo: &str, token: &str) -> Result<()> {
+pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Result<()> {
     let git_dir = path.join(".git");
     let needs_init = !git_dir.exists();
 
@@ -313,7 +317,7 @@ pub fn push_template(path: &Path, owner: &str, repo: &str, token: &str) -> Resul
     Ok(())
 }
 
-fn run_git(dir: &Path, args: &[&str]) -> Result<()> {
+pub fn run_git(dir: &Path, args: &[&str]) -> Result<()> {
     let status = std::process::Command::new("git")
         .args(args)
         .current_dir(dir)

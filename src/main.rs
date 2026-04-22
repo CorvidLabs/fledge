@@ -519,6 +519,21 @@ enum LaneSubcommand {
         /// GitHub repo (owner/repo) or full URL, optionally with @ref
         source: String,
     },
+    /// Publish lanes to GitHub
+    Publish {
+        /// Path to the directory containing fledge.toml with lanes
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Publish under a GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Create as a private repository
+        #[arg(long)]
+        private: bool,
+        /// Override the repository description
+        #[arg(long)]
+        description: Option<String>,
+    },
     #[command(external_subcommand)]
     External(Vec<String>),
 }
@@ -563,6 +578,21 @@ enum PluginSubcommand {
         /// Arguments to pass to the plugin
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
+    },
+    /// Publish a plugin to GitHub
+    Publish {
+        /// Path to the plugin directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Publish under a GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Create as a private repository
+        #[arg(long)]
+        private: bool,
+        /// Override the repository description
+        #[arg(long)]
+        description: Option<String>,
     },
 }
 
@@ -687,6 +717,17 @@ fn run() -> Result<()> {
                     json,
                 },
                 LaneSubcommand::Import { source } => lanes::LaneAction::Import { source },
+                LaneSubcommand::Publish {
+                    path,
+                    org,
+                    private,
+                    description,
+                } => lanes::LaneAction::Publish {
+                    path,
+                    org,
+                    private,
+                    description,
+                },
                 LaneSubcommand::External(args) => {
                     let name = args.first().cloned().unwrap_or_default();
                     let dry_run = args.iter().any(|a| a == "--dry-run");
@@ -755,6 +796,17 @@ fn run() -> Result<()> {
                     limit,
                 },
                 PluginSubcommand::Run { name, args } => plugin::PluginAction::Run { name, args },
+                PluginSubcommand::Publish {
+                    path,
+                    org,
+                    private,
+                    description,
+                } => plugin::PluginAction::Publish {
+                    path,
+                    org,
+                    private,
+                    description,
+                },
             };
             plugin::run(plugin::PluginOptions { action, json })?;
         }

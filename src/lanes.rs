@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -112,6 +112,12 @@ pub enum LaneAction {
     Import {
         source: String,
     },
+    Publish {
+        path: PathBuf,
+        org: Option<String>,
+        private: bool,
+        description: Option<String>,
+    },
 }
 
 pub fn run(action: LaneAction) -> Result<()> {
@@ -123,6 +129,12 @@ pub fn run(action: LaneAction) -> Result<()> {
         } => search_lanes(query.as_deref(), author.as_deref(), json),
         LaneAction::Import { source } => import_lanes(&source),
         LaneAction::Init => init_lanes(),
+        LaneAction::Publish {
+            path,
+            org,
+            private,
+            description,
+        } => publish_lanes(&path, org.as_deref(), private, description.as_deref()),
         LaneAction::List { json } => {
             let config = load_lane_config()?;
             list_lanes(&config.lanes, json)
@@ -1009,6 +1021,112 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
     }
 
     Ok(output)
+}
+
+fn publish_lanes(
+    path: &Path,
+    org: Option<&str>,
+    private: bool,
+    description: Option<&str>,
+) -> Result<()> {
+    let config = crate::config::Config::load()?;
+    let token = config.github_token().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No GitHub token configured. Run: fledge config set github.token <your-token>"
+        )
+    })?;
+
+    let path = path
+        .canonicalize()
+        .with_context(|| format!("Directory not found: {}", path.display()))?;
+
+    let fledge_toml = path.join("fledge.toml");
+    if !fledge_toml.exists() {
+        bail!(
+            "No fledge.toml found in {}. Lanes must be defined in a fledge.toml file.",
+            path.display()
+        );
+    }
+
+    let content = std::fs::read_to_string(&fledge_toml).context("reading fledge.toml")?;
+    let parsed: FledgeFileWithLanes = toml::from_str(&content).context("parsing fledge.toml")?;
+
+    if parsed.lanes.is_empty() {
+        bail!("No [lanes] defined in fledge.toml. Add lanes before publishing.");
+    }
+
+    let dir_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("fledge-lanes");
+    let repo_name = dir_name.to_string();
+    let desc = description.unwrap_or("Shared fledge lanes");
+
+    let owner = match org {
+        Some(o) => o.to_string(),
+        None => crate::publish::get_authenticated_user(&token)?,
+    };
+
+    let lane_names: Vec<&str> = parsed.lanes.keys().map(|s| s.as_str()).collect();
+    println!(
+        "{} Publishing {} lanes as {}/{}",
+        style("➡️").cyan().bold(),
+        style(lane_names.len()).green(),
+        style(&owner).green(),
+        style(&repo_name).green()
+    );
+    println!("  Lanes: {}", style(lane_names.join(", ")).dim());
+
+    let sp = crate::spinner::Spinner::start("Checking repository:");
+    let repo_exists = crate::publish::check_repo_exists(&owner, &repo_name, &token)?;
+    sp.finish();
+
+    if repo_exists {
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!(
+                "Repository {}/{} already exists. Push update?",
+                owner, repo_name
+            ))
+            .default(false)
+            .interact()?;
+
+        if !confirm {
+            println!("{} Cancelled.", style("*").cyan().bold());
+            return Ok(());
+        }
+    } else {
+        let sp = crate::spinner::Spinner::start("Creating repository:");
+        crate::publish::create_github_repo(&repo_name, desc, private, Some(&owner), &token)?;
+        sp.finish();
+        println!(
+            "  {} Created repository {}/{}",
+            style("✅").green().bold(),
+            owner,
+            repo_name
+        );
+    }
+
+    let sp = crate::spinner::Spinner::start("Setting repository topics:");
+    crate::publish::set_repo_topic(&owner, &repo_name, "fledge-lane", &token)?;
+    sp.finish();
+    println!(
+        "  {} Set {} topic",
+        style("✅").green().bold(),
+        style("fledge-lane").cyan()
+    );
+
+    let sp = crate::spinner::Spinner::start("Pushing lane files:");
+    crate::publish::push_directory(&path, &owner, &repo_name, &token)?;
+    sp.finish();
+    println!("  {} Pushed lane files", style("✅").green().bold());
+
+    println!(
+        "\n{} Published! Import with:\n\n  {}",
+        style("✅").green().bold(),
+        style(format!("fledge lanes import {}/{}", owner, repo_name)).cyan()
+    );
+
+    Ok(())
 }
 
 #[cfg(test)]
