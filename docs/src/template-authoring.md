@@ -53,7 +53,7 @@ post_create = ["cargo fmt", "npm install"]
 | Key | Type | Required | Notes |
 |-----|------|----------|-------|
 | `name` | string | Yes | What you pass to `--template` |
-| `description` | string | No | Shows up in `fledge list` |
+| `description` | string | No | Shows up in `fledge templates list` |
 | `min_fledge_version` | string | No | Minimum fledge version needed |
 
 ### [prompts] section
@@ -226,8 +226,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
 ### 4. Test it
 
 ```bash
-fledge init test-api --template ./python-api --dry-run
-fledge init test-api --template ./python-api
+fledge templates init test-api --template ./python-api --dry-run
+fledge templates init test-api --template ./python-api
 ```
 
 ## Testing
@@ -243,10 +243,10 @@ paths = ["~/dev/my-templates"]
 Or point at it directly:
 
 ```bash
-fledge init test-project --template ./my-template
+fledge templates init test-project --template ./my-template
 ```
 
-The loop is: edit files → `fledge init test-output --template my-template` → check the output → delete test output → repeat.
+The loop is: edit files → `fledge templates init test-output --template my-template` → check the output → delete test output → repeat.
 
 ## Sharing
 
@@ -255,12 +255,12 @@ The loop is: edit files → `fledge init test-output --template my-template` →
 Push your template to a GitHub repo. Anyone can use it with:
 
 ```bash
-fledge init my-app --template user/my-template
+fledge templates init my-app --template user/my-template
 ```
 
 ### Template Repos
 
-Users can register your repo so it shows up in `fledge list`:
+Users can register your repo so it shows up in `fledge templates list`:
 
 ```toml
 [templates]

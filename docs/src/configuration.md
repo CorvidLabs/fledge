@@ -65,6 +65,7 @@ Token priority:
 1. `FLEDGE_GITHUB_TOKEN` env var
 2. `GITHUB_TOKEN` env var
 3. Config file
+4. `gh auth token` (GitHub CLI fallback)
 
 **Required token scopes:**
 
@@ -97,12 +98,14 @@ token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
 
 | Variable | What it does |
 |----------|-------------|
-| `FLEDGE_GITHUB_TOKEN` | GitHub token (overrides config) |
-| `GITHUB_TOKEN` | GitHub token (fallback) |
+| `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
+| `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
+
+If neither env var nor config is set, fledge falls back to `gh auth token` (GitHub CLI) automatically.
 
 ## Project Configuration (fledge.toml)
 
-Per-project settings live in `fledge.toml` in your project root. This file defines tasks, lanes, and project metadata. It's created by `fledge run --init` or `fledge init`.
+Per-project settings live in `fledge.toml` in your project root. This file defines tasks, lanes, and project metadata. It's created by `fledge run --init` or `fledge templates init`.
 
 For task and lane configuration, see:
 - [Lanes & Pipelines](./lanes.md) — defining lanes, step types, parallel groups, importing community lanes

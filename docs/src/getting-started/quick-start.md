@@ -24,7 +24,7 @@ See [Existing Projects](./existing-projects.md) for the full guide.
 Pick a template and go:
 
 ```bash
-fledge init my-tool --template rust-cli
+fledge templates init my-tool --template rust-cli
 ```
 
 That gives you a full Rust CLI project with clap, CI, and release automation in a `my-tool` directory.
@@ -34,7 +34,7 @@ That gives you a full Rust CLI project with clap, CI, and release automation in 
 Not sure what you want? Just run init without a template and fledge will walk you through it:
 
 ```bash
-fledge init my-project
+fledge templates init my-project
 ```
 
 ## Use a Remote Template
@@ -42,7 +42,7 @@ fledge init my-project
 Any GitHub repo works as a template source:
 
 ```bash
-fledge init my-app --template CorvidLabs/fledge-templates/python-api
+fledge templates init my-app --template CorvidLabs/fledge-templates/python-api
 ```
 
 ## Dry Run First
@@ -50,7 +50,7 @@ fledge init my-app --template CorvidLabs/fledge-templates/python-api
 Preview what you'd get before writing anything:
 
 ```bash
-fledge init my-tool --template rust-cli --dry-run
+fledge templates init my-tool --template rust-cli --dry-run
 ```
 
 ## Set Up Tasks
@@ -69,10 +69,10 @@ fledge run test
 Lanes chain tasks together. Think of `fledge lane ci` as your local CI:
 
 ```bash
-fledge lane --init       # generate default lanes for your project type
-fledge lane              # see what's available
-fledge lane ci           # run the full pipeline
-fledge lane ci --dry-run # just show the plan
+fledge lanes init            # generate default lanes for your project type
+fledge lanes list            # see what's available
+fledge lane ci               # run the full pipeline
+fledge lane ci --dry-run     # just show the plan
 ```
 
 Lanes support parallel groups and inline commands. More on that in [Lanes & Pipelines](../lanes.md).
@@ -93,10 +93,10 @@ fledge deps --audit      # security check
 Community extensions, git-style:
 
 ```bash
-fledge plugin search deploy
-fledge plugin install someone/fledge-deploy           # latest
-fledge plugin install someone/fledge-deploy@v1.0.0    # pinned version
-fledge plugin list
+fledge plugins search deploy
+fledge plugins install someone/fledge-deploy           # latest
+fledge plugins install someone/fledge-deploy@v1.0.0    # pinned version
+fledge plugins list
 ```
 
 ## Work Branches + PRs
@@ -128,7 +128,7 @@ fledge changelog --unreleased    # what's new since last tag
 ## All Templates
 
 ```bash
-fledge list
+fledge templates list
 ```
 
 Shows everything available: built-in, configured repos, and local paths.

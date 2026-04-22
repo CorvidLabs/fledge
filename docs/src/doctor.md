@@ -32,7 +32,7 @@ Doctor reports each check as passing, warning, or failing:
 
 ## When to Run It
 
-- Before your first `fledge init` to make sure your environment is ready
+- Before your first `fledge templates init` to make sure your environment is ready
 - When `fledge run` can't find the right command for your project type
 - When GitHub commands (`issues`, `prs`, `checks`, `work pr`) fail with auth errors
 - After upgrading your toolchain or switching machines
