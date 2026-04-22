@@ -40,3 +40,6 @@ tui = ["dep:ratatui", "dep:crossterm"]
 
 [dev-dependencies]
 tempfile = "3"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.185"

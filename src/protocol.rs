@@ -484,6 +484,7 @@ fn handle_log(plugin_name: &str, level: &str, message: &str) {
 const MAX_STORE_KEY_SIZE: usize = 256;
 const MAX_STORE_VALUE_SIZE: usize = 64 * 1024; // 64 KB per value
 const MAX_STORE_TOTAL_SIZE: usize = 1024 * 1024; // 1 MB total
+const MAX_STORE_KEY_COUNT: usize = 256;
 
 fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
     if key.is_empty() {
@@ -509,7 +510,12 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
     let state_path = plugin_dir.join("state.json");
     let lock_path = plugin_dir.join("state.json.lock");
 
-    let lock_file = fs::File::create(&lock_path).context("creating state lock file")?;
+    let lock_file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&lock_path)
+        .context("opening state lock file")?;
     lock_file
         .lock()
         .context("acquiring exclusive lock on state.json")?;
@@ -521,6 +527,12 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
         HashMap::new()
     };
     state.insert(key.to_string(), value.to_string());
+    if state.len() > MAX_STORE_KEY_COUNT {
+        bail!(
+            "plugin state exceeds maximum of {} keys",
+            MAX_STORE_KEY_COUNT
+        );
+    }
     let json = serde_json::to_string_pretty(&state).context("serializing state")?;
     if json.len() > MAX_STORE_TOTAL_SIZE {
         bail!(
@@ -531,7 +543,11 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
 
     let tmp_path = plugin_dir.join("state.json.tmp");
     fs::write(&tmp_path, &json).context("writing temporary state file")?;
-    fs::rename(&tmp_path, &state_path).context("atomically replacing state.json")?;
+    #[cfg(windows)]
+    {
+        let _ = fs::remove_file(&state_path);
+    }
+    fs::rename(&tmp_path, &state_path).context("replacing state.json")?;
 
     lock_file.unlock().context("releasing state.json lock")?;
     Ok(())
@@ -539,15 +555,22 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
 
 fn handle_load(plugin_dir: &Path, key: &str) -> Result<serde_json::Value> {
     let state_path = plugin_dir.join("state.json");
-    if !state_path.exists() {
-        return Ok(serde_json::Value::Null);
-    }
-
     let lock_path = plugin_dir.join("state.json.lock");
-    let lock_file = fs::File::create(&lock_path).context("creating state lock file")?;
+
+    let lock_file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&lock_path)
+        .context("opening state lock file")?;
     lock_file
         .lock_shared()
         .context("acquiring shared lock on state.json")?;
+
+    if !state_path.exists() {
+        lock_file.unlock().context("releasing state.json lock")?;
+        return Ok(serde_json::Value::Null);
+    }
 
     let content = fs::read_to_string(&state_path).context("reading state.json")?;
 
@@ -614,13 +637,17 @@ fn handle_exec(
         .with_context(|| format!("spawning exec command: {command}"))?;
 
     #[cfg(not(windows))]
-    let mut child = Command::new("sh")
-        .args(["-c", command])
-        .current_dir(&work_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .with_context(|| format!("spawning exec command: {command}"))?;
+    let mut child = {
+        use std::os::unix::process::CommandExt;
+        Command::new("sh")
+            .args(["-c", command])
+            .current_dir(&work_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .process_group(0)
+            .spawn()
+            .with_context(|| format!("spawning exec command: {command}"))?
+    };
 
     let result = wait_with_timeout(&mut child, Duration::from_secs(timeout_secs));
 
@@ -725,17 +752,22 @@ fn handle_metadata(keys: &[String]) -> Result<serde_json::Value> {
                     "session",
                     "cookie",
                 ];
+                let dangerous_prefixes = ["ld_preload", "ld_library_path", "dyld_", "kubeconfig"];
                 let safe_vars: HashMap<String, String> = std::env::vars()
                     .filter(|(k, v)| {
                         let lower = k.to_lowercase();
                         let is_sensitive_name =
                             sensitive_patterns.iter().any(|p| lower.contains(p));
+                        let is_dangerous_prefix =
+                            dangerous_prefixes.iter().any(|p| lower.starts_with(p));
                         let looks_like_conn_string = lower.ends_with("_url")
                             || lower.ends_with("_uri")
                             || lower.ends_with("_dsn");
-                        let value_has_creds =
-                            v.contains('@') && (v.contains("://") || v.contains("//"));
-                        !is_sensitive_name && !looks_like_conn_string && !value_has_creds
+                        let value_has_creds = v.contains('@') && v.contains(':');
+                        !is_sensitive_name
+                            && !is_dangerous_prefix
+                            && !looks_like_conn_string
+                            && !value_has_creds
                     })
                     .collect();
                 result.insert(
@@ -867,6 +899,13 @@ fn wait_with_timeout(child: &mut Child, timeout: Duration) -> Result<std::proces
 }
 
 fn kill_child(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        let pid = child.id() as libc::pid_t;
+        unsafe {
+            libc::killpg(pid, libc::SIGKILL);
+        }
+    }
     child.kill().ok();
     child.wait().ok();
 }
