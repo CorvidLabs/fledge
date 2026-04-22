@@ -1,13 +1,13 @@
 # Lanes & Pipelines
 
-Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. They support parallel groups and configurable failure behavior.
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. All lane commands live under `fledge lanes` (alias: `fledge lane`). They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
 Already have tasks in `fledge.toml`? Generate lanes automatically:
 
 ```bash
-fledge lane --init
+fledge lanes init
 ```
 
 This looks at your project type and creates sensible defaults. Then just run one:
@@ -201,7 +201,7 @@ steps = [
 
 ## Auto-Generated Defaults
 
-`fledge lane --init` detects your project type:
+`fledge lanes init` detects your project type:
 
 | Project | How it's detected | What you get |
 |---------|------------------|-------------|
@@ -213,15 +213,17 @@ steps = [
 ## CLI
 
 ```bash
-fledge lane              # list lanes (same as fledge lane list)
-fledge lane run ci       # run one
-fledge lane run ci --dry-run # preview the plan
-fledge lane init         # generate defaults
-fledge lane list --json
-fledge lane search              # find community lanes
-fledge lane search rust         # search with keyword
-fledge lane import owner/repo   # import lanes from GitHub
-fledge lane import owner/repo@v1.0.0  # pin to a version
+fledge lane ci                        # run a lane (shortcut)
+fledge lanes run ci                   # same thing, explicit
+fledge lanes run ci --dry-run         # preview the plan
+fledge lanes list                     # list lanes
+fledge lanes list --json
+fledge lanes init                     # generate defaults
+fledge lanes search                   # find community lanes
+fledge lanes search rust              # search with keyword
+fledge lanes import owner/repo        # import lanes from GitHub
+fledge lanes import owner/repo@v1.0.0 # pin to a version
+fledge lanes publish --org MyOrg      # publish lanes to GitHub
 ```
 
 ## Community Lane Registry
@@ -268,7 +270,7 @@ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 ## Tips
 
-- Start with `fledge lane init` and customize from there.
+- Start with `fledge lanes init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
 - Use `fail_fast = false` for audit lanes where you want the full report.

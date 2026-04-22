@@ -18,8 +18,8 @@ These ship with the binary. Always there, no setup needed:
 For Angular, MCP server, Deno, Swift, monorepo, and more, check the [official template repo](https://github.com/CorvidLabs/fledge-templates):
 
 ```bash
-fledge init my-app --template rust-cli
-fledge init my-service --template CorvidLabs/fledge-templates/go-cli
+fledge templates init my-app --template rust-cli
+fledge templates init my-service --template CorvidLabs/fledge-templates/go-cli
 ```
 
 ## Remote Templates
@@ -27,16 +27,16 @@ fledge init my-service --template CorvidLabs/fledge-templates/go-cli
 Any GitHub repo can be a template. Just use `owner/repo`:
 
 ```bash
-fledge init my-app --template CorvidLabs/fledge-templates/deno-cli
+fledge templates init my-app --template CorvidLabs/fledge-templates/deno-cli
 
 # Pin to a specific version
-fledge init my-app --template CorvidLabs/fledge-templates/mcp-server@v1.0
+fledge templates init my-app --template CorvidLabs/fledge-templates/mcp-server@v1.0
 ```
 
 Templates get cached locally after the first pull. Use `--refresh` to force a re-download:
 
 ```bash
-fledge init my-app --template CorvidLabs/fledge-templates/deno-cli --refresh
+fledge templates init my-app --template CorvidLabs/fledge-templates/deno-cli --refresh
 ```
 
 ### Official Template Collection
@@ -52,7 +52,7 @@ fledge init my-app --template CorvidLabs/fledge-templates/deno-cli --refresh
 | `rust-workspace` | Rust workspace with multiple crates |
 | `static-site` | Static site (HTML/CSS/JS) |
 
-Add it to your config so these show up in `fledge list`:
+Add it to your config so these show up in `fledge templates list`:
 
 ```bash
 fledge config add templates.repos "CorvidLabs/fledge-templates"
@@ -75,7 +75,7 @@ fledge config add templates.paths "~/my-templates"
 Or just pass a path directly:
 
 ```bash
-fledge init my-app --template ./path/to/template
+fledge templates init my-app --template ./path/to/template
 ```
 
 ## Finding Templates
@@ -85,27 +85,28 @@ fledge init my-app --template ./path/to/template
 Templates on GitHub use the `fledge-template` topic:
 
 ```bash
-fledge search                  # browse everything
-fledge search "react"          # filter by keyword
-fledge search --limit 50
+fledge templates search                  # browse everything
+fledge templates search "react"          # filter by keyword
+fledge templates search --limit 50
+fledge templates search --author CorvidLabs
 ```
 
 ### List What You Have
 
 ```bash
-fledge list    # built-in + configured repos + local paths
+fledge templates list    # built-in + configured repos + local paths
 ```
 
 ## Publishing Your Own
 
 ```bash
 # Start with the skeleton
-fledge create-template my-template
+fledge templates create my-template
 
 # Edit template files and template.toml
 
 # Ship it
-fledge publish --org MyOrg
+fledge templates publish --org MyOrg
 ```
 
 Add the `fledge-template` topic to your GitHub repo so it shows up in search results.
@@ -113,10 +114,10 @@ Add the `fledge-template` topic to your GitHub repo so it shows up in search res
 ### Validate Before You Ship
 
 ```bash
-fledge validate-template .
-fledge validate-template . --strict    # warnings become errors
-fledge validate-template ./templates   # validate a whole directory
-fledge validate-template . --json      # machine-readable output
+fledge templates validate .
+fledge templates validate . --strict    # warnings become errors
+fledge templates validate ./templates   # validate a whole directory
+fledge templates validate . --json      # machine-readable output
 ```
 
 The validator checks for:
@@ -129,14 +130,14 @@ The validator checks for:
 You can also just test it:
 
 ```bash
-fledge init test-output --template ./my-template --dry-run
+fledge templates init test-output --template ./my-template --dry-run
 ```
 
 For the full format reference, see the [Template Authoring Guide](./template-authoring.md).
 
 ## Resolution Order
 
-When you run `fledge init --template <name>`, fledge looks in this order:
+When you run `fledge templates init --template <name>`, fledge looks in this order:
 
 1. **Exact path** - starts with `.` or `/`
 2. **Built-in templates** - the 6 bundled ones

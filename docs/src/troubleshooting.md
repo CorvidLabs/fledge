@@ -15,24 +15,27 @@ Add that line to your `.bashrc`, `.zshrc`, or shell profile. Then restart your t
 
 ## GitHub commands fail with "no token"
 
-Commands that talk to GitHub (`issues`, `prs`, `checks`, `work pr`, `review`, `search`) need a GitHub personal access token.
+Commands that talk to GitHub (`issues`, `prs`, `checks`, `work pr`, `review`, `templates search`) need a GitHub personal access token.
 
 ```bash
-# Set it as an environment variable (recommended)
+# Easiest: use the GitHub CLI (zero config)
+gh auth login
+
+# Or set it as an environment variable
 export GITHUB_TOKEN="ghp_..."
 
 # Or store it in fledge config
 fledge config set github.token "ghp_..."
 ```
 
-The token needs `repo` scope for private repos, or just `public_repo` for public ones.
+The token needs `repo` scope for private repos, or just `public_repo` for public ones. If you have `gh` installed and authenticated, fledge uses it automatically as a fallback.
 
 ## "no template found" when running init
 
 Check what's available:
 
 ```bash
-fledge list
+fledge templates list
 ```
 
 If you expect remote templates, make sure the repo is configured:
@@ -44,7 +47,7 @@ fledge config add templates.repos "CorvidLabs/fledge-templates"
 Or use the full path:
 
 ```bash
-fledge init my-app --template CorvidLabs/fledge-templates/python-api
+fledge templates init my-app --template CorvidLabs/fledge-templates/python-api
 ```
 
 ## Tasks not detected (fledge run shows nothing)
@@ -64,7 +67,7 @@ fledge run --init
 Remote template hooks require confirmation for security. If you trust the template:
 
 ```bash
-fledge init my-app --template user/repo --yes
+fledge templates init my-app --template user/repo --yes
 ```
 
 If hooks fail after confirmation, check that the required tools are installed (e.g., `npm`, `pip`, `cargo fmt`).
@@ -83,7 +86,7 @@ export GITHUB_TOKEN="ghp_..."
 Templates from remote repos are cached locally. To force a fresh download:
 
 ```bash
-fledge init my-app --template user/repo --refresh
+fledge templates init my-app --template user/repo --refresh
 ```
 
 ## fledge review / fledge ask not working

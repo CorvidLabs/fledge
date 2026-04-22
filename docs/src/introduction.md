@@ -12,13 +12,13 @@ I kept setting up the same boilerplate across projects. CI workflows, linters, t
 
 | Pillar | Tagline | Commands |
 |--------|---------|----------|
-| **Start** | Scaffold and discover | `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update` |
+| **Start** | Scaffold and discover | `templates init`, `templates list`, `templates search`, `templates create`, `templates publish`, `templates validate`, `templates update` |
 | **Build** | Configure and run | `run`, `lane`, `config`, `doctor` |
 | **Develop** | Branch and spec | `work`, `spec` |
 | **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
-| **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog` |
+| **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog`, `release` |
 | **Extend** | Grow the tool | `plugin`, `completions`, `tui` |
 
 Start a project, build your tasks and config, develop features on branches, review quality before merging, ship releases. Extend runs alongside everything with plugins and completions.
 
-It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift) and generates sensible defaults. You don't need `fledge init` to get started -- just `cd` into any existing project and run `fledge run test`. It works with zero config. When you want more control, `fledge run --init` generates a `fledge.toml` tailored to your stack. Compose tasks into lanes, and you've got a consistent workflow across all your projects -- new and existing.
+It auto-detects your project type (Rust, Node, Go, Python, Ruby, Java, Swift) and generates sensible defaults. You don't need `fledge templates init` to get started -- just `cd` into any existing project and run `fledge run test`. It works with zero config. When you want more control, `fledge run --init` generates a `fledge.toml` tailored to your stack. Compose tasks into lanes, and you've got a consistent workflow across all your projects -- new and existing.

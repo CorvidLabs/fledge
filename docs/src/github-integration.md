@@ -14,7 +14,9 @@ export GITHUB_TOKEN="ghp_..."
 fledge config set github.token "ghp_..."
 ```
 
-Token priority: `FLEDGE_GITHUB_TOKEN` > `GITHUB_TOKEN` > config file.
+Token priority: `FLEDGE_GITHUB_TOKEN` > `GITHUB_TOKEN` > config file > `gh auth token` (GitHub CLI).
+
+If you have the GitHub CLI (`gh`) installed and authenticated, fledge uses it automatically as a fallback — no extra config needed.
 
 The repo is auto-detected from your git remote.
 
