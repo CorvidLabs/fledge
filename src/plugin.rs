@@ -12,6 +12,18 @@ struct PluginManifest {
     commands: Vec<PluginCommand>,
     #[serde(default)]
     hooks: PluginHooks,
+    #[serde(default)]
+    capabilities: PluginCapabilities,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PluginCapabilities {
+    #[serde(default)]
+    pub exec: bool,
+    #[serde(default)]
+    pub store: bool,
+    #[serde(default)]
+    pub metadata: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +70,8 @@ pub struct PluginEntry {
     commands: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pinned_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    capabilities: Option<PluginCapabilities>,
 }
 
 pub struct PluginOptions {
@@ -495,6 +509,39 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let manifest: PluginManifest =
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
+    let caps = &manifest.capabilities;
+    let has_caps = caps.exec || caps.store || caps.metadata;
+    if has_caps && manifest.plugin.protocol.is_some() {
+        println!("\n  {} Requested capabilities:", style("*").cyan().bold());
+        if caps.exec {
+            println!("    {} exec — run shell commands", style("•").yellow());
+        }
+        if caps.store {
+            println!(
+                "    {} store — persist data between runs",
+                style("•").yellow()
+            );
+        }
+        if caps.metadata {
+            println!(
+                "    {} metadata — read project metadata and environment",
+                style("•").yellow()
+            );
+        }
+        println!();
+        if !force {
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt("Grant these capabilities?")
+                    .default(true)
+                    .interact()?;
+            if !confirm {
+                fs::remove_dir_all(&plugin_dir).ok();
+                bail!("Plugin installation cancelled — capabilities not granted.");
+            }
+        }
+    }
+
     run_build(&plugin_dir, &manifest)?;
 
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
@@ -502,6 +549,11 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     })?;
 
     let (base_source, _) = parse_source_ref(source);
+    let granted_caps = if manifest.plugin.protocol.is_some() {
+        Some(manifest.capabilities.clone())
+    } else {
+        None
+    };
     let entry = PluginEntry {
         name: repo_name.clone(),
         source: base_source.to_string(),
@@ -509,6 +561,7 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
         installed: chrono::Local::now().format("%Y-%m-%d").to_string(),
         commands: command_names.clone(),
         pinned_ref: git_ref.map(String::from),
+        capabilities: granted_caps,
     };
 
     if let Some(idx) = existing {
@@ -929,13 +982,16 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
             )
         })?;
 
-    if let Some((plugin_name, plugin_version, plugin_dir)) = resolve_protocol_info(name) {
+    if let Some((plugin_name, plugin_version, plugin_dir, capabilities)) =
+        resolve_protocol_info(name)
+    {
         return crate::protocol::run_protocol_plugin(
             &bin_path,
             args,
             &plugin_name,
             &plugin_version,
             &plugin_dir,
+            &capabilities,
         );
     }
 
@@ -1013,7 +1069,7 @@ fn find_commands_for_plugin(plugin_name: &str) -> Option<Vec<String>> {
         .map(|p| p.commands.clone())
 }
 
-fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf)> {
+fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf, PluginCapabilities)> {
     let registry = load_registry().ok()?;
     let entry = registry.plugins.iter().find(|p| {
         p.name == name || p.name == format!("fledge-{name}") || p.commands.iter().any(|c| c == name)
@@ -1024,10 +1080,18 @@ fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf)> {
     let content = fs::read_to_string(&manifest_path).ok()?;
     let manifest: PluginManifest = toml::from_str(&content).ok()?;
 
+    let caps = entry
+        .capabilities
+        .clone()
+        .unwrap_or_else(|| manifest.capabilities.clone());
+
     match &manifest.plugin.protocol {
-        Some(proto) if proto == "fledge-v1" => {
-            Some((manifest.plugin.name, manifest.plugin.version, plugin_dir))
-        }
+        Some(proto) if proto == "fledge-v1" => Some((
+            manifest.plugin.name,
+            manifest.plugin.version,
+            plugin_dir,
+            caps,
+        )),
         Some(proto) => {
             eprintln!(
                 "{} Plugin '{}' requires protocol '{}' which is not supported.\n  Try updating fledge: {}",
@@ -1283,6 +1347,7 @@ mod tests {
                 installed: "2026-04-20".to_string(),
                 commands: vec!["test-cmd".to_string()],
                 pinned_ref: None,
+                capabilities: None,
             }],
         };
         let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -1291,6 +1356,7 @@ mod tests {
         assert_eq!(deserialized.plugins[0].name, "fledge-test");
         assert_eq!(deserialized.plugins[0].commands, vec!["test-cmd"]);
         assert!(deserialized.plugins[0].pinned_ref.is_none());
+        assert!(deserialized.plugins[0].capabilities.is_none());
     }
 
     #[test]
@@ -1303,6 +1369,7 @@ mod tests {
                 installed: "2026-04-20".to_string(),
                 commands: vec!["test-cmd".to_string()],
                 pinned_ref: Some("v1.0.0".to_string()),
+                capabilities: None,
             }],
         };
         let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -1311,6 +1378,31 @@ mod tests {
             deserialized.plugins[0].pinned_ref,
             Some("v1.0.0".to_string())
         );
+    }
+
+    #[test]
+    fn registry_roundtrip_with_capabilities() {
+        let registry = PluginsRegistry {
+            plugins: vec![PluginEntry {
+                name: "fledge-deploy".to_string(),
+                source: "someone/fledge-deploy".to_string(),
+                version: "1.0.0".to_string(),
+                installed: "2026-04-22".to_string(),
+                commands: vec!["deploy".to_string()],
+                pinned_ref: None,
+                capabilities: Some(PluginCapabilities {
+                    exec: true,
+                    store: true,
+                    metadata: false,
+                }),
+            }],
+        };
+        let serialized = toml::to_string_pretty(&registry).unwrap();
+        let deserialized: PluginsRegistry = toml::from_str(&serialized).unwrap();
+        let caps = deserialized.plugins[0].capabilities.as_ref().unwrap();
+        assert!(caps.exec);
+        assert!(caps.store);
+        assert!(!caps.metadata);
     }
 
     #[test]
@@ -1423,6 +1515,49 @@ version = "0.1.0"
         let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
         assert_eq!(manifest.plugin.name, "fledge-minimal");
         assert!(manifest.commands.is_empty());
+        assert!(!manifest.capabilities.exec);
+        assert!(!manifest.capabilities.store);
+        assert!(!manifest.capabilities.metadata);
+    }
+
+    #[test]
+    fn parse_manifest_with_capabilities() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-deploy"
+version = "0.1.0"
+protocol = "fledge-v1"
+
+[capabilities]
+exec = true
+store = true
+metadata = false
+
+[[commands]]
+name = "deploy"
+binary = "fledge-deploy"
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert!(manifest.capabilities.exec);
+        assert!(manifest.capabilities.store);
+        assert!(!manifest.capabilities.metadata);
+    }
+
+    #[test]
+    fn parse_manifest_partial_capabilities() {
+        let manifest_str = r#"
+[plugin]
+name = "fledge-stats"
+version = "0.1.0"
+protocol = "fledge-v1"
+
+[capabilities]
+store = true
+"#;
+        let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+        assert!(!manifest.capabilities.exec);
+        assert!(manifest.capabilities.store);
+        assert!(!manifest.capabilities.metadata);
     }
 
     #[test]

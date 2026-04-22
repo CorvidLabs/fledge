@@ -33,7 +33,8 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 | Type | Description |
 |------|-------------|
 | `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
-| `PluginContext` | Project info, git state, args, fledge version — sent in `init` message |
+| `PluginContext` | Project info, git state, args, fledge version, capabilities — sent in `init` message |
+| `PluginCapabilities` | Declared capabilities: exec, store, metadata (all default false) |
 | `ExecResult` | Shell command result: exit code, stdout, stderr |
 | `PluginStorage` | Key-value store backed by `state.json` |
 
@@ -51,6 +52,26 @@ protocol = "fledge-v1"   # enables structured communication
 Without `protocol`, fledge spawns the plugin with inherited stdio (current behavior). With `protocol = "fledge-v1"`, fledge captures stdin/stdout as JSON-lines pipes and sends/receives structured messages.
 
 Stderr is never captured — plugins can always write debug output to stderr, and it goes straight to the terminal.
+
+## Capabilities
+
+Plugins declare what protocol features they need in a `[capabilities]` section. All capabilities default to `false`.
+
+```toml
+[capabilities]
+exec = true      # can run shell commands via exec messages
+store = true     # can persist/load data via store/load messages
+metadata = false # can read project metadata and environment
+```
+
+**Enforcement:** When a plugin sends a message that requires a capability it hasn't declared, fledge blocks the operation:
+- `exec` blocked → response with `code: 126` and error in stderr
+- `store` blocked → store is silently dropped, load returns null
+- `metadata` blocked → response with empty object
+
+**Install flow:** During `fledge plugin install`, if a protocol plugin declares any capabilities, fledge displays them and asks the user to confirm. Granted capabilities are persisted in `plugins.toml` alongside the plugin entry.
+
+**Init message:** The `init` message includes a `capabilities` object so plugins know which capabilities were granted at runtime.
 
 ## Wire Format
 
@@ -120,6 +141,11 @@ Sent once, immediately after spawn. Contains project context so the plugin doesn
   },
   "fledge": {
     "version": "0.9.1"
+  },
+  "capabilities": {
+    "exec": true,
+    "store": true,
+    "metadata": false
   }
 }
 ```
@@ -130,6 +156,7 @@ Fields:
 - `project.git` — git info (null if not a git repo)
 - `plugin` — the plugin's own metadata from plugin.toml
 - `fledge` — fledge version info
+- `capabilities` — which capabilities were granted (exec, store, metadata)
 
 ### response
 
@@ -396,6 +423,9 @@ Fledge ignores outbound messages with unknown `type` values (forward-compatible)
 8. Unknown message types are ignored in both directions (forward-compatible)
 9. Malformed JSON lines are logged and skipped, not fatal
 10. Fledge sends SIGTERM 5 seconds after `cancel` if plugin hasn't exited
+11. Capabilities default to `false` — plugins must explicitly declare what they need
+12. Exec, store/load, and metadata are blocked unless the corresponding capability is granted
+13. Granted capabilities are persisted in `plugins.toml` and included in the `init` message
 
 ## Behavioral Examples
 
@@ -493,6 +523,9 @@ send "{\"type\":\"output\",\"text\":\"Deploying to $TARGET\\n\"}"
 | Exec path escape | cwd tries to escape project/plugin directory | Error response, command not run |
 | Prompt timeout | No user input for 5 minutes | Cancel sent with reason "timeout" |
 | Plugin hang | Plugin doesn't exit after cancel | SIGTERM after 5s, SIGKILL after 10s |
+| Exec capability denied | Plugin sends exec without `exec = true` | Response with code 126, error in stderr |
+| Store capability denied | Plugin sends store/load without `store = true` | Store dropped silently, load returns null |
+| Metadata capability denied | Plugin sends metadata without `metadata = true` | Response with empty object |
 
 ## Dependencies
 
@@ -519,3 +552,4 @@ These are not part of v1 but are designed to be additive:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1 | 2026-04-22 | Initial spec — fledge-v1 protocol with prompt, confirm, select, progress, log, output, store/load, exec, metadata |
+| 1.1 | 2026-04-22 | Add capability manifest — exec, store, metadata capabilities with enforcement and install-time approval |
