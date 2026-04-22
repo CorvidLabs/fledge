@@ -15,18 +15,17 @@ pub fn is_remote_ref(name: &str) -> bool {
         && name.split('/').all(|s| !s.is_empty())
 }
 
-pub fn parse_remote_ref(name: &str) -> (&str, &str, Option<&str>, Option<&str>) {
-    // Split off @ref first: owner/repo@ref or owner/repo/subpath@ref
+pub fn parse_remote_ref(name: &str) -> Result<(&str, &str, Option<&str>, Option<&str>)> {
     let (name_part, git_ref) = match name.rsplit_once('@') {
         Some((before, after)) if !after.is_empty() => (before, Some(after)),
         _ => (name, None),
     };
 
     let parts: Vec<&str> = name_part.splitn(3, '/').collect();
-    let owner = parts[0];
-    let repo = parts[1];
+    let owner = parts.first().context("missing owner in remote ref")?;
+    let repo = parts.get(1).context("missing repo in remote ref")?;
     let subpath = parts.get(2).copied();
-    (owner, repo, subpath, git_ref)
+    Ok((*owner, *repo, subpath, git_ref))
 }
 
 pub fn clear_cache(owner: &str, repo: &str) -> Result<()> {
@@ -222,7 +221,7 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_owner_repo() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/fledge-templates");
+        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/fledge-templates").unwrap();
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-templates");
         assert!(sub.is_none());
@@ -231,7 +230,8 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_with_subpath() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/fledge-templates/rust-cli");
+        let (owner, repo, sub, git_ref) =
+            parse_remote_ref("CorvidLabs/fledge-templates/rust-cli").unwrap();
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "fledge-templates");
         assert_eq!(sub, Some("rust-cli"));
@@ -240,7 +240,8 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_deep_subpath() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/templates/lang/rust-cli");
+        let (owner, repo, sub, git_ref) =
+            parse_remote_ref("CorvidLabs/templates/lang/rust-cli").unwrap();
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "templates");
         assert_eq!(sub, Some("lang/rust-cli"));
@@ -249,7 +250,8 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_with_version_tag() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/my-template@v1.2.0");
+        let (owner, repo, sub, git_ref) =
+            parse_remote_ref("CorvidLabs/my-template@v1.2.0").unwrap();
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "my-template");
         assert!(sub.is_none());
@@ -258,7 +260,7 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_with_branch() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("user/repo@main");
+        let (owner, repo, sub, git_ref) = parse_remote_ref("user/repo@main").unwrap();
         assert_eq!(owner, "user");
         assert_eq!(repo, "repo");
         assert!(sub.is_none());
@@ -267,11 +269,17 @@ mod tests {
 
     #[test]
     fn parse_remote_ref_subpath_with_ref() {
-        let (owner, repo, sub, git_ref) = parse_remote_ref("CorvidLabs/templates/rust-cli@v2.0");
+        let (owner, repo, sub, git_ref) =
+            parse_remote_ref("CorvidLabs/templates/rust-cli@v2.0").unwrap();
         assert_eq!(owner, "CorvidLabs");
         assert_eq!(repo, "templates");
         assert_eq!(sub, Some("rust-cli"));
         assert_eq!(git_ref, Some("v2.0"));
+    }
+
+    #[test]
+    fn parse_remote_ref_missing_repo() {
+        assert!(parse_remote_ref("owner-only").is_err());
     }
 
     #[test]

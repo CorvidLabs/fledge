@@ -873,9 +873,8 @@ fn import_lanes(source: &str) -> Result<()> {
         if existing.tasks.contains_key(task_name) {
             continue;
         }
-        let cmd = task_def.cmd();
-        let escaped_cmd = cmd.replace('\\', "\\\\").replace('"', "\\\"");
-        import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{escaped_cmd}\"\n\n"));
+        let cmd = escape_toml_value(task_def.cmd());
+        import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{cmd}\"\n\n"));
     }
 
     for (lane_name, lane) in &remote_config.lanes {
@@ -960,10 +959,14 @@ fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<
     (owner, repo, subpath, git_ref)
 }
 
+fn escape_toml_value(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
     let mut out = format!("\n[lanes.{}]\n", name);
     if let Some(ref desc) = lane.description {
-        out.push_str(&format!("description = \"{}\"\n", desc));
+        out.push_str(&format!("description = \"{}\"\n", escape_toml_value(desc)));
     }
     if !lane.fail_fast {
         out.push_str("fail_fast = false\n");
@@ -975,18 +978,20 @@ fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
         }
         match step {
             Step::TaskRef(name) => {
-                out.push_str(&format!("\"{}\"", name));
+                out.push_str(&format!("\"{}\"", escape_toml_value(name)));
             }
             Step::Inline { run: cmd } => {
-                out.push_str(&format!("{{ run = \"{}\" }}", cmd));
+                out.push_str(&format!("{{ run = \"{}\" }}", escape_toml_value(cmd)));
             }
             Step::Parallel { parallel } => {
                 let items: Vec<String> = parallel
                     .iter()
                     .map(|item| match item {
-                        ParallelItem::TaskRef(name) => format!("\"{}\"", name),
+                        ParallelItem::TaskRef(name) => {
+                            format!("\"{}\"", escape_toml_value(name))
+                        }
                         ParallelItem::Inline { run: cmd } => {
-                            format!("{{ run = \"{}\" }}", cmd)
+                            format!("{{ run = \"{}\" }}", escape_toml_value(cmd))
                         }
                     })
                     .collect();
