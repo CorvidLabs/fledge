@@ -481,7 +481,24 @@ fn handle_log(plugin_name: &str, level: &str, message: &str) {
     eprintln!("  {} [{}] {}", prefix, style(plugin_name).dim(), message);
 }
 
+const MAX_STORE_KEY_SIZE: usize = 256;
+const MAX_STORE_VALUE_SIZE: usize = 64 * 1024; // 64 KB per value
+const MAX_STORE_TOTAL_SIZE: usize = 1024 * 1024; // 1 MB total
+
 fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
+    if key.len() > MAX_STORE_KEY_SIZE {
+        bail!(
+            "store key exceeds maximum size of {} bytes",
+            MAX_STORE_KEY_SIZE
+        );
+    }
+    if value.len() > MAX_STORE_VALUE_SIZE {
+        bail!(
+            "store value exceeds maximum size of {} bytes",
+            MAX_STORE_VALUE_SIZE
+        );
+    }
+
     let state_path = plugin_dir.join("state.json");
     let mut state: HashMap<String, String> = if state_path.exists() {
         let content = fs::read_to_string(&state_path).unwrap_or_default();
@@ -491,6 +508,12 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
     };
     state.insert(key.to_string(), value.to_string());
     let json = serde_json::to_string_pretty(&state).context("serializing state")?;
+    if json.len() > MAX_STORE_TOTAL_SIZE {
+        bail!(
+            "plugin state exceeds maximum total size of {} bytes",
+            MAX_STORE_TOTAL_SIZE
+        );
+    }
     fs::write(&state_path, json).context("writing state.json")?;
     Ok(())
 }
@@ -519,7 +542,16 @@ fn handle_exec(
     let work_dir = match cwd {
         Some(dir) => {
             let resolved = project_root.join(dir);
-            let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
+            let canonical = match resolved.canonicalize() {
+                Ok(p) => p,
+                Err(_) => {
+                    return Ok(serde_json::json!({
+                        "code": 1,
+                        "stdout": "",
+                        "stderr": format!("exec cwd '{}' does not exist or is not accessible", dir)
+                    }));
+                }
+            };
             let canonical_root = project_root
                 .canonicalize()
                 .unwrap_or_else(|_| project_root.clone());
@@ -542,6 +574,16 @@ fn handle_exec(
 
     let timeout_secs = timeout.unwrap_or(30);
 
+    #[cfg(windows)]
+    let mut child = Command::new("cmd")
+        .args(["/C", command])
+        .current_dir(&work_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("spawning exec command: {command}"))?;
+
+    #[cfg(not(windows))]
     let mut child = Command::new("sh")
         .args(["-c", command])
         .current_dir(&work_dir)
@@ -685,6 +727,19 @@ fn detect_project_context() -> Option<ProjectContext> {
     })
 }
 
+fn sanitize_remote_url(url: &str) -> String {
+    if let Some(rest) = url.strip_prefix("https://") {
+        if let Some(at_pos) = rest.find('@') {
+            return format!("https://{}", &rest[at_pos + 1..]);
+        }
+    } else if let Some(rest) = url.strip_prefix("http://") {
+        if let Some(at_pos) = rest.find('@') {
+            return format!("http://{}", &rest[at_pos + 1..]);
+        }
+    }
+    url.to_string()
+}
+
 fn detect_git_context(root: &Path) -> Option<GitContext> {
     let branch = Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -722,7 +777,7 @@ fn detect_git_context(root: &Path) -> Option<GitContext> {
         .output()
         .ok()
         .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .map(|o| sanitize_remote_url(String::from_utf8_lossy(&o.stdout).trim()))
         .unwrap_or_default();
 
     Some(GitContext {
@@ -1373,12 +1428,14 @@ fn main() {
     let mut lines = stdin.lock().lines();
     let _init = lines.next().unwrap().unwrap();
 
-    // Try to escape sandbox with path traversal
+    // Try to escape sandbox with nonexistent path traversal
     send("{\"type\":\"exec\",\"id\":\"e1\",\"command\":\"echo pwned\",\"cwd\":\"../../..\"}");
     let resp = lines.next().unwrap().unwrap();
-    // Sandbox should block — response should NOT contain "code\":0" (or code:0)
-    let blocked = !resp.contains("\"code\":0");
-    assert!(blocked, "sandbox escape should be blocked: {}", resp);
+    assert!(!resp.contains("\"code\":0"), "sandbox escape should be blocked: {}", resp);
+    assert!(
+        resp.contains("does not exist") || resp.contains("escapes project"),
+        "expected sandbox error message, got: {}", resp
+    );
 }
 "#,
             tmp.path(),
@@ -1387,5 +1444,52 @@ fn main() {
         let result =
             super::run_protocol_plugin(&bin, &[], "test-sandbox", "0.1.0", store_dir.path());
         assert!(result.is_ok(), "sandbox test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn run_protocol_plugin_exec_timeout_returns_code_124() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    // Request exec with a command that sleeps longer than the timeout
+    send("{\"type\":\"exec\",\"id\":\"t1\",\"command\":\"sleep 30\",\"timeout\":1}");
+    let resp = lines.next().unwrap().unwrap();
+    assert!(resp.contains("\"code\":124"), "expected timeout code 124, got: {}", resp);
+    assert!(resp.contains("timed out"), "expected timeout message, got: {}", resp);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result =
+            super::run_protocol_plugin(&bin, &[], "test-timeout", "0.1.0", store_dir.path());
+        assert!(result.is_ok(), "timeout test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn sanitize_remote_url_strips_credentials() {
+        assert_eq!(
+            super::sanitize_remote_url("https://token@github.com/org/repo.git"),
+            "https://github.com/org/repo.git"
+        );
+        assert_eq!(
+            super::sanitize_remote_url("https://user:pass@github.com/org/repo.git"),
+            "https://github.com/org/repo.git"
+        );
+        assert_eq!(
+            super::sanitize_remote_url("https://github.com/org/repo.git"),
+            "https://github.com/org/repo.git"
+        );
+        assert_eq!(
+            super::sanitize_remote_url("git@github.com:org/repo.git"),
+            "git@github.com:org/repo.git"
+        );
     }
 }
