@@ -8,14 +8,6 @@ Fastest way to get going:
 cargo install fledge
 ```
 
-## With TUI Support
-
-Want an interactive template browser? Install with the `tui` feature:
-
-```bash
-cargo install fledge --features tui
-```
-
 ## Homebrew
 
 ```bash
@@ -63,7 +55,7 @@ fledge completions fish > ~/.config/fish/completions/fledge.fish
 
 ```bash
 fledge --version
-fledge list
+fledge templates list
 ```
 
 You should see the version and a list of built-in templates. If you do, you're good.

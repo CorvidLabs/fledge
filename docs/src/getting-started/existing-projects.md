@@ -77,25 +77,25 @@ These commands work in any git repo regardless of how the project was created:
 Have a project structure you want to reuse? Turn it into a fledge template:
 
 ```bash
-fledge create-template my-stack
+fledge templates create my-stack
 ```
 
 This scaffolds a template directory by examining your project. Add Tera variables for the parts that should change (project name, author, etc.), then use it for future projects:
 
 ```bash
-fledge init new-project --template ./my-stack
+fledge templates init new-project --template ./my-stack
 ```
 
 Or publish it for others:
 
 ```bash
-fledge publish ./my-stack
+fledge templates publish ./my-stack
 ```
 
 ## Typical Workflow
 
 1. **Start using fledge today**: `cd your-project && fledge run test`
 2. **Optionally lock in config**: `fledge run --init` to generate `fledge.toml`
-3. **Set up lanes**: `fledge lane --init` for CI pipelines
+3. **Set up lanes**: `fledge lanes init` for CI pipelines
 4. **Use the full toolkit**: `fledge review`, `fledge work start feature-x`, `fledge checks`
-5. **Create templates**: Once you have a setup you like, `fledge create-template` to reuse it
+5. **Create templates**: Once you have a setup you like, `fledge templates create` to reuse it

@@ -4,21 +4,23 @@ Plugins extend fledge with community-built commands. They're external executable
 
 ## Installing
 
+All plugin commands live under `fledge plugins` (alias: `fledge plugin`).
+
 ```bash
 # From GitHub
-fledge plugin install someone/fledge-deploy
+fledge plugins install someone/fledge-deploy
 
 # Pin to a specific version (tag, branch, or commit)
-fledge plugin install someone/fledge-deploy@v1.2.0
+fledge plugins install someone/fledge-deploy@v1.2.0
 
 # Full URL works too
-fledge plugin install https://github.com/someone/fledge-deploy.git
+fledge plugins install https://github.com/someone/fledge-deploy.git
 
 # Full URL with version pin
-fledge plugin install https://github.com/someone/fledge-deploy.git@v1.2.0
+fledge plugins install https://github.com/someone/fledge-deploy.git@v1.2.0
 
 # Reinstall (or upgrade a pinned plugin)
-fledge plugin install someone/fledge-deploy@v2.0.0 --force
+fledge plugins install someone/fledge-deploy@v2.0.0 --force
 ```
 
 What happens when you install:
@@ -33,7 +35,7 @@ What happens when you install:
 
 ```bash
 # Via fledge
-fledge plugin run deploy --target production
+fledge plugins run deploy --target production
 
 # Or directly if the binary is on PATH
 fledge deploy --target production
@@ -42,12 +44,12 @@ fledge deploy --target production
 ## Managing
 
 ```bash
-fledge plugin list              # what's installed
-fledge plugin search deploy     # find plugins on GitHub
-fledge plugin update            # update all unpinned plugins
-fledge plugin update fledge-deploy  # update a specific plugin
-fledge plugin remove fledge-deploy
-fledge plugin list --json       # for scripting
+fledge plugins list              # what's installed
+fledge plugins search deploy     # find plugins on GitHub
+fledge plugins update            # update all unpinned plugins
+fledge plugins update fledge-deploy  # update a specific plugin
+fledge plugins remove fledge-deploy
+fledge plugins list --json       # for scripting
 ```
 
 ## Version Pinning
@@ -55,7 +57,7 @@ fledge plugin list --json       # for scripting
 Use `@ref` to pin a plugin to a specific version:
 
 ```bash
-fledge plugin install someone/fledge-deploy@v1.2.0
+fledge plugins install someone/fledge-deploy@v1.2.0
 ```
 
 Pinned plugins behave differently on update:
@@ -64,7 +66,7 @@ Pinned plugins behave differently on update:
 
 To upgrade a pinned plugin:
 ```bash
-fledge plugin install someone/fledge-deploy@v2.0.0 --force
+fledge plugins install someone/fledge-deploy@v2.0.0 --force
 ```
 
 ## Discovery
@@ -75,8 +77,8 @@ Plugins use the `fledge-plugin` topic on GitHub. To make yours findable:
 2. Include a `plugin.toml` manifest
 
 ```bash
-fledge plugin search            # browse all plugins
-fledge plugin search deploy     # search by keyword
+fledge plugins search            # browse all plugins
+fledge plugins search deploy     # search by keyword
 ```
 
 ## Building a Plugin
@@ -162,7 +164,7 @@ fledge plugins publish
 Or push manually and add the `fledge-plugin` topic. Users install with:
 
 ```bash
-fledge plugin install yourname/fledge-deploy
+fledge plugins install yourname/fledge-deploy
 ```
 
 ## plugin.toml Reference
@@ -182,7 +184,7 @@ Each entry registers a subcommand.
 
 | Field | Type | Required | |
 |-------|------|----------|-|
-| `name` | string | Yes | Command name (`fledge plugin run <name>`) |
+| `name` | string | Yes | Command name (`fledge plugins run <name>`) |
 | `description` | string | No | What it does |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
@@ -220,7 +222,7 @@ Hooks fire in response to fledge lifecycle events. All fields are optional — p
 | `build` | string | Runs after clone, before binary check |
 | `post_install` | string | Runs after `fledge plugin install` |
 | `post_remove` | string | Runs before `fledge plugin remove` deletes files |
-| `pre_init` | string | Runs before `fledge init` starts |
+| `pre_init` | string | Runs before `fledge templates init` starts |
 | `post_work_start` | string | Runs after `fledge work start` creates a branch |
 | `pre_pr` | string | Runs before `fledge work pr` pushes and creates a PR |
 
@@ -279,6 +281,9 @@ The token is resolved in order:
 1. `FLEDGE_GITHUB_TOKEN` environment variable
 2. `GITHUB_TOKEN` environment variable
 3. `github.token` in `~/.config/fledge/config.toml`
+4. `gh auth token` (GitHub CLI fallback)
+
+If you have the GitHub CLI (`gh`) installed and authenticated, fledge will use it automatically — no extra config needed.
 
 ```bash
 # Set via config
@@ -286,6 +291,9 @@ fledge config set github.token ghp_your_token_here
 
 # Or via environment
 export GITHUB_TOKEN=ghp_your_token_here
+
+# Or just use gh (zero config)
+gh auth login
 ```
 
 The token is injected via git's `http.extraheader` mechanism — it is never embedded in remote URLs or persisted to disk.
@@ -304,8 +312,8 @@ Plugins run arbitrary code. Fledge has several safeguards:
 
 | Flag | Where | What it does |
 |------|-------|-------------|
-| `--force` | `fledge plugin install` | Skips the install confirmation prompt |
-| `--yes` | `fledge init` | Skips the post-create hook confirmation prompt |
+| `--force` | `fledge plugins install` | Skips the install confirmation prompt |
+| `--yes` | `fledge templates init` | Skips the post-create hook confirmation prompt |
 
 Without these flags, interactive prompts will cause CI pipelines to hang.
 

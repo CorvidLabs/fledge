@@ -211,11 +211,11 @@ fn resolve_source_template(
 ) -> Result<templates::Template> {
     if let Some(ref remote_ref) = meta.source.remote {
         if refresh {
-            let (owner, repo, _, _) = crate::remote::parse_remote_ref(remote_ref);
+            let (owner, repo, _, _) = crate::remote::parse_remote_ref(remote_ref)?;
             crate::remote::clear_cache(owner, repo)?;
         }
 
-        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref);
+        let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(remote_ref)?;
         let ref_override = meta.source.git_ref.as_deref().or(git_ref);
         let token = config.github_token();
         let template_dir = crate::remote::resolve_template_dir(
@@ -393,8 +393,21 @@ fn compute_actions(
 
     for rel_path in meta.files.keys() {
         if !new_files.contains_key(rel_path) {
+            if rel_path.contains("..") || Path::new(rel_path).is_absolute() {
+                continue;
+            }
             let full_path = project_dir.join(rel_path);
             if full_path.exists() {
+                let canon_dir = project_dir
+                    .canonicalize()
+                    .unwrap_or_else(|_| project_dir.to_path_buf());
+                let canon_file = match full_path.canonicalize() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                if !canon_file.starts_with(&canon_dir) {
+                    continue;
+                }
                 actions.push(UpdateAction::Remove(PathBuf::from(rel_path)));
             }
         }

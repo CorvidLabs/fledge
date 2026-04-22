@@ -1,6 +1,6 @@
 # Lanes & Pipelines
 
-Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. They support parallel groups and configurable failure behavior.
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. All lane commands live under `fledge lanes` (alias: `fledge lane`). They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
@@ -290,7 +290,7 @@ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 ## Tips
 
-- Start with `fledge lane init` and customize from there.
+- Start with `fledge lanes init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.
 - Keep `fail_fast = true` for CI. No point building if tests fail.
 - Use `fail_fast = false` for audit lanes where you want the full report.

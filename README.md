@@ -9,7 +9,7 @@
 **One CLI, your whole dev lifecycle.** Scaffold, build, review, ship — zero config for the common case.
 
 ```bash
-fledge init my-tool --template rust-cli
+fledge templates init my-tool --template rust-cli
 cd my-tool
 fledge lane ci     # lint + test + build, works out of the box
 ```
@@ -25,7 +25,6 @@ brew install CorvidLabs/tap/fledge # homebrew
 <summary>More install options</summary>
 
 ```bash
-cargo install fledge --features tui   # with TUI browser
 curl -fsSL https://raw.githubusercontent.com/CorvidLabs/fledge/main/install.sh | sh
 nix run github:CorvidLabs/fledge
 git clone https://github.com/CorvidLabs/fledge.git && cd fledge && cargo install --path .
@@ -46,27 +45,27 @@ fledge review         # AI code review via Claude
 **Starting fresh?** Scaffold from a template:
 
 ```bash
-fledge init my-app --template rust-cli     # built-in template
-fledge init my-app --template user/repo    # any GitHub repo
-fledge init my-app                         # interactive picker
+fledge templates init my-app --template rust-cli     # built-in template
+fledge templates init my-app --template user/repo    # any GitHub repo
+fledge templates init my-app                         # interactive picker
 ```
 
 ## What's Inside
 
 | Stage | Commands | What it does |
 |-------|----------|-------------|
-| **Start** | `init`, `list`, `search`, `create-template` | Scaffold projects from local or remote templates |
-| **Build** | `run`, `lane`, `config`, `doctor` | Task runner, workflow pipelines, environment checks |
+| **Start** | `templates` (`init`, `create`, `search`, `publish`, `validate`, `update`, `list`) | Scaffold projects from local or remote templates |
+| **Build** | `run`, `lanes`, `config`, `doctor` | Task runner, workflow pipelines, environment checks |
 | **Develop** | `work`, `spec` | Feature branches, PRs, spec-sync |
 | **Review** | `review`, `ask`, `metrics`, `deps` | AI code review, codebase Q&A, health checks |
-| **Ship** | `issues`, `prs`, `checks`, `changelog` | GitHub integration, CI status, release notes |
-| **Extend** | `plugin`, `completions`, `tui` | Community plugins, shell completions, TUI browser |
+| **Ship** | `issues`, `prs`, `checks`, `changelog`, `release` | GitHub integration, CI status, releases |
+| **Extend** | `plugins`, `completions` | Community plugins, shell completions |
 
 ## Built-in Templates
 
 `rust-cli` · `ts-bun` · `python-cli` · `go-cli` · `ts-node` · `static-site`
 
-Browse community templates: `fledge search <keyword>`
+Browse community templates: `fledge templates search <keyword>`
 
 ## Examples
 

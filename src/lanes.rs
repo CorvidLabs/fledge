@@ -789,8 +789,9 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
         .unwrap_or(0);
     for r in &results {
         let stars = crate::search::format_stars(r.stars);
-        let desc = if r.description.len() > 60 {
-            format!("{}...", &r.description[..57])
+        let desc = if r.description.chars().count() > 60 {
+            let truncated: String = r.description.chars().take(57).collect();
+            format!("{truncated}...")
         } else {
             r.description.clone()
         };
@@ -890,7 +891,7 @@ fn import_lanes(source: &str) -> Result<()> {
         if existing.tasks.contains_key(task_name) {
             continue;
         }
-        let cmd = task_def.cmd();
+        let cmd = escape_toml_value(task_def.cmd());
         import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{cmd}\"\n\n"));
     }
 
@@ -976,10 +977,14 @@ fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<
     (owner, repo, subpath, git_ref)
 }
 
+fn escape_toml_value(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
     let mut out = format!("\n[lanes.{}]\n", name);
     if let Some(ref desc) = lane.description {
-        out.push_str(&format!("description = \"{}\"\n", desc));
+        out.push_str(&format!("description = \"{}\"\n", escape_toml_value(desc)));
     }
     if !lane.fail_fast {
         out.push_str("fail_fast = false\n");
@@ -991,18 +996,20 @@ fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
         }
         match step {
             Step::TaskRef(name) => {
-                out.push_str(&format!("\"{}\"", name));
+                out.push_str(&format!("\"{}\"", escape_toml_value(name)));
             }
             Step::Inline { run: cmd } => {
-                out.push_str(&format!("{{ run = \"{}\" }}", cmd));
+                out.push_str(&format!("{{ run = \"{}\" }}", escape_toml_value(cmd)));
             }
             Step::Parallel { parallel } => {
                 let items: Vec<String> = parallel
                     .iter()
                     .map(|item| match item {
-                        ParallelItem::TaskRef(name) => format!("\"{}\"", name),
+                        ParallelItem::TaskRef(name) => {
+                            format!("\"{}\"", escape_toml_value(name))
+                        }
                         ParallelItem::Inline { run: cmd } => {
-                            format!("{{ run = \"{}\" }}", cmd)
+                            format!("{{ run = \"{}\" }}", escape_toml_value(cmd))
                         }
                     })
                     .collect();

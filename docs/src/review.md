@@ -10,6 +10,7 @@ Get feedback on your changes before opening a PR. Diffs your branch against the 
 fledge review
 fledge review --base main
 fledge review --file src/auth.rs    # review a single file
+fledge review --json                # machine-readable output
 ```
 
 ## Ask your codebase with `fledge ask`
@@ -19,6 +20,7 @@ Got a question about how something works? Ask it.
 ```bash
 fledge ask "how does the template rendering work?"
 fledge ask "what tests cover the config module?"
+fledge ask "what does the release command do?" --json
 ```
 
 ## Code metrics with `fledge metrics`

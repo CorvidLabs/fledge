@@ -12,12 +12,14 @@ Every command, every flag. If it's in fledge, it's here.
 
 ## Start: Scaffold and discover
 
-### fledge init `<name>`
+All template commands live under `fledge templates` (alias: `fledge template`).
+
+### fledge templates init `<name>`
 
 Create a new project from a template.
 
 ```
-fledge init <name> [OPTIONS]
+fledge templates init <name> [OPTIONS]
 ```
 
 **Arguments:**
@@ -37,32 +39,32 @@ fledge init <name> [OPTIONS]
 **Examples:**
 
 ```bash
-fledge init my-tool --template rust-cli
-fledge init my-app --template ts-bun --dry-run
-fledge init my-lib --template go-cli --yes
-fledge init my-project --template python-cli -o ~/projects
-fledge init my-app --template CorvidLabs/fledge-templates/deno-cli@v2.0
-fledge init my-tool --template rust-cli --author "Leif" --org CorvidLabs --yes
+fledge templates init my-tool --template rust-cli
+fledge templates init my-app --template ts-bun --dry-run
+fledge templates init my-lib --template go-cli --yes
+fledge templates init my-project --template python-cli -o ~/projects
+fledge templates init my-app --template CorvidLabs/fledge-templates/deno-cli@v2.0
+fledge templates init my-tool --template rust-cli --author "Leif" --org CorvidLabs --yes
 ```
 
 ---
 
-### fledge list
+### fledge templates list
 
 Show all available templates (built-in, configured repos, and local paths).
 
 ```
-fledge list
+fledge templates list
 ```
 
 ---
 
-### fledge create-template `<name>`
+### fledge templates create `<name>`
 
 Scaffold a new template directory with `template.toml` and example files.
 
 ```
-fledge create-template <name> [OPTIONS]
+fledge templates create <name> [OPTIONS]
 ```
 
 **Options:**
@@ -76,18 +78,18 @@ fledge create-template <name> [OPTIONS]
 **Examples:**
 
 ```bash
-fledge create-template my-template
-fledge create-template my-template -d "FastAPI starter" --render-patterns "**/*.py,**/*.toml" --hooks --yes
+fledge templates create my-template
+fledge templates create my-template -d "FastAPI starter" --render-patterns "**/*.py,**/*.toml" --hooks --yes
 ```
 
 ---
 
-### fledge validate-template `[path]`
+### fledge templates validate `[path]`
 
 Check a template for issues: manifest parsing, Tera syntax, undefined variables, glob coverage.
 
 ```
-fledge validate-template [path] [OPTIONS]
+fledge templates validate [path] [OPTIONS]
 ```
 
 **Arguments:**
@@ -100,34 +102,35 @@ fledge validate-template [path] [OPTIONS]
 **Examples:**
 
 ```bash
-fledge validate-template ./my-template
-fledge validate-template ./templates
-fledge validate-template ./templates --strict   # for CI
-fledge validate-template ./templates --json
+fledge templates validate ./my-template
+fledge templates validate ./templates
+fledge templates validate ./templates --strict   # for CI
+fledge templates validate ./templates --json
 ```
 
 ---
 
-### fledge search `[query]`
+### fledge templates search `[query]`
 
 Find templates on GitHub (looks for the `fledge-template` topic).
 
 ```
-fledge search [query] [OPTIONS]
+fledge templates search [query] [OPTIONS]
 ```
 
 **Options:**
+- `-a, --author <OWNER>` - Filter by author/owner
 - `-l, --limit <N>` - Max results [default: `20`]
 - `--json` - JSON output
 
 ---
 
-### fledge publish `[path]`
+### fledge templates publish `[path]`
 
 Push a template to GitHub as a new repo tagged with `fledge-template`.
 
 ```
-fledge publish [path] [OPTIONS]
+fledge templates publish [path] [OPTIONS]
 ```
 
 **Options:**
@@ -137,12 +140,12 @@ fledge publish [path] [OPTIONS]
 
 ---
 
-### fledge update
+### fledge templates update
 
 Re-apply the source template to an existing project. Handy when the template gets updated.
 
 ```
-fledge update [OPTIONS]
+fledge templates update [OPTIONS]
 ```
 
 **Options:**
@@ -164,6 +167,7 @@ fledge run [task] [OPTIONS]
 **Options:**
 - `--init` - Generate `fledge.toml` with detected defaults
 - `-l, --list` - List available tasks
+- `--lang <LANG>` - Override detected project language (swift, python, rust, node, go)
 
 **Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 
@@ -186,13 +190,14 @@ fledge run test          # works immediately in any detected project
 fledge run --list        # see what's available
 fledge run --init        # generate fledge.toml to customize
 fledge run build         # run a specific task
+fledge run test --lang swift  # override detected language
 ```
 
 ---
 
-### fledge lane
+### fledge lanes
 
-Run workflow pipelines. Lanes chain tasks with parallel groups and failure control.
+Manage and run composable workflow pipelines. Alias: `fledge lane`.
 
 ```
 fledge lanes <run|list|init|search|import|publish|create|validate>
@@ -378,6 +383,7 @@ fledge review [OPTIONS]
 **Options:**
 - `-b, --base <BRANCH>` - Base branch [default: auto-detect]
 - `-f, --file <FILE>` - Review a single file
+- `--json` - JSON output
 
 ---
 
@@ -386,8 +392,11 @@ fledge review [OPTIONS]
 Ask about your codebase. Claude reads your code and answers.
 
 ```
-fledge ask <question>
+fledge ask <question> [OPTIONS]
 ```
+
+**Options:**
+- `--json` - JSON output
 
 ```bash
 fledge ask "how does the template rendering work?"
@@ -524,11 +533,42 @@ fledge changelog --tag v0.7.0
 
 ---
 
+### fledge release `<bump>`
+
+Cut a release — bump version, generate changelog, create a git tag, and optionally push.
+
+```
+fledge release <bump> [OPTIONS]
+```
+
+**Arguments:**
+- `<bump>` - Version bump: `major`, `minor`, `patch`, or an explicit version (e.g. `1.0.0`)
+
+**Options:**
+- `--dry-run` - Show what would happen without making changes
+- `--no-tag` - Skip creating a git tag
+- `--no-changelog` - Skip changelog generation
+- `--push` - Push commit and tag to remote after release
+- `--pre-lane <NAME>` - Run a lane before releasing (e.g. `ci`)
+- `--allow-dirty` - Allow releasing with uncommitted changes
+
+**Examples:**
+
+```bash
+fledge release patch                          # bump patch version
+fledge release minor --push                   # bump minor + push
+fledge release major --pre-lane ci            # run CI lane first, then bump major
+fledge release 2.0.0 --dry-run               # preview a specific version bump
+fledge release patch --no-tag --no-changelog  # just bump version
+```
+
+---
+
 ## Extend: Grow the tool
 
-### fledge plugin `<action>`
+### fledge plugins `<action>`
 
-Install, manage, and run community plugins.
+Install, manage, and run community plugins. Alias: `fledge plugin`.
 
 ```
 fledge plugins <install|remove|update|list|search|run|publish|create|validate> [OPTIONS]
@@ -603,30 +643,3 @@ fledge completions fish > ~/.config/fish/completions/fledge.fish
 ```
 
 ---
-
-### fledge tui *(requires `--features tui`)*
-
-Interactive dashboard for the entire fledge dev lifecycle. Browse and run all fledge commands from a two-panel TUI with keyboard navigation.
-
-```
-fledge tui [OPTIONS]
-```
-
-**Options:**
-- `-o, --output <OUTPUT>` - Where to put the project [default: `.`]
-- `--no-git` - Skip git init for template scaffolding
-
-**Categories:**
-- **Work**: start branches, create PRs, view status
-- **GitHub**: browse issues, PRs, CI checks
-- **Run**: execute tasks and lanes
-- **Specs**: check, init, create new spec modules
-- **Metrics**: LOC, file churn, test ratio, dependency health
-- **Config**: view and edit settings
-- **Templates**: browse, scaffold, search, create, publish, validate, update
-- **AI**: code review, codebase Q&A
-- **Doctor**: environment diagnostics
-- **Changelog**: generate from tags, view unreleased changes
-- **Plugins**: list, search, install, remove, run community extensions
-
-**Navigation:** `↑↓`/`j`/`k` to navigate, `Enter` to run, `Tab`/`→` to open category, `Esc`/`←` to go back, `q` to quit. Actions that need input show an inline form. Output is displayed in a scrollable panel (`PgUp`/`PgDn`, `g`/`G` for top/bottom).

@@ -434,8 +434,6 @@ render = ["**/*.rs"]
         let tmp = TempDir::new().unwrap();
         write_valid_manifest(tmp.path());
 
-        // This will fail because no token is configured in a temp env
-        // We test the validation path by checking that publish requires a token
         let options = PublishOptions {
             path: tmp.path().to_path_buf(),
             org: None,
@@ -444,7 +442,6 @@ render = ["**/*.rs"]
         };
 
         let result = run(options);
-        // Should fail at token check or API call — either way it's an error
         assert!(result.is_err());
     }
 

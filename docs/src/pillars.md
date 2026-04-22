@@ -12,7 +12,7 @@ Start --> Build --> Develop --> Review --> Ship
 
 Get a project off the ground. Pick a template (built-in, remote, or your own), scaffold it, and you're writing code in under a minute.
 
-**Commands:** `init`, `list`, `search`, `create-template`, `publish`, `validate-template`, `update`
+**Commands:** `templates init`, `templates list`, `templates search`, `templates create`, `templates publish`, `templates validate`, `templates update`
 
 ## Build: Configure and run
 
@@ -34,12 +34,12 @@ Check your code before it ships. AI review, codebase Q&A, code metrics, and depe
 
 ## Ship: Track and release
 
-Manage issues, review PRs, check CI status, and generate changelogs. Everything you need to get code out the door.
+Manage issues, review PRs, check CI status, generate changelogs, and cut releases. Everything you need to get code out the door.
 
-**Commands:** `issues`, `prs`, `checks`, `changelog`
+**Commands:** `issues`, `prs`, `checks`, `changelog`, `release`, `release`
 
 ## Extend: Grow the tool
 
-Install community plugins, write your own, set up shell completions, and browse templates interactively.
+Install community plugins, write your own, and set up shell completions.
 
-**Commands:** `plugin`, `completions`, `tui`
+**Commands:** `plugin`, `completions`

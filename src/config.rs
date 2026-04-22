@@ -229,6 +229,30 @@ impl Config {
             .or_else(|_| std::env::var("GITHUB_TOKEN"))
             .ok()
             .or_else(|| self.github.token.clone())
+            .or_else(|| self.gh_cli_token())
+    }
+
+    #[cfg(not(test))]
+    fn gh_cli_token(&self) -> Option<String> {
+        std::process::Command::new("gh")
+            .args(["auth", "token"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| {
+                let s = String::from_utf8(o.stdout).ok()?;
+                let s = s.trim().to_string();
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            })
+    }
+
+    #[cfg(test)]
+    fn gh_cli_token(&self) -> Option<String> {
+        None
     }
 
     pub fn template_repos(&self) -> &[String] {
