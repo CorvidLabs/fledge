@@ -286,11 +286,14 @@ fn run_message_loop(
             }
             OutboundMessage::Store { key, value } => {
                 if !capabilities.store {
-                    eprintln!(
-                        "  {} [{}] store blocked — capability not granted",
+                    let msg = format!(
+                        "  {} [{}] store blocked — capability not granted (key: {})",
                         style("WARN").yellow(),
-                        style(plugin_name).dim()
+                        style(plugin_name).dim(),
+                        key,
                     );
+                    eprintln!("{msg}");
+                    handle_log(plugin_name, "error", "store capability not granted");
                     continue;
                 }
                 handle_store(plugin_dir, &key, &value)?;
@@ -589,13 +592,13 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
     } else {
         HashMap::new()
     };
-    state.insert(key.to_string(), value.to_string());
-    if state.len() > MAX_STORE_KEY_COUNT {
+    if !state.contains_key(key) && state.len() >= MAX_STORE_KEY_COUNT {
         bail!(
             "plugin state exceeds maximum of {} keys",
             MAX_STORE_KEY_COUNT
         );
     }
+    state.insert(key.to_string(), value.to_string());
     let json = serde_json::to_string_pretty(&state).context("serializing state")?;
     if json.len() > MAX_STORE_TOTAL_SIZE {
         bail!(

@@ -297,12 +297,16 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
     let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
     let header_value = format!("Authorization: Basic {}", encoded);
 
+    let existing: usize = std::env::var("GIT_CONFIG_COUNT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
     let status = std::process::Command::new("git")
         .args(["push", "-u", "origin", "main", "--force"])
         .current_dir(path)
-        .env("GIT_CONFIG_COUNT", "1")
-        .env("GIT_CONFIG_KEY_0", "http.extraheader")
-        .env("GIT_CONFIG_VALUE_0", &header_value)
+        .env("GIT_CONFIG_COUNT", (existing + 1).to_string())
+        .env(format!("GIT_CONFIG_KEY_{existing}"), "http.extraheader")
+        .env(format!("GIT_CONFIG_VALUE_{existing}"), &header_value)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .status()
