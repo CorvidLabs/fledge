@@ -96,16 +96,31 @@ enum ParallelItem {
 }
 
 pub enum LaneAction {
-    Run { name: String, dry_run: bool },
-    List { json: bool },
+    Run {
+        name: String,
+        dry_run: bool,
+    },
+    List {
+        json: bool,
+    },
     Init,
-    Search { query: Option<String>, json: bool },
-    Import { source: String },
+    Search {
+        query: Option<String>,
+        author: Option<String>,
+        json: bool,
+    },
+    Import {
+        source: String,
+    },
 }
 
 pub fn run(action: LaneAction) -> Result<()> {
     match action {
-        LaneAction::Search { query, json } => search_lanes(query.as_deref(), json),
+        LaneAction::Search {
+            query,
+            author,
+            json,
+        } => search_lanes(query.as_deref(), author.as_deref(), json),
         LaneAction::Import { source } => import_lanes(&source),
         LaneAction::Init => init_lanes(),
         LaneAction::List { json } => {
@@ -675,14 +690,11 @@ fn init_lanes() -> Result<()> {
     Ok(())
 }
 
-fn search_lanes(keyword: Option<&str>, json: bool) -> Result<()> {
+fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token();
 
-    let query = match keyword {
-        Some(kw) => format!("{} topic:fledge-lane", kw),
-        None => "topic:fledge-lane".to_string(),
-    };
+    let query = crate::search::build_search_query_ex(keyword, author, "fledge-lane");
 
     let sp = crate::spinner::Spinner::start("Searching GitHub for community lanes:");
 
@@ -730,11 +742,17 @@ fn search_lanes(keyword: Option<&str>, json: bool) -> Result<()> {
         } else {
             r.description.clone()
         };
+        let topic_str = if r.topics.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}]", r.topics.join(", "))
+        };
         println!(
-            "  {:<width$}  {}  {}",
+            "  {:<width$}  {}  {}{}",
             style(&r.full_name()).green(),
             style(format!("(⭐ {})", stars)).dim(),
             style(&desc).dim(),
+            style(&topic_str).cyan(),
             width = max_name,
         );
     }

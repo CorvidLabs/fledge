@@ -317,6 +317,9 @@ enum TemplatesSubcommand {
     Search {
         /// Keyword to filter results
         query: Option<String>,
+        /// Filter by author/owner
+        #[arg(short, long)]
+        author: Option<String>,
         /// Maximum number of results
         #[arg(short, long, default_value = "20")]
         limit: usize,
@@ -504,6 +507,9 @@ enum LaneSubcommand {
     Search {
         /// Keyword to filter results
         query: Option<String>,
+        /// Filter by author/owner
+        #[arg(short, long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -543,6 +549,9 @@ enum PluginSubcommand {
     Search {
         /// Search query
         query: Option<String>,
+        /// Filter by author/owner
+        #[arg(short, long)]
+        author: Option<String>,
         /// Maximum results
         #[arg(short, long, default_value = "20")]
         limit: usize,
@@ -668,7 +677,15 @@ fn run() -> Result<()> {
                 LaneSubcommand::Run { name, dry_run } => lanes::LaneAction::Run { name, dry_run },
                 LaneSubcommand::List { json } => lanes::LaneAction::List { json },
                 LaneSubcommand::Init => lanes::LaneAction::Init,
-                LaneSubcommand::Search { query, json } => lanes::LaneAction::Search { query, json },
+                LaneSubcommand::Search {
+                    query,
+                    author,
+                    json,
+                } => lanes::LaneAction::Search {
+                    query,
+                    author,
+                    json,
+                },
                 LaneSubcommand::Import { source } => lanes::LaneAction::Import { source },
                 LaneSubcommand::External(args) => {
                     let name = args.first().cloned().unwrap_or_default();
@@ -728,9 +745,15 @@ fn run() -> Result<()> {
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
                 PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
                 PluginSubcommand::List => plugin::PluginAction::List,
-                PluginSubcommand::Search { query, limit } => {
-                    plugin::PluginAction::Search { query, limit }
-                }
+                PluginSubcommand::Search {
+                    query,
+                    author,
+                    limit,
+                } => plugin::PluginAction::Search {
+                    query,
+                    author,
+                    limit,
+                },
                 PluginSubcommand::Run { name, args } => plugin::PluginAction::Run { name, args },
             };
             plugin::run(plugin::PluginOptions { action, json })?;
@@ -859,8 +882,18 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
                 yes,
             })?;
         }
-        TemplatesSubcommand::Search { query, limit, json } => {
-            search::run(search::SearchOptions { query, limit, json })?;
+        TemplatesSubcommand::Search {
+            query,
+            author,
+            limit,
+            json,
+        } => {
+            search::run(search::SearchOptions {
+                query,
+                author,
+                limit,
+                json,
+            })?;
         }
         TemplatesSubcommand::Update { dry_run, refresh } => {
             update::run(update::UpdateOptions { dry_run, refresh })?;

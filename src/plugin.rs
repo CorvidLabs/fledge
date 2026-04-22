@@ -65,12 +65,26 @@ pub struct PluginOptions {
 }
 
 pub enum PluginAction {
-    Install { source: String, force: bool },
-    Remove { name: String },
-    Update { name: Option<String> },
+    Install {
+        source: String,
+        force: bool,
+    },
+    Remove {
+        name: String,
+    },
+    Update {
+        name: Option<String>,
+    },
     List,
-    Search { query: Option<String>, limit: usize },
-    Run { name: String, args: Vec<String> },
+    Search {
+        query: Option<String>,
+        author: Option<String>,
+        limit: usize,
+    },
+    Run {
+        name: String,
+        args: Vec<String>,
+    },
 }
 
 pub fn run(opts: PluginOptions) -> Result<()> {
@@ -79,7 +93,11 @@ pub fn run(opts: PluginOptions) -> Result<()> {
         PluginAction::Remove { name } => remove_plugin(&name),
         PluginAction::Update { name } => update_plugins(name.as_deref()),
         PluginAction::List => list_plugins(opts.json),
-        PluginAction::Search { query, limit } => search_plugins(query.as_deref(), limit, opts.json),
+        PluginAction::Search {
+            query,
+            author,
+            limit,
+        } => search_plugins(query.as_deref(), author.as_deref(), limit, opts.json),
         PluginAction::Run { name, args } => run_plugin(&name, &args),
     }
 }
@@ -790,18 +808,18 @@ fn list_plugins(json: bool) -> Result<()> {
     Ok(())
 }
 
-fn search_plugins(query: Option<&str>, limit: usize, json: bool) -> Result<()> {
-    let search_query = match query {
-        Some(q) => format!("fledge-plugin {q}"),
-        None => "fledge-plugin".to_string(),
-    };
-
+fn search_plugins(
+    query: Option<&str>,
+    author: Option<&str>,
+    limit: usize,
+    json: bool,
+) -> Result<()> {
     let sp = crate::spinner::Spinner::start("Searching GitHub for plugins:");
 
     let config = crate::config::Config::load().ok();
     let token = config.as_ref().and_then(|c| c.github_token());
 
-    let query_str = format!("{search_query} topic:fledge-plugin");
+    let query_str = crate::search::build_search_query_ex(query, author, "fledge-plugin");
     let limit_str = limit.to_string();
     let body = crate::github::github_api_get(
         "/search/repositories",

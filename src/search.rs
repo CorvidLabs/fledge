@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 pub struct SearchOptions {
     pub query: Option<String>,
+    pub author: Option<String>,
     pub limit: usize,
     pub json: bool,
 }
@@ -16,6 +17,8 @@ pub struct SearchResult {
     pub description: String,
     pub stars: u64,
     pub url: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub topics: Vec<String>,
 }
 
 impl SearchResult {
@@ -29,7 +32,13 @@ pub fn run(options: SearchOptions) -> Result<()> {
     let token = config.github_token();
 
     let sp = crate::spinner::Spinner::start("Searching GitHub for templates:");
-    let results = search_github(options.query.as_deref(), token.as_deref(), options.limit);
+    let results = search_github_ex(
+        options.query.as_deref(),
+        options.author.as_deref(),
+        "fledge-template",
+        token.as_deref(),
+        options.limit,
+    );
     sp.finish();
     let results = results?;
 
@@ -50,11 +59,17 @@ pub fn run(options: SearchOptions) -> Result<()> {
             } else {
                 r.description.clone()
             };
+            let topic_str = if r.topics.is_empty() {
+                String::new()
+            } else {
+                format!(" [{}]", r.topics.join(", "))
+            };
             println!(
-                "  {} {} {}",
+                "  {} {} {}{}",
                 style(&r.full_name()).green(),
                 style(format!("({})", stars)).dim(),
-                style(&desc).dim()
+                style(&desc).dim(),
+                style(&topic_str).cyan(),
             );
         }
         println!(
@@ -66,19 +81,26 @@ pub fn run(options: SearchOptions) -> Result<()> {
     Ok(())
 }
 
-pub fn build_search_query(keyword: Option<&str>) -> String {
-    match keyword {
-        Some(kw) => format!("{} topic:fledge-template", kw),
-        None => "topic:fledge-template".to_string(),
+pub fn build_search_query_ex(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String {
+    let mut parts = Vec::new();
+    if let Some(kw) = keyword {
+        parts.push(format!("{kw} in:name,description,topics"));
     }
+    parts.push(format!("topic:{topic}"));
+    if let Some(a) = author {
+        parts.push(format!("user:{a}"));
+    }
+    parts.join(" ")
 }
 
-pub fn search_github(
+pub fn search_github_ex(
     keyword: Option<&str>,
+    author: Option<&str>,
+    topic: &str,
     token: Option<&str>,
     limit: usize,
 ) -> Result<Vec<SearchResult>> {
-    let query = build_search_query(keyword);
+    let query = build_search_query_ex(keyword, author, topic);
     let per_page = limit.min(100);
     let url = format!(
         "https://api.github.com/search/repositories?q={}&sort=stars&order=desc&per_page={}",
@@ -138,6 +160,15 @@ pub fn parse_search_response(body: &serde_json::Value) -> Result<Vec<SearchResul
                 .and_then(|s| s.as_u64())
                 .unwrap_or(0);
             let url = item.get("html_url").and_then(|u| u.as_str()).unwrap_or("");
+            let topics = item
+                .get("topics")
+                .and_then(|t| t.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
 
             Some(SearchResult {
                 owner: owner.to_string(),
@@ -145,6 +176,7 @@ pub fn parse_search_response(body: &serde_json::Value) -> Result<Vec<SearchResul
                 description: description.to_string(),
                 stars,
                 url: url.to_string(),
+                topics,
             })
         })
         .collect();
@@ -251,14 +283,29 @@ mod tests {
 
     #[test]
     fn build_search_query_no_keyword() {
-        let q = build_search_query(None);
+        let q = build_search_query_ex(None, None, "fledge-template");
         assert_eq!(q, "topic:fledge-template");
     }
 
     #[test]
     fn build_search_query_with_keyword() {
-        let q = build_search_query(Some("rust"));
-        assert_eq!(q, "rust topic:fledge-template");
+        let q = build_search_query_ex(Some("rust"), None, "fledge-template");
+        assert_eq!(q, "rust in:name,description,topics topic:fledge-template");
+    }
+
+    #[test]
+    fn build_search_query_ex_with_author() {
+        let q = build_search_query_ex(Some("rust"), Some("corvidlabs"), "fledge-template");
+        assert_eq!(
+            q,
+            "rust in:name,description,topics topic:fledge-template user:corvidlabs"
+        );
+    }
+
+    #[test]
+    fn build_search_query_ex_author_only() {
+        let q = build_search_query_ex(None, Some("corvidlabs"), "fledge-plugin");
+        assert_eq!(q, "topic:fledge-plugin user:corvidlabs");
     }
 
     #[test]
@@ -290,6 +337,7 @@ mod tests {
             description: "Templates".to_string(),
             stars: 10,
             url: "https://github.com/CorvidLabs/fledge-templates".to_string(),
+            topics: vec![],
         };
         assert_eq!(r.full_name(), "CorvidLabs/fledge-templates");
     }
@@ -302,6 +350,7 @@ mod tests {
             description: "A template".to_string(),
             stars: 5,
             url: "https://github.com/test/tpl".to_string(),
+            topics: vec!["fledge-template".to_string()],
         }];
         let json: serde_json::Value =
             serde_json::from_str(&serde_json::to_string_pretty(&results).unwrap()).unwrap();
@@ -337,10 +386,30 @@ mod tests {
         assert!(results.is_empty());
     }
 
+    #[test]
+    fn parse_search_response_extracts_topics() {
+        let json = serde_json::json!({
+            "total_count": 1,
+            "items": [
+                {
+                    "name": "fledge-rust-template",
+                    "owner": { "login": "CorvidLabs" },
+                    "description": "A Rust template",
+                    "stargazers_count": 5,
+                    "html_url": "https://github.com/CorvidLabs/fledge-rust-template",
+                    "topics": ["fledge-template", "rust", "cli"]
+                }
+            ]
+        });
+
+        let results = parse_search_response(&json).unwrap();
+        assert_eq!(results[0].topics, vec!["fledge-template", "rust", "cli"]);
+    }
+
     #[ignore]
     #[test]
     fn live_search_returns_results() {
-        let results = search_github(None, None, 5).unwrap();
+        let results = search_github_ex(None, None, "fledge-template", None, 5).unwrap();
         // May be empty if no repos have the topic yet — just ensure no error
         let _ = results;
     }
