@@ -758,13 +758,14 @@ fn handle_metadata(keys: &[String]) -> Result<serde_json::Value> {
             }
             "git_tags" => {
                 let tags: Vec<String> = Command::new("git")
-                    .args(["tag", "--sort=-v:refname"])
+                    .args(["tag", "--sort=-v:refname", "--no-column"])
                     .output()
                     .ok()
                     .filter(|o| o.status.success())
                     .map(|o| {
                         String::from_utf8_lossy(&o.stdout)
                             .lines()
+                            .take(100)
                             .map(String::from)
                             .collect()
                     })
@@ -946,7 +947,23 @@ fn wait_with_timeout(child: &mut Child, timeout: Duration) -> Result<std::proces
                 }
                 let status = child
                     .wait()
-                    .unwrap_or_else(|_| std::process::Command::new("true").status().unwrap());
+                    .or_else(|_| std::process::Command::new("true").status())
+                    .unwrap_or_else(|_| {
+                        // Both wait() and `true` failed — synthesize a failed status
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::process::ExitStatusExt;
+                            std::process::ExitStatus::from_raw(1)
+                        }
+                        #[cfg(not(unix))]
+                        {
+                            // On non-unix, run cmd /C exit 1 as last resort
+                            std::process::Command::new("cmd")
+                                .args(["/C", "exit", "1"])
+                                .status()
+                                .expect("cannot create exit status")
+                        }
+                    });
                 return Ok(std::process::Output {
                     status,
                     stdout,

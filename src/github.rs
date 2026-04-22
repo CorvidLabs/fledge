@@ -39,7 +39,19 @@ fn parse_repo_url(url: &str) -> Result<(String, String)> {
         }
     }
 
-    bail!("Could not parse GitHub owner/repo from remote URL: {}", url);
+    let sanitized = if let Some(at_pos) = url.find('@') {
+        if let Some(scheme_end) = url.find("://") {
+            format!("{}://<redacted>{}", &url[..scheme_end], &url[at_pos..])
+        } else {
+            url.to_string()
+        }
+    } else {
+        url.to_string()
+    };
+    bail!(
+        "Could not parse GitHub owner/repo from remote URL: {}",
+        sanitized
+    );
 }
 
 pub fn github_api_get(

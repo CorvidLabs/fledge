@@ -54,8 +54,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
         println!("{}\n", style("Fledge templates on GitHub:").bold());
         for r in &results {
             let stars = format_stars(r.stars);
-            let desc = if r.description.len() > 60 {
-                format!("{}...", &r.description[..57])
+            let desc = if r.description.chars().count() > 60 {
+                let truncated: String = r.description.chars().take(57).collect();
+                format!("{truncated}...")
             } else {
                 r.description.clone()
             };
