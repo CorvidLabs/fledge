@@ -24,10 +24,13 @@ fn run_fledge_in(dir: &Path, args: &[&str]) -> std::process::Output {
 #[test]
 fn cli_list_shows_templates() {
     let bin = cargo_bin();
-    let output = Command::new(&bin).arg("templates").output().unwrap();
+    let output = Command::new(&bin)
+        .args(["templates", "list"])
+        .output()
+        .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(output.status.success(), "templates failed: {stdout}");
+    assert!(output.status.success(), "templates list failed: {stdout}");
     assert!(stdout.contains("rust-cli"));
     assert!(stdout.contains("ts-bun"));
 }
@@ -1008,7 +1011,7 @@ fn cli_init_yes_with_each_builtin_template() {
 
 #[test]
 fn cli_list_shows_all_builtin_templates() {
-    let output = run_fledge(&["templates"]);
+    let output = run_fledge(&["templates", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let expected = ["rust-cli", "ts-bun"];

@@ -49,11 +49,11 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// Manage templates (init, create, search, update, publish, validate)
-    #[command(alias = "list")]
+    /// Manage templates (init, create, search, update, publish, validate, list)
+    #[command(alias = "template")]
     Templates {
         #[command(subcommand)]
-        action: Option<TemplatesSubcommand>,
+        action: TemplatesSubcommand,
     },
     /// Generate shell completions
     Completions {
@@ -149,7 +149,7 @@ enum Commands {
     #[command(alias = "lane")]
     Lanes {
         #[command(subcommand)]
-        action: Option<LaneSubcommand>,
+        action: LaneSubcommand,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -665,21 +665,16 @@ fn run() -> Result<()> {
         }
         Commands::Lanes { action } => {
             let action = match action {
-                Some(LaneSubcommand::Run { name, dry_run }) => {
-                    lanes::LaneAction::Run { name, dry_run }
-                }
-                Some(LaneSubcommand::List { json }) => lanes::LaneAction::List { json },
-                Some(LaneSubcommand::Init) => lanes::LaneAction::Init,
-                Some(LaneSubcommand::Search { query, json }) => {
-                    lanes::LaneAction::Search { query, json }
-                }
-                Some(LaneSubcommand::Import { source }) => lanes::LaneAction::Import { source },
-                Some(LaneSubcommand::External(args)) => {
+                LaneSubcommand::Run { name, dry_run } => lanes::LaneAction::Run { name, dry_run },
+                LaneSubcommand::List { json } => lanes::LaneAction::List { json },
+                LaneSubcommand::Init => lanes::LaneAction::Init,
+                LaneSubcommand::Search { query, json } => lanes::LaneAction::Search { query, json },
+                LaneSubcommand::Import { source } => lanes::LaneAction::Import { source },
+                LaneSubcommand::External(args) => {
                     let name = args.first().cloned().unwrap_or_default();
                     let dry_run = args.iter().any(|a| a == "--dry-run");
                     lanes::LaneAction::Run { name, dry_run }
                 }
-                None => lanes::LaneAction::List { json: false },
             };
             lanes::run(action)?;
         }
@@ -818,9 +813,9 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
+fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
     match action {
-        Some(TemplatesSubcommand::Init {
+        TemplatesSubcommand::Init {
             name,
             template,
             output,
@@ -831,7 +826,7 @@ fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
             refresh,
             dry_run,
             yes,
-        }) => {
+        } => {
             init::run(init::InitOptions {
                 name,
                 template,
@@ -845,7 +840,7 @@ fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
                 yes,
             })?;
         }
-        Some(TemplatesSubcommand::Create {
+        TemplatesSubcommand::Create {
             name,
             output,
             description,
@@ -853,7 +848,7 @@ fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
             hooks,
             prompts,
             yes,
-        }) => {
+        } => {
             create_template::run(create_template::CreateTemplateOptions {
                 name,
                 output,
@@ -864,18 +859,18 @@ fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
                 yes,
             })?;
         }
-        Some(TemplatesSubcommand::Search { query, limit, json }) => {
+        TemplatesSubcommand::Search { query, limit, json } => {
             search::run(search::SearchOptions { query, limit, json })?;
         }
-        Some(TemplatesSubcommand::Update { dry_run, refresh }) => {
+        TemplatesSubcommand::Update { dry_run, refresh } => {
             update::run(update::UpdateOptions { dry_run, refresh })?;
         }
-        Some(TemplatesSubcommand::Publish {
+        TemplatesSubcommand::Publish {
             path,
             org,
             private,
             description,
-        }) => {
+        } => {
             publish::run(publish::PublishOptions {
                 path,
                 org,
@@ -883,10 +878,10 @@ fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
                 description,
             })?;
         }
-        Some(TemplatesSubcommand::Validate { path, strict, json }) => {
+        TemplatesSubcommand::Validate { path, strict, json } => {
             validate::run(validate::ValidateOptions { path, strict, json })?;
         }
-        Some(TemplatesSubcommand::List) | None => {
+        TemplatesSubcommand::List => {
             list_templates()?;
         }
     }
