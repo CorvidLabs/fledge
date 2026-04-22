@@ -106,6 +106,17 @@ pub enum PluginAction {
         private: bool,
         description: Option<String>,
     },
+    Create {
+        name: String,
+        output: PathBuf,
+        description: Option<String>,
+        yes: bool,
+    },
+    Validate {
+        path: PathBuf,
+        strict: bool,
+        json: bool,
+    },
 }
 
 pub fn run(opts: PluginOptions) -> Result<()> {
@@ -126,6 +137,13 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             private,
             description,
         } => publish_plugin(&path, org.as_deref(), private, description.as_deref()),
+        PluginAction::Create {
+            name,
+            output,
+            description,
+            yes,
+        } => create_plugin(&name, &output, description.as_deref(), yes),
+        PluginAction::Validate { path, strict, json } => validate_plugin(&path, strict, json),
     }
 }
 
@@ -1185,6 +1203,261 @@ fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn create_plugin(name: &str, output: &Path, description: Option<&str>, yes: bool) -> Result<()> {
+    let target = output.join(name);
+
+    if target.exists() {
+        bail!("Directory '{}' already exists", target.display());
+    }
+
+    let desc = if yes {
+        description.unwrap_or("A fledge plugin").to_string()
+    } else {
+        let theme = dialoguer::theme::ColorfulTheme::default();
+        dialoguer::Input::with_theme(&theme)
+            .with_prompt("Description")
+            .default(description.unwrap_or("A fledge plugin").to_string())
+            .interact_text()?
+    };
+
+    std::fs::create_dir_all(target.join("bin"))
+        .with_context(|| format!("creating {}/bin", target.display()))?;
+
+    let plugin_toml = format!(
+        r#"[plugin]
+name = {name:?}
+version = "0.1.0"
+description = {desc:?}
+# author = "your-name"
+
+[[commands]]
+name = {name:?}
+description = {desc:?}
+binary = "bin/{name}"
+
+[hooks]
+# build = "cargo build --release"
+# post_install = "hooks/post-install.sh"
+
+[capabilities]
+exec = false
+store = false
+metadata = false
+"#,
+    );
+    fs::write(target.join("plugin.toml"), plugin_toml).context("writing plugin.toml")?;
+
+    let script = format!("#!/usr/bin/env bash\necho \"{name} plugin running with args: $@\"\n");
+    let script_path = target.join("bin").join(name);
+    fs::write(&script_path, script).context("writing bin script")?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&script_path, fs::Permissions::from_mode(0o755))
+            .context("setting executable permission")?;
+    }
+
+    fs::write(
+        target.join("README.md"),
+        format!(
+            r#"# {name} — fledge plugin
+
+{desc}
+
+## Install
+
+```bash
+fledge plugins install ./{name}
+```
+
+Or after publishing:
+
+```bash
+fledge plugins install owner/{name}
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `fledge {name}` | {desc} |
+
+## Development
+
+Edit `plugin.toml` to configure commands, hooks, and capabilities.
+See [fledge plugin docs](https://github.com/CorvidLabs/fledge) for the full plugin format.
+"#
+        ),
+    )
+    .context("writing README.md")?;
+
+    fs::write(
+        target.join(".gitignore"),
+        "# Build artifacts\n/target/\n/dist/\n\n# OS\n.DS_Store\nThumbs.db\n",
+    )
+    .context("writing .gitignore")?;
+
+    println!(
+        "\n{} Created plugin at {}",
+        style("✅").green().bold(),
+        style(target.display()).cyan()
+    );
+    println!(
+        "\n  {} Edit manifest in {}",
+        style("1.").dim(),
+        style("plugin.toml").green()
+    );
+    println!(
+        "  {} Validate with: {}",
+        style("2.").dim(),
+        style(format!("fledge plugins validate ./{name}")).cyan()
+    );
+    println!(
+        "  {} Publish with: {}",
+        style("3.").dim(),
+        style(format!("fledge plugins publish ./{name}")).cyan()
+    );
+
+    Ok(())
+}
+
+#[derive(Default, serde::Serialize)]
+struct PluginValidationReport {
+    path: String,
+    plugin_name: String,
+    errors: Vec<String>,
+    warnings: Vec<String>,
+}
+
+fn validate_plugin(path: &Path, strict: bool, json: bool) -> Result<()> {
+    let path = path.canonicalize().unwrap_or(path.to_path_buf());
+
+    let manifest_path = path.join("plugin.toml");
+    if !manifest_path.exists() {
+        bail!(
+            "No plugin.toml found in {}. Point to a directory containing plugin.toml.",
+            path.display()
+        );
+    }
+
+    let content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+    let mut report = PluginValidationReport {
+        path: path.display().to_string(),
+        ..Default::default()
+    };
+
+    let manifest: PluginManifest = match toml::from_str(&content) {
+        Ok(m) => m,
+        Err(e) => {
+            report.errors.push(format!("Invalid plugin.toml: {e}"));
+            return print_plugin_report(&report, strict, json);
+        }
+    };
+
+    report.plugin_name = manifest.plugin.name.clone();
+
+    if manifest.plugin.name.is_empty() {
+        report.errors.push("plugin.name is empty".to_string());
+    }
+
+    if manifest.plugin.version.is_empty() {
+        report.errors.push("plugin.version is empty".to_string());
+    }
+
+    if manifest.plugin.description.is_none() {
+        report
+            .warnings
+            .push("plugin.description is not set".to_string());
+    }
+
+    if manifest.plugin.author.is_none() {
+        report.warnings.push("plugin.author is not set".to_string());
+    }
+
+    if manifest.commands.is_empty() {
+        report
+            .warnings
+            .push("No [[commands]] defined — plugin won't register any subcommands".to_string());
+    }
+
+    for cmd in &manifest.commands {
+        if cmd.name.is_empty() {
+            report.errors.push("Command has empty name".to_string());
+        }
+
+        if cmd.binary.is_empty() {
+            report
+                .errors
+                .push(format!("Command '{}' has empty binary path", cmd.name));
+        } else {
+            let bin_path = path.join(&cmd.binary);
+            if !bin_path.exists() {
+                let has_build = manifest.hooks.build.is_some();
+                if has_build {
+                    report.warnings.push(format!(
+                        "Command '{}' binary '{}' not found (may be created by build hook)",
+                        cmd.name, cmd.binary
+                    ));
+                } else {
+                    report.errors.push(format!(
+                        "Command '{}' binary '{}' not found and no build hook defined",
+                        cmd.name, cmd.binary
+                    ));
+                }
+            }
+        }
+    }
+
+    if let Some(ref build) = manifest.hooks.build {
+        if build.trim().is_empty() {
+            report
+                .warnings
+                .push("hooks.build is set but empty".to_string());
+        }
+    }
+
+    print_plugin_report(&report, strict, json)
+}
+
+fn print_plugin_report(report: &PluginValidationReport, strict: bool, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(report)?);
+    } else if report.errors.is_empty() && report.warnings.is_empty() {
+        let name = if report.plugin_name.is_empty() {
+            &report.path
+        } else {
+            &report.plugin_name
+        };
+        println!(
+            "{} {} — valid",
+            style("✅").green().bold(),
+            style(name).green()
+        );
+    } else {
+        let name = if report.plugin_name.is_empty() {
+            &report.path
+        } else {
+            &report.plugin_name
+        };
+        println!("{}", style(name).bold());
+        for e in &report.errors {
+            println!("  {} {}", style("error:").red().bold(), e);
+        }
+        for w in &report.warnings {
+            println!("  {} {}", style("warn:").yellow().bold(), w);
+        }
+    }
+
+    let has_errors = !report.errors.is_empty();
+    let has_warnings = !report.warnings.is_empty();
+    if has_errors || (strict && has_warnings) {
+        bail!("Validation failed");
+    }
+
+    Ok(())
+}
+
 fn publish_plugin(
     path: &Path,
     org: Option<&str>,
@@ -1203,12 +1476,7 @@ fn publish_plugin(
         .with_context(|| format!("Directory not found: {}", path.display()))?;
 
     let manifest_path = path.join("plugin.toml");
-    if !manifest_path.exists() {
-        bail!(
-            "No plugin.toml found in {}. A valid plugin requires a plugin.toml manifest.",
-            path.display()
-        );
-    }
+    validate_plugin(&path, false, false)?;
 
     let content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
     let manifest: PluginManifest = toml::from_str(&content).context("Invalid plugin.toml")?;
@@ -1763,5 +2031,130 @@ version = "0.1.0"
         assert!(manifest.hooks.pre_init.is_none());
         assert!(manifest.hooks.post_work_start.is_none());
         assert!(manifest.hooks.pre_pr.is_none());
+    }
+
+    #[test]
+    fn create_plugin_scaffolds_files() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        create_plugin("my-plugin", tmp.path(), Some("Test plugin"), true).unwrap();
+
+        let target = tmp.path().join("my-plugin");
+        assert!(target.join("plugin.toml").exists());
+        assert!(target.join("README.md").exists());
+        assert!(target.join(".gitignore").exists());
+        assert!(target.join("bin").is_dir());
+        assert!(target.join("bin/my-plugin").exists());
+
+        let content = fs::read_to_string(target.join("plugin.toml")).unwrap();
+        let manifest: PluginManifest = toml::from_str(&content).unwrap();
+        assert_eq!(manifest.plugin.name, "my-plugin");
+        assert_eq!(manifest.plugin.version, "0.1.0");
+        assert_eq!(manifest.commands.len(), 1);
+    }
+
+    #[test]
+    fn create_plugin_fails_if_exists() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        fs::create_dir(tmp.path().join("existing")).unwrap();
+        let result = create_plugin("existing", tmp.path(), None, true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn validate_valid_plugin() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        create_plugin("test-plugin", tmp.path(), Some("Test"), true).unwrap();
+
+        let result = validate_plugin(&tmp.path().join("test-plugin"), false, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_missing_plugin_toml() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let result = validate_plugin(tmp.path(), false, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No plugin.toml"));
+    }
+
+    #[test]
+    fn validate_empty_name_is_error() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("plugin.toml"),
+            r#"
+[plugin]
+name = ""
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+
+        let result = validate_plugin(tmp.path(), false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_missing_binary_is_error() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("plugin.toml"),
+            r#"
+[plugin]
+name = "test"
+version = "0.1.0"
+
+[[commands]]
+name = "test"
+description = "Test"
+binary = "bin/nonexistent"
+"#,
+        )
+        .unwrap();
+
+        let result = validate_plugin(tmp.path(), false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_missing_binary_with_build_hook_is_warning() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("plugin.toml"),
+            r#"
+[plugin]
+name = "test"
+version = "0.1.0"
+description = "Test"
+author = "tester"
+
+[[commands]]
+name = "test"
+description = "Test"
+binary = "target/release/test"
+
+[hooks]
+build = "cargo build --release"
+"#,
+        )
+        .unwrap();
+
+        // non-strict: passes with warning
+        let result = validate_plugin(tmp.path(), false, false);
+        assert!(result.is_ok());
+
+        // strict: fails on warning
+        let result = validate_plugin(tmp.path(), true, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_json_output() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        create_plugin("json-test", tmp.path(), Some("Test"), true).unwrap();
+
+        let result = validate_plugin(&tmp.path().join("json-test"), false, true);
+        assert!(result.is_ok());
     }
 }

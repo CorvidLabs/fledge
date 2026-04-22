@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 7
+version: 8
 status: active
 files:
   - src/lanes.rs
@@ -26,14 +26,14 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point — dispatches lane actions |
-| `LaneAction` | Enum: `Run`, `List`, `Init`, `Search`, `Import` |
+| `LaneAction` | Enum: `Run`, `List`, `Init`, `Search`, `Import`, `Publish`, `Create`, `Validate` |
 | `LaneDef` | Lane definition: description, steps, and fail_fast flag |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `LaneAction` | Action enum for the lane subcommand (Run, List, Init, Search, Import) |
+| `LaneAction` | Action enum for the lane subcommand (Run, List, Init, Search, Import, Publish, Create, Validate) |
 | `LaneDef` | A named lane with description, steps, and fail_fast flag |
 | `Step` | A single step: task reference, inline command, or parallel group |
 | `ParallelItem` | An item within a parallel group: task reference or inline command |
@@ -168,6 +168,25 @@ $ fledge lane import CorvidLabs/fledge-lanes
 
 # Import with version pinning
 $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
+
+# Scaffold a lane repo
+$ fledge lanes create my-lanes
+✅ Created lane repo at ./my-lanes
+
+# Validate lanes
+$ fledge lanes validate
+✅ . — valid (3 lanes)
+
+# Validate with strict mode
+$ fledge lanes validate --strict
+.
+  warn: Lane 'deploy' has no description
+Validation failed
+
+# Publish runs validation first
+$ fledge lanes publish
+✅ . — valid (2 lanes)
+➡️ Publishing 2 lanes as owner/my-lanes
 ```
 
 ## Error Cases
@@ -184,6 +203,12 @@ $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 | Remote no fledge.toml | Import target has no fledge.toml | Error with message |
 | Remote no lanes | Import target's fledge.toml has no lanes | Error with message |
 | All lanes exist | All imported lanes already defined locally | Skip with message |
+| Create dir exists | `create` target directory already exists | Error |
+| Validate no fledge.toml | `validate` path missing fledge.toml | Error |
+| Validate undefined task | Lane step references task not in `[tasks]` | Validation error |
+| Validate empty steps | Lane has zero steps | Validation error |
+| Validate empty parallel | Parallel group has no items | Validation error |
+| Validate circular deps | Task deps form a cycle | Validation error |
 
 ## Dependencies
 
@@ -196,6 +221,7 @@ $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 8 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 7 | 2026-04-21 | Imported lanes stored in `.fledge/lanes/` instead of appending to fledge.toml; lane loading merges both sources |
 | 6 | 2026-04-21 | Add step timing — each step prints elapsed time, lane summary includes total |
 | 5 | 2026-04-21 | Generalize parallel groups to accept inline commands, not just task refs |

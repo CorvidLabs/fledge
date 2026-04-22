@@ -10,6 +10,9 @@
 6. Support `--dry-run` to preview execution plan
 7. Support `--init` to scaffold default lanes for the detected language
 8. List available lanes with descriptions
+9. Scaffold a lane repo via `fledge lanes create <name>` with example fledge.toml, README, and .gitignore
+10. Validate lane definitions via `fledge lanes validate [path]` — check task references, empty steps, circular deps, parallel groups
+11. `publish` validates before pushing
 
 ## Non-Functional Requirements
 

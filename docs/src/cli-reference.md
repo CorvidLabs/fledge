@@ -200,7 +200,7 @@ fledge run test --lang swift  # override detected language
 Manage and run composable workflow pipelines. Alias: `fledge lane`.
 
 ```
-fledge lanes <run|list|init|search|import|publish>
+fledge lanes <run|list|init|search|import|publish|create|validate>
 ```
 
 **Subcommands:**
@@ -211,6 +211,8 @@ fledge lanes <run|list|init|search|import|publish>
 - `search [query]` - Search GitHub for community lanes (`--author`, `--json`)
 - `import <source>` - Import lanes from a GitHub repo (owner/repo or owner/repo@ref)
 - `publish [path]` - Publish lanes to GitHub (`--org`, `--private`, `--description`)
+- `create <name>` - Scaffold a new lane repo (`--output`, `--description`, `--yes`)
+- `validate [path]` - Validate lane definitions in fledge.toml (`--strict`, `--json`)
 
 **Shortcut:** `fledge lane ci` is equivalent to `fledge lanes run ci`.
 
@@ -255,6 +257,11 @@ fledge lanes search
 fledge lanes search rust
 fledge lanes import CorvidLabs/fledge-lanes
 fledge lanes publish --org MyOrg
+fledge lanes create my-lanes
+fledge lanes create my-lanes --yes --description "My CI lanes"
+fledge lanes validate
+fledge lanes validate ./my-lanes --strict
+fledge lanes validate --json
 ```
 
 ---
@@ -564,7 +571,7 @@ fledge release patch --no-tag --no-changelog  # just bump version
 Install, manage, and run community plugins. Alias: `fledge plugin`.
 
 ```
-fledge plugins <install|remove|update|list|search|run|publish> [OPTIONS]
+fledge plugins <install|remove|update|list|search|run|publish|create|validate> [OPTIONS]
 ```
 
 **Subcommands:**
@@ -576,6 +583,8 @@ fledge plugins <install|remove|update|list|search|run|publish> [OPTIONS]
 - `search [query]` - Find plugins on GitHub (`--author`, `--limit`)
 - `run <name> [args...]` - Run a plugin command
 - `publish [path]` - Publish a plugin to GitHub (`--org`, `--private`, `--description`)
+- `create <name>` - Scaffold a new plugin (`--output`, `--description`, `--yes`)
+- `validate [path]` - Validate a plugin manifest (`--strict`, `--json`)
 
 `--json` works with `list` and `search`.
 
@@ -606,6 +615,11 @@ fledge plugins list
 fledge plugins search deploy
 fledge plugins remove fledge-deploy
 fledge plugins publish --org MyOrg
+fledge plugins create my-tool
+fledge plugins create my-tool --yes --description "My deploy tool"
+fledge plugins validate
+fledge plugins validate ./my-tool --strict
+fledge plugins validate --json
 ```
 
 ---

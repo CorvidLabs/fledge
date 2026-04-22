@@ -118,6 +118,17 @@ pub enum LaneAction {
         private: bool,
         description: Option<String>,
     },
+    Create {
+        name: String,
+        output: PathBuf,
+        description: Option<String>,
+        yes: bool,
+    },
+    Validate {
+        path: PathBuf,
+        strict: bool,
+        json: bool,
+    },
 }
 
 pub fn run(action: LaneAction) -> Result<()> {
@@ -135,6 +146,13 @@ pub fn run(action: LaneAction) -> Result<()> {
             private,
             description,
         } => publish_lanes(&path, org.as_deref(), private, description.as_deref()),
+        LaneAction::Create {
+            name,
+            output,
+            description,
+            yes,
+        } => create_lane_repo(&name, &output, description.as_deref(), yes),
+        LaneAction::Validate { path, strict, json } => validate_lanes(&path, strict, json),
         LaneAction::List { json } => {
             let config = load_lane_config()?;
             list_lanes(&config.lanes, json)
@@ -1030,6 +1048,292 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
     Ok(output)
 }
 
+fn create_lane_repo(name: &str, output: &Path, description: Option<&str>, yes: bool) -> Result<()> {
+    let target = output.join(name);
+
+    if target.exists() {
+        bail!("Directory '{}' already exists", target.display());
+    }
+
+    let desc = if yes {
+        description.unwrap_or("Shared fledge lanes").to_string()
+    } else {
+        let theme = dialoguer::theme::ColorfulTheme::default();
+        dialoguer::Input::with_theme(&theme)
+            .with_prompt("Description")
+            .default(description.unwrap_or("Shared fledge lanes").to_string())
+            .interact_text()?
+    };
+
+    std::fs::create_dir_all(&target).with_context(|| format!("creating {}", target.display()))?;
+
+    let fledge_toml = format!(
+        r#"[tasks]
+lint = "echo 'lint placeholder'"
+test = "echo 'test placeholder'"
+build = "echo 'build placeholder'"
+fmt = "echo 'fmt placeholder'"
+
+[lanes.ci]
+description = {desc:?}
+steps = ["lint", "test", "build"]
+
+[lanes.check]
+description = "Quick quality check"
+steps = [
+  {{ parallel = ["lint", "fmt"] }},
+  "test"
+]
+"#,
+        desc = format!("{name} CI pipeline")
+    );
+    std::fs::write(target.join("fledge.toml"), fledge_toml).context("writing fledge.toml")?;
+
+    std::fs::write(
+        target.join("README.md"),
+        format!(
+            r#"# {name} — fledge lanes
+
+{desc}
+
+## Usage
+
+Import these lanes into any fledge project:
+
+```bash
+fledge lanes import ./{name}
+```
+
+Or after publishing:
+
+```bash
+fledge lanes import owner/{name}
+```
+
+## Lanes
+
+| Lane | Description |
+|------|-------------|
+| `ci` | {name} CI pipeline |
+| `check` | Quick quality check |
+
+## Customization
+
+Edit `fledge.toml` to add, modify, or remove lanes and tasks.
+See [fledge docs](https://github.com/CorvidLabs/fledge) for lane syntax.
+"#
+        ),
+    )
+    .context("writing README.md")?;
+
+    std::fs::write(target.join(".gitignore"), "# OS\n.DS_Store\nThumbs.db\n")
+        .context("writing .gitignore")?;
+
+    println!(
+        "\n{} Created lane repo at {}",
+        style("✅").green().bold(),
+        style(target.display()).cyan()
+    );
+    println!(
+        "\n  {} Edit lanes in {}",
+        style("1.").dim(),
+        style("fledge.toml").green()
+    );
+    println!(
+        "  {} Validate with: {}",
+        style("2.").dim(),
+        style(format!("fledge lanes validate ./{name}")).cyan()
+    );
+    println!(
+        "  {} Publish with: {}",
+        style("3.").dim(),
+        style(format!("fledge lanes publish ./{name}")).cyan()
+    );
+
+    Ok(())
+}
+
+#[derive(Default, serde::Serialize)]
+struct LaneValidationReport {
+    path: String,
+    lane_count: usize,
+    errors: Vec<String>,
+    warnings: Vec<String>,
+}
+
+fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()> {
+    let path = path.canonicalize().unwrap_or(path.to_path_buf());
+
+    let fledge_toml = path.join("fledge.toml");
+    if !fledge_toml.exists() {
+        bail!(
+            "No fledge.toml found in {}. Point to a directory containing fledge.toml.",
+            path.display()
+        );
+    }
+
+    let content = std::fs::read_to_string(&fledge_toml).context("reading fledge.toml")?;
+    let mut report = LaneValidationReport {
+        path: path.display().to_string(),
+        ..Default::default()
+    };
+
+    let parsed: FledgeFileWithLanes = match toml::from_str(&content) {
+        Ok(m) => m,
+        Err(e) => {
+            report.errors.push(format!("Invalid fledge.toml: {e}"));
+            return print_lane_report(&report, strict, json);
+        }
+    };
+
+    if parsed.lanes.is_empty() {
+        report
+            .errors
+            .push("No [lanes] defined in fledge.toml".to_string());
+        return print_lane_report(&report, strict, json);
+    }
+
+    report.lane_count = parsed.lanes.len();
+
+    for (name, lane) in &parsed.lanes {
+        if lane.steps.is_empty() {
+            report.errors.push(format!("Lane '{name}' has no steps"));
+        }
+
+        if lane.description.is_none() {
+            report
+                .warnings
+                .push(format!("Lane '{name}' has no description"));
+        }
+
+        for (i, step) in lane.steps.iter().enumerate() {
+            match step {
+                Step::TaskRef(task_name) => {
+                    if !parsed.tasks.contains_key(task_name) {
+                        report.errors.push(format!(
+                            "Lane '{name}' step {} references undefined task '{task_name}'",
+                            i + 1
+                        ));
+                    }
+                }
+                Step::Inline { run: cmd } => {
+                    if cmd.trim().is_empty() {
+                        report.errors.push(format!(
+                            "Lane '{name}' step {} has empty inline command",
+                            i + 1
+                        ));
+                    }
+                }
+                Step::Parallel { parallel } => {
+                    if parallel.is_empty() {
+                        report.errors.push(format!(
+                            "Lane '{name}' step {} has empty parallel group",
+                            i + 1
+                        ));
+                    }
+                    for item in parallel {
+                        match item {
+                            ParallelItem::TaskRef(task_name) => {
+                                if !parsed.tasks.contains_key(task_name) {
+                                    report.errors.push(format!(
+                                        "Lane '{name}' step {} parallel group references undefined task '{task_name}'",
+                                        i + 1
+                                    ));
+                                }
+                            }
+                            ParallelItem::Inline { run: cmd } => {
+                                if cmd.trim().is_empty() {
+                                    report.errors.push(format!(
+                                        "Lane '{name}' step {} parallel group has empty inline command",
+                                        i + 1
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Check for circular task deps
+    for task_name in parsed.tasks.keys() {
+        let mut visited = HashSet::new();
+        let mut stack = vec![task_name.as_str()];
+        while let Some(current) = stack.pop() {
+            if !visited.insert(current.to_string()) {
+                report.errors.push(format!(
+                    "Circular dependency detected involving task '{task_name}'"
+                ));
+                break;
+            }
+            if let Some(dep_task) = parsed.tasks.get(current) {
+                for dep in dep_task.deps() {
+                    stack.push(dep);
+                }
+            }
+        }
+    }
+
+    // Check imported lanes in .fledge/lanes/
+    let lanes_dir = path.join(".fledge").join("lanes");
+    if lanes_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&lanes_dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.extension().is_some_and(|e| e == "toml") {
+                    let fname = p.file_name().unwrap_or_default().to_string_lossy();
+                    match std::fs::read_to_string(&p) {
+                        Ok(c) => {
+                            if let Err(e) = toml::from_str::<FledgeFileWithLanes>(&c) {
+                                report
+                                    .errors
+                                    .push(format!(".fledge/lanes/{fname}: Invalid TOML: {e}"));
+                            }
+                        }
+                        Err(e) => {
+                            report
+                                .warnings
+                                .push(format!(".fledge/lanes/{fname}: Cannot read: {e}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    print_lane_report(&report, strict, json)
+}
+
+fn print_lane_report(report: &LaneValidationReport, strict: bool, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(report)?);
+    } else if report.errors.is_empty() && report.warnings.is_empty() {
+        println!(
+            "{} {} — valid ({} lanes)",
+            style("✅").green().bold(),
+            style(&report.path).green(),
+            report.lane_count
+        );
+    } else {
+        println!("{}", style(&report.path).bold());
+        for e in &report.errors {
+            println!("  {} {}", style("error:").red().bold(), e);
+        }
+        for w in &report.warnings {
+            println!("  {} {}", style("warn:").yellow().bold(), w);
+        }
+    }
+
+    let has_errors = !report.errors.is_empty();
+    let has_warnings = !report.warnings.is_empty();
+    if has_errors || (strict && has_warnings) {
+        bail!("Validation failed");
+    }
+
+    Ok(())
+}
+
 fn publish_lanes(
     path: &Path,
     org: Option<&str>,
@@ -1055,12 +1359,10 @@ fn publish_lanes(
         );
     }
 
+    validate_lanes(&path, false, false)?;
+
     let content = std::fs::read_to_string(&fledge_toml).context("reading fledge.toml")?;
     let parsed: FledgeFileWithLanes = toml::from_str(&content).context("parsing fledge.toml")?;
-
-    if parsed.lanes.is_empty() {
-        bail!("No [lanes] defined in fledge.toml. Add lanes before publishing.");
-    }
 
     let dir_name = path
         .file_name()
@@ -1895,5 +2197,148 @@ steps = ["test"]
         assert_eq!(base.tasks["test"].cmd(), "cargo test");
         assert_eq!(base.lanes["ci"].steps.len(), 1);
         assert!(base.lanes.contains_key("deploy"));
+    }
+
+    #[test]
+    fn create_lane_repo_scaffolds_files() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        create_lane_repo("my-lanes", tmp.path(), Some("Test lanes"), true).unwrap();
+
+        let target = tmp.path().join("my-lanes");
+        assert!(target.join("fledge.toml").exists());
+        assert!(target.join("README.md").exists());
+        assert!(target.join(".gitignore").exists());
+
+        let content = std::fs::read_to_string(target.join("fledge.toml")).unwrap();
+        let parsed: FledgeFileWithLanes = toml::from_str(&content).unwrap();
+        assert!(!parsed.lanes.is_empty());
+        assert!(!parsed.tasks.is_empty());
+    }
+
+    #[test]
+    fn create_lane_repo_fails_if_exists() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join("existing")).unwrap();
+        let result = create_lane_repo("existing", tmp.path(), None, true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already exists"));
+    }
+
+    #[test]
+    fn validate_valid_lanes() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[tasks]
+lint = "cargo clippy"
+test = "cargo test"
+
+[lanes.ci]
+description = "CI pipeline"
+steps = ["lint", "test"]
+"#,
+        )
+        .unwrap();
+
+        let result = validate_lanes(tmp.path(), false, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_undefined_task_ref() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[tasks]
+lint = "cargo clippy"
+
+[lanes.ci]
+description = "CI"
+steps = ["lint", "nonexistent"]
+"#,
+        )
+        .unwrap();
+
+        let result = validate_lanes(tmp.path(), false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_empty_steps() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[lanes.empty]
+description = "Empty"
+steps = []
+"#,
+        )
+        .unwrap();
+
+        let result = validate_lanes(tmp.path(), false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_missing_description_warns() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[tasks]
+lint = "cargo clippy"
+
+[lanes.ci]
+steps = ["lint"]
+"#,
+        )
+        .unwrap();
+
+        // non-strict: passes with warnings
+        let result = validate_lanes(tmp.path(), false, false);
+        assert!(result.is_ok());
+
+        // strict: fails on warnings
+        let result = validate_lanes(tmp.path(), true, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_no_lanes_is_error() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[tasks]
+lint = "cargo clippy"
+"#,
+        )
+        .unwrap();
+
+        let result = validate_lanes(tmp.path(), false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_json_output() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            tmp.path().join("fledge.toml"),
+            r#"
+[tasks]
+lint = "cargo clippy"
+
+[lanes.ci]
+description = "CI"
+steps = ["lint"]
+"#,
+        )
+        .unwrap();
+
+        let result = validate_lanes(tmp.path(), false, true);
+        assert!(result.is_ok());
     }
 }

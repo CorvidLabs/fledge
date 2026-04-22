@@ -85,6 +85,15 @@ fledge plugins search deploy     # search by keyword
 
 ### 1. Create the repo
 
+The fastest way to start a plugin:
+
+```bash
+fledge plugins create fledge-deploy
+cd fledge-deploy
+```
+
+This scaffolds `plugin.toml`, a starter executable in `bin/`, a README, and a `.gitignore`. Or create one manually:
+
 ```bash
 mkdir fledge-deploy && cd fledge-deploy
 ```
@@ -134,9 +143,25 @@ Make them executable:
 chmod +x fledge-deploy fledge-rollback
 ```
 
-### 4. Publish
+### 4. Validate
 
-Push to GitHub, add the `fledge-plugin` topic. Users install with:
+Check your plugin before publishing:
+
+```bash
+fledge plugins validate
+```
+
+This checks: plugin.toml is valid, name/version are set, binaries exist (or a build hook will create them), and commands are well-formed. Use `--strict` to fail on warnings, `--json` for machine-readable output.
+
+### 5. Publish
+
+Publish to GitHub (validates automatically before pushing):
+
+```bash
+fledge plugins publish
+```
+
+Or push manually and add the `fledge-plugin` topic. Users install with:
 
 ```bash
 fledge plugins install yourname/fledge-deploy
