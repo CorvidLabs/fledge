@@ -1114,7 +1114,7 @@ read -r INIT_LINE
 send() { echo "$1" >&3; }
 send '{"type":"log","level":"info","message":"test started"}'
 send '{"type":"store","key":"test_key","value":"test_value"}'
-send '{"type":"load","key":"test_key"}'
+send '{"type":"load","id":"load1","key":"test_key"}'
 read -r LOAD_RESPONSE
 send '{"type":"output","text":"done"}'
 "#,
