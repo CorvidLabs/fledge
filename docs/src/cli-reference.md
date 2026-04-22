@@ -42,7 +42,7 @@ fledge templates init <name> [OPTIONS]
 - If the template specifies `requires` (tool dependencies), fledge checks they're on PATH and warns about missing ones.
 - If the template doesn't include a `fledge.toml`, one is auto-generated from detected project type defaults.
 - If no git user is configured, defaults to `user.name=fledge` and `user.email=fledge@localhost`.
-- Plugin `pre_init` lifecycle hooks run before template rendering (if any plugins define them).
+- Plugin `pre_init` lifecycle hooks run before config loading (if any plugins define them).
 
 **Examples:**
 
@@ -183,7 +183,7 @@ fledge run [task] [OPTIONS]
 **Options:**
 - `--init` - Generate `fledge.toml` with detected defaults
 - `-l, --list` - List available tasks
-- `--lang <LANG>` - Override detected project language (swift, python, rust, node, go)
+- `--lang <LANG>` - Override detected project language (swift, python, rust, node, go, ruby, java-gradle, java-maven)
 
 **Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 
@@ -346,7 +346,7 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Options for `work start`:**
 
-- `-t, --branch-type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-t, --branch-type <TYPE>` - Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
 - `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
 - `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
 - `--base <BRANCH>` - Base branch [default: `main`]
@@ -645,7 +645,7 @@ fledge plugins validate --json
 
 ### fledge completions `[shell]`
 
-Shell completions for bash, zsh, fish, powershell.
+Shell completions for bash, zsh, fish.
 
 ```
 fledge completions [shell] [OPTIONS]

@@ -140,7 +140,7 @@ enum Commands {
         /// List available tasks
         #[arg(short, long)]
         list: bool,
-        /// Override detected project language (e.g. swift, python, rust, node, go)
+        /// Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)
         #[arg(long)]
         lang: Option<String>,
     },

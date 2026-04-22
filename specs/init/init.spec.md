@@ -50,7 +50,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 2. At least one template must be available
 3. Git init creates an initial commit with all scaffolded files
 4. Directory is created before template rendering begins
-5. `.fledge.toml` is written after rendering, before git init, recording template source and file hashes
+5. `.fledge/meta.toml` is written after rendering, before git init, recording template source and file hashes for future `fledge update`
 6. If the template does not include a `fledge.toml`, one is generated from auto-detected project type defaults
 
 ## Behavioral Examples

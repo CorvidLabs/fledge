@@ -108,7 +108,7 @@ pub fn run(opts: ChecksOptions) -> Result<()> {
         let duration = match (check["started_at"].as_str(), check["completed_at"].as_str()) {
             (Some(start), Some(end)) => format_duration(start, end),
             (Some(_), None) => "running...".to_string(),
-            _ => String::new(),
+            _ => "\u{2014}".to_string(),
         };
 
         println!(

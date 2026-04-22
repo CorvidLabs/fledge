@@ -25,13 +25,15 @@ fledge follows [Conventional Commits](https://www.conventionalcommits.org/). The
 | Type | Section |
 |------|---------|
 | `feat` | Features |
-| `fix` | Bug Fixes |
+| `fix` | Fixes |
 | `docs` | Documentation |
-| `chore` | Maintenance |
+| `style` | Style |
 | `refactor` | Refactoring |
 | `perf` | Performance |
 | `test` | Tests |
-| `ci` | CI/CD |
+| `build` | Build |
+| `ci` | CI |
+| `chore` | Chores |
 
 Commits that don't match any type are grouped under "Other".
 

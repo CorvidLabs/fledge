@@ -41,7 +41,7 @@ fledge work start my-feature --prefix user/leif
 # → creates user/leif/my-feature (custom prefix, overrides format)
 ```
 
-Branch names get sanitized automatically (spaces → hyphens, special chars removed). The default type is `feat`, but you can use `fix`, `chore`, `docs`, `hotfix`, or `refactor` via `--branch-type` (or `-t` for short). The branch format is configurable in `fledge.toml`.
+Branch names get sanitized automatically (spaces → hyphens, special chars removed). The default type is `feat`, but you can use `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, or `refactor` via `--branch-type` (or `-t` for short). The branch format is configurable in `fledge.toml`.
 
 ### Open a PR
 

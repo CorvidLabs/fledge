@@ -26,7 +26,7 @@ fledge work pr --title "Add auth middleware"
 This creates a branch using your configured format (default: `{author}/{type}/{name}`), and `fledge work pr` opens a pull request against your base branch with sensible defaults.
 
 **Options for `work start`:**
-- `-t, --branch-type <TYPE>` - Branch type: `feat`, `fix`, `chore`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-t, --branch-type <TYPE>` - Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
 - `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
 - `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
 - `--base <branch>` - Base branch (defaults to `main`)
