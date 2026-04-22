@@ -1,8 +1,9 @@
 ---
 module: plugin
 version: 1
-status: draft
+status: active
 files:
+  - src/protocol.rs
   - src/plugin.rs
 
 db_tables: []

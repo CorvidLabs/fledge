@@ -1,0 +1,1103 @@
+use anyhow::{bail, Context, Result};
+use console::style;
+use indicatif::{ProgressBar, ProgressStyle};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
+use std::time::Duration;
+
+#[derive(Debug, Serialize)]
+pub struct PluginContext {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+    protocol: &'static str,
+    args: Vec<String>,
+    project: Option<ProjectContext>,
+    plugin: PluginInfo,
+    fledge: FledgeInfo,
+}
+
+#[derive(Debug, Serialize)]
+struct ProjectContext {
+    name: String,
+    root: String,
+    language: String,
+    git: Option<GitContext>,
+}
+
+#[derive(Debug, Serialize)]
+struct GitContext {
+    branch: String,
+    dirty: bool,
+    remote: String,
+    remote_url: String,
+}
+
+#[derive(Debug, Serialize)]
+struct PluginInfo {
+    name: String,
+    version: String,
+    dir: String,
+}
+
+#[derive(Debug, Serialize)]
+struct FledgeInfo {
+    version: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum OutboundMessage {
+    Prompt {
+        id: String,
+        message: String,
+        #[serde(default)]
+        default: Option<String>,
+        #[serde(default)]
+        validate: Option<String>,
+    },
+    Confirm {
+        id: String,
+        message: String,
+        #[serde(default)]
+        default: Option<bool>,
+    },
+    Select {
+        id: String,
+        message: String,
+        options: Vec<String>,
+        #[serde(default)]
+        default: Option<usize>,
+    },
+    MultiSelect {
+        id: String,
+        message: String,
+        options: Vec<String>,
+        #[serde(default)]
+        defaults: Option<Vec<usize>>,
+    },
+    Progress {
+        #[serde(default)]
+        message: Option<String>,
+        #[serde(default)]
+        current: Option<u64>,
+        #[serde(default)]
+        total: Option<u64>,
+        #[serde(default)]
+        done: Option<bool>,
+    },
+    Log {
+        level: String,
+        message: String,
+    },
+    Output {
+        text: String,
+    },
+    Store {
+        key: String,
+        value: String,
+    },
+    Load {
+        id: String,
+        key: String,
+    },
+    Exec {
+        id: String,
+        command: String,
+        #[serde(default)]
+        cwd: Option<String>,
+        #[serde(default)]
+        timeout: Option<u64>,
+    },
+    Metadata {
+        id: String,
+        keys: Vec<String>,
+    },
+}
+
+#[derive(Debug, Serialize)]
+struct InboundResponse {
+    #[serde(rename = "type")]
+    msg_type: &'static str,
+    id: String,
+    value: serde_json::Value,
+}
+
+pub fn run_protocol_plugin(
+    bin_path: &Path,
+    args: &[String],
+    plugin_name: &str,
+    plugin_version: &str,
+    plugin_dir: &Path,
+) -> Result<()> {
+    let mut child = Command::new(bin_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .with_context(|| format!("spawning plugin '{plugin_name}'"))?;
+
+    let project_ctx = detect_project_context();
+    let init_msg = PluginContext {
+        msg_type: "init",
+        protocol: "fledge-v1",
+        args: args.to_vec(),
+        project: project_ctx,
+        plugin: PluginInfo {
+            name: plugin_name.to_string(),
+            version: plugin_version.to_string(),
+            dir: plugin_dir.to_string_lossy().to_string(),
+        },
+        fledge: FledgeInfo {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+        },
+    };
+
+    send_message(&mut child, &init_msg)?;
+
+    let result = run_message_loop(&mut child, plugin_name, plugin_dir);
+
+    let status = child.wait().context("waiting for plugin to exit")?;
+
+    result?;
+
+    if !status.success() {
+        let code = status.code().unwrap_or(1);
+        bail!("Plugin '{}' exited with code {}", plugin_name, code);
+    }
+
+    Ok(())
+}
+
+fn run_message_loop(child: &mut Child, plugin_name: &str, plugin_dir: &Path) -> Result<()> {
+    let stdout = child
+        .stdout
+        .take()
+        .context("failed to capture plugin stdout")?;
+    let reader = BufReader::new(stdout);
+
+    let mut progress_bar: Option<ProgressBar> = None;
+
+    for line in reader.lines() {
+        let line = line.context("reading plugin output")?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let msg: OutboundMessage = match serde_json::from_str(&line) {
+            Ok(m) => m,
+            Err(_) => {
+                eprintln!(
+                    "  {} {}: malformed JSON, skipping",
+                    style("⚠").yellow(),
+                    style(plugin_name).dim()
+                );
+                continue;
+            }
+        };
+
+        match msg {
+            OutboundMessage::Prompt {
+                id,
+                message,
+                default,
+                validate,
+            } => {
+                clear_progress(&mut progress_bar);
+                let value = handle_prompt(&message, default.as_deref(), validate.as_deref())?;
+                send_response(child, &id, serde_json::Value::String(value))?;
+            }
+            OutboundMessage::Confirm {
+                id,
+                message,
+                default,
+            } => {
+                clear_progress(&mut progress_bar);
+                let value = handle_confirm(&message, default.unwrap_or(false))?;
+                send_response(child, &id, serde_json::Value::Bool(value))?;
+            }
+            OutboundMessage::Select {
+                id,
+                message,
+                options,
+                default,
+            } => {
+                clear_progress(&mut progress_bar);
+                let value = handle_select(&message, &options, default)?;
+                send_response(child, &id, serde_json::Value::String(value))?;
+            }
+            OutboundMessage::MultiSelect {
+                id,
+                message,
+                options,
+                defaults,
+            } => {
+                clear_progress(&mut progress_bar);
+                let values = handle_multi_select(&message, &options, defaults.as_deref())?;
+                let json_values: Vec<serde_json::Value> =
+                    values.into_iter().map(serde_json::Value::String).collect();
+                send_response(child, &id, serde_json::Value::Array(json_values))?;
+            }
+            OutboundMessage::Progress {
+                message,
+                current,
+                total,
+                done,
+            } => {
+                handle_progress(
+                    &mut progress_bar,
+                    plugin_name,
+                    message.as_deref(),
+                    current,
+                    total,
+                    done.unwrap_or(false),
+                );
+            }
+            OutboundMessage::Log { level, message } => {
+                clear_progress(&mut progress_bar);
+                handle_log(plugin_name, &level, &message);
+            }
+            OutboundMessage::Output { text } => {
+                clear_progress(&mut progress_bar);
+                print!("{}", text);
+            }
+            OutboundMessage::Store { key, value } => {
+                handle_store(plugin_dir, &key, &value)?;
+            }
+            OutboundMessage::Load { id, key } => {
+                let value = handle_load(plugin_dir, &key)?;
+                send_response(child, &id, value)?;
+            }
+            OutboundMessage::Exec {
+                id,
+                command,
+                cwd,
+                timeout,
+            } => {
+                let result = handle_exec(&command, cwd.as_deref(), timeout, plugin_dir)?;
+                send_response(child, &id, result)?;
+            }
+            OutboundMessage::Metadata { id, keys } => {
+                let result = handle_metadata(&keys)?;
+                send_response(child, &id, result)?;
+            }
+        }
+    }
+
+    clear_progress(&mut progress_bar);
+    Ok(())
+}
+
+fn send_message<T: Serialize>(child: &mut Child, msg: &T) -> Result<()> {
+    send_raw(child, msg)
+}
+
+fn send_raw<T: Serialize>(child: &mut Child, msg: &T) -> Result<()> {
+    let stdin = child.stdin.as_mut().context("plugin stdin unavailable")?;
+    let json = serde_json::to_string(msg).context("serializing message")?;
+    writeln!(stdin, "{}", json).context("writing to plugin stdin")?;
+    stdin.flush().context("flushing plugin stdin")?;
+    Ok(())
+}
+
+fn send_response(child: &mut Child, id: &str, value: serde_json::Value) -> Result<()> {
+    send_raw(
+        child,
+        &InboundResponse {
+            msg_type: "response",
+            id: id.to_string(),
+            value,
+        },
+    )
+}
+
+fn handle_prompt(message: &str, default: Option<&str>, validate: Option<&str>) -> Result<String> {
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    let mut prompt = dialoguer::Input::<String>::with_theme(&theme).with_prompt(message);
+
+    if let Some(d) = default {
+        prompt = prompt.default(d.to_string());
+    }
+
+    if let Some(v) = validate {
+        match v {
+            "non_empty" => {
+                prompt = prompt.validate_with(|input: &String| -> Result<(), String> {
+                    if input.trim().is_empty() {
+                        Err("Input cannot be empty".to_string())
+                    } else {
+                        Ok(())
+                    }
+                });
+            }
+            "integer" => {
+                prompt = prompt.validate_with(|input: &String| -> Result<(), String> {
+                    input
+                        .parse::<i64>()
+                        .map(|_| ())
+                        .map_err(|_| "Must be an integer".to_string())
+                });
+            }
+            "path_exists" => {
+                prompt = prompt.validate_with(|input: &String| -> Result<(), String> {
+                    if Path::new(input).exists() {
+                        Ok(())
+                    } else {
+                        Err("Path does not exist".to_string())
+                    }
+                });
+            }
+            "url" => {
+                prompt = prompt.validate_with(|input: &String| -> Result<(), String> {
+                    if input.starts_with("http://") || input.starts_with("https://") {
+                        Ok(())
+                    } else {
+                        Err("Must be a valid URL (http:// or https://)".to_string())
+                    }
+                });
+            }
+            _ => {}
+        }
+    }
+
+    prompt.interact_text().context("reading user input")
+}
+
+fn handle_confirm(message: &str, default: bool) -> Result<bool> {
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    dialoguer::Confirm::with_theme(&theme)
+        .with_prompt(message)
+        .default(default)
+        .interact()
+        .context("reading confirmation")
+}
+
+fn handle_select(message: &str, options: &[String], default: Option<usize>) -> Result<String> {
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    let mut select = dialoguer::Select::with_theme(&theme)
+        .with_prompt(message)
+        .items(options);
+
+    if let Some(d) = default {
+        select = select.default(d);
+    }
+
+    let idx = select.interact().context("reading selection")?;
+    Ok(options[idx].clone())
+}
+
+fn handle_multi_select(
+    message: &str,
+    options: &[String],
+    defaults: Option<&[usize]>,
+) -> Result<Vec<String>> {
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    let mut select = dialoguer::MultiSelect::with_theme(&theme)
+        .with_prompt(message)
+        .items(options);
+
+    if let Some(d) = defaults {
+        let bools: Vec<bool> = (0..options.len()).map(|i| d.contains(&i)).collect();
+        select = select.defaults(&bools);
+    }
+
+    let indices = select.interact().context("reading multi-selection")?;
+    Ok(indices.into_iter().map(|i| options[i].clone()).collect())
+}
+
+fn handle_progress(
+    bar: &mut Option<ProgressBar>,
+    plugin_name: &str,
+    message: Option<&str>,
+    current: Option<u64>,
+    total: Option<u64>,
+    done: bool,
+) {
+    if done {
+        clear_progress(bar);
+        return;
+    }
+
+    let msg = message.unwrap_or("Working");
+
+    match (current, total) {
+        (Some(cur), Some(tot)) => {
+            let pb = bar.get_or_insert_with(|| {
+                let pb = ProgressBar::new(tot);
+                pb.set_style(
+                    ProgressStyle::default_bar()
+                        .template(&format!(
+                            "  {} {{msg}} [{{bar:30}}] {{pos}}/{{len}}",
+                            style("▶").cyan().bold()
+                        ))
+                        .expect("valid bar template")
+                        .progress_chars("==>  "),
+                );
+                pb
+            });
+            pb.set_length(tot);
+            pb.set_position(cur);
+            pb.set_message(format!("{} ({})", msg, plugin_name));
+        }
+        _ => {
+            if bar.is_none() {
+                let sp = ProgressBar::new_spinner();
+                sp.set_style(
+                    ProgressStyle::default_spinner()
+                        .template(&format!(
+                            "  {} {{msg}} {{spinner}}",
+                            style("▶").cyan().bold()
+                        ))
+                        .expect("valid spinner template"),
+                );
+                sp.enable_steady_tick(Duration::from_millis(100));
+                *bar = Some(sp);
+            }
+            if let Some(pb) = bar.as_ref() {
+                pb.set_message(format!("{} ({})", msg, plugin_name));
+            }
+        }
+    }
+}
+
+fn clear_progress(bar: &mut Option<ProgressBar>) {
+    if let Some(pb) = bar.take() {
+        pb.finish_and_clear();
+    }
+}
+
+fn handle_log(plugin_name: &str, level: &str, message: &str) {
+    let prefix = match level {
+        "debug" => style("DEBUG").dim(),
+        "info" => style("INFO").cyan(),
+        "warn" => style("WARN").yellow(),
+        "error" => style("ERROR").red().bold(),
+        _ => style(level).dim(),
+    };
+    eprintln!("  {} [{}] {}", prefix, style(plugin_name).dim(), message);
+}
+
+fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
+    let state_path = plugin_dir.join("state.json");
+    let mut state: HashMap<String, String> = if state_path.exists() {
+        let content = fs::read_to_string(&state_path).unwrap_or_default();
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        HashMap::new()
+    };
+    state.insert(key.to_string(), value.to_string());
+    let json = serde_json::to_string_pretty(&state).context("serializing state")?;
+    fs::write(&state_path, json).context("writing state.json")?;
+    Ok(())
+}
+
+fn handle_load(plugin_dir: &Path, key: &str) -> Result<serde_json::Value> {
+    let state_path = plugin_dir.join("state.json");
+    if !state_path.exists() {
+        return Ok(serde_json::Value::Null);
+    }
+    let content = fs::read_to_string(&state_path).context("reading state.json")?;
+    let state: HashMap<String, String> = serde_json::from_str(&content).unwrap_or_default();
+    match state.get(key) {
+        Some(v) => Ok(serde_json::Value::String(v.clone())),
+        None => Ok(serde_json::Value::Null),
+    }
+}
+
+fn handle_exec(
+    command: &str,
+    cwd: Option<&str>,
+    timeout: Option<u64>,
+    plugin_dir: &Path,
+) -> Result<serde_json::Value> {
+    let project_root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let work_dir = match cwd {
+        Some(dir) => {
+            let resolved = project_root.join(dir);
+            let canonical = resolved.canonicalize().unwrap_or_else(|_| resolved.clone());
+            let canonical_root = project_root
+                .canonicalize()
+                .unwrap_or_else(|_| project_root.clone());
+            let canonical_plugin = plugin_dir
+                .canonicalize()
+                .unwrap_or_else(|_| plugin_dir.to_path_buf());
+
+            if !canonical.starts_with(&canonical_root) && !canonical.starts_with(&canonical_plugin)
+            {
+                return Ok(serde_json::json!({
+                    "code": 1,
+                    "stdout": "",
+                    "stderr": "exec cwd escapes project and plugin directory"
+                }));
+            }
+            canonical
+        }
+        None => project_root.clone(),
+    };
+
+    let timeout_secs = timeout.unwrap_or(30);
+
+    let mut child = Command::new("sh")
+        .args(["-c", command])
+        .current_dir(&work_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("spawning exec command: {command}"))?;
+
+    let result = wait_with_timeout(&mut child, Duration::from_secs(timeout_secs));
+
+    match result {
+        Ok(output) => Ok(serde_json::json!({
+            "code": output.status.code().unwrap_or(1),
+            "stdout": String::from_utf8_lossy(&output.stdout),
+            "stderr": String::from_utf8_lossy(&output.stderr),
+        })),
+        Err(_) => {
+            kill_child(&mut child);
+            Ok(serde_json::json!({
+                "code": 124,
+                "stdout": "",
+                "stderr": format!("command timed out after {}s", timeout_secs)
+            }))
+        }
+    }
+}
+
+fn handle_metadata(keys: &[String]) -> Result<serde_json::Value> {
+    let mut result = serde_json::Map::new();
+
+    for key in keys {
+        match key.as_str() {
+            "fledge_config" => {
+                let config_path = std::env::current_dir()
+                    .unwrap_or_default()
+                    .join("fledge.toml");
+                if config_path.exists() {
+                    if let Ok(content) = fs::read_to_string(&config_path) {
+                        if let Ok(parsed) = content.parse::<toml::Value>() {
+                            result.insert(
+                                key.clone(),
+                                serde_json::to_value(parsed).unwrap_or(serde_json::Value::Null),
+                            );
+                            continue;
+                        }
+                    }
+                }
+                result.insert(key.clone(), serde_json::Value::Null);
+            }
+            "git_tags" => {
+                let tags: Vec<String> = Command::new("git")
+                    .args(["tag", "--sort=-v:refname"])
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .map(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .map(String::from)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                result.insert(
+                    key.clone(),
+                    serde_json::to_value(tags).unwrap_or(serde_json::Value::Null),
+                );
+            }
+            "git_status" => {
+                let files: Vec<String> = Command::new("git")
+                    .args(["status", "--porcelain"])
+                    .output()
+                    .map(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .map(String::from)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                result.insert(
+                    key.clone(),
+                    serde_json::to_value(files).unwrap_or(serde_json::Value::Null),
+                );
+            }
+            "git_log" => {
+                let entries: Vec<String> = Command::new("git")
+                    .args(["log", "--oneline", "-20"])
+                    .output()
+                    .map(|o| {
+                        String::from_utf8_lossy(&o.stdout)
+                            .lines()
+                            .map(String::from)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                result.insert(
+                    key.clone(),
+                    serde_json::to_value(entries).unwrap_or(serde_json::Value::Null),
+                );
+            }
+            "env" => {
+                let safe_vars: HashMap<String, String> = std::env::vars()
+                    .filter(|(k, _)| {
+                        !k.to_lowercase().contains("secret")
+                            && !k.to_lowercase().contains("token")
+                            && !k.to_lowercase().contains("password")
+                            && !k.to_lowercase().contains("key")
+                            && !k.to_lowercase().contains("credential")
+                    })
+                    .collect();
+                result.insert(
+                    key.clone(),
+                    serde_json::to_value(safe_vars).unwrap_or(serde_json::Value::Null),
+                );
+            }
+            _ => {
+                result.insert(key.clone(), serde_json::Value::Null);
+            }
+        }
+    }
+
+    Ok(serde_json::Value::Object(result))
+}
+
+fn detect_project_context() -> Option<ProjectContext> {
+    let root = std::env::current_dir().ok()?;
+
+    let language = crate::run::detect_project_type(&root).to_string();
+
+    let name = root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let git = detect_git_context(&root);
+
+    Some(ProjectContext {
+        name,
+        root: root.to_string_lossy().to_string(),
+        language,
+        git,
+    })
+}
+
+fn detect_git_context(root: &Path) -> Option<GitContext> {
+    let branch = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+
+    let dirty = Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .map(|o| !o.stdout.is_empty())
+        .unwrap_or(false);
+
+    let remote = Command::new("git")
+        .args(["remote"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .next()
+                .unwrap_or("origin")
+                .to_string()
+        })
+        .unwrap_or_else(|| "origin".to_string());
+
+    let remote_url = Command::new("git")
+        .args(["remote", "get-url", &remote])
+        .current_dir(root)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    Some(GitContext {
+        branch,
+        dirty,
+        remote,
+        remote_url,
+    })
+}
+
+fn wait_with_timeout(child: &mut Child, timeout: Duration) -> Result<std::process::Output, ()> {
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                let mut stdout = Vec::new();
+                let mut stderr = Vec::new();
+                if let Some(mut out) = child.stdout.take() {
+                    std::io::Read::read_to_end(&mut out, &mut stdout).ok();
+                }
+                if let Some(mut err) = child.stderr.take() {
+                    std::io::Read::read_to_end(&mut err, &mut stderr).ok();
+                }
+                let status = child
+                    .wait()
+                    .unwrap_or_else(|_| std::process::Command::new("true").status().unwrap());
+                return Ok(std::process::Output {
+                    status,
+                    stdout,
+                    stderr,
+                });
+            }
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    return Err(());
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(_) => return Err(()),
+        }
+    }
+}
+
+fn kill_child(child: &mut Child) {
+    child.kill().ok();
+    child.wait().ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_prompt_message() {
+        let json = r#"{"type":"prompt","id":"1","message":"Deploy target:","default":"staging"}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Prompt {
+                id,
+                message,
+                default,
+                validate,
+            } => {
+                assert_eq!(id, "1");
+                assert_eq!(message, "Deploy target:");
+                assert_eq!(default, Some("staging".to_string()));
+                assert!(validate.is_none());
+            }
+            _ => panic!("expected Prompt"),
+        }
+    }
+
+    #[test]
+    fn parse_confirm_message() {
+        let json = r#"{"type":"confirm","id":"2","message":"Deploy?","default":false}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Confirm {
+                id,
+                message,
+                default,
+            } => {
+                assert_eq!(id, "2");
+                assert_eq!(message, "Deploy?");
+                assert_eq!(default, Some(false));
+            }
+            _ => panic!("expected Confirm"),
+        }
+    }
+
+    #[test]
+    fn parse_select_message() {
+        let json =
+            r#"{"type":"select","id":"3","message":"Choose:","options":["a","b","c"],"default":1}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Select {
+                id,
+                message,
+                options,
+                default,
+            } => {
+                assert_eq!(id, "3");
+                assert_eq!(message, "Choose:");
+                assert_eq!(options, vec!["a", "b", "c"]);
+                assert_eq!(default, Some(1));
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
+    fn parse_multi_select_message() {
+        let json = r#"{"type":"multi_select","id":"4","message":"Pick:","options":["x","y"],"defaults":[0]}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::MultiSelect {
+                id,
+                message,
+                options,
+                defaults,
+            } => {
+                assert_eq!(id, "4");
+                assert_eq!(message, "Pick:");
+                assert_eq!(options, vec!["x", "y"]);
+                assert_eq!(defaults, Some(vec![0]));
+            }
+            _ => panic!("expected MultiSelect"),
+        }
+    }
+
+    #[test]
+    fn parse_progress_message() {
+        let json = r#"{"type":"progress","message":"Uploading","current":3,"total":10}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Progress {
+                message,
+                current,
+                total,
+                done,
+            } => {
+                assert_eq!(message, Some("Uploading".to_string()));
+                assert_eq!(current, Some(3));
+                assert_eq!(total, Some(10));
+                assert_eq!(done, None);
+            }
+            _ => panic!("expected Progress"),
+        }
+    }
+
+    #[test]
+    fn parse_progress_done() {
+        let json = r#"{"type":"progress","done":true}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Progress { done, .. } => {
+                assert_eq!(done, Some(true));
+            }
+            _ => panic!("expected Progress"),
+        }
+    }
+
+    #[test]
+    fn parse_log_message() {
+        let json = r#"{"type":"log","level":"warn","message":"No config found"}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Log { level, message } => {
+                assert_eq!(level, "warn");
+                assert_eq!(message, "No config found");
+            }
+            _ => panic!("expected Log"),
+        }
+    }
+
+    #[test]
+    fn parse_output_message() {
+        let json = r#"{"type":"output","text":"Deployed in 4.2s\n"}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Output { text } => {
+                assert_eq!(text, "Deployed in 4.2s\n");
+            }
+            _ => panic!("expected Output"),
+        }
+    }
+
+    #[test]
+    fn parse_store_message() {
+        let json = r#"{"type":"store","key":"last_target","value":"prod"}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Store { key, value } => {
+                assert_eq!(key, "last_target");
+                assert_eq!(value, "prod");
+            }
+            _ => panic!("expected Store"),
+        }
+    }
+
+    #[test]
+    fn parse_load_message() {
+        let json = r#"{"type":"load","id":"5","key":"last_target"}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Load { id, key } => {
+                assert_eq!(id, "5");
+                assert_eq!(key, "last_target");
+            }
+            _ => panic!("expected Load"),
+        }
+    }
+
+    #[test]
+    fn parse_exec_message() {
+        let json = r#"{"type":"exec","id":"6","command":"git tag -l","timeout":10}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Exec {
+                id,
+                command,
+                cwd,
+                timeout,
+            } => {
+                assert_eq!(id, "6");
+                assert_eq!(command, "git tag -l");
+                assert!(cwd.is_none());
+                assert_eq!(timeout, Some(10));
+            }
+            _ => panic!("expected Exec"),
+        }
+    }
+
+    #[test]
+    fn parse_metadata_message() {
+        let json = r#"{"type":"metadata","id":"7","keys":["git_tags","git_status"]}"#;
+        let msg: OutboundMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            OutboundMessage::Metadata { id, keys } => {
+                assert_eq!(id, "7");
+                assert_eq!(keys, vec!["git_tags", "git_status"]);
+            }
+            _ => panic!("expected Metadata"),
+        }
+    }
+
+    #[test]
+    fn malformed_json_is_rejected() {
+        let json = r#"this is not json"#;
+        let result: Result<OutboundMessage, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unknown_type_is_rejected() {
+        let json = r#"{"type":"unknown_future_type","id":"99"}"#;
+        let result: Result<OutboundMessage, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn store_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        handle_store(tmp.path(), "test_key", "test_value").unwrap();
+        let value = handle_load(tmp.path(), "test_key").unwrap();
+        assert_eq!(value, serde_json::Value::String("test_value".to_string()));
+    }
+
+    #[test]
+    fn load_missing_key_returns_null() {
+        let tmp = tempfile::tempdir().unwrap();
+        let value = handle_load(tmp.path(), "nonexistent").unwrap();
+        assert_eq!(value, serde_json::Value::Null);
+    }
+
+    #[test]
+    fn load_missing_state_file_returns_null() {
+        let tmp = tempfile::tempdir().unwrap();
+        let value = handle_load(tmp.path(), "anything").unwrap();
+        assert_eq!(value, serde_json::Value::Null);
+    }
+
+    #[test]
+    fn store_overwrites_existing() {
+        let tmp = tempfile::tempdir().unwrap();
+        handle_store(tmp.path(), "key", "first").unwrap();
+        handle_store(tmp.path(), "key", "second").unwrap();
+        let value = handle_load(tmp.path(), "key").unwrap();
+        assert_eq!(value, serde_json::Value::String("second".to_string()));
+    }
+
+    #[test]
+    fn store_multiple_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        handle_store(tmp.path(), "a", "1").unwrap();
+        handle_store(tmp.path(), "b", "2").unwrap();
+        assert_eq!(
+            handle_load(tmp.path(), "a").unwrap(),
+            serde_json::Value::String("1".to_string())
+        );
+        assert_eq!(
+            handle_load(tmp.path(), "b").unwrap(),
+            serde_json::Value::String("2".to_string())
+        );
+    }
+
+    #[test]
+    fn init_message_serializes() {
+        let ctx = PluginContext {
+            msg_type: "init",
+            protocol: "fledge-v1",
+            args: vec!["--dry-run".to_string()],
+            project: Some(ProjectContext {
+                name: "test".to_string(),
+                root: "/tmp/test".to_string(),
+                language: "rust".to_string(),
+                git: Some(GitContext {
+                    branch: "main".to_string(),
+                    dirty: false,
+                    remote: "origin".to_string(),
+                    remote_url: "https://github.com/test/test".to_string(),
+                }),
+            }),
+            plugin: PluginInfo {
+                name: "fledge-test".to_string(),
+                version: "0.1.0".to_string(),
+                dir: "/tmp/plugins/fledge-test".to_string(),
+            },
+            fledge: FledgeInfo {
+                version: "0.9.1".to_string(),
+            },
+        };
+        let json = serde_json::to_string(&ctx).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["type"], "init");
+        assert_eq!(parsed["protocol"], "fledge-v1");
+        assert_eq!(parsed["args"][0], "--dry-run");
+        assert_eq!(parsed["project"]["name"], "test");
+        assert_eq!(parsed["project"]["git"]["branch"], "main");
+    }
+
+    #[test]
+    fn response_serializes_correctly() {
+        let resp = InboundResponse {
+            msg_type: "response",
+            id: "42".to_string(),
+            value: serde_json::Value::String("hello".to_string()),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["type"], "response");
+        assert_eq!(parsed["id"], "42");
+        assert_eq!(parsed["value"], "hello");
+    }
+
+    #[test]
+    fn exec_sandbox_blocks_path_escape() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = handle_exec("echo hi", Some("../../.."), None, tmp.path()).unwrap();
+        let code = result["code"].as_i64().unwrap();
+        assert_ne!(code, 0);
+    }
+
+    #[test]
+    fn exec_runs_simple_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = handle_exec("echo hello", None, None, tmp.path()).unwrap();
+        assert_eq!(result["code"].as_i64().unwrap(), 0);
+        assert!(result["stdout"].as_str().unwrap().contains("hello"));
+    }
+
+    #[test]
+    fn metadata_handles_unknown_keys() {
+        let result = handle_metadata(&["nonexistent_key".to_string()]).unwrap();
+        assert_eq!(result["nonexistent_key"], serde_json::Value::Null);
+    }
+}

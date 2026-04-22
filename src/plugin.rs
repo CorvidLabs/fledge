@@ -21,6 +21,7 @@ struct PluginMeta {
     version: String,
     description: Option<String>,
     author: Option<String>,
+    protocol: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -928,6 +929,16 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
             )
         })?;
 
+    if let Some((plugin_name, plugin_version, plugin_dir)) = resolve_protocol_info(name) {
+        return crate::protocol::run_protocol_plugin(
+            &bin_path,
+            args,
+            &plugin_name,
+            &plugin_version,
+            &plugin_dir,
+        );
+    }
+
     let status = Command::new(&bin_path)
         .args(args)
         .status()
@@ -1000,6 +1011,35 @@ fn find_commands_for_plugin(plugin_name: &str) -> Option<Vec<String>> {
         .iter()
         .find(|p| p.name == plugin_name || p.name == format!("fledge-{plugin_name}"))
         .map(|p| p.commands.clone())
+}
+
+fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf)> {
+    let registry = load_registry().ok()?;
+    let entry = registry.plugins.iter().find(|p| {
+        p.name == name || p.name == format!("fledge-{name}") || p.commands.iter().any(|c| c == name)
+    })?;
+
+    let plugin_dir = plugins_dir().join(&entry.name);
+    let manifest_path = plugin_dir.join("plugin.toml");
+    let content = fs::read_to_string(&manifest_path).ok()?;
+    let manifest: PluginManifest = toml::from_str(&content).ok()?;
+
+    match &manifest.plugin.protocol {
+        Some(proto) if proto == "fledge-v1" => {
+            Some((manifest.plugin.name, manifest.plugin.version, plugin_dir))
+        }
+        Some(proto) => {
+            eprintln!(
+                "{} Plugin '{}' requires protocol '{}' which is not supported.\n  Try updating fledge: {}",
+                style("Error:").red().bold(),
+                entry.name,
+                proto,
+                style("cargo install fledge").cyan()
+            );
+            None
+        }
+        None => None,
+    }
 }
 
 fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
