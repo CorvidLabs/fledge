@@ -1101,33 +1101,50 @@ mod tests {
         assert_eq!(result["nonexistent_key"], serde_json::Value::Null);
     }
 
+    fn compile_test_plugin(src: &str, tmp: &Path) -> PathBuf {
+        let src_path = tmp.join("test_plugin.rs");
+        std::fs::write(&src_path, src).unwrap();
+        let bin_name = if cfg!(windows) {
+            "test_plugin.exe"
+        } else {
+            "test_plugin"
+        };
+        let bin_path = tmp.join(bin_name);
+        let output = std::process::Command::new("rustc")
+            .args([src_path.to_str().unwrap(), "-o", bin_path.to_str().unwrap()])
+            .output()
+            .expect("rustc must be available to run plugin tests");
+        assert!(
+            output.status.success(),
+            "rustc failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        bin_path
+    }
+
     #[test]
-    #[cfg(unix)]
-    fn run_protocol_plugin_with_inline_script() {
+    fn run_protocol_plugin_store_load() {
         let tmp = tempfile::tempdir().unwrap();
-        let script_path = tmp.path().join("test-plugin.sh");
-        std::fs::write(
-            &script_path,
-            r#"#!/usr/bin/env bash
-exec 3>&1
-read -r INIT_LINE
-send() { echo "$1" >&3; }
-send '{"type":"log","level":"info","message":"test started"}'
-send '{"type":"store","key":"test_key","value":"test_value"}'
-send '{"type":"load","id":"load1","key":"test_key"}'
-read -r LOAD_RESPONSE
-send '{"type":"output","text":"done"}'
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+    send("{\"type\":\"log\",\"level\":\"info\",\"message\":\"test started\"}");
+    send("{\"type\":\"store\",\"key\":\"test_key\",\"value\":\"test_value\"}");
+    send("{\"type\":\"load\",\"id\":\"load1\",\"key\":\"test_key\"}");
+    let _resp = lines.next().unwrap().unwrap();
+    send("{\"type\":\"output\",\"text\":\"done\\n\"}");
+}
 "#,
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+            tmp.path(),
+        );
         let store_dir = tempfile::tempdir().unwrap();
         let result =
-            super::run_protocol_plugin(&script_path, &[], "test-plugin", "0.1.0", store_dir.path());
+            super::run_protocol_plugin(&bin, &[], "test-plugin", "0.1.0", store_dir.path());
         assert!(result.is_ok(), "protocol plugin failed: {:?}", result.err());
 
         let state_path = store_dir.path().join("state.json");
@@ -1138,5 +1155,237 @@ send '{"type":"output","text":"done"}'
             state.get("test_key").map(|s| s.as_str()),
             Some("test_value")
         );
+    }
+
+    #[test]
+    fn run_protocol_plugin_exec_and_metadata() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    // Test exec: run a simple cross-platform command
+    send("{\"type\":\"exec\",\"id\":\"e1\",\"command\":\"echo hello_from_plugin\"}");
+    let exec_resp = lines.next().unwrap().unwrap();
+    assert!(exec_resp.contains("\"id\":\"e1\""), "response should echo id");
+    assert!(exec_resp.contains("hello_from_plugin"), "exec stdout missing: {}", exec_resp);
+
+    // Test metadata
+    send("{\"type\":\"metadata\",\"id\":\"m1\",\"keys\":[\"env\"]}");
+    let meta_resp = lines.next().unwrap().unwrap();
+    assert!(meta_resp.contains("\"id\":\"m1\""), "metadata response should echo id");
+    assert!(meta_resp.contains("\"env\""), "metadata should contain env key");
+
+    send("{\"type\":\"output\",\"text\":\"exec+metadata ok\\n\"}");
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result = super::run_protocol_plugin(&bin, &[], "test-exec", "0.1.0", store_dir.path());
+        assert!(
+            result.is_ok(),
+            "exec/metadata test failed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn run_protocol_plugin_graceful_exit_no_messages() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead};
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+    // Exit immediately without sending anything
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result = super::run_protocol_plugin(&bin, &[], "test-noop", "0.1.0", store_dir.path());
+        assert!(
+            result.is_ok(),
+            "noop plugin should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn run_protocol_plugin_nonzero_exit_is_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead};
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+    std::process::exit(42);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result = super::run_protocol_plugin(&bin, &[], "test-fail", "0.1.0", store_dir.path());
+        assert!(result.is_err(), "nonzero exit should be an error");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("42"),
+            "error should mention exit code: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn run_protocol_plugin_malformed_json_skipped() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+    // Send garbage — should be skipped, not crash
+    send("this is not json at all");
+    send("{malformed");
+    send("{\"type\":\"unknown_future_type\",\"id\":\"x\"}");
+    // Then send valid messages
+    send("{\"type\":\"store\",\"key\":\"survived\",\"value\":\"yes\"}");
+    send("{\"type\":\"output\",\"text\":\"still alive\\n\"}");
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result =
+            super::run_protocol_plugin(&bin, &[], "test-malformed", "0.1.0", store_dir.path());
+        // Plugin exits 0, malformed lines are skipped
+        assert!(
+            result.is_ok(),
+            "malformed JSON should be skipped: {:?}",
+            result.err()
+        );
+        let state: std::collections::HashMap<String, String> = serde_json::from_str(
+            &std::fs::read_to_string(store_dir.path().join("state.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(state.get("survived").map(|s| s.as_str()), Some("yes"));
+    }
+
+    #[test]
+    fn run_protocol_plugin_multiple_store_load_cycles() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    // Store multiple keys
+    send("{\"type\":\"store\",\"key\":\"a\",\"value\":\"1\"}");
+    send("{\"type\":\"store\",\"key\":\"b\",\"value\":\"2\"}");
+    send("{\"type\":\"store\",\"key\":\"a\",\"value\":\"3\"}");
+
+    // Load them back and verify via string matching
+    send("{\"type\":\"load\",\"id\":\"la\",\"key\":\"a\"}");
+    let resp_a = lines.next().unwrap().unwrap();
+    assert!(resp_a.contains("\"id\":\"la\""), "response should echo id la");
+    assert!(resp_a.contains("\"3\""), "overwritten value should be 3: {}", resp_a);
+
+    send("{\"type\":\"load\",\"id\":\"lb\",\"key\":\"b\"}");
+    let resp_b = lines.next().unwrap().unwrap();
+    assert!(resp_b.contains("\"2\""), "b should be 2: {}", resp_b);
+
+    // Load nonexistent key — should get null
+    send("{\"type\":\"load\",\"id\":\"lc\",\"key\":\"nonexistent\"}");
+    let resp_c = lines.next().unwrap().unwrap();
+    assert!(resp_c.contains("null"), "missing key should return null: {}", resp_c);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result =
+            super::run_protocol_plugin(&bin, &[], "test-multi-store", "0.1.0", store_dir.path());
+        assert!(
+            result.is_ok(),
+            "multi store/load failed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn run_protocol_plugin_receives_init_context() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let init_line = lines.next().unwrap().unwrap();
+
+    // Verify init message structure via string matching (no serde_json in standalone rustc)
+    assert!(init_line.contains("\"type\":\"init\""), "missing type:init");
+    assert!(init_line.contains("\"protocol\":\"fledge-v1\""), "missing protocol");
+    assert!(init_line.contains("\"plugin\""), "missing plugin field");
+    assert!(init_line.contains("\"fledge\""), "missing fledge field");
+    assert!(init_line.contains("\"name\""), "missing plugin name");
+    assert!(init_line.contains("\"version\""), "missing version");
+
+    send("{\"type\":\"log\",\"level\":\"info\",\"message\":\"init validated\"}");
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result = super::run_protocol_plugin(&bin, &[], "test-init", "0.1.0", store_dir.path());
+        assert!(
+            result.is_ok(),
+            "init context test failed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn run_protocol_plugin_exec_sandbox_blocks_escape() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = compile_test_plugin(
+            r#"
+use std::io::{self, BufRead, Write};
+fn send(msg: &str) { println!("{}", msg); io::stdout().flush().unwrap(); }
+fn main() {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let _init = lines.next().unwrap().unwrap();
+
+    // Try to escape sandbox with path traversal
+    send("{\"type\":\"exec\",\"id\":\"e1\",\"command\":\"echo pwned\",\"cwd\":\"../../..\"}");
+    let resp = lines.next().unwrap().unwrap();
+    // Sandbox should block — response should NOT contain "code\":0" (or code:0)
+    let blocked = !resp.contains("\"code\":0");
+    assert!(blocked, "sandbox escape should be blocked: {}", resp);
+}
+"#,
+            tmp.path(),
+        );
+        let store_dir = tempfile::tempdir().unwrap();
+        let result =
+            super::run_protocol_plugin(&bin, &[], "test-sandbox", "0.1.0", store_dir.path());
+        assert!(result.is_ok(), "sandbox test failed: {:?}", result.err());
     }
 }

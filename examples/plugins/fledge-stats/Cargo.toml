@@ -1,0 +1,9 @@
+[package]
+name = "fledge-stats"
+version = "0.1.0"
+edition = "2021"
+description = "Example fledge plugin — project statistics using the fledge-v1 protocol"
+
+[[bin]]
+name = "fledge-stats"
+path = "src/main.rs"
