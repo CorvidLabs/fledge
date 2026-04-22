@@ -57,17 +57,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
       - name: Generate checksums
         run: |
           cd artifacts
-          for dir in */; do
-            for file in "$dir"*; do
-              filename=$(basename "$file")
-              sha256sum "$file" | sed "s|.*/||" > "${filename}.sha256"
-              cp "$file" "${filename}"
-            done
+          for file in *; do
+            [ -f "$file" ] || continue
+            sha256sum "$file" | sed "s|.*/||" > "${file}.sha256"
           done
-          rm -rf */
           cat *.sha256
       - name: Create release
         uses: softprops/action-gh-release@v2
