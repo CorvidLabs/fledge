@@ -4,7 +4,6 @@ version: 1
 status: active
 files:
   - src/protocol.rs
-  - src/plugin.rs
 
 db_tables: []
 depends_on:
