@@ -144,7 +144,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | Module | What is used |
 |--------|-------------|
 | `init` | `discover_templates()`, `render_template()` |
-| `main` | `discover_templates()` for `fledge list` |
+| `main` | `discover_templates_with_repos()` for `fledge templates list` |
 | `prompts` | `Template`, `PromptDef` types |
 
 ## Change Log

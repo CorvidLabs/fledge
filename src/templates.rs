@@ -78,9 +78,6 @@ pub struct FileRules {
     #[serde(default)]
     pub render: Vec<String>,
     #[serde(default)]
-    #[allow(dead_code)]
-    pub copy: Vec<String>,
-    #[serde(default)]
     pub ignore: Vec<String>,
 }
 

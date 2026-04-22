@@ -50,7 +50,7 @@ Validates fledge template directories for correctness before publishing or use. 
 ### Scenario: Valid template passes
 ```
 Given a directory with a valid template.toml and matching files
-When the user runs `fledge validate-template ./my-template`
+When the user runs `fledge templates validate ./my-template`
 Then a green checkmark and "valid" are shown
 And exit code is 0
 ```
@@ -58,7 +58,7 @@ And exit code is 0
 ### Scenario: Batch validation
 ```
 Given a directory containing multiple template subdirectories
-When the user runs `fledge validate-template ./templates`
+When the user runs `fledge templates validate ./templates`
 Then each template is validated independently
 And a summary line shows total templates, errors, and warnings
 ```
@@ -66,28 +66,28 @@ And a summary line shows total templates, errors, and warnings
 ### Scenario: Strict mode
 ```
 Given a template with warnings but no errors
-When the user runs `fledge validate-template ./my-template --strict`
+When the user runs `fledge templates validate ./my-template --strict`
 Then exit code is non-zero
 ```
 
 ### Scenario: JSON output
 ```
 Given any template directory
-When the user runs `fledge validate-template ./my-template --json`
+When the user runs `fledge templates validate ./my-template --json`
 Then output is a JSON array of ValidationReport objects
 ```
 
 ### Scenario: Broken Tera syntax
 ```
 Given a template with a file containing `{{ broken unclosed`
-When the user runs `fledge validate-template ./my-template`
+When the user runs `fledge templates validate ./my-template`
 Then the file is reported with a Tera syntax error
 ```
 
 ### Scenario: Undefined variable
 ```
 Given a rendered file using `{{ custom_var }}` with no matching prompt
-When the user runs `fledge validate-template ./my-template`
+When the user runs `fledge templates validate ./my-template`
 Then a warning is shown: "uses undefined variable 'custom_var'"
 ```
 
