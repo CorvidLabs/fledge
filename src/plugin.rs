@@ -1518,7 +1518,7 @@ fn publish_plugin(
         }
     } else {
         let sp = crate::spinner::Spinner::start("Creating repository:");
-        crate::publish::create_github_repo(repo_name, desc, private, Some(&owner), &token)?;
+        crate::publish::create_github_repo(repo_name, desc, private, org, &token)?;
         sp.finish();
         println!(
             "  {} Created repository {}/{}",

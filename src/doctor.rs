@@ -167,6 +167,7 @@ fn check_tool(name: &str, version_args: &[&str], fix: &str) -> CheckResult {
             Ok(None) => {
                 if start.elapsed() > timeout {
                     let _ = child.kill();
+                    let _ = child.wait();
                     return CheckResult {
                         name: name.to_string(),
                         status: CheckStatus::Error,

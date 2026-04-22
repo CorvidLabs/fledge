@@ -455,7 +455,7 @@ fn is_test_file(rel_path: &str, project_type: &str) -> bool {
         "go" => file_name.ends_with("_test.go"),
         "python" => file_name.starts_with("test_") || file_name.ends_with("_test.py"),
         "ruby" => file_name.ends_with("_test.rb") || file_name.ends_with("_spec.rb"),
-        "java" | "gradle" | "maven" => {
+        "java-gradle" | "java-maven" => {
             file_name.ends_with("Test.java") || file_name.ends_with("Tests.java")
         }
         _ => false,
@@ -554,6 +554,13 @@ mod tests {
         assert!(is_test_file("foo_test.py", "python"));
         assert!(is_test_file("tests/test_bar.py", "python"));
         assert!(!is_test_file("foo.py", "python"));
+    }
+
+    #[test]
+    fn is_test_file_java() {
+        assert!(is_test_file("src/test/java/FooTest.java", "java-gradle"));
+        assert!(is_test_file("src/test/java/FooTests.java", "java-maven"));
+        assert!(!is_test_file("src/main/java/Foo.java", "java-gradle"));
     }
 
     #[test]
