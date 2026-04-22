@@ -1102,18 +1102,34 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(target_os = "windows", ignore = "example plugin is a bash script")]
-    fn run_protocol_plugin_with_example_script() {
-        let script = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("examples/fledge-hello/test-noninteractive.sh");
-        if !script.exists() {
-            return;
-        }
+    fn run_protocol_plugin_with_inline_script() {
         let tmp = tempfile::tempdir().unwrap();
-        let result = super::run_protocol_plugin(&script, &[], "fledge-hello", "0.1.0", tmp.path());
+        let script_path = tmp.path().join("test-plugin.sh");
+        std::fs::write(
+            &script_path,
+            r#"#!/usr/bin/env bash
+exec 3>&1
+read -r INIT_LINE
+send() { echo "$1" >&3; }
+send '{"type":"log","level":"info","message":"test started"}'
+send '{"type":"store","key":"test_key","value":"test_value"}'
+send '{"type":"load","key":"test_key"}'
+read -r LOAD_RESPONSE
+send '{"type":"output","text":"done"}'
+"#,
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let store_dir = tempfile::tempdir().unwrap();
+        let result =
+            super::run_protocol_plugin(&script_path, &[], "test-plugin", "0.1.0", store_dir.path());
         assert!(result.is_ok(), "protocol plugin failed: {:?}", result.err());
 
-        let state_path = tmp.path().join("state.json");
+        let state_path = store_dir.path().join("state.json");
         assert!(state_path.exists(), "store should have created state.json");
         let state: std::collections::HashMap<String, String> =
             serde_json::from_str(&std::fs::read_to_string(&state_path).unwrap()).unwrap();
