@@ -1,0 +1,10 @@
+[source]
+template = "rust-cli"
+fledge_version = "0.8.0"
+created = "2026-04-22"
+
+[variables]
+project_name = "fledge"
+description = "Dev-lifecycle CLI — scaffolding, task running, code review, and the full dev loop from init to changelog"
+
+[files]
