@@ -174,6 +174,20 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
     Ok(())
 }
 
+fn apply_git_auth(cmd: &mut Command) {
+    let config = crate::config::Config::load().ok();
+    let token = config.as_ref().and_then(|c| c.github_token());
+    if let Some(ref t) = token {
+        use base64::Engine;
+        let credentials = format!("x-access-token:{}", t);
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
+        let header_value = format!("Authorization: Basic {}", encoded);
+        cmd.env("GIT_CONFIG_COUNT", "1")
+            .env("GIT_CONFIG_KEY_0", "http.extraheader")
+            .env("GIT_CONFIG_VALUE_0", &header_value);
+    }
+}
+
 fn plugins_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(std::env::temp_dir)
@@ -459,13 +473,14 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     }
     clone_args.push(&url);
 
-    let status = Command::new("git")
-        .args(&clone_args)
+    let mut cmd = Command::new("git");
+    cmd.args(&clone_args)
         .arg(&plugin_dir)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .status()
-        .context("running git clone")?;
+        .stderr(std::process::Stdio::piped());
+    apply_git_auth(&mut cmd);
+
+    let status = cmd.status().context("running git clone")?;
 
     sp.finish();
 
@@ -662,11 +677,14 @@ fn update_plugins(name: Option<&str>) -> Result<()> {
 
         let sp = crate::spinner::Spinner::start(&format!("Updating {}:", &entry.name));
 
-        let status = Command::new("git")
-            .args(["pull", "--ff-only"])
+        let mut cmd = Command::new("git");
+        cmd.args(["pull", "--ff-only"])
             .current_dir(&plugin_dir)
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        apply_git_auth(&mut cmd);
+
+        let status = cmd
             .status()
             .with_context(|| format!("updating {}", entry.name))?;
 
@@ -721,13 +739,14 @@ fn update_plugins(name: Option<&str>) -> Result<()> {
 }
 
 fn find_latest_tag(repo_dir: &Path) -> Option<String> {
-    Command::new("git")
-        .args(["fetch", "--tags"])
+    let mut cmd = Command::new("git");
+    cmd.args(["fetch", "--tags"])
         .current_dir(repo_dir)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .ok();
+        .stderr(std::process::Stdio::null());
+    apply_git_auth(&mut cmd);
+
+    cmd.status().ok();
     let output = Command::new("git")
         .args(["tag", "--sort=-v:refname"])
         .current_dir(repo_dir)
