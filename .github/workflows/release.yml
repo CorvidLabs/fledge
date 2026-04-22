@@ -64,7 +64,7 @@ jobs:
             for file in "$dir"*; do
               filename=$(basename "$file")
               sha256sum "$file" | sed "s|.*/||" > "${filename}.sha256"
-              mv "$file" .
+              cp "$file" "${filename}"
             done
           done
           rm -rf */
