@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-21
+
 ### Added
 
+- `fledge lane` — composable workflow pipelines with sequential, parallel, and inline steps
+- `fledge lane --init` — auto-generate lanes for your project type
+- `fledge plugin` — plugin architecture (install, remove, list, search, run) via GitHub repos
+- `fledge validate-template` — validate templates for correctness with `--strict` and `--json` output
+- `fledge run` zero-config mode — auto-detects project type and runs tasks without `fledge.toml`
+- Community lane registry — search and import lanes from GitHub
+- `fledge.toml` in the repo root — fledge now dogfoods its own CLI for development workflows
+- "Using Fledge with Existing Projects" documentation guide
 - Step timing for lanes — each step shows elapsed time, lane summary shows total time
 - Plugin lifecycle hooks — `pre_init`, `post_work_start`, `pre_pr` fire at fledge lifecycle events
 - Parallel lane steps accept inline commands alongside task references
@@ -19,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Security**: path traversal in template rendering — malicious templates can no longer write outside the project directory
 - **Security**: GitHub token no longer leaked via process table — auth passed via environment variables instead of CLI args
 - **Security**: config files now enforce 0600 permissions on both new and pre-existing files
 - **Security**: plugin binary path traversal hardened — both plugin dir and binary path are canonicalized before comparison
@@ -27,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security**: post-create hooks always require confirmation regardless of template source (use `--yes` to skip in CI)
 - **Security**: template requirement checker rejects tool names starting with `-` to prevent `which` false positives
 - **Security**: replaced hand-rolled base64 with audited `base64` crate
+- CLI reference examples now use correct built-in template names
 - CLI Reference: added missing `--author` and `--org` flags for `fledge init`
 - CLI Reference: added missing `--description`, `--render-patterns`, `--hooks`, `--prompts`, `--yes` flags for `fledge create-template`
 - CLI Reference: corrected `--type` to `--branch-type` for `fledge work start` (matching actual flag name)
@@ -39,34 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking**: `fledge lane` now uses subcommands — `fledge lane run <name>` replaces `fledge lane <name>`, `fledge lane list` replaces `fledge lane --list`, etc.
 - **Breaking**: post-create hooks now always prompt for confirmation (pass `--yes` to auto-approve for CI/scripts)
 - **Breaking**: `fledge plugin install` now requires confirmation before cloning (pass `--force` to skip for CI/scripts)
 - **Breaking**: hook execution uses direct process invocation instead of shell — pipes, redirects, and shell expansions in hook commands are no longer supported; use a wrapper script instead
-
-## [1.0.0] - 2026-04-20
-
-### Added
-
-- `fledge lane` - composable workflow pipelines with sequential, parallel, and inline steps
-- `fledge lane --init` - auto-generate lanes for your project type
-- `fledge plugin` - plugin architecture (install, remove, list, search, run) via GitHub repos
-- `fledge validate-template` - validate templates for correctness with `--strict` and `--json` output
-- `fledge run` zero-config mode - auto-detects project type and runs tasks without `fledge.toml`
-- Community lane registry - search and import lanes from GitHub
-- `fledge.toml` in the repo root - fledge now dogfoods its own CLI for development workflows
-- "Using Fledge with Existing Projects" documentation guide
-
-### Fixed
-
-- **Security**: path traversal in template rendering - malicious templates can no longer write outside the project directory
-- CLI reference examples now use correct built-in template names
-
-### Changed
-
-- **Breaking**: `fledge lane` now uses subcommands — `fledge lane run <name>` replaces `fledge lane <name>`, `fledge lane list` replaces `fledge lane --list`, etc.
 - Full end-to-end dev lifecycle coverage from scaffold to ship
-- Homebrew formula updated to 1.0.0
-- Promoted to 1.0.0 - stable API
+- Homebrew formula updated to 0.9.0
+- CLI commands reorganized: `fledge templates`, `fledge lanes`, `fledge plugins` with subcommands
 
 ## [0.8.0] - 2026-04-19
 
