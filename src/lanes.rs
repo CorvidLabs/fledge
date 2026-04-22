@@ -236,7 +236,7 @@ fn load_lane_config() -> Result<FledgeFileWithLanes> {
         bail!(
             "No lanes defined.\n  Add lanes to fledge.toml, import with {}, or run {} to add defaults.",
             style("fledge lanes import <source>").cyan(),
-            style("fledge lane init").cyan()
+            style("fledge lanes init").cyan()
         );
     }
 
@@ -624,7 +624,16 @@ fn execute_parallel(
         }
 
         for handle in handles {
-            let _ = handle.join();
+            if let Err(panic_val) = handle.join() {
+                let panic_msg = panic_val
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| panic_val.downcast_ref::<String>().map(|s| s.as_str()))
+                    .unwrap_or("unknown panic");
+                if let Ok(mut errs) = errors.lock() {
+                    errs.push(format!("thread panic: {}", panic_msg));
+                }
+            }
         }
     });
 

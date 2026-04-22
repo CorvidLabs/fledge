@@ -83,8 +83,8 @@ pub fn run(opts: ChecksOptions) -> Result<()> {
                 ("⏭️", "skipped".into(), "dim")
             }
             ("completed", Some(c)) => {
-                pending += 1;
-                ("?", c.to_string(), "yellow")
+                failed += 1;
+                ("⚠️", c.to_string(), "yellow")
             }
             _ => {
                 pending += 1;
