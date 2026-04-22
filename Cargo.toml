@@ -8,7 +8,7 @@ readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/CorvidLabs/fledge"
 repository = "https://github.com/CorvidLabs/fledge"
-rust-version = "1.85"
+rust-version = "1.89"
 keywords = ["cli", "scaffold", "template", "task-runner", "dev-tools"]
 categories = ["command-line-utilities", "development-tools"]
 
