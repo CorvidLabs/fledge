@@ -18,6 +18,7 @@ mod lanes;
 mod metrics;
 mod plugin;
 mod prompts;
+mod protocol;
 mod prs;
 mod publish;
 mod release;

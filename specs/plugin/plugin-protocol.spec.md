@@ -1,9 +1,9 @@
 ---
-module: plugin
+module: plugin-protocol
 version: 1
-status: draft
+status: active
 files:
-  - src/plugin.rs
+  - src/protocol.rs
 
 db_tables: []
 depends_on:
@@ -25,14 +25,14 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 | Export | Description |
 |--------|-------------|
 | `run_protocol_plugin` | Spawn a plugin in protocol mode, handling JSON-lines communication |
-| `ProtocolMessage` | Enum of all inbound/outbound message types |
+| `OutboundMessage` | Enum of all outbound (plugin → fledge) message types |
 | `PluginContext` | Init context sent to the plugin on startup |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `ProtocolMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
+| `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
 | `PluginContext` | Project info, git state, args, fledge version — sent in `init` message |
 | `ExecResult` | Shell command result: exit code, stdout, stderr |
 | `PluginStorage` | Key-value store backed by `state.json` |
