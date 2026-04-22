@@ -7,7 +7,7 @@ Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, ru
 Already have tasks in `fledge.toml`? Generate lanes automatically:
 
 ```bash
-fledge lane --init
+fledge lanes init
 ```
 
 This looks at your project type and creates sensible defaults. Then just run one:
@@ -201,7 +201,7 @@ steps = [
 
 ## Auto-Generated Defaults
 
-`fledge lane --init` detects your project type:
+`fledge lanes init` detects your project type:
 
 | Project | How it's detected | What you get |
 |---------|------------------|-------------|
@@ -213,15 +213,21 @@ steps = [
 ## CLI
 
 ```bash
-fledge lane              # list lanes (same as fledge lane list)
-fledge lane run ci       # run one
-fledge lane run ci --dry-run # preview the plan
-fledge lane init         # generate defaults
-fledge lane list --json
-fledge lane search              # find community lanes
-fledge lane search rust         # search with keyword
-fledge lane import owner/repo   # import lanes from GitHub
-fledge lane import owner/repo@v1.0.0  # pin to a version
+fledge lane ci                        # run a lane (shortcut)
+fledge lanes run ci                   # same thing, explicit
+fledge lanes run ci --dry-run         # preview the plan
+fledge lanes list                     # list lanes
+fledge lanes list --json
+fledge lanes init                     # generate defaults
+fledge lanes search                   # find community lanes
+fledge lanes search rust              # search with keyword
+fledge lanes import owner/repo        # import lanes from GitHub
+fledge lanes import owner/repo@v1.0.0 # pin to a version
+fledge lanes publish --org MyOrg      # publish lanes to GitHub
+fledge lanes create my-lanes          # scaffold a new lane repo
+fledge lanes validate                 # validate lane definitions
+fledge lanes validate --strict        # treat warnings as errors
+fledge lanes validate --json          # machine-readable output
 ```
 
 ## Community Lane Registry
@@ -239,11 +245,27 @@ Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are disc
 | Node/TypeScript | `fledge lane import CorvidLabs/fledge-lanes/node-typescript` |
 | Go | `fledge lane import CorvidLabs/fledge-lanes/go` |
 
+### Creating Lanes
+
+Use `fledge lanes create` to scaffold a ready-to-publish lane repo:
+
+```bash
+fledge lanes create my-lanes
+```
+
+This creates a directory with a starter `fledge.toml` containing example tasks and lanes, a README, and a `.gitignore`. Edit the lanes, then validate and publish:
+
+```bash
+fledge lanes validate ./my-lanes     # check for errors
+fledge lanes publish ./my-lanes      # push to GitHub (validates first)
+```
+
 ### Publishing Lanes
 
-1. Create a repo with a `fledge.toml` containing your lanes and tasks
-2. Add the `fledge-lane` topic to the repo on GitHub
-3. Others can find it with `fledge lane search` and import it
+1. Create a repo with a `fledge.toml` containing your lanes and tasks (or use `fledge lanes create`)
+2. Validate with `fledge lanes validate` (publish does this automatically)
+3. Publish with `fledge lanes publish` — sets the `fledge-lane` topic automatically
+4. Others can find it with `fledge lane search` and import it
 
 ### Importing Lanes
 

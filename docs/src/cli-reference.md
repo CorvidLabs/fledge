@@ -195,7 +195,7 @@ fledge run build         # run a specific task
 Run workflow pipelines. Lanes chain tasks with parallel groups and failure control.
 
 ```
-fledge lane <run|list|init|search|import>
+fledge lanes <run|list|init|search|import|publish|create|validate>
 ```
 
 **Subcommands:**
@@ -203,8 +203,13 @@ fledge lane <run|list|init|search|import>
 - `run <name>` - Run a lane by name (`--dry-run` to preview)
 - `list` - List available lanes (`--json` for JSON output)
 - `init` - Add default lanes to `fledge.toml`
-- `search [query]` - Search GitHub for community lanes (`--json` for JSON output)
+- `search [query]` - Search GitHub for community lanes (`--author`, `--json`)
 - `import <source>` - Import lanes from a GitHub repo (owner/repo or owner/repo@ref)
+- `publish [path]` - Publish lanes to GitHub (`--org`, `--private`, `--description`)
+- `create <name>` - Scaffold a new lane repo (`--output`, `--description`, `--yes`)
+- `validate [path]` - Validate lane definitions in fledge.toml (`--strict`, `--json`)
+
+**Shortcut:** `fledge lane ci` is equivalent to `fledge lanes run ci`.
 
 **Lane config in fledge.toml:**
 
@@ -237,14 +242,21 @@ steps = [
 | Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
 ```bash
-fledge lane
-fledge lane run ci
-fledge lane run ci --dry-run
-fledge lane list
-fledge lane init
-fledge lane search
-fledge lane search rust
-fledge lane import CorvidLabs/fledge-lanes
+fledge lane ci                # run a lane (shortcut)
+fledge lanes run ci           # same thing, explicit
+fledge lanes run ci --dry-run
+fledge lanes list
+fledge lanes list --json
+fledge lanes init
+fledge lanes search
+fledge lanes search rust
+fledge lanes import CorvidLabs/fledge-lanes
+fledge lanes publish --org MyOrg
+fledge lanes create my-lanes
+fledge lanes create my-lanes --yes --description "My CI lanes"
+fledge lanes validate
+fledge lanes validate ./my-lanes --strict
+fledge lanes validate --json
 ```
 
 ---
@@ -519,7 +531,7 @@ fledge changelog --tag v0.7.0
 Install, manage, and run community plugins.
 
 ```
-fledge plugin <install|remove|list|search|run> [OPTIONS]
+fledge plugins <install|remove|update|list|search|run|publish|create|validate> [OPTIONS]
 ```
 
 **Subcommands:**
@@ -528,8 +540,11 @@ fledge plugin <install|remove|list|search|run> [OPTIONS]
 - `remove <name>` - Uninstall a plugin
 - `update [name]` - Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
 - `list` - Show installed plugins (includes pinned version info)
-- `search [query]` - Find plugins on GitHub (`--limit`)
+- `search [query]` - Find plugins on GitHub (`--author`, `--limit`)
 - `run <name> [args...]` - Run a plugin command
+- `publish [path]` - Publish a plugin to GitHub (`--org`, `--private`, `--description`)
+- `create <name>` - Scaffold a new plugin (`--output`, `--description`, `--yes`)
+- `validate [path]` - Validate a plugin manifest (`--strict`, `--json`)
 
 `--json` works with `list` and `search`.
 
@@ -553,12 +568,18 @@ post_install = "echo 'Deploy plugin ready'"
 ```
 
 ```bash
-fledge plugin install someone/fledge-deploy
-fledge plugin install someone/fledge-deploy@v1.2.0   # pin to version
-fledge plugin update                                   # update all
-fledge plugin list
-fledge plugin search deploy
-fledge plugin remove fledge-deploy
+fledge plugins install someone/fledge-deploy
+fledge plugins install someone/fledge-deploy@v1.2.0   # pin to version
+fledge plugins update                                   # update all
+fledge plugins list
+fledge plugins search deploy
+fledge plugins remove fledge-deploy
+fledge plugins publish --org MyOrg
+fledge plugins create my-tool
+fledge plugins create my-tool --yes --description "My deploy tool"
+fledge plugins validate
+fledge plugins validate ./my-tool --strict
+fledge plugins validate --json
 ```
 
 ---

@@ -535,6 +535,32 @@ enum LaneSubcommand {
         #[arg(long)]
         description: Option<String>,
     },
+    /// Scaffold a new lane repo
+    Create {
+        /// Lane repo name
+        name: String,
+        /// Parent directory
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        /// Description (bypasses prompt)
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Skip all interactive prompts
+        #[arg(short, long)]
+        yes: bool,
+    },
+    /// Validate lane definitions in fledge.toml
+    Validate {
+        /// Path to a directory containing fledge.toml
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     #[command(external_subcommand)]
     External(Vec<String>),
 }
@@ -594,6 +620,32 @@ enum PluginSubcommand {
         /// Override the repository description
         #[arg(long)]
         description: Option<String>,
+    },
+    /// Scaffold a new plugin
+    Create {
+        /// Plugin name
+        name: String,
+        /// Parent directory
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        /// Description (bypasses prompt)
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Skip all interactive prompts
+        #[arg(short, long)]
+        yes: bool,
+    },
+    /// Validate a plugin manifest
+    Validate {
+        /// Path to a directory containing plugin.toml
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -729,6 +781,20 @@ fn run() -> Result<()> {
                     private,
                     description,
                 },
+                LaneSubcommand::Create {
+                    name,
+                    output,
+                    description,
+                    yes,
+                } => lanes::LaneAction::Create {
+                    name,
+                    output,
+                    description,
+                    yes,
+                },
+                LaneSubcommand::Validate { path, strict, json } => {
+                    lanes::LaneAction::Validate { path, strict, json }
+                }
                 LaneSubcommand::External(args) => {
                     let name = args.first().cloned().unwrap_or_default();
                     let dry_run = args.iter().any(|a| a == "--dry-run");
@@ -808,6 +874,20 @@ fn run() -> Result<()> {
                     private,
                     description,
                 },
+                PluginSubcommand::Create {
+                    name,
+                    output,
+                    description,
+                    yes,
+                } => plugin::PluginAction::Create {
+                    name,
+                    output,
+                    description,
+                    yes,
+                },
+                PluginSubcommand::Validate { path, strict, json } => {
+                    plugin::PluginAction::Validate { path, strict, json }
+                }
             };
             plugin::run(plugin::PluginOptions { action, json })?;
         }

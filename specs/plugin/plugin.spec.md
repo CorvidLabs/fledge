@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 6
+version: 7
 status: active
 files:
   - src/plugin.rs
@@ -26,7 +26,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `run` | Entry point — install, list, remove, or run plugins |
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
-| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run |
+| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate |
 | `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
@@ -36,7 +36,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | Type | Description |
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
-| `PluginAction` | Enum: Install, Remove, Update, List, Search, Run |
+| `PluginAction` | Enum: Install, Remove, Update, List, Search, Run, Publish, Create, Validate |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
@@ -189,6 +189,25 @@ $ fledge plugin install someone/fledge-deploy@v1.2.0
 $ fledge plugin update fledge-deploy
   * fledge-deploy — pinned to v1.2.0, latest tag is v1.3.0. To upgrade:
     fledge plugin install someone/fledge-deploy@v1.3.0 --force
+
+# Scaffold a new plugin
+$ fledge plugins create my-tool
+✅ Created plugin at ./my-tool
+
+# Validate a plugin
+$ fledge plugins validate ./my-tool
+✅ my-tool — valid
+
+# Validate with strict mode
+$ fledge plugins validate --strict
+my-tool
+  warn: plugin.author is not set
+Validation failed
+
+# Publish runs validation first
+$ fledge plugins publish
+✅ my-tool — valid
+➡️ Publishing plugin ./my-tool as owner/my-tool
 ```
 
 ## Error Cases
@@ -203,6 +222,12 @@ $ fledge plugin update fledge-deploy
 | Build failed | build hook or auto-detect build fails | Error with toolchain suggestion |
 | Ref not found | `@ref` doesn't exist in repo | Error with `git ls-remote` hint |
 | Permission denied | Binary not executable | Error with guidance |
+| Create dir exists | `create` target directory already exists | Error |
+| Validate no plugin.toml | `validate` path missing plugin.toml | Error |
+| Validate empty name | `plugin.name` is empty string | Validation error |
+| Validate empty version | `plugin.version` is empty string | Validation error |
+| Validate missing binary | Command binary doesn't exist and no build hook | Validation error |
+| Validate missing binary (build) | Command binary doesn't exist but build hook defined | Validation warning |
 
 ## Dependencies
 
@@ -213,6 +238,7 @@ $ fledge plugin update fledge-deploy
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 6 | 2026-04-21 | Fix: add missing Update variant to exported functions table |
 | 5 | 2026-04-21 | Add lifecycle hooks: pre_init, post_work_start, pre_pr — run across all installed plugins |
 | 4 | 2026-04-21 | Add version pinning with @ref syntax, pinned_ref in registry, smart update for pinned plugins |
