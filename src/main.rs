@@ -29,8 +29,6 @@ mod search;
 mod spec;
 mod spinner;
 mod templates;
-#[cfg(feature = "tui")]
-mod tui;
 mod update;
 mod utils;
 mod validate;
@@ -242,16 +240,6 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-    },
-    /// Interactive TUI dashboard — browse and run all fledge commands (requires --features tui)
-    #[cfg(feature = "tui")]
-    Tui {
-        /// Parent directory for template scaffolding
-        #[arg(short, long, default_value = ".")]
-        output: PathBuf,
-        /// Skip git init for template scaffolding
-        #[arg(long)]
-        no_git: bool,
     },
     #[command(external_subcommand)]
     External(Vec<String>),
@@ -855,10 +843,6 @@ fn run() -> Result<()> {
                     &mut std::io::stdout(),
                 );
             }
-        }
-        #[cfg(feature = "tui")]
-        Commands::Tui { output, no_git } => {
-            tui::run(output, no_git)?;
         }
         Commands::External(args) => {
             let cmd_name = args.first().ok_or_else(|| {

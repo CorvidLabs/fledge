@@ -40,7 +40,6 @@ cargo fmt --check
 - `src/metrics.rs` — Code metrics (LOC, churn, test ratio)
 - `src/plugin.rs` — Plugin system for community extensions
 - `src/validate.rs` — Template validation
-- `src/tui.rs` — Interactive template browser (feature-gated)
 - `src/doctor.rs` — Environment diagnostics
 - `specs/` — spec-sync specifications (source of truth)
 - `templates/` — Built-in project templates

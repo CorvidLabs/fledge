@@ -31,7 +31,6 @@ depends_on:
   - spec
   - spinner
   - templates
-  - tui
   - update
   - validate
   - versioning

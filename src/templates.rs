@@ -78,7 +78,7 @@ pub struct FileRules {
     #[serde(default)]
     pub render: Vec<String>,
     #[serde(default)]
-    #[cfg_attr(not(feature = "tui"), allow(dead_code))]
+    #[allow(dead_code)]
     pub copy: Vec<String>,
     #[serde(default)]
     pub ignore: Vec<String>,

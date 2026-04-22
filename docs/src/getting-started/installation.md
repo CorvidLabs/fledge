@@ -8,14 +8,6 @@ Fastest way to get going:
 cargo install fledge
 ```
 
-## With TUI Support
-
-Want an interactive template browser? Install with the `tui` feature:
-
-```bash
-cargo install fledge --features tui
-```
-
 ## Homebrew
 
 ```bash

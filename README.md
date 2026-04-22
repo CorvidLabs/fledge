@@ -25,7 +25,6 @@ brew install CorvidLabs/tap/fledge # homebrew
 <summary>More install options</summary>
 
 ```bash
-cargo install fledge --features tui   # with TUI browser
 curl -fsSL https://raw.githubusercontent.com/CorvidLabs/fledge/main/install.sh | sh
 nix run github:CorvidLabs/fledge
 git clone https://github.com/CorvidLabs/fledge.git && cd fledge && cargo install --path .
@@ -60,7 +59,7 @@ fledge templates init my-app                         # interactive picker
 | **Develop** | `work`, `spec` | Feature branches, PRs, spec-sync |
 | **Review** | `review`, `ask`, `metrics`, `deps` | AI code review, codebase Q&A, health checks |
 | **Ship** | `issues`, `prs`, `checks`, `changelog`, `release` | GitHub integration, CI status, releases |
-| **Extend** | `plugins`, `completions`, `tui` | Community plugins, shell completions, TUI browser |
+| **Extend** | `plugins`, `completions` | Community plugins, shell completions |
 
 ## Built-in Templates
 
