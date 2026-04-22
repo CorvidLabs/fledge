@@ -85,6 +85,12 @@ pub enum PluginAction {
         name: String,
         args: Vec<String>,
     },
+    Publish {
+        path: PathBuf,
+        org: Option<String>,
+        private: bool,
+        description: Option<String>,
+    },
 }
 
 pub fn run(opts: PluginOptions) -> Result<()> {
@@ -99,6 +105,12 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             limit,
         } => search_plugins(query.as_deref(), author.as_deref(), limit, opts.json),
         PluginAction::Run { name, args } => run_plugin(&name, &args),
+        PluginAction::Publish {
+            path,
+            org,
+            private,
+            description,
+        } => publish_plugin(&path, org.as_deref(), private, description.as_deref()),
     }
 }
 
@@ -1038,6 +1050,104 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
 
 #[cfg(not(unix))]
 fn make_executable(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
+fn publish_plugin(
+    path: &Path,
+    org: Option<&str>,
+    private: bool,
+    description: Option<&str>,
+) -> Result<()> {
+    let config = crate::config::Config::load()?;
+    let token = config.github_token().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No GitHub token configured. Run: fledge config set github.token <your-token>"
+        )
+    })?;
+
+    let path = path
+        .canonicalize()
+        .with_context(|| format!("Directory not found: {}", path.display()))?;
+
+    let manifest_path = path.join("plugin.toml");
+    if !manifest_path.exists() {
+        bail!(
+            "No plugin.toml found in {}. A valid plugin requires a plugin.toml manifest.",
+            path.display()
+        );
+    }
+
+    let content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+    let manifest: PluginManifest = toml::from_str(&content).context("Invalid plugin.toml")?;
+
+    let repo_name = &manifest.plugin.name;
+    let desc = description
+        .or(manifest.plugin.description.as_deref())
+        .unwrap_or("A fledge plugin");
+
+    let owner = match org {
+        Some(o) => o.to_string(),
+        None => crate::publish::get_authenticated_user(&token)?,
+    };
+
+    println!(
+        "{} Publishing plugin {} as {}/{}",
+        style("➡️").cyan().bold(),
+        style(path.display()).dim(),
+        style(&owner).green(),
+        style(repo_name).green()
+    );
+
+    let sp = crate::spinner::Spinner::start("Checking repository:");
+    let repo_exists = crate::publish::check_repo_exists(&owner, repo_name, &token)?;
+    sp.finish();
+
+    if repo_exists {
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!(
+                "Repository {}/{} already exists. Push update?",
+                owner, repo_name
+            ))
+            .default(false)
+            .interact()?;
+
+        if !confirm {
+            println!("{} Cancelled.", style("*").cyan().bold());
+            return Ok(());
+        }
+    } else {
+        let sp = crate::spinner::Spinner::start("Creating repository:");
+        crate::publish::create_github_repo(repo_name, desc, private, Some(&owner), &token)?;
+        sp.finish();
+        println!(
+            "  {} Created repository {}/{}",
+            style("✅").green().bold(),
+            owner,
+            repo_name
+        );
+    }
+
+    let sp = crate::spinner::Spinner::start("Setting repository topics:");
+    crate::publish::set_repo_topic(&owner, repo_name, "fledge-plugin", &token)?;
+    sp.finish();
+    println!(
+        "  {} Set {} topic",
+        style("✅").green().bold(),
+        style("fledge-plugin").cyan()
+    );
+
+    let sp = crate::spinner::Spinner::start("Pushing plugin files:");
+    crate::publish::push_directory(&path, &owner, repo_name, &token)?;
+    sp.finish();
+    println!("  {} Pushed plugin files", style("✅").green().bold());
+
+    println!(
+        "\n{} Published! Install with:\n\n  {}",
+        style("✅").green().bold(),
+        style(format!("fledge plugins install {}/{}", owner, repo_name)).cyan()
+    );
+
     Ok(())
 }
 
