@@ -26,8 +26,8 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 | `SearchResult` | A single matching repository with metadata |
 | `run` | Entry point that queries GitHub and displays matching templates |
 | `full_name` | Method on `SearchResult` returning `owner/repo` string |
-| `build_search_query` | Constructs GitHub search query string with `fledge-template` topic |
-| `search_github` | Executes GitHub search API call and parses results |
+| `build_search_query_ex` | Constructs GitHub search query string with topic, optional author filter |
+| `search_github_ex` | Executes GitHub search API call with extended options and parses results |
 | `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
 | `format_stars` | Formats star count with `k` suffix for thousands |
 | `urlencod` | URL-encodes a string for use in query parameters |
@@ -50,8 +50,8 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 |----------|-----------|-------------|
 | `run` | `(SearchOptions) -> Result<()>` | Search GitHub API for fledge-template repos, display results |
 | `full_name` | `(&self) -> String` | Returns `owner/repo` format string for a `SearchResult` |
-| `build_search_query` | `(keyword: Option<&str>) -> String` | Constructs GitHub search query with `fledge-template` topic filter |
-| `search_github` | `(keyword: Option<&str>, token: Option<&str>, limit: usize) -> Result<Vec<SearchResult>>` | Execute GitHub search API call and parse results |
+| `build_search_query_ex` | `(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String` | Constructs GitHub search query with topic filter and optional author |
+| `search_github_ex` | `(keyword: Option<&str>, author: Option<&str>, token: Option<&str>, limit: usize, topic: &str) -> Result<Vec<SearchResult>>` | Execute GitHub search API call with extended options and parse results |
 | `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parse GitHub API JSON into search results |
 | `format_stars` | `(count: u64) -> String` | Format star count with `k` suffix for thousands |
 | `urlencod` | `(s: &str) -> String` | URL-encode a string for use in query parameters |
