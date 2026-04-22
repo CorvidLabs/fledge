@@ -1,6 +1,6 @@
 [source]
 template = "rust-cli"
-fledge_version = "0.8.0"
+fledge_version = "0.9.1"
 created = "2026-04-21"
 
 [variables]
