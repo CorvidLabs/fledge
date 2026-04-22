@@ -151,7 +151,7 @@ fn load_lane_config() -> Result<FledgeFileWithLanes> {
     }
 
     let content = std::fs::read_to_string(&config_path).context("reading fledge.toml")?;
-    let config: FledgeFileWithLanes = toml::from_str(&content).map_err(|e| {
+    let mut config: FledgeFileWithLanes = toml::from_str(&content).map_err(|e| {
         let msg = e.to_string();
         if msg.contains("lanes") || msg.contains("steps") {
             anyhow::anyhow!(
@@ -166,9 +166,31 @@ fn load_lane_config() -> Result<FledgeFileWithLanes> {
         }
     })?;
 
+    let lanes_dir = project_dir.join(".fledge").join("lanes");
+    if lanes_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&lanes_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_some_and(|e| e == "toml") {
+                    let imported_content = std::fs::read_to_string(&path)
+                        .with_context(|| format!("reading {}", path.display()))?;
+                    let imported: FledgeFileWithLanes = toml::from_str(&imported_content)
+                        .with_context(|| format!("parsing {}", path.display()))?;
+                    for (name, task) in imported.tasks {
+                        config.tasks.entry(name).or_insert(task);
+                    }
+                    for (name, lane) in imported.lanes {
+                        config.lanes.entry(name).or_insert(lane);
+                    }
+                }
+            }
+        }
+    }
+
     if config.lanes.is_empty() {
         bail!(
-            "No lanes defined in fledge.toml.\n  Add a [lanes] section or run {} to add defaults.",
+            "No lanes defined.\n  Add lanes to fledge.toml, import with {}, or run {} to add defaults.",
+            style("fledge lanes import <source>").cyan(),
             style("fledge lane init").cyan()
         );
     }
@@ -808,31 +830,28 @@ fn import_lanes(source: &str) -> Result<()> {
         bail!("Remote repo has no [lanes] defined in fledge.toml.");
     }
 
-    let local_content =
-        std::fs::read_to_string(&local_path).context("reading local fledge.toml")?;
-    let local_config: FledgeFileWithLanes =
-        toml::from_str(&local_content).context("parsing local fledge.toml")?;
+    let existing = load_lane_config()?;
 
     let mut imported_lanes = Vec::new();
-    let mut imported_tasks = Vec::new();
     let mut skipped = Vec::new();
-    let mut append = String::new();
+    let mut import_content = String::new();
+
+    import_content.push_str(&format!("# Imported from {display_source}\n\n"));
 
     for (task_name, task_def) in &remote_config.tasks {
-        if local_config.tasks.contains_key(task_name) {
+        if existing.tasks.contains_key(task_name) {
             continue;
         }
         let cmd = task_def.cmd();
-        append.push_str(&format!("\n[tasks.{task_name}]\ncmd = \"{cmd}\"\n"));
-        imported_tasks.push(task_name.clone());
+        import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{cmd}\"\n\n"));
     }
 
     for (lane_name, lane) in &remote_config.lanes {
-        if local_config.lanes.contains_key(lane_name) {
+        if existing.lanes.contains_key(lane_name) {
             skipped.push(lane_name.clone());
             continue;
         }
-        append.push_str(&format_lane_toml(lane_name, lane));
+        import_content.push_str(&format_lane_toml(lane_name, lane));
         imported_lanes.push(lane_name.clone());
     }
 
@@ -846,8 +865,20 @@ fn import_lanes(source: &str) -> Result<()> {
         return Ok(());
     }
 
-    let new_content = format!("{}{}", local_content.trim_end(), append);
-    std::fs::write(&local_path, new_content).context("writing fledge.toml")?;
+    let lanes_dir = cwd.join(".fledge").join("lanes");
+    std::fs::create_dir_all(&lanes_dir).context("creating .fledge/lanes directory")?;
+
+    let safe_name = format!(
+        "{}-{}{}",
+        owner.to_lowercase(),
+        repo.to_lowercase(),
+        subpath
+            .as_ref()
+            .map(|p| format!("-{}", p.replace('/', "-").to_lowercase()))
+            .unwrap_or_default()
+    );
+    let import_path = lanes_dir.join(format!("{safe_name}.toml"));
+    std::fs::write(&import_path, import_content.trim_start()).context("writing imported lanes")?;
 
     println!(
         "{} Imported {} lane(s) from {}",
@@ -858,14 +889,11 @@ fn import_lanes(source: &str) -> Result<()> {
     for name in &imported_lanes {
         println!("  {} {}", style("+").green(), style(name).cyan());
     }
-    if !imported_tasks.is_empty() {
-        println!(
-            "  {} Also added {} task(s): {}",
-            style("+").green(),
-            imported_tasks.len(),
-            imported_tasks.join(", ")
-        );
-    }
+    println!(
+        "  {} Saved to {}",
+        style("→").dim(),
+        style(format!(".fledge/lanes/{safe_name}.toml")).cyan()
+    );
     if !skipped.is_empty() {
         println!(
             "  {} Skipped (already exist): {}",
@@ -1686,5 +1714,43 @@ steps = ["build"]
     fn format_duration_zero() {
         let d = std::time::Duration::from_millis(0);
         assert_eq!(format_duration(d), "0ms");
+    }
+
+    #[test]
+    fn merge_imported_lanes() {
+        let mut base = parse_config(
+            r#"
+[tasks]
+lint = "cargo clippy"
+
+[lanes.ci]
+steps = ["lint"]
+"#,
+        );
+        let imported = parse_config(
+            r#"
+[tasks]
+lint = "overridden"
+test = "cargo test"
+
+[lanes.ci]
+steps = ["lint", "test"]
+
+[lanes.deploy]
+steps = ["test"]
+"#,
+        );
+
+        for (name, task) in imported.tasks {
+            base.tasks.entry(name).or_insert(task);
+        }
+        for (name, lane) in imported.lanes {
+            base.lanes.entry(name).or_insert(lane);
+        }
+
+        assert_eq!(base.tasks["lint"].cmd(), "cargo clippy");
+        assert_eq!(base.tasks["test"].cmd(), "cargo test");
+        assert_eq!(base.lanes["ci"].steps.len(), 1);
+        assert!(base.lanes.contains_key("deploy"));
     }
 }

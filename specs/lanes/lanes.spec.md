@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 6
+version: 7
 status: active
 files:
   - src/lanes.rs
@@ -17,7 +17,7 @@ depends_on:
 
 ## Purpose
 
-Composable workflow pipelines defined in `fledge.toml`. Lanes chain multiple tasks (and inline commands) into named pipelines with support for parallel execution groups and configurable failure behavior.
+Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lanes chain multiple tasks (and inline commands) into named pipelines with support for parallel execution groups and configurable failure behavior. User-defined lanes live inline in `fledge.toml`; imported lanes are stored in `.fledge/lanes/*.toml`.
 
 ## Public API
 
@@ -97,7 +97,7 @@ steps = ["deps-audit", "license-check", "security-scan"]
 
 ## Invariants
 
-1. Lanes are read from `fledge.toml` alongside tasks
+1. Lanes are loaded from `fledge.toml` and merged with any `.fledge/lanes/*.toml` files; `fledge.toml` definitions take precedence
 2. Each step in a lane is either a task reference (string), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`) — parallel groups accept both task references and inline commands
 3. Task references must resolve to tasks defined in `[tasks]` — unknown references produce an error before execution
 4. Parallel groups spawn threads and collect results; if any thread fails and `fail_fast` is true, remaining steps are skipped
@@ -157,13 +157,13 @@ $ fledge lane search rust
 Community lanes on GitHub:
   user/rust-release-lane   (⭐ 3)   Rust release pipeline with cargo-dist
 
-# Import lanes from a remote repo
+# Import lanes from a remote repo (saves to .fledge/lanes/)
 $ fledge lane import CorvidLabs/fledge-lanes
 ✅ Imported 3 lane(s) from CorvidLabs/fledge-lanes
   + release
   + deploy
   + audit
-  + Also added 2 task(s): package, upload
+  → Saved to .fledge/lanes/corvidlabs-fledge-lanes.toml
   * Skipped (already exist): ci
 
 # Import with version pinning
@@ -196,6 +196,7 @@ $ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-04-21 | Imported lanes stored in `.fledge/lanes/` instead of appending to fledge.toml; lane loading merges both sources |
 | 6 | 2026-04-21 | Add step timing — each step prints elapsed time, lane summary includes total |
 | 5 | 2026-04-21 | Generalize parallel groups to accept inline commands, not just task refs |
 | 4 | 2026-04-21 | Rename from flows to lanes — 1.0 branding |
