@@ -38,7 +38,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `github_org` | Returns the configured GitHub org, if any |
 | `license` | Returns the configured license, defaulting to "MIT" |
 | `extra_template_paths` | Resolves and returns additional template directory paths |
-| `github_token` | Returns GitHub token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN` env var, or config |
+| `github_token` | Returns GitHub token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN` env var, config, or `gh auth token` CLI fallback |
 | `template_repos` | Returns configured remote template repository references |
 | `init_config` | Creates a new config file at the default path, optionally with a named preset |
 
@@ -73,7 +73,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `Config::github_org` | `(&self) -> Option<String>` | GitHub org from config |
 | `Config::license` | `(&self) -> String` | License from config, defaulting to "MIT" |
 | `Config::extra_template_paths` | `(&self) -> Vec<PathBuf>` | Resolves extra template directory paths |
-| `Config::github_token` | `(&self) -> Option<String>` | GitHub token from env vars or config |
+| `Config::github_token` | `(&self) -> Option<String>` | GitHub token from env vars, config, or `gh` CLI |
 | `Config::template_repos` | `(&self) -> &[String]` | Remote template repo references |
 | `init_config` | `(Option<&str>) -> Result<()>` | Create config file, optionally applying a named preset |
 
@@ -197,3 +197,4 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | 2026-04-18 | CorvidAgent | v3: add GitHubConfig, github_token(), template_repos(), templates.repos field |
 | 2026-04-19 | CorvidAgent | v4: add save(), get(), set(), unset() for CLI config management |
 | 2026-04-19 | CorvidAgent | v5: add add_to_list(), remove_from_list(), is_valid_key(); extend get/set/unset for list keys (templates.paths, templates.repos) |
+| 2026-04-22 | CorvidAgent | v6: github_token() now falls back to `gh auth token` CLI when no env var or config is set |

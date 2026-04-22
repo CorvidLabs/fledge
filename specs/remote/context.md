@@ -8,4 +8,4 @@ The remote module enables fledge to fetch templates from GitHub repositories, ex
 
 - `init` checks if the `--template` argument looks like a remote ref and delegates to the remote fetch lane
 - `templates` can fetch repos listed in `config.templates.repos` during discovery
-- Authentication uses the GitHub token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `config.github.token`
+- Authentication uses the GitHub token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN`, `config.github.token`, or `gh auth token` CLI fallback
