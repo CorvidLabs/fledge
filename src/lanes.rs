@@ -771,8 +771,9 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
         .unwrap_or(0);
     for r in &results {
         let stars = crate::search::format_stars(r.stars);
-        let desc = if r.description.len() > 60 {
-            format!("{}...", &r.description[..57])
+        let desc = if r.description.chars().count() > 60 {
+            let truncated: String = r.description.chars().take(57).collect();
+            format!("{truncated}...")
         } else {
             r.description.clone()
         };
@@ -873,7 +874,8 @@ fn import_lanes(source: &str) -> Result<()> {
             continue;
         }
         let cmd = task_def.cmd();
-        import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{cmd}\"\n\n"));
+        let escaped_cmd = cmd.replace('\\', "\\\\").replace('"', "\\\"");
+        import_content.push_str(&format!("[tasks.{task_name}]\ncmd = \"{escaped_cmd}\"\n\n"));
     }
 
     for (lane_name, lane) in &remote_config.lanes {
