@@ -214,10 +214,10 @@ fn classify_commit(msg: &str) -> (String, String) {
                 return (label.to_string(), rest.trim().to_string());
             }
             if let Some(rest) = rest.strip_prefix('(') {
-                if let Some(after_scope) = rest.find("): ") {
+                if let Some(after_scope) = rest.find("):") {
                     return (
                         label.to_string(),
-                        rest[after_scope + 3..].trim().to_string(),
+                        rest[after_scope + 2..].trim().to_string(),
                     );
                 }
             }
@@ -288,5 +288,12 @@ mod tests {
         let (kind, msg) = classify_commit("feat:no space");
         assert_eq!(kind, "Features");
         assert_eq!(msg, "no space");
+    }
+
+    #[test]
+    fn classify_scope_no_space_after_paren() {
+        let (kind, msg) = classify_commit("fix(core):handle edge case");
+        assert_eq!(kind, "Fixes");
+        assert_eq!(msg, "handle edge case");
     }
 }

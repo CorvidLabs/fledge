@@ -545,16 +545,19 @@ fn classify_for_changelog(msg: &str) -> &'static str {
 }
 
 fn strip_conventional_prefix(msg: &str) -> &str {
-    if let Some(pos) = msg.find(": ") {
-        let prefix = &msg[..pos];
-        if prefix.contains('(') {
-            return &msg[pos + 2..];
-        }
+    if let Some(colon_pos) = msg.find(':') {
+        let prefix = &msg[..colon_pos];
+        let after = msg[colon_pos + 1..].trim_start();
+        let base = if let Some(paren) = prefix.find('(') {
+            &prefix[..paren]
+        } else {
+            prefix
+        };
         let known = [
             "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore",
         ];
-        if known.contains(&prefix) {
-            return &msg[pos + 2..];
+        if known.contains(&base) {
+            return after;
         }
     }
     msg
@@ -571,26 +574,28 @@ fn create_release_commit(
         files_to_add.push("CHANGELOG.md".to_string());
     }
 
-    if files_to_add.is_empty() {
-        return Ok(());
-    }
-
-    let mut cmd = Command::new("git");
-    cmd.arg("add").current_dir(dir);
-    for f in &files_to_add {
-        cmd.arg(f);
-    }
-    let output = cmd.output().context("staging release files")?;
-    if !output.status.success() {
-        bail!(
-            "git add failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+    if !files_to_add.is_empty() {
+        let mut cmd = Command::new("git");
+        cmd.arg("add").current_dir(dir);
+        for f in &files_to_add {
+            cmd.arg(f);
+        }
+        let output = cmd.output().context("staging release files")?;
+        if !output.status.success() {
+            bail!(
+                "git add failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
     }
 
     let msg = format!("chore: release v{version}");
+    let mut commit_args = vec!["commit", "-m", &msg];
+    if files_to_add.is_empty() {
+        commit_args.push("--allow-empty");
+    }
     let output = Command::new("git")
-        .args(["commit", "-m", &msg])
+        .args(&commit_args)
         .current_dir(dir)
         .output()
         .context("creating release commit")?;
@@ -814,6 +819,15 @@ edition = "2021"
             "null check"
         );
         assert_eq!(strip_conventional_prefix("update readme"), "update readme");
+    }
+
+    #[test]
+    fn strip_prefix_no_space_after_colon() {
+        assert_eq!(strip_conventional_prefix("feat:add release"), "add release");
+        assert_eq!(
+            strip_conventional_prefix("fix(core):null check"),
+            "null check"
+        );
     }
 
     #[test]
