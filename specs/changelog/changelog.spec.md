@@ -1,6 +1,6 @@
 ---
 module: changelog
-version: 1
+version: 2
 status: active
 files:
   - src/changelog.rs
@@ -47,6 +47,7 @@ Generate changelogs from git tags and conventional commit messages. Groups commi
 7. `--tag` shows a single release
 8. `--json` outputs structured JSON
 9. Merge commits are excluded via `--no-merges`
+10. Breaking change indicators (`!` after type, `BREAKING CHANGE:` footer) are not parsed separately — commits with `!` are classified by their base type (e.g. `feat!:` → Features)
 
 ## Behavioral Examples
 
@@ -97,4 +98,5 @@ None (uses only git CLI and standard library)
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-22 | Document that breaking changes are not parsed separately; note no types filter config |
 | 1 | 2026-04-19 | Initial spec |

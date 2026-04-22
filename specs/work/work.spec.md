@@ -1,6 +1,6 @@
 ---
 module: work
-version: 4
+version: 5
 status: active
 files:
   - src/work.rs
@@ -69,6 +69,8 @@ Provides opinionated git workflow commands for feature branch development. `fled
 10. `--prefix` bypasses type validation and format template, using raw `prefix/name`
 11. `--issue N` prepends the issue number to the branch name segment: `N-name`
 12. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
+13. Plugin lifecycle hook `post_work_start` runs after branch creation (errors silently ignored via `.ok()`)
+14. Plugin lifecycle hook `pre_pr` runs before PR creation (errors propagate and abort the PR)
 
 ## Behavioral Examples
 
@@ -168,5 +170,6 @@ $ fledge work status
 |---------|------|---------|
 | 1 | 2026-04-19 | Initial spec for fledge work |
 | 2 | 2026-04-20 | Flexible branch types, configurable format, `{author}` support, `--type`/`--issue`/`--prefix` flags |
+| 5 | 2026-04-22 | Document lifecycle hooks: post_work_start (silent) and pre_pr (propagating) |
 | 4 | 2026-04-21 | Correct load_work_config as internal (not exported) |
 | 3 | 2026-04-20 | Added `feature`, `bug`, `task` as valid branch types |

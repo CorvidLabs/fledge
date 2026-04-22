@@ -97,6 +97,24 @@ fledge templates search --author CorvidLabs
 fledge templates list    # built-in + configured repos + local paths
 ```
 
+## Updating Projects
+
+When a template gets updated, you can re-apply it to an existing project:
+
+```bash
+fledge templates update              # re-apply source template
+fledge templates update --dry-run    # preview what would change
+fledge templates update --refresh    # force re-clone remote template
+```
+
+fledge tracks file hashes in `.fledge/meta.toml` to detect changes:
+- **New files** from the template are always added.
+- **User-modified files** are skipped with a warning (your changes are preserved).
+- **Unmodified files** are updated to the latest template version.
+- **Removed files** in the new template version trigger a warning.
+
+Projects created with older fledge versions using `.fledge.toml` are automatically migrated to `.fledge/meta.toml` on the first update.
+
 ## Publishing Your Own
 
 ```bash

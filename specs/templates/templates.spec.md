@@ -40,7 +40,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 |------|-------------|
 | `Template` | A discovered template with name, description, path, and manifest |
 | `TemplateManifest` | Parsed `template.toml` with info, prompts, and file rules |
-| `TemplateInfo` | Template name, description, and min version |
+| `TemplateInfo` | Template name, description, version, min_fledge_version, and requires (tool dependencies) |
 | `PromptDef` | Custom prompt definition with message and optional default |
 | `FileRules` | Glob patterns for render, copy, and ignore |
 | `Hooks` | Post-create lifecycle hooks (e.g., `npm install`, `bun install`) |

@@ -54,7 +54,9 @@ post_create = ["cargo fmt", "npm install"]
 |-----|------|----------|-------|
 | `name` | string | Yes | What you pass to `--template` |
 | `description` | string | No | Shows up in `fledge templates list` |
-| `min_fledge_version` | string | No | Minimum fledge version needed |
+| `version` | string | No | Template version (informational, shown in init summary) |
+| `min_fledge_version` | string | No | Minimum fledge version needed (checked before rendering) |
+| `requires` | string[] | No | Tools that must be on PATH (e.g. `["node", "npm"]`) |
 
 ### [prompts] section
 
@@ -172,6 +174,17 @@ cd {{ project_name_snake }}
 cargo build
 ```
 ````
+
+## Quick Start with `fledge templates create`
+
+The fastest way to start a new template:
+
+```bash
+fledge templates create my-template
+fledge templates create my-template --hooks --prompts --yes
+```
+
+This scaffolds a ready-to-edit template directory with `template.toml` and example files. See the [CLI reference](./cli-reference.md#fledge-templates-create-name) for all options.
 
 ## Building a Template from Scratch
 
