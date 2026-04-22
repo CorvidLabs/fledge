@@ -1,6 +1,6 @@
 ---
 module: publish
-version: 1
+version: 2
 status: active
 files:
   - src/publish.rs
@@ -15,7 +15,7 @@ depends_on:
 
 ## Purpose
 
-Publishes a local fledge template directory as a GitHub repository with the `fledge-template` topic, making it discoverable via `fledge search`. Validates the template, creates or updates the GitHub repo, and pushes the template files.
+Publishes a local fledge template, plugin, or lane directory as a GitHub repository with the appropriate discovery topic (`fledge-template`, `fledge-plugin`, or `fledge-lane`), making it discoverable via `fledge search`. Validates the content, creates or updates the GitHub repo, and pushes the files.
 
 ## Public API
 
@@ -26,9 +26,13 @@ Publishes a local fledge template directory as a GitHub repository with the `fle
 | `PublishOptions` | Options struct for the publish command |
 | `run` | Entry point that validates, creates repo, and pushes template |
 | `validate_template` | Checks that directory contains a valid template.toml |
+| `get_authenticated_user` | Fetches the GitHub username for the configured token |
+| `check_repo_exists` | Checks whether a repo already exists on GitHub |
 | `create_github_repo` | Creates a new GitHub repository via the API |
-| `set_repo_topics` | Sets repository topics including `fledge-template` |
-| `push_template` | Initializes git (if needed) and pushes to GitHub |
+| `set_repo_topics` | Sets repository topics including `fledge-template` (delegates to `set_repo_topic`) |
+| `set_repo_topic` | Sets a single topic on a GitHub repository |
+| `push_directory` | Initializes git (if needed) and pushes directory contents to GitHub |
+| `run_git` | Runs a git command in a given directory |
 
 ### Structs & Enums
 
@@ -127,4 +131,5 @@ Then an error is shown: "No template.toml found"
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-22 | Updated exports for plugin/lane publish support; document newly-public helpers |
 | 1 | 2026-04-19 | Initial spec |
