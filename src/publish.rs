@@ -301,6 +301,12 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
+    println!(
+        "{} Force-pushing to {}/{}...",
+        style("*").cyan().bold(),
+        owner,
+        repo
+    );
     let status = std::process::Command::new("git")
         .args(["push", "-u", "origin", "main", "--force"])
         .current_dir(path)

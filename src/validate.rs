@@ -125,7 +125,6 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
     let ignore_set: Vec<&str> = manifest.files.ignore.iter().map(|s| s.as_str()).collect();
 
     let mut file_count = 0;
-    let mut tera_count = 0;
 
     for entry in WalkDir::new(path).min_depth(1) {
         let entry = match entry {
@@ -163,7 +162,6 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
                 .any(|g| matches_glob_pub(g, &rel_string));
 
         if should_render {
-            tera_count += 1;
             let file_content = match std::fs::read_to_string(entry.path()) {
                 Ok(c) => c,
                 Err(_) => continue,
@@ -248,10 +246,6 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
         );
     }
 
-    if !opts_summary(file_count, tera_count).is_empty() {
-        // summary is printed elsewhere
-    }
-
     Ok(report)
 }
 
@@ -269,10 +263,6 @@ fn extract_variables(content: &str) -> HashSet<String> {
         })
         .map(|cap| cap.get(1).unwrap().as_str().to_string())
         .collect()
-}
-
-fn opts_summary(files: usize, tera: usize) -> String {
-    format!("{files} files, {tera} rendered")
 }
 
 fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<()> {

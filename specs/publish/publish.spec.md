@@ -15,7 +15,7 @@ depends_on:
 
 ## Purpose
 
-Publishes a local fledge template, plugin, or lane directory as a GitHub repository with the appropriate discovery topic (`fledge-template`, `fledge-plugin`, or `fledge-lane`), making it discoverable via `fledge search`. Validates the content, creates or updates the GitHub repo, and pushes the files.
+Publishes a local fledge template directory as a GitHub repository with the `fledge-template` discovery topic, making it discoverable via `fledge templates search`. Validates the content, creates or updates the GitHub repo, and pushes the files. Lanes and plugins have their own publish subcommands that reuse shared helpers from this module.
 
 ## Public API
 

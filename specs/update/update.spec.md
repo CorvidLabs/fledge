@@ -37,7 +37,7 @@ Re-applies a template to an existing project that was scaffolded with `fledge in
 
 | Type | Description |
 |------|-------------|
-| `UpdateOptions` | Options: dry_run, refresh, yes |
+| `UpdateOptions` | Options: dry_run, refresh |
 | `ProjectMeta` | Deserialized `.fledge/meta.toml` — source template, variables, file hashes |
 | `SourceInfo` | Template source: name, remote ref, git ref, fledge version |
 | `UpdateAction` | Enum: Add, Update, Skip (user-modified), Remove (template-deleted) |
