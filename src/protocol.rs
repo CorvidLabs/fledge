@@ -486,11 +486,17 @@ const MAX_STORE_VALUE_SIZE: usize = 64 * 1024; // 64 KB per value
 const MAX_STORE_TOTAL_SIZE: usize = 1024 * 1024; // 1 MB total
 
 fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
+    if key.is_empty() {
+        bail!("store key must not be empty");
+    }
     if key.len() > MAX_STORE_KEY_SIZE {
         bail!(
             "store key exceeds maximum size of {} bytes",
             MAX_STORE_KEY_SIZE
         );
+    }
+    if key.bytes().any(|b| b < 0x20 || b == 0x7f) {
+        bail!("store key contains control characters");
     }
     if value.len() > MAX_STORE_VALUE_SIZE {
         bail!(
@@ -499,7 +505,15 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
         );
     }
 
+    fs::create_dir_all(plugin_dir).context("creating plugin directory")?;
     let state_path = plugin_dir.join("state.json");
+    let lock_path = plugin_dir.join("state.json.lock");
+
+    let lock_file = fs::File::create(&lock_path).context("creating state lock file")?;
+    lock_file
+        .lock()
+        .context("acquiring exclusive lock on state.json")?;
+
     let mut state: HashMap<String, String> = if state_path.exists() {
         let content = fs::read_to_string(&state_path).unwrap_or_default();
         serde_json::from_str(&content).unwrap_or_default()
@@ -514,7 +528,12 @@ fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
             MAX_STORE_TOTAL_SIZE
         );
     }
-    fs::write(&state_path, json).context("writing state.json")?;
+
+    let tmp_path = plugin_dir.join("state.json.tmp");
+    fs::write(&tmp_path, &json).context("writing temporary state file")?;
+    fs::rename(&tmp_path, &state_path).context("atomically replacing state.json")?;
+
+    lock_file.unlock().context("releasing state.json lock")?;
     Ok(())
 }
 
@@ -523,7 +542,17 @@ fn handle_load(plugin_dir: &Path, key: &str) -> Result<serde_json::Value> {
     if !state_path.exists() {
         return Ok(serde_json::Value::Null);
     }
+
+    let lock_path = plugin_dir.join("state.json.lock");
+    let lock_file = fs::File::create(&lock_path).context("creating state lock file")?;
+    lock_file
+        .lock_shared()
+        .context("acquiring shared lock on state.json")?;
+
     let content = fs::read_to_string(&state_path).context("reading state.json")?;
+
+    lock_file.unlock().context("releasing state.json lock")?;
+
     let state: HashMap<String, String> = serde_json::from_str(&content).unwrap_or_default();
     match state.get(key) {
         Some(v) => Ok(serde_json::Value::String(v.clone())),
@@ -572,7 +601,8 @@ fn handle_exec(
         None => project_root.clone(),
     };
 
-    let timeout_secs = timeout.unwrap_or(30);
+    const MAX_EXEC_TIMEOUT: u64 = 300;
+    let timeout_secs = timeout.unwrap_or(30).min(MAX_EXEC_TIMEOUT);
 
     #[cfg(windows)]
     let mut child = Command::new("cmd")
@@ -684,13 +714,28 @@ fn handle_metadata(keys: &[String]) -> Result<serde_json::Value> {
                 );
             }
             "env" => {
+                let sensitive_patterns = [
+                    "secret",
+                    "token",
+                    "password",
+                    "key",
+                    "credential",
+                    "auth",
+                    "private",
+                    "session",
+                    "cookie",
+                ];
                 let safe_vars: HashMap<String, String> = std::env::vars()
-                    .filter(|(k, _)| {
-                        !k.to_lowercase().contains("secret")
-                            && !k.to_lowercase().contains("token")
-                            && !k.to_lowercase().contains("password")
-                            && !k.to_lowercase().contains("key")
-                            && !k.to_lowercase().contains("credential")
+                    .filter(|(k, v)| {
+                        let lower = k.to_lowercase();
+                        let is_sensitive_name =
+                            sensitive_patterns.iter().any(|p| lower.contains(p));
+                        let looks_like_conn_string = lower.ends_with("_url")
+                            || lower.ends_with("_uri")
+                            || lower.ends_with("_dsn");
+                        let value_has_creds =
+                            v.contains('@') && (v.contains("://") || v.contains("//"));
+                        !is_sensitive_name && !looks_like_conn_string && !value_has_creds
                     })
                     .collect();
                 result.insert(
@@ -1491,5 +1536,45 @@ fn main() {
             super::sanitize_remote_url("git@github.com:org/repo.git"),
             "git@github.com:org/repo.git"
         );
+    }
+
+    #[test]
+    fn store_rejects_empty_key() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = handle_store(tmp.path(), "", "value").unwrap_err();
+        assert!(
+            err.to_string().contains("must not be empty"),
+            "expected empty key error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn store_rejects_control_characters_in_key() {
+        let tmp = tempfile::tempdir().unwrap();
+        let err = handle_store(tmp.path(), "bad\x00key", "value").unwrap_err();
+        assert!(
+            err.to_string().contains("control characters"),
+            "expected control char error, got: {err}"
+        );
+        let err2 = handle_store(tmp.path(), "bad\nkey", "value").unwrap_err();
+        assert!(
+            err2.to_string().contains("control characters"),
+            "expected control char error, got: {err2}"
+        );
+    }
+
+    #[test]
+    fn store_creates_lock_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        handle_store(tmp.path(), "key", "value").unwrap();
+        assert!(tmp.path().join("state.json.lock").exists());
+    }
+
+    #[test]
+    fn store_atomic_write() {
+        let tmp = tempfile::tempdir().unwrap();
+        handle_store(tmp.path(), "key", "value").unwrap();
+        assert!(tmp.path().join("state.json").exists());
+        assert!(!tmp.path().join("state.json.tmp").exists());
     }
 }
