@@ -1100,4 +1100,25 @@ mod tests {
         let result = handle_metadata(&["nonexistent_key".to_string()]).unwrap();
         assert_eq!(result["nonexistent_key"], serde_json::Value::Null);
     }
+
+    #[test]
+    fn run_protocol_plugin_with_example_script() {
+        let script = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("examples/fledge-hello/test-noninteractive.sh");
+        if !script.exists() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let result = super::run_protocol_plugin(&script, &[], "fledge-hello", "0.1.0", tmp.path());
+        assert!(result.is_ok(), "protocol plugin failed: {:?}", result.err());
+
+        let state_path = tmp.path().join("state.json");
+        assert!(state_path.exists(), "store should have created state.json");
+        let state: std::collections::HashMap<String, String> =
+            serde_json::from_str(&std::fs::read_to_string(&state_path).unwrap()).unwrap();
+        assert_eq!(
+            state.get("test_key").map(|s| s.as_str()),
+            Some("test_value")
+        );
+    }
 }
