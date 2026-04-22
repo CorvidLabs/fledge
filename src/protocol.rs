@@ -1102,6 +1102,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn run_protocol_plugin_with_inline_script() {
         let tmp = tempfile::tempdir().unwrap();
         let script_path = tmp.path().join("test-plugin.sh");
