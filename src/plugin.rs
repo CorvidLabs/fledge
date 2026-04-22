@@ -182,9 +182,13 @@ fn apply_git_auth(cmd: &mut Command) {
         let credentials = format!("x-access-token:{}", t);
         let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
         let header_value = format!("Authorization: Basic {}", encoded);
-        cmd.env("GIT_CONFIG_COUNT", "1")
-            .env("GIT_CONFIG_KEY_0", "http.extraheader")
-            .env("GIT_CONFIG_VALUE_0", &header_value);
+        let existing: usize = std::env::var("GIT_CONFIG_COUNT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        cmd.env("GIT_CONFIG_COUNT", (existing + 1).to_string())
+            .env(format!("GIT_CONFIG_KEY_{existing}"), "http.extraheader")
+            .env(format!("GIT_CONFIG_VALUE_{existing}"), &header_value);
     }
 }
 
@@ -544,7 +548,12 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
             );
         }
         println!();
-        if !force {
+        if force {
+            eprintln!(
+                "  {} Capabilities auto-granted via --force",
+                style("WARN").yellow()
+            );
+        } else {
             let confirm =
                 dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
                     .with_prompt("Grant these capabilities?")
