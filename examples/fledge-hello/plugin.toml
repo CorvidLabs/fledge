@@ -1,0 +1,11 @@
+[plugin]
+name = "fledge-hello"
+version = "0.1.0"
+description = "Example plugin demonstrating the fledge-v1 protocol"
+author = "CorvidLabs"
+protocol = "fledge-v1"
+
+[[commands]]
+name = "hello"
+description = "Interactive hello-world using all protocol messages"
+binary = "hello.sh"
