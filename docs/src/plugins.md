@@ -96,6 +96,10 @@ version = "0.1.0"
 description = "Deploy to cloud providers"
 author = "Your Name"
 
+[capabilities]
+exec = true
+store = true
+
 [[commands]]
 name = "deploy"
 description = "Deploy the project"
@@ -157,6 +161,31 @@ Each entry registers a subcommand.
 | `description` | string | No | What it does |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
 
+### [capabilities]
+
+Capabilities declare what protocol features the plugin uses. All default to `false` — plugins must opt in.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `exec` | bool | `false` | Execute shell commands on the host |
+| `store` | bool | `false` | Persist key-value data between runs |
+| `metadata` | bool | `false` | Read project metadata (language, name, git info) |
+
+```toml
+[capabilities]
+exec = true
+store = true
+metadata = false
+```
+
+During installation, fledge displays the requested capabilities and the user must approve them. Granted capabilities are recorded in `plugins.toml` and enforced at runtime:
+
+- **Blocked exec** → returns exit code 126
+- **Blocked store** → silently dropped
+- **Blocked metadata** → returns empty object
+
+Plugins without a `[capabilities]` section work fine but cannot use exec, store, or metadata protocol features.
+
 ### [hooks]
 
 Hooks fire in response to fledge lifecycle events. All fields are optional — plugins only participate in events they declare.
@@ -198,6 +227,43 @@ steps = [
 ```
 
 See [Lanes & Pipelines](./lanes.md) for full step type documentation.
+
+## Plugin Protocol (fledge-v1)
+
+Plugins that declare capabilities communicate with fledge via a JSON-over-stdin/stdout protocol. When a plugin starts, fledge sends an `init` message with the plugin's granted capabilities, then the plugin sends requests and fledge responds.
+
+### Message Types
+
+| Plugin sends | Fledge responds with | Requires |
+|-------------|---------------------|----------|
+| `exec` | `exec_result` (stdout, stderr, exit code) | `exec` capability |
+| `store` | `store_ack` | `store` capability |
+| `load` | `load_result` (value or null) | `store` capability |
+| `metadata` | `metadata_result` (project info) | `metadata` capability |
+| `log` | *(no response)* | *(always allowed)* |
+| `progress` | *(no response)* | *(always allowed)* |
+| `output` | *(terminates plugin)* | *(always allowed)* |
+
+See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md) for full details.
+
+## Authentication
+
+Plugin install, update, and search operations use your GitHub token when available. This enables installing plugins from private repositories.
+
+The token is resolved in order:
+1. `FLEDGE_GITHUB_TOKEN` environment variable
+2. `GITHUB_TOKEN` environment variable
+3. `github.token` in `~/.config/fledge/config.toml`
+
+```bash
+# Set via config
+fledge config set github.token ghp_your_token_here
+
+# Or via environment
+export GITHUB_TOKEN=ghp_your_token_here
+```
+
+The token is injected via git's `http.extraheader` mechanism — it is never embedded in remote URLs or persisted to disk.
 
 ## Security Model
 
