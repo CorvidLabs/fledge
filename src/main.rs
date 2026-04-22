@@ -49,41 +49,12 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// Create a new project from a template
-    Init {
-        /// Project name
-        name: String,
-        /// Template to use (skip interactive selection)
-        #[arg(short, long)]
-        template: Option<String>,
-        /// Parent directory for the project
-        #[arg(short, long, default_value = ".")]
-        output: PathBuf,
-        /// Author name (bypasses prompt; overrides config)
-        #[arg(long)]
-        author: Option<String>,
-        /// GitHub organization (bypasses prompt; overrides config)
-        #[arg(long)]
-        org: Option<String>,
-        /// Skip git init and initial commit
-        #[arg(long)]
-        no_git: bool,
-        /// Skip dependency installation (post-create hooks)
-        #[arg(long)]
-        no_install: bool,
-        /// Force re-clone of cached remote templates
-        #[arg(long)]
-        refresh: bool,
-        /// Show what would be created without writing anything
-        #[arg(long)]
-        dry_run: bool,
-        /// Skip all confirmation prompts (accept defaults)
-        #[arg(short, long)]
-        yes: bool,
-    },
-    /// List available templates
+    /// Manage templates (init, create, search, update, publish, validate)
     #[command(alias = "list")]
-    Templates,
+    Templates {
+        #[command(subcommand)]
+        action: Option<TemplatesSubcommand>,
+    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for (auto-detects if omitted with --install)
@@ -97,64 +68,6 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
-    },
-    /// Scaffold a new fledge template
-    CreateTemplate {
-        /// Template name
-        name: String,
-        /// Parent directory for the template
-        #[arg(short, long, default_value = ".")]
-        output: PathBuf,
-        /// Template description (bypasses prompt)
-        #[arg(short, long)]
-        description: Option<String>,
-        /// Comma-separated file patterns to render through Tera (bypasses prompt)
-        #[arg(long)]
-        render_patterns: Option<String>,
-        /// Include post-create hooks scaffold (bypasses prompt)
-        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
-        hooks: Option<bool>,
-        /// Include custom prompts scaffold (bypasses prompt)
-        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
-        prompts: Option<bool>,
-        /// Skip all interactive prompts (accept defaults)
-        #[arg(short, long)]
-        yes: bool,
-    },
-    /// Search for templates on GitHub
-    Search {
-        /// Keyword to filter results
-        query: Option<String>,
-        /// Maximum number of results
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Update project from its source template
-    Update {
-        /// Show what would change without writing anything
-        #[arg(long)]
-        dry_run: bool,
-        /// Force re-clone of cached remote templates
-        #[arg(long)]
-        refresh: bool,
-    },
-    /// Publish a template to GitHub
-    Publish {
-        /// Path to the template directory
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Publish under a GitHub organization
-        #[arg(long)]
-        org: Option<String>,
-        /// Create as a private repository
-        #[arg(long)]
-        private: bool,
-        /// Override the repository description
-        #[arg(long)]
-        description: Option<String>,
     },
     /// Manage specs (check, init, new)
     Spec {
@@ -298,19 +211,6 @@ enum Commands {
         #[arg(long, global = true)]
         json: bool,
     },
-    /// Validate a template or directory of templates
-    #[command(name = "validate-template")]
-    ValidateTemplate {
-        /// Path to a template or directory of templates
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Treat warnings as errors
-        #[arg(long)]
-        strict: bool,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
     /// Cut a release — bump version, changelog, tag, and optionally push
     Release {
         /// Version bump: major, minor, patch, or explicit version (e.g. "1.0.0")
@@ -354,6 +254,114 @@ enum Commands {
     },
     #[command(external_subcommand)]
     External(Vec<String>),
+}
+
+#[derive(clap::Subcommand)]
+enum TemplatesSubcommand {
+    /// Create a new project from a template
+    Init {
+        /// Project name
+        name: String,
+        /// Template to use (skip interactive selection)
+        #[arg(short, long)]
+        template: Option<String>,
+        /// Parent directory for the project
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        /// Author name (bypasses prompt; overrides config)
+        #[arg(long)]
+        author: Option<String>,
+        /// GitHub organization (bypasses prompt; overrides config)
+        #[arg(long)]
+        org: Option<String>,
+        /// Skip git init and initial commit
+        #[arg(long)]
+        no_git: bool,
+        /// Skip dependency installation (post-create hooks)
+        #[arg(long)]
+        no_install: bool,
+        /// Force re-clone of cached remote templates
+        #[arg(long)]
+        refresh: bool,
+        /// Show what would be created without writing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip all confirmation prompts (accept defaults)
+        #[arg(short, long)]
+        yes: bool,
+    },
+    /// Scaffold a new fledge template
+    Create {
+        /// Template name
+        name: String,
+        /// Parent directory for the template
+        #[arg(short, long, default_value = ".")]
+        output: PathBuf,
+        /// Template description (bypasses prompt)
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Comma-separated file patterns to render through Tera (bypasses prompt)
+        #[arg(long)]
+        render_patterns: Option<String>,
+        /// Include post-create hooks scaffold (bypasses prompt)
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        hooks: Option<bool>,
+        /// Include custom prompts scaffold (bypasses prompt)
+        #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+        prompts: Option<bool>,
+        /// Skip all interactive prompts (accept defaults)
+        #[arg(short, long)]
+        yes: bool,
+    },
+    /// Search for templates on GitHub
+    Search {
+        /// Keyword to filter results
+        query: Option<String>,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Update project from its source template
+    Update {
+        /// Show what would change without writing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// Force re-clone of cached remote templates
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// Publish a template to GitHub
+    Publish {
+        /// Path to the template directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Publish under a GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Create as a private repository
+        #[arg(long)]
+        private: bool,
+        /// Override the repository description
+        #[arg(long)]
+        description: Option<String>,
+    },
+    /// Validate a template or directory of templates
+    Validate {
+        /// Path to a template or directory of templates
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// List available templates
+    List,
 }
 
 #[derive(clap::Subcommand)]
@@ -560,74 +568,11 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init {
-            name,
-            template,
-            output,
-            author,
-            org,
-            no_git,
-            no_install,
-            refresh,
-            dry_run,
-            yes,
-        } => {
-            init::run(init::InitOptions {
-                name,
-                template,
-                output,
-                author,
-                org,
-                no_git,
-                no_install,
-                refresh,
-                dry_run,
-                yes,
-            })?;
-        }
-        Commands::Templates => {
-            list_templates()?;
+        Commands::Templates { action } => {
+            handle_templates(action)?;
         }
         Commands::Config { action } => {
             handle_config(action)?;
-        }
-        Commands::CreateTemplate {
-            name,
-            output,
-            description,
-            render_patterns,
-            hooks,
-            prompts,
-            yes,
-        } => {
-            create_template::run(create_template::CreateTemplateOptions {
-                name,
-                output,
-                description,
-                render_patterns,
-                hooks,
-                prompts,
-                yes,
-            })?;
-        }
-        Commands::Update { dry_run, refresh } => {
-            update::run(update::UpdateOptions { dry_run, refresh })?;
-        }
-        Commands::Search { query, limit, json } => {
-            search::run(search::SearchOptions { query, limit, json })?;
-        }
-        Commands::Publish {
-            path,
-            org,
-            private,
-            description,
-        } => {
-            publish::run(publish::PublishOptions {
-                path,
-                org,
-                private,
-                description,
-            })?;
         }
         Commands::Spec { action } => {
             let action = match action {
@@ -795,9 +740,6 @@ fn run() -> Result<()> {
             };
             plugin::run(plugin::PluginOptions { action, json })?;
         }
-        Commands::ValidateTemplate { path, strict, json } => {
-            validate::run(validate::ValidateOptions { path, strict, json })?;
-        }
         Commands::Release {
             bump,
             dry_run,
@@ -873,6 +815,81 @@ fn run() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn handle_templates(action: Option<TemplatesSubcommand>) -> Result<()> {
+    match action {
+        Some(TemplatesSubcommand::Init {
+            name,
+            template,
+            output,
+            author,
+            org,
+            no_git,
+            no_install,
+            refresh,
+            dry_run,
+            yes,
+        }) => {
+            init::run(init::InitOptions {
+                name,
+                template,
+                output,
+                author,
+                org,
+                no_git,
+                no_install,
+                refresh,
+                dry_run,
+                yes,
+            })?;
+        }
+        Some(TemplatesSubcommand::Create {
+            name,
+            output,
+            description,
+            render_patterns,
+            hooks,
+            prompts,
+            yes,
+        }) => {
+            create_template::run(create_template::CreateTemplateOptions {
+                name,
+                output,
+                description,
+                render_patterns,
+                hooks,
+                prompts,
+                yes,
+            })?;
+        }
+        Some(TemplatesSubcommand::Search { query, limit, json }) => {
+            search::run(search::SearchOptions { query, limit, json })?;
+        }
+        Some(TemplatesSubcommand::Update { dry_run, refresh }) => {
+            update::run(update::UpdateOptions { dry_run, refresh })?;
+        }
+        Some(TemplatesSubcommand::Publish {
+            path,
+            org,
+            private,
+            description,
+        }) => {
+            publish::run(publish::PublishOptions {
+                path,
+                org,
+                private,
+                description,
+            })?;
+        }
+        Some(TemplatesSubcommand::Validate { path, strict, json }) => {
+            validate::run(validate::ValidateOptions { path, strict, json })?;
+        }
+        Some(TemplatesSubcommand::List) | None => {
+            list_templates()?;
+        }
+    }
     Ok(())
 }
 
