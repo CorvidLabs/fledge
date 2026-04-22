@@ -1102,6 +1102,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore = "example plugin is a bash script")]
     fn run_protocol_plugin_with_example_script() {
         let script = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("examples/fledge-hello/test-noninteractive.sh");
