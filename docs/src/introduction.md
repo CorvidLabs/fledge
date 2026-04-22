@@ -17,7 +17,7 @@ I kept setting up the same boilerplate across projects. CI workflows, linters, t
 | **Develop** | Branch and spec | `work`, `spec` |
 | **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
 | **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog`, `release` |
-| **Extend** | Grow the tool | `plugin`, `completions`, `tui` |
+| **Extend** | Grow the tool | `plugin`, `completions` |
 
 Start a project, build your tasks and config, develop features on branches, review quality before merging, ship releases. Extend runs alongside everything with plugins and completions.
 

@@ -499,11 +499,6 @@ fn resolve_template<'a>(
     }
 }
 
-#[cfg(feature = "tui")]
-pub fn init_git_for_tui(dir: &Path) -> Result<()> {
-    init_git(dir)
-}
-
 fn init_git(dir: &Path) -> Result<()> {
     let output = std::process::Command::new("git")
         .args(["init"])

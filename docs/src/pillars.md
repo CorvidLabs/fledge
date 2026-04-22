@@ -40,6 +40,6 @@ Manage issues, review PRs, check CI status, generate changelogs, and cut release
 
 ## Extend: Grow the tool
 
-Install community plugins, write your own, set up shell completions, and browse templates interactively.
+Install community plugins, write your own, and set up shell completions.
 
-**Commands:** `plugin`, `completions`, `tui`
+**Commands:** `plugin`, `completions`

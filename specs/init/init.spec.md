@@ -26,7 +26,6 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 |--------|-------------|
 | `InitOptions` | Configuration struct for project creation passed from CLI |
 | `run` | Main entry point that drives the full init workflow |
-| `init_git_for_tui` | TUI-only wrapper around `init_git` (feature-gated behind `tui`) |
 
 ### Structs & Enums
 
