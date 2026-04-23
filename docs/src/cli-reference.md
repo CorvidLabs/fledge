@@ -193,9 +193,9 @@ fledge run [task] [OPTIONS]
 
 | Project | Detected by | Default tasks |
 |---------|------------|---------------|
-| Rust | `Cargo.toml` | build, test, clippy, fmt |
+| Rust | `Cargo.toml` | build, test, lint, fmt |
 | Node.js | `package.json` | test, build, lint, dev (if scripts exist) |
-| Go | `go.mod` | build, test, vet |
+| Go | `go.mod` | build, test, lint |
 | Python | `pyproject.toml` / `setup.py` | test, lint, fmt |
 | Ruby | `Gemfile` | test, lint |
 | Swift | `Package.swift` | build, test |

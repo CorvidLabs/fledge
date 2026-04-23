@@ -53,7 +53,7 @@ post_create = ["cargo fmt", "npm install"]
 | Key | Type | Required | Notes |
 |-----|------|----------|-------|
 | `name` | string | Yes | What you pass to `--template` |
-| `description` | string | No | Shows up in `fledge templates list` |
+| `description` | string | Yes | Shows up in `fledge templates list` |
 | `version` | string | No | Template version (informational, shown in init summary) |
 | `min_fledge_version` | string | No | Minimum fledge version needed (checked before rendering) |
 | `requires` | string[] | No | Tools that must be on PATH (e.g. `["node", "npm"]`) |
