@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use console::style;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::process::Command;
@@ -76,6 +76,27 @@ pub struct RunOptions {
     pub init: bool,
     pub list: bool,
     pub lang: Option<String>,
+    pub json: bool,
+}
+
+#[derive(Serialize)]
+struct TaskInfo {
+    name: String,
+    cmd: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    deps: Vec<String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    env: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dir: Option<String>,
+}
+
+#[derive(Serialize)]
+struct TaskListOutput {
+    auto_detected: bool,
+    tasks: Vec<TaskInfo>,
 }
 
 pub fn run(opts: RunOptions) -> Result<()> {
@@ -108,6 +129,9 @@ pub fn run(opts: RunOptions) -> Result<()> {
     };
 
     if opts.list || opts.task.is_none() {
+        if opts.json {
+            return list_tasks_json(&tasks, is_auto);
+        }
         if is_auto {
             println!(
                 "{} Auto-detected tasks (create {} to customize)\n",
@@ -151,6 +175,26 @@ fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
             width = max_name_len
         );
     }
+    Ok(())
+}
+
+fn list_tasks_json(tasks: &BTreeMap<String, TaskDef>, auto_detected: bool) -> Result<()> {
+    let task_list: Vec<TaskInfo> = tasks
+        .iter()
+        .map(|(name, task)| TaskInfo {
+            name: name.clone(),
+            cmd: task.cmd().to_string(),
+            description: task.description().map(|s| s.to_string()),
+            deps: task.deps().to_vec(),
+            env: task.env().clone(),
+            dir: task.dir().map(|s| s.to_string()),
+        })
+        .collect();
+    let output = TaskListOutput {
+        auto_detected,
+        tasks: task_list,
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 
