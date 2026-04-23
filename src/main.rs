@@ -575,6 +575,8 @@ enum PluginSubcommand {
     },
     /// List installed plugins
     List,
+    /// Audit installed plugins — show trust tiers, capabilities, and hooks
+    Audit,
     /// Search for plugins on GitHub
     Search {
         /// Search query
@@ -841,6 +843,7 @@ fn run() -> Result<()> {
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
                 PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
                 PluginSubcommand::List => plugin::PluginAction::List,
+                PluginSubcommand::Audit => plugin::PluginAction::Audit,
                 PluginSubcommand::Search {
                     query,
                     author,
