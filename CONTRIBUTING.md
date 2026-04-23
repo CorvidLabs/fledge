@@ -103,7 +103,7 @@ Documentation lives in `docs/src/` and is built with [mdBook](https://rust-lang.
 cargo install mdbook
 
 # Serve locally
-cd docs && mdbook serve
+cargo run -- run docs-serve
 ```
 
 ## Code Guidelines
@@ -130,8 +130,8 @@ cd docs && mdbook serve
 
 ### Style
 
-- Run `cargo fmt` before committing
-- Run `cargo clippy -- -D warnings` and fix all warnings
+- Run `cargo run -- run fmt-fix` before committing (or `fledge run fmt-fix` if installed)
+- Run `cargo run -- run lint` and fix all warnings
 - No `unsafe` code without discussion
 - Prefer standard library types over external crates when practical
 
@@ -142,6 +142,15 @@ Every module has a spec in `specs/<module>/`. The spec is the source of truth fo
 1. Read its spec
 2. If your change alters behavior, update the spec first
 3. Run `cargo run -- spec check` to verify alignment
+
+### Dependencies
+
+Check dependency health with:
+
+```bash
+cargo run -- deps              # list all dependencies
+cargo run -- deps --outdated   # check for outdated deps
+```
 
 ## Release Process
 
