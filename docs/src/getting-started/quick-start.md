@@ -66,13 +66,13 @@ fledge run test
 
 ## Workflow Pipelines
 
-Lanes chain tasks together. Think of `fledge lane ci` as your local CI:
+Lanes chain tasks together. Think of `fledge lanes run ci` as your local CI:
 
 ```bash
 fledge lanes init            # generate default lanes for your project type
 fledge lanes list            # see what's available
-fledge lane ci               # run the full pipeline
-fledge lane ci --dry-run     # just show the plan
+fledge lanes run ci          # run the full pipeline
+fledge lanes run ci --dry-run  # just show the plan
 ```
 
 Lanes support parallel groups and inline commands. More on that in [Lanes & Pipelines](../lanes.md).
@@ -104,7 +104,7 @@ fledge plugins list
 ```bash
 fledge work start add-logging                # creates leif/feat/add-logging (default: {author}/{type}/{name})
 fledge work start fix-typo --branch-type fix        # creates leif/fix/fix-typo
-fledge work start bump-deps --branch-type chore     # creates chore/bump-deps
+fledge work start bump-deps --branch-type chore     # creates leif/chore/bump-deps
 # ... hack on your branch ...
 fledge work pr                               # opens a PR
 fledge work status                           # where are we?

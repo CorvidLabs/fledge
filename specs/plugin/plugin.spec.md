@@ -29,6 +29,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
 | `TrustTier` | Trust classification: Official, Community, Unverified |
+| `label` | Return the trust tier as a lowercase string (TrustTier method) |
+| `styled_label` | Return the trust tier as a colored styled string (TrustTier method) |
 | `determine_trust_tier` | Classify a plugin source into a trust tier |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
@@ -49,6 +51,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
+| `label` | `(&self) -> &'static str` | Return trust tier as lowercase string ("official", "community", "unverified") |
+| `styled_label` | `(&self) -> StyledObject<&'static str>` | Return trust tier as colored console label |
 | `determine_trust_tier` | `(&str) -> TrustTier` | Classify plugin source by org (CorvidLabs = official, else unverified) |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
 | `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
@@ -71,8 +75,8 @@ binary = "target/release/fledge-deploy"  # relative to plugin dir
 
 [hooks]
 build = "cargo build --release"          # runs after clone, before binary check
-post_install = "hooks/post-install.sh"   # runs after `fledge plugin install`
-post_remove  = "hooks/post-remove.sh"    # runs after `fledge plugin remove`
+post_install = "hooks/post-install.sh"   # runs after `fledge plugins install`
+post_remove  = "hooks/post-remove.sh"    # runs after `fledge plugins remove`
 pre_init = "hooks/pre-init.sh"           # runs before `fledge init`
 post_work_start = "hooks/setup-hooks.sh" # runs after `fledge work start`
 pre_pr = "hooks/lint-all.sh"             # runs before `fledge work pr` pushes
@@ -122,11 +126,11 @@ Plugins are discovered via:
 
 ### Plugin Installation
 
-`fledge plugin install <repo>[@ref]` clones the repo to `~/.config/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+`fledge plugins install <repo>[@ref]` clones the repo to `~/.config/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
 
 ### Version Pinning
 
-Install a specific version with `@ref` syntax: `fledge plugin install owner/repo@v1.2.0`. The ref is stored in `plugins.toml` as `pinned_ref`. Pinned plugins skip `git pull` on update and instead check for newer tags, suggesting an upgrade command if one exists.
+Install a specific version with `@ref` syntax: `fledge plugins install owner/repo@v1.2.0`. The ref is stored in `plugins.toml` as `pinned_ref`. Pinned plugins skip `git pull` on update and instead check for newer tags, suggesting an upgrade command if one exists.
 
 ## Config Format
 
@@ -165,12 +169,12 @@ pinned_ref = "v0.2.0"
 
 ```
 # Install a plugin from GitHub
-$ fledge plugin install someone/fledge-deploy
+$ fledge plugins install someone/fledge-deploy
 ✅ Installed fledge-deploy v0.1.0
   Commands: deploy
 
 # List installed plugins
-$ fledge plugin list
+$ fledge plugins list
 Installed plugins:
   deploy  v0.1.0  Deploy to various cloud providers  (someone/fledge-deploy)
 
@@ -180,49 +184,49 @@ $ fledge deploy staging
 [plugin output here]
 
 # Remove a plugin
-$ fledge plugin remove deploy
+$ fledge plugins remove deploy
 ✅ Removed fledge-deploy
 
 # Update all plugins
-$ fledge plugin update
+$ fledge plugins update
   ✅ fledge-deploy → v0.2.0
   ✅ fledge-todo → v1.1.0
 
 # Update a specific plugin
-$ fledge plugin update fledge-deploy
+$ fledge plugins update fledge-deploy
   ✅ fledge-deploy → v0.2.0
 
 # Search for plugins
-$ fledge plugin search deploy
+$ fledge plugins search deploy
   fledge-deploy   v0.1.0  Deploy to various cloud providers  (someone/fledge-deploy)
   fledge-k8s      v0.3.0  Kubernetes deployment helpers       (other/fledge-k8s)
 
 # Install a specific version
-$ fledge plugin install someone/fledge-deploy@v1.2.0
+$ fledge plugins install someone/fledge-deploy@v1.2.0
 ✅ Installed fledge-deploy v1.2.0 (pinned to v1.2.0)
   Commands: deploy
 
 # Update pinned plugin — shows newer tags without changing
-$ fledge plugin update fledge-deploy
+$ fledge plugins update fledge-deploy
   * fledge-deploy — pinned to v1.2.0, latest tag is v1.3.0. To upgrade:
-    fledge plugin install someone/fledge-deploy@v1.3.0 --force
+    fledge plugins install someone/fledge-deploy@v1.3.0 --force
 
 # Scaffold a new plugin
-$ fledge plugins create my-tool
+$ fledge pluginss create my-tool
 ✅ Created plugin at ./my-tool
 
 # Validate a plugin
-$ fledge plugins validate ./my-tool
+$ fledge pluginss validate ./my-tool
 ✅ my-tool — valid
 
 # Validate with strict mode
-$ fledge plugins validate --strict
+$ fledge pluginss validate --strict
 my-tool
   warn: plugin.author is not set
 Validation failed
 
 # Publish runs validation first
-$ fledge plugins publish
+$ fledge pluginss publish
 ✅ my-tool — valid
 ➡️ Publishing plugin ./my-tool as owner/my-tool
 

@@ -4,7 +4,7 @@ spec: lanes.spec.md
 
 ## Context
 
-Lanes extend the task runner into composable pipelines. While `fledge run` executes individual tasks, `fledge lane` chains them with ordering, parallelism, and failure control. This lets teams define CI-like workflows locally without external CI config.
+Lanes extend the task runner into composable pipelines. While `fledge run` executes individual tasks, `fledge lanes` chains them with ordering, parallelism, and failure control. This lets teams define CI-like workflows locally without external CI config.
 
 ## Related Modules
 

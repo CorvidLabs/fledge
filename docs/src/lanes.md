@@ -1,6 +1,6 @@
 # Lanes & Pipelines
 
-Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lane ci`. All lane commands live under `fledge lanes` (alias: `fledge lane`). They support parallel groups and configurable failure behavior.
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lanes run ci`. All lane commands live under `fledge lanes`. They support parallel groups and configurable failure behavior.
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ fledge lanes init
 This looks at your project type and creates sensible defaults. Then just run one:
 
 ```bash
-fledge lane ci
+fledge lanes run ci
 ```
 
 ## Defining Lanes
@@ -213,8 +213,7 @@ steps = [
 ## CLI
 
 ```bash
-fledge lane ci                        # run a lane (shortcut)
-fledge lanes run ci                   # same thing, explicit
+fledge lanes run ci                   # run a lane
 fledge lanes run ci --dry-run         # preview the plan
 fledge lanes list                     # list lanes
 fledge lanes list --json
@@ -232,7 +231,7 @@ fledge lanes validate --json          # machine-readable output
 
 ## Community Lane Registry
 
-Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are discoverable through `fledge lane search`.
+Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are discoverable through `fledge lanes search`.
 
 ### Official Examples
 
@@ -240,10 +239,10 @@ Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are disc
 
 | Language | Import command |
 |----------|---------------|
-| Rust | `fledge lane import CorvidLabs/fledge-lanes/rust` |
-| Python | `fledge lane import CorvidLabs/fledge-lanes/python` |
-| Node/TypeScript | `fledge lane import CorvidLabs/fledge-lanes/node-typescript` |
-| Go | `fledge lane import CorvidLabs/fledge-lanes/go` |
+| Rust | `fledge lanes import CorvidLabs/fledge-lanes/rust` |
+| Python | `fledge lanes import CorvidLabs/fledge-lanes/python` |
+| Node/TypeScript | `fledge lanes import CorvidLabs/fledge-lanes/node-typescript` |
+| Go | `fledge lanes import CorvidLabs/fledge-lanes/go` |
 
 ### Creating Lanes
 
@@ -265,12 +264,12 @@ fledge lanes publish ./my-lanes      # push to GitHub (validates first)
 1. Create a repo with a `fledge.toml` containing your lanes and tasks (or use `fledge lanes create`)
 2. Validate with `fledge lanes validate` (publish does this automatically)
 3. Publish with `fledge lanes publish` — sets the `fledge-lane` topic automatically
-4. Others can find it with `fledge lane search` and import it
+4. Others can find it with `fledge lanes search` and import it
 
 ### Importing Lanes
 
 ```bash
-fledge lane import CorvidLabs/fledge-lanes
+fledge lanes import CorvidLabs/fledge-lanes
 ```
 
 This fetches the remote repo's `fledge.toml`, extracts its lanes and any required tasks, and merges them into your local `fledge.toml`. Existing lanes with the same name are skipped (not overwritten).
@@ -278,14 +277,14 @@ This fetches the remote repo's `fledge.toml`, extracts its lanes and any require
 You can pin to a specific branch or tag:
 
 ```bash
-fledge lane import CorvidLabs/fledge-lanes@v1.0.0
+fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 ```
 
 ## Related
 
 - [Configuration](./configuration.md) — global config, GitHub tokens
 - [Plugins](./plugins.md) — extend fledge with community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md) — full `fledge lane` subcommand reference
+- [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
 - [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
 
 ## Tips
