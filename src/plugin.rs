@@ -79,6 +79,59 @@ pub struct PluginOptions {
     pub json: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[allow(dead_code)]
+pub enum TrustTier {
+    Official,
+    Community,
+    Unverified,
+}
+
+impl TrustTier {
+    pub fn label(&self) -> &'static str {
+        match self {
+            TrustTier::Official => "official",
+            TrustTier::Community => "community",
+            TrustTier::Unverified => "unverified",
+        }
+    }
+
+    pub fn styled_label(&self) -> console::StyledObject<&'static str> {
+        match self {
+            TrustTier::Official => style("official").green().bold(),
+            TrustTier::Community => style("community").cyan(),
+            TrustTier::Unverified => style("unverified").yellow(),
+        }
+    }
+}
+
+const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
+
+pub fn determine_trust_tier(source: &str) -> TrustTier {
+    let (base, _) = parse_source_ref(source);
+
+    let normalized = if base.starts_with("https://github.com/") {
+        base.strip_prefix("https://github.com/")
+            .unwrap_or(base)
+            .trim_end_matches(".git")
+    } else if base.starts_with("git@github.com:") {
+        base.strip_prefix("git@github.com:")
+            .unwrap_or(base)
+            .trim_end_matches(".git")
+    } else {
+        base
+    };
+
+    if let Some((org, _)) = normalized.split_once('/') {
+        if OFFICIAL_ORGS.contains(&org) {
+            return TrustTier::Official;
+        }
+    }
+
+    TrustTier::Unverified
+}
+
 pub enum PluginAction {
     Install {
         source: String,
@@ -91,6 +144,7 @@ pub enum PluginAction {
         name: Option<String>,
     },
     List,
+    Audit,
     Search {
         query: Option<String>,
         author: Option<String>,
@@ -125,6 +179,7 @@ pub fn run(opts: PluginOptions) -> Result<()> {
         PluginAction::Remove { name } => remove_plugin(&name),
         PluginAction::Update { name } => update_plugins(name.as_deref()),
         PluginAction::List => list_plugins(opts.json),
+        PluginAction::Audit => audit_plugins(opts.json),
         PluginAction::Search {
             query,
             author,
@@ -437,19 +492,28 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let repo_name = extract_name_from_source(source);
     validate_plugin_name(&repo_name)?;
 
+    let tier = determine_trust_tier(source);
     println!(
-        "\n{} Installing plugin from: {}",
+        "\n{} Installing plugin from: {} [{}]",
         style("!").yellow().bold(),
-        style(&url).cyan()
+        style(&url).cyan(),
+        tier.styled_label()
     );
-    println!(
-        "  {} Plugins can execute arbitrary code on your system.",
-        style("*").yellow()
-    );
-    println!(
-        "  {} Only install plugins from sources you trust.\n",
-        style("*").yellow()
-    );
+    if tier == TrustTier::Official {
+        println!(
+            "  {} This is an official CorvidLabs plugin.",
+            style("✓").green()
+        );
+    } else {
+        println!(
+            "  {} Plugins can execute arbitrary code on your system.",
+            style("*").yellow()
+        );
+        println!(
+            "  {} Only install plugins from sources you trust.\n",
+            style("*").yellow()
+        );
+    }
 
     if !force {
         let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
@@ -873,6 +937,7 @@ fn list_plugins(json: bool) -> Result<()> {
             .plugins
             .iter()
             .map(|p| {
+                let tier = determine_trust_tier(&p.source);
                 serde_json::json!({
                     "name": p.name,
                     "version": p.version,
@@ -880,6 +945,7 @@ fn list_plugins(json: bool) -> Result<()> {
                     "installed": p.installed,
                     "commands": p.commands,
                     "pinned_ref": p.pinned_ref,
+                    "trust_tier": tier.label(),
                 })
             })
             .collect();
@@ -896,14 +962,16 @@ fn list_plugins(json: bool) -> Result<()> {
         .unwrap_or(0);
 
     for plugin in &registry.plugins {
+        let tier = determine_trust_tier(&plugin.source);
         let version_str = match &plugin.pinned_ref {
             Some(r) => format!("v{} (pinned: {})", plugin.version, r),
             None => format!("v{}", plugin.version),
         };
         println!(
-            "  {:<width$}  {}  {}",
+            "  {:<width$}  {}  [{}]  {}",
             style(&plugin.name).green(),
             style(&version_str).dim(),
+            tier.styled_label(),
             style(format!("({})", plugin.source)).dim(),
             width = max_name,
         );
@@ -918,6 +986,178 @@ fn list_plugins(json: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn audit_plugins(json: bool) -> Result<()> {
+    let registry = load_registry()?;
+
+    if registry.plugins.is_empty() {
+        if json {
+            println!("[]");
+        } else {
+            println!("{} No plugins installed.", style("*").cyan().bold());
+        }
+        return Ok(());
+    }
+
+    if json {
+        let entries: Vec<serde_json::Value> = registry
+            .plugins
+            .iter()
+            .map(|p| {
+                let tier = determine_trust_tier(&p.source);
+                let caps = p.capabilities.as_ref();
+                serde_json::json!({
+                    "name": p.name,
+                    "version": p.version,
+                    "source": p.source,
+                    "trust_tier": tier.label(),
+                    "capabilities": {
+                        "exec": caps.is_some_and(|c| c.exec),
+                        "store": caps.is_some_and(|c| c.store),
+                        "metadata": caps.is_some_and(|c| c.metadata),
+                    },
+                    "commands": p.commands,
+                    "has_lifecycle_hooks": has_lifecycle_hooks(&p.name),
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&entries)?);
+        return Ok(());
+    }
+
+    println!("{}", style("Plugin Security Audit").bold());
+    println!();
+
+    for plugin in &registry.plugins {
+        let tier = determine_trust_tier(&plugin.source);
+        println!(
+            "  {} {} v{} [{}]",
+            style("•").dim(),
+            style(&plugin.name).green(),
+            plugin.version,
+            tier.styled_label(),
+        );
+        println!("    Source: {}", style(&plugin.source).dim(),);
+
+        let caps = plugin.capabilities.as_ref();
+        let has_exec = caps.is_some_and(|c| c.exec);
+        let has_store = caps.is_some_and(|c| c.store);
+        let has_metadata = caps.is_some_and(|c| c.metadata);
+
+        if has_exec || has_store || has_metadata {
+            println!("    Capabilities:");
+            if has_exec {
+                println!(
+                    "      {} exec — can run shell commands",
+                    style("•").yellow()
+                );
+            }
+            if has_store {
+                println!(
+                    "      {} store — can persist data between runs",
+                    style("•").yellow()
+                );
+            }
+            if has_metadata {
+                println!(
+                    "      {} metadata — can read project metadata and environment",
+                    style("•").yellow()
+                );
+            }
+        } else {
+            println!("    Capabilities: {}", style("none").dim());
+        }
+
+        if has_lifecycle_hooks(&plugin.name) {
+            let hooks = get_lifecycle_hooks(&plugin.name);
+            if !hooks.is_empty() {
+                println!("    Lifecycle hooks:");
+                for (event, cmd) in &hooks {
+                    println!(
+                        "      {} {} → {}",
+                        style("•").cyan(),
+                        style(event).dim(),
+                        style(cmd).dim()
+                    );
+                }
+            }
+        }
+
+        if !plugin.commands.is_empty() {
+            println!("    Commands: {}", style(plugin.commands.join(", ")).cyan());
+        }
+
+        if tier == TrustTier::Unverified && (has_exec || has_metadata) {
+            println!(
+                "    {} Unverified plugin with elevated capabilities",
+                style("⚠").yellow().bold()
+            );
+        }
+
+        println!();
+    }
+
+    let unverified_count = registry
+        .plugins
+        .iter()
+        .filter(|p| determine_trust_tier(&p.source) == TrustTier::Unverified)
+        .count();
+    let elevated_count = registry
+        .plugins
+        .iter()
+        .filter(|p| {
+            let caps = p.capabilities.as_ref();
+            caps.is_some_and(|c| c.exec || c.metadata)
+        })
+        .count();
+
+    println!(
+        "  {} {} plugin(s), {} unverified, {} with elevated capabilities",
+        style("Summary:").bold(),
+        registry.plugins.len(),
+        unverified_count,
+        elevated_count
+    );
+
+    Ok(())
+}
+
+fn has_lifecycle_hooks(plugin_name: &str) -> bool {
+    !get_lifecycle_hooks(plugin_name).is_empty()
+}
+
+fn get_lifecycle_hooks(plugin_name: &str) -> Vec<(String, String)> {
+    let plugin_dir = plugins_dir().join(plugin_name);
+    let manifest_path = plugin_dir.join("plugin.toml");
+    if !manifest_path.exists() {
+        return Vec::new();
+    }
+    let content = match fs::read_to_string(&manifest_path) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let manifest: PluginManifest = match toml::from_str(&content) {
+        Ok(m) => m,
+        Err(_) => return Vec::new(),
+    };
+    let mut hooks = Vec::new();
+    if let Some(ref h) = manifest.hooks.pre_init {
+        hooks.push(("pre_init".to_string(), h.clone()));
+    }
+    if let Some(ref h) = manifest.hooks.post_work_start {
+        hooks.push(("post_work_start".to_string(), h.clone()));
+    }
+    if let Some(ref h) = manifest.hooks.pre_pr {
+        hooks.push(("pre_pr".to_string(), h.clone()));
+    }
+    if let Some(ref h) = manifest.hooks.post_install {
+        hooks.push(("post_install".to_string(), h.clone()));
+    }
+    if let Some(ref h) = manifest.hooks.post_remove {
+        hooks.push(("post_remove".to_string(), h.clone()));
+    }
+    hooks
 }
 
 fn search_plugins(
@@ -2156,5 +2396,73 @@ build = "cargo build --release"
 
         let result = validate_plugin(&tmp.path().join("json-test"), false, true);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn trust_tier_official_github_shorthand() {
+        assert_eq!(
+            determine_trust_tier("CorvidLabs/fledge-plugin-deploy"),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn trust_tier_official_full_url() {
+        assert_eq!(
+            determine_trust_tier("https://github.com/CorvidLabs/fledge-plugin-deploy.git"),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn trust_tier_official_ssh_url() {
+        assert_eq!(
+            determine_trust_tier("git@github.com:CorvidLabs/fledge-plugin-deploy.git"),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn trust_tier_official_with_ref() {
+        assert_eq!(
+            determine_trust_tier("CorvidLabs/fledge-plugin-deploy@v1.0.0"),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn trust_tier_official_lowercase() {
+        assert_eq!(
+            determine_trust_tier("corvidlabs/fledge-plugin-deploy"),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn trust_tier_unverified_third_party() {
+        assert_eq!(
+            determine_trust_tier("someone/fledge-plugin-cool"),
+            TrustTier::Unverified
+        );
+    }
+
+    #[test]
+    fn trust_tier_unverified_full_url() {
+        assert_eq!(
+            determine_trust_tier("https://github.com/random-user/fledge-deploy.git"),
+            TrustTier::Unverified
+        );
+    }
+
+    #[test]
+    fn trust_tier_unverified_no_org() {
+        assert_eq!(determine_trust_tier("local-plugin"), TrustTier::Unverified);
+    }
+
+    #[test]
+    fn trust_tier_label_strings() {
+        assert_eq!(TrustTier::Official.label(), "official");
+        assert_eq!(TrustTier::Community.label(), "community");
+        assert_eq!(TrustTier::Unverified.label(), "unverified");
     }
 }

@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 7
+version: 8
 status: active
 files:
   - src/plugin.rs
@@ -26,8 +26,10 @@ Plugin system for community extensions. Plugins are external executables that re
 | `run` | Entry point — install, list, remove, or run plugins |
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
-| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate |
+| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
+| `TrustTier` | Trust classification: Official, Community, Unverified |
+| `determine_trust_tier` | Classify a plugin source into a trust tier |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
 
@@ -36,16 +38,18 @@ Plugin system for community extensions. Plugins are external executables that re
 | Type | Description |
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
-| `PluginAction` | Enum: Install, Remove, Update, List, Search, Run, Publish, Create, Validate |
+| `PluginAction` | Enum: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
+| `TrustTier` | Enum: Official, Community, Unverified — serializes as lowercase strings |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
 ### Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run |
+| `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
+| `determine_trust_tier` | `(&str) -> TrustTier` | Classify plugin source by org (CorvidLabs = official, else unverified) |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
 | `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
 
@@ -97,6 +101,18 @@ Plugins can register hooks for lifecycle events beyond install/remove:
 
 Lifecycle hooks are called across all installed plugins. Hooks are optional — plugins only participate in events they declare.
 
+### Trust Tiers
+
+Plugins are classified by their source into trust tiers:
+
+| Tier | Criteria | Display |
+|------|----------|---------|
+| Official | Source org is `CorvidLabs` (case-insensitive) | Green bold `[official]` |
+| Community | Reserved for future known community orgs | Cyan `[community]` |
+| Unverified | All other sources | Yellow `[unverified]` |
+
+Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins with elevated capabilities (exec, metadata) get an extra warning in `plugin audit`.
+
 ### Plugin Discovery
 
 Plugins are discovered via:
@@ -139,8 +155,9 @@ pinned_ref = "v0.2.0"
 4. `plugin install` clones the repo, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
 5. `plugin remove` deletes the plugin directory and its symlinks
 6. `plugin update` git pulls and rebuilds unpinned plugins; pinned plugins check for newer tags
-7. `plugin list` shows installed plugins with name, version, source, and description
-8. `plugin search` uses GitHub topic search (same as template search)
+7. `plugin list` shows installed plugins with name, version, trust tier, source, and commands
+8. `plugin audit` shows trust tier, capabilities, lifecycle hooks, and warnings for each plugin
+9. `plugin search` uses GitHub topic search (same as template search)
 9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
 10. `--json` outputs structured data for all list/search operations
 
@@ -208,6 +225,29 @@ Validation failed
 $ fledge plugins publish
 ✅ my-tool — valid
 ➡️ Publishing plugin ./my-tool as owner/my-tool
+
+# Audit installed plugins
+$ fledge plugins audit
+Plugin Security Audit
+
+  • fledge-deploy v0.1.0 [official]
+    Source: CorvidLabs/fledge-plugin-deploy
+    Capabilities:
+      • exec — can run shell commands
+    Commands: deploy
+
+  • fledge-stats v0.2.0 [unverified]
+    Source: someone/fledge-stats
+    Capabilities: none
+    Commands: stats
+
+  Summary: 2 plugin(s), 1 unverified, 1 with elevated capabilities
+
+# List shows trust tiers
+$ fledge plugin list
+Installed plugins:
+  fledge-deploy  v0.1.0  [official]  (CorvidLabs/fledge-plugin-deploy)
+  fledge-stats   v0.2.0  [unverified]  (someone/fledge-stats)
 ```
 
 ## Error Cases
@@ -238,6 +278,7 @@ $ fledge plugins publish
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 8 | 2026-04-23 | Add trust tiers (official/community/unverified) and `audit` subcommand; trust tier shown in list, install, and JSON output |
 | 7 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 6 | 2026-04-21 | Fix: add missing Update variant to exported functions table |
 | 5 | 2026-04-21 | Add lifecycle hooks: pre_init, post_work_start, pre_pr — run across all installed plugins |
