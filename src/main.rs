@@ -121,6 +121,15 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Claude model to use (e.g. sonnet, opus, haiku)
+        #[arg(short, long)]
+        model: Option<String>,
+        /// Custom review focus prompt (appended to default instructions)
+        #[arg(short, long)]
+        prompt: Option<String>,
+        /// Output format: summary (default), checklist, inline
+        #[arg(long, default_value = "summary")]
+        format: String,
     },
     /// View CI/CD check status for a branch
     Checks {
@@ -763,8 +772,24 @@ fn run() -> Result<()> {
                 json,
             })?;
         }
-        Commands::Review { base, file, json } => {
-            review::run(review::ReviewOptions { base, file, json })?;
+        Commands::Review {
+            base,
+            file,
+            json,
+            model,
+            prompt,
+            format,
+        } => {
+            let format: review::ReviewFormat =
+                format.parse().map_err(|e: String| anyhow::anyhow!(e))?;
+            review::run(review::ReviewOptions {
+                base,
+                file,
+                json,
+                model,
+                prompt,
+                format,
+            })?;
         }
         Commands::Lanes { action } => {
             let action = match action {
