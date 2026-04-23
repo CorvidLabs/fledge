@@ -229,12 +229,13 @@ pub fn parse_extensions(input: &str) -> Vec<String> {
 }
 
 /// Drain events from the channel within a debounce window.
+/// Each relevant event resets the deadline so rapid-fire changes collapse into one run.
 fn drain_events(
     rx: &mpsc::Receiver<notify::Result<Event>>,
     debounce: Duration,
     extensions: &[String],
 ) {
-    let deadline = Instant::now() + debounce;
+    let mut deadline = Instant::now() + debounce;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
@@ -242,7 +243,6 @@ fn drain_events(
         }
         match rx.recv_timeout(remaining) {
             Ok(Ok(event)) => {
-                // Check if any paths in this event are relevant
                 let dominated = event
                     .paths
                     .iter()
@@ -250,9 +250,7 @@ fn drain_events(
                 if dominated {
                     continue;
                 }
-                // Relevant event: reset deadline (extend debounce)
-                // We don't actually reset since we already have a deadline,
-                // but we keep draining until the window closes
+                deadline = Instant::now() + debounce;
             }
             Ok(Err(_)) | Err(mpsc::RecvTimeoutError::Timeout) => break,
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -418,14 +416,14 @@ mod tests {
             lane: false,
             path: None,
             extensions: vec![],
-            debounce_ms: 300,
+            debounce_ms: 500,
             clear: false,
         };
         assert_eq!(opts.name, "build");
         assert!(!opts.lane);
         assert!(opts.path.is_none());
         assert!(opts.extensions.is_empty());
-        assert_eq!(opts.debounce_ms, 300);
+        assert_eq!(opts.debounce_ms, 500);
         assert!(!opts.clear);
     }
 
