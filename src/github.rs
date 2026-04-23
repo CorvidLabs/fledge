@@ -82,7 +82,16 @@ pub fn github_api_get(
     }
 
     let mut response = request.call().map_err(|e| match e {
-        ureq::Error::StatusCode(404) => anyhow::anyhow!("Not found: {}", path),
+        ureq::Error::StatusCode(404) => {
+            let repo_id = path.trim_start_matches('/').splitn(4, '/').nth(2).map(|r| {
+                let owner = path.trim_start_matches('/').splitn(4, '/').nth(1).unwrap_or("?");
+                format!("{}/{}", owner, r)
+            }).unwrap_or_else(|| path.to_string());
+            anyhow::anyhow!(
+                "Not found (404) for {}.\nThe repo may not exist, or it may be private — in that case configure a token with 'repo' scope: fledge config set github.token <token>",
+                repo_id
+            )
+        }
         ureq::Error::StatusCode(403) => anyhow::anyhow!(
             "GitHub API rate limit exceeded. Set a token with: fledge config set github.token <your-token>"
         ),
