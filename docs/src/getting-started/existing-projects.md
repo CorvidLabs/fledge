@@ -20,12 +20,12 @@ No `fledge.toml` needed. Fledge looks for marker files (`Cargo.toml`, `package.j
 | Project Type | Detected By | Default Tasks |
 |-------------|------------|---------------|
 | Rust | `Cargo.toml` | build, test, clippy, fmt |
-| Node.js | `package.json` | build, test, lint, dev (if scripts exist) |
+| Node.js | `package.json` | test, build, lint, dev (if scripts exist) |
 | Go | `go.mod` | build, test, vet |
-| Python | `pyproject.toml` / `setup.py` | pytest, ruff, mypy |
-| Ruby | `Gemfile` | rake, rspec |
+| Python | `pyproject.toml` / `setup.py` | test, lint, fmt |
+| Ruby | `Gemfile` | test, lint |
 | Java (Gradle) | `build.gradle` | build, test |
-| Java (Maven) | `pom.xml` | compile, test |
+| Java (Maven) | `pom.xml` | build, test |
 
 For Node.js projects, fledge also detects your package manager (npm, bun, yarn, pnpm) from lockfiles and uses the right one.
 

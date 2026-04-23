@@ -194,13 +194,13 @@ fledge run [task] [OPTIONS]
 | Project | Detected by | Default tasks |
 |---------|------------|---------------|
 | Rust | `Cargo.toml` | build, test, clippy, fmt |
-| Node.js | `package.json` | build, test, lint, dev (if scripts exist) |
+| Node.js | `package.json` | test, build, lint, dev (if scripts exist) |
 | Go | `go.mod` | build, test, vet |
-| Python | `pyproject.toml` / `setup.py` | pytest, ruff, mypy |
+| Python | `pyproject.toml` / `setup.py` | test, lint, fmt |
 | Ruby | `Gemfile` | test, lint |
 | Swift | `Package.swift` | build, test |
-| Gradle | `build.gradle` | build, test, lint |
-| Maven | `pom.xml` | build, test, lint |
+| Gradle | `build.gradle` | build, test |
+| Maven | `pom.xml` | build, test |
 
 ```bash
 fledge run test          # works immediately in any detected project

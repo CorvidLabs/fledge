@@ -208,7 +208,7 @@ steps = [
 | Rust | `Cargo.toml` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Node.js | `package.json` | `ci` (lint, test, build), `check` (parallel lint+test) |
 | Go | `go.mod` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
-| Python | `pyproject.toml` | `ci` (fmt, lint, typecheck, test), `check` (parallel fmt+lint, test) |
+| Python | `pyproject.toml` | `ci` (fmt, lint, test), `check` (parallel fmt+lint, test) |
 
 ## CLI
 
