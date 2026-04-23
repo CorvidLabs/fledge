@@ -34,6 +34,7 @@ mod update;
 mod utils;
 mod validate;
 mod versioning;
+mod watch;
 mod work;
 
 #[derive(Parser)]
@@ -147,6 +148,26 @@ enum Commands {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// Watch for file changes and re-run a task or lane
+    Watch {
+        /// Task name to re-run on changes (use --lane for lanes)
+        name: String,
+        /// Watch and re-run a lane instead of a task
+        #[arg(long)]
+        lane: bool,
+        /// Only watch a specific directory (default: current directory)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+        /// Only trigger on specific file extensions (comma-separated, e.g. "rs,toml")
+        #[arg(short, long)]
+        ext: Option<String>,
+        /// Debounce interval in milliseconds
+        #[arg(short, long, default_value = "300")]
+        debounce: u64,
+        /// Clear terminal before each run
+        #[arg(long)]
+        clear: bool,
     },
     /// Manage and run composable workflow pipelines
     #[command(alias = "lane")]
@@ -761,6 +782,24 @@ fn run() -> Result<()> {
                 list,
                 lang,
                 json,
+            })?;
+        }
+        Commands::Watch {
+            name,
+            lane,
+            path,
+            ext,
+            debounce,
+            clear,
+        } => {
+            let extensions = ext.map(|e| watch::parse_extensions(&e)).unwrap_or_default();
+            watch::run(watch::WatchOptions {
+                name,
+                lane,
+                path,
+                extensions,
+                debounce_ms: debounce,
+                clear,
             })?;
         }
         Commands::Review { base, file, json } => {
