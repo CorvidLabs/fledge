@@ -57,28 +57,20 @@ fn cli_init_with_template_creates_project() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
 
-    // Non-interactive mode may fail because dialoguer needs a TTY for author prompt.
-    // If it succeeds, verify the output.
-    if output.status.success() {
-        let project_dir = tmp.path().join("test-project");
-        assert!(project_dir.exists(), "project dir not created");
-        assert!(
-            project_dir.join("Cargo.toml").exists() || project_dir.join("src").exists(),
-            "project files not found"
-        );
-        assert!(
-            project_dir.join("src/lib.rs").exists(),
-            "src/lib.rs not found"
-        );
-    } else {
-        // Expected in CI/non-TTY: dialoguer prompt fails
-        assert!(
-            stderr.contains("dialoguer")
-                || stderr.contains("not a terminal")
-                || stderr.contains("IO error"),
-            "unexpected error: {stderr}\nstdout: {stdout}"
-        );
-    }
+    assert!(
+        output.status.success(),
+        "init should succeed in non-TTY mode using defaults.\nstderr: {stderr}\nstdout: {stdout}"
+    );
+    let project_dir = tmp.path().join("test-project");
+    assert!(project_dir.exists(), "project dir not created");
+    assert!(
+        project_dir.join("Cargo.toml").exists(),
+        "Cargo.toml not found"
+    );
+    assert!(
+        project_dir.join("src/main.rs").exists(),
+        "src/main.rs not found"
+    );
 }
 
 #[test]

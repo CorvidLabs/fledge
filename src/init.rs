@@ -307,6 +307,14 @@ fn run_post_create_hooks(hooks: &[String], project_dir: &Path, auto_yes: bool) -
         }
         println!();
 
+        if !crate::utils::is_interactive() {
+            println!(
+                "{} Skipped hooks (non-interactive). Re-run with --yes to allow.",
+                style("*").cyan().bold()
+            );
+            return Ok(());
+        }
+
         let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
             .with_prompt("Allow these commands to run?")
             .default(false)
@@ -457,10 +465,15 @@ fn check_template_requirements(
     }
     println!();
 
-    if auto_yes {
+    if auto_yes || !crate::utils::is_interactive() {
         println!(
-            "{} Continuing anyway (--yes). Skipping post-create hooks.",
-            style("*").cyan().bold()
+            "{} Continuing anyway{}. Skipping post-create hooks.",
+            style("*").cyan().bold(),
+            if auto_yes {
+                " (--yes)"
+            } else {
+                " (non-interactive)"
+            }
         );
         return Ok(false);
     }

@@ -33,7 +33,7 @@ pub fn run(options: CreateTemplateOptions) -> Result<()> {
         && options.hooks.is_some()
         && options.prompts.is_some();
 
-    let answers = if options.yes || all_provided {
+    let answers = if options.yes || all_provided || !crate::utils::is_interactive() {
         build_answers_from_flags(&options)
     } else {
         gather_answers(&options)?

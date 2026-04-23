@@ -5,6 +5,8 @@ use crate::config::Config;
 use crate::templates::Template;
 
 pub fn select_template(templates: &[Template]) -> Result<usize> {
+    crate::utils::require_interactive("template")?;
+
     let items: Vec<String> = templates
         .iter()
         .map(|t| format!("{:<14} {}", t.name, t.description))
@@ -59,7 +61,7 @@ pub fn prompt_variables(
     } else {
         match config.author_or_git() {
             Some(a) => a,
-            None if yes => project_name.to_string(),
+            None if yes || !crate::utils::is_interactive() => project_name.to_string(),
             None => Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Author name")
                 .interact_text()?,
@@ -72,7 +74,7 @@ pub fn prompt_variables(
     } else {
         match config.github_org() {
             Some(org) => org,
-            None if yes => author.clone(),
+            None if yes || !crate::utils::is_interactive() => author.clone(),
             None => {
                 let theme = ColorfulTheme::default();
                 let input = Input::<String>::with_theme(&theme).with_prompt("GitHub organization");
@@ -92,7 +94,7 @@ pub fn prompt_variables(
     ctx.insert("license", &config.license());
 
     for (key, prompt_def) in &template.manifest.prompts {
-        let value: String = if yes {
+        let value: String = if yes || !crate::utils::is_interactive() {
             if let Some(ref default) = prompt_def.default {
                 render_default(default, &ctx).unwrap_or_else(|_| default.clone())
             } else {

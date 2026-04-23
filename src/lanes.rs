@@ -114,12 +114,14 @@ pub enum LaneAction {
     },
     Import {
         source: String,
+        yes: bool,
     },
     Publish {
         path: PathBuf,
         org: Option<String>,
         private: bool,
         description: Option<String>,
+        yes: bool,
     },
     Create {
         name: String,
@@ -141,14 +143,15 @@ pub fn run(action: LaneAction) -> Result<()> {
             author,
             json,
         } => search_lanes(query.as_deref(), author.as_deref(), json),
-        LaneAction::Import { source } => import_lanes(&source),
+        LaneAction::Import { source, yes } => import_lanes(&source, yes),
         LaneAction::Init => init_lanes(),
         LaneAction::Publish {
             path,
             org,
             private,
             description,
-        } => publish_lanes(&path, org.as_deref(), private, description.as_deref()),
+            yes,
+        } => publish_lanes(&path, org.as_deref(), private, description.as_deref(), yes),
         LaneAction::Create {
             name,
             output,
@@ -867,7 +870,7 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
     Ok(())
 }
 
-fn import_lanes(source: &str) -> Result<()> {
+fn import_lanes(source: &str, _yes: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join("fledge.toml");
 
@@ -1123,7 +1126,7 @@ fn create_lane_repo(name: &str, output: &Path, description: Option<&str>, yes: b
         bail!("Directory '{}' already exists", target.display());
     }
 
-    let desc = if yes {
+    let desc = if yes || !crate::utils::is_interactive() {
         description.unwrap_or("Shared fledge lanes").to_string()
     } else {
         let theme = dialoguer::theme::ColorfulTheme::default();
@@ -1407,6 +1410,7 @@ fn publish_lanes(
     org: Option<&str>,
     private: bool,
     description: Option<&str>,
+    yes: bool,
 ) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
@@ -1459,17 +1463,21 @@ fn publish_lanes(
     sp.finish();
 
     if repo_exists {
-        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .with_prompt(format!(
-                "Repository {}/{} already exists. Push update?",
-                owner, repo_name
-            ))
-            .default(false)
-            .interact()?;
+        if !yes {
+            crate::utils::require_interactive("yes")?;
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Repository {}/{} already exists. Push update?",
+                        owner, repo_name
+                    ))
+                    .default(false)
+                    .interact()?;
 
-        if !confirm {
-            println!("{} Cancelled.", style("*").cyan().bold());
-            return Ok(());
+            if !confirm {
+                println!("{} Cancelled.", style("*").cyan().bold());
+                return Ok(());
+            }
         }
     } else {
         let sp = crate::spinner::Spinner::start("Creating repository:");

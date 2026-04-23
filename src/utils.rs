@@ -1,3 +1,20 @@
+use std::io::IsTerminal;
+
+pub fn is_interactive() -> bool {
+    std::io::stdin().is_terminal()
+}
+
+pub fn require_interactive(flag_name: &str) -> anyhow::Result<()> {
+    if !is_interactive() {
+        anyhow::bail!(
+            "This command requires interactive input but stdin is not a TTY.\n  \
+             Use --{} to skip prompts, or provide all required arguments via flags.",
+            flag_name
+        );
+    }
+    Ok(())
+}
+
 pub fn to_kebab_case(s: &str) -> String {
     s.chars()
         .map(|c| {
