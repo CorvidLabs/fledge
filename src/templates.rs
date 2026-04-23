@@ -87,6 +87,7 @@ pub struct Template {
     pub description: String,
     pub path: PathBuf,
     pub manifest: TemplateManifest,
+    pub source: Option<String>,
 }
 
 pub fn discover_templates(extra_paths: &[PathBuf]) -> Result<Vec<Template>> {
@@ -121,12 +122,16 @@ pub fn discover_templates_with_repos(
             continue;
         }
         let (owner, repo, subpath, git_ref) = crate::remote::parse_remote_ref(repo_ref)?;
+        let before_count = templates.len();
         match crate::remote::resolve_template_dir(owner, repo, subpath, token, git_ref) {
             Ok(dir) => {
                 if dir.join("template.toml").exists() {
                     load_single_template(&dir, &mut templates)?;
                 } else {
                     load_templates_from_dir(&dir, &mut templates)?;
+                }
+                for t in templates[before_count..].iter_mut() {
+                    t.source = Some(repo_ref.clone());
                 }
             }
             Err(e) => {
@@ -150,6 +155,7 @@ fn load_single_template(path: &Path, templates: &mut Vec<Template>) -> Result<()
         description: manifest.template.description.clone(),
         path: path.to_path_buf(),
         manifest,
+        source: None,
     });
     Ok(())
 }
@@ -258,6 +264,7 @@ fn load_templates_from_dir(dir: &Path, templates: &mut Vec<Template>) -> Result<
             description: manifest.template.description.clone(),
             path: path.to_path_buf(),
             manifest,
+            source: None,
         });
     }
     Ok(())

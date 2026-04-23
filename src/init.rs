@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::config::Config;
 use crate::prompts;
 use crate::templates::{self, Template};
+use crate::trust;
 use crate::update;
 
 pub struct InitOptions {
@@ -168,6 +169,7 @@ fn run_remote(
             description: manifest.template.description.clone(),
             path: template_dir.clone(),
             manifest,
+            source: Some(remote_ref.to_string()),
         });
     } else {
         // Collection — discover templates within
@@ -186,11 +188,23 @@ fn run_remote(
         &found[idx]
     };
 
+    let tier = trust::determine_trust_tier(remote_ref);
     println!(
-        "{} Using template: {}",
+        "{} Using template: {} [{}]",
         style("*").cyan().bold(),
-        style(&template.name).green()
+        style(&template.name).green(),
+        tier.styled_label()
     );
+    if tier != trust::TrustTier::Official {
+        println!(
+            "  {} Templates can include arbitrary files and post-create hooks.",
+            style("*").yellow()
+        );
+        println!(
+            "  {} Only use templates from sources you trust.\n",
+            style("*").yellow()
+        );
+    }
 
     check_template_version(&template.manifest)?;
     let reqs_ok = check_template_requirements(&template.manifest, opts.yes)?;

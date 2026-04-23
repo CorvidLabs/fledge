@@ -29,6 +29,7 @@ mod search;
 mod spec;
 mod spinner;
 mod templates;
+mod trust;
 mod update;
 mod utils;
 mod validate;
