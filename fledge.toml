@@ -41,6 +41,14 @@ steps = ["docs-build"]
 [lanes.release]
 description = "Pre-release validation"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates", "docs-build"]
+[tasks.deps]
+cmd = "cargo run -- deps"
+description = "List project dependencies"
+
+[tasks.deps-outdated]
+cmd = "cargo run -- deps --outdated"
+description = "Check for outdated dependencies"
+
 [tasks.audit]
 cmd = "cargo audit"
 description = "Check dependencies for known vulnerabilities"
