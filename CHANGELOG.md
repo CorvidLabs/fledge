@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-04-23
+
+### Added
+
+- `fledge watch` command — file-watching with automatic task/lane re-runs (#230, #231)
+- `--model`, `--prompt`, and `--format` flags for `fledge review` (#232)
+- Kotlin KMP and Kotlin Ktor API templates (#234)
+- `--json` flag for `fledge lanes run` (#237)
+
+### Fixed
+
+- Watch debounce behavior — reduced duplicate re-runs on rapid saves (#236)
+- `fledge doctor` now correctly detects bun, pnpm, and yarn toolchains (#235)
+- Improved 404 error messages for GitHub API calls (#233)
+
+### Changed
+
+- CLI commands reordered alphabetically for consistency (#237)
+
 ## [0.11.1] - 2026-04-23
 
 ### Added
