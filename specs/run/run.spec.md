@@ -60,12 +60,12 @@ Available tasks:
 
 # Run a task
 $ fledge run build
-▸ Running task: build
+▶️ Running task: build
 
 # Run a task with dependencies
 $ fledge run ci
-▸ Running task: lint
-▸ Running task: ci
+▶️ Running task: lint
+▶️ Running task: ci
 
 # Init a new fledge.toml
 $ fledge run --init

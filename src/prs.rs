@@ -177,6 +177,7 @@ fn print_pr_line(pr: &serde_json::Value) {
     let draft = pr["draft"].as_bool().unwrap_or(false);
     let updated = pr["updated_at"].as_str().unwrap_or("");
     let head = pr["head"]["ref"].as_str().unwrap_or("?");
+    let base = pr["base"]["ref"].as_str().unwrap_or("?");
 
     let state_icon = if draft {
         style("📝").dim()
@@ -194,7 +195,7 @@ fn print_pr_line(pr: &serde_json::Value) {
         style(format!("#{:<5}", number)).cyan(),
         title,
         style(head).dim(),
-        style("base").dim(),
+        style(base).dim(),
         style(github::format_relative_time(updated)).dim()
     );
 }
