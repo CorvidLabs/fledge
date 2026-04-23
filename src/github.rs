@@ -83,8 +83,8 @@ pub fn github_api_get(
 
     let mut response = request.call().map_err(|e| match e {
         ureq::Error::StatusCode(404) => {
-            let repo_id = path.trim_start_matches('/').splitn(4, '/').nth(2).map(|r| {
-                let owner = path.trim_start_matches('/').splitn(4, '/').nth(1).unwrap_or("?");
+            let repo_id = path.trim_start_matches('/').split('/').nth(2).map(|r| {
+                let owner = path.trim_start_matches('/').split('/').nth(1).unwrap_or("?");
                 format!("{}/{}", owner, r)
             }).unwrap_or_else(|| path.to_string());
             anyhow::anyhow!(
