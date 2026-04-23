@@ -160,7 +160,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
     }
 
     let mut visited = HashSet::new();
-    execute_task(task_name, &tasks, &project_dir, &mut visited)
+    execute_task(task_name, &tasks, &project_dir, &mut visited, opts.json)
 }
 
 fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
@@ -203,6 +203,7 @@ fn execute_task(
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     visited: &mut HashSet<String>,
+    json: bool,
 ) -> Result<()> {
     if visited.contains(name) {
         bail!(
@@ -217,14 +218,8 @@ fn execute_task(
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found (referenced as dependency)", name))?;
 
     for dep in task.deps() {
-        execute_task(dep, tasks, project_dir, visited)?;
+        execute_task(dep, tasks, project_dir, visited, json)?;
     }
-
-    println!(
-        "{} {}",
-        style("▶️").cyan().bold(),
-        style(format!("Running task: {name}")).bold()
-    );
 
     let cmd_str = task.cmd();
     let work_dir = match task.dir() {
@@ -235,20 +230,51 @@ fn execute_task(
     let shell = if cfg!(windows) { "cmd" } else { "sh" };
     let flag = if cfg!(windows) { "/C" } else { "-c" };
 
-    let mut command = Command::new(shell);
-    command.arg(flag).arg(cmd_str).current_dir(&work_dir);
+    if json {
+        let output = Command::new(shell)
+            .arg(flag)
+            .arg(cmd_str)
+            .current_dir(&work_dir)
+            .envs(task.env())
+            .output()
+            .with_context(|| format!("running task '{name}'"))?;
 
-    for (key, value) in task.env() {
-        command.env(key, value);
-    }
+        let result = serde_json::json!({
+            "task": name,
+            "command": cmd_str,
+            "exit_code": output.status.code().unwrap_or(-1),
+            "success": output.status.success(),
+            "stdout": String::from_utf8_lossy(&output.stdout),
+            "stderr": String::from_utf8_lossy(&output.stderr),
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
 
-    let status = command
-        .status()
-        .with_context(|| format!("running task '{name}'"))?;
+        if !output.status.success() {
+            let code = output.status.code().unwrap_or(1);
+            bail!("Task '{}' failed with exit code {}", name, code);
+        }
+    } else {
+        println!(
+            "{} {}",
+            style("▶️").cyan().bold(),
+            style(format!("Running task: {name}")).bold()
+        );
 
-    if !status.success() {
-        let code = status.code().unwrap_or(1);
-        bail!("Task '{}' failed with exit code {}", name, code);
+        let mut command = Command::new(shell);
+        command.arg(flag).arg(cmd_str).current_dir(&work_dir);
+
+        for (key, value) in task.env() {
+            command.env(key, value);
+        }
+
+        let status = command
+            .status()
+            .with_context(|| format!("running task '{name}'"))?;
+
+        if !status.success() {
+            let code = status.code().unwrap_or(1);
+            bail!("Task '{}' failed with exit code {}", name, code);
+        }
     }
 
     Ok(())
@@ -534,7 +560,7 @@ deps = ["a"]
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         let project_dir = std::env::temp_dir();
         let mut visited = HashSet::new();
-        let result = execute_task("a", &config.tasks, &project_dir, &mut visited);
+        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
