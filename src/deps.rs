@@ -452,19 +452,29 @@ fn parse_poetry_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
 
 fn parse_uv_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     let content = std::fs::read_to_string(path).context("reading uv.lock")?;
+    let parsed: toml::Value = toml::from_str(&content).context("parsing uv.lock as TOML")?;
     let mut deps = Vec::new();
-    let mut current_name: Option<String> = None;
 
-    for line in content.lines() {
-        if line.starts_with("name = ") {
-            current_name = Some(unquote(line.trim_start_matches("name = ")));
-        } else if line.starts_with("version = ") {
-            if let Some(name) = current_name.take() {
-                let version = unquote(line.trim_start_matches("version = "));
-                deps.push(Dep { name, version });
+    if let Some(packages) = parsed.get("package").and_then(|v| v.as_array()) {
+        for pkg in packages {
+            let name = match pkg.get("name").and_then(|v| v.as_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            let version = match pkg.get("version").and_then(|v| v.as_str()) {
+                Some(v) => v,
+                None => continue,
+            };
+            // Skip the root project (editable source = the project itself)
+            if let Some(source) = pkg.get("source") {
+                if source.get("editable").is_some() || source.get("virtual").is_some() {
+                    continue;
+                }
             }
-        } else if line == "[[package]]" {
-            current_name = None;
+            deps.push(Dep {
+                name: name.to_string(),
+                version: version.to_string(),
+            });
         }
     }
 
@@ -759,6 +769,47 @@ source = { registry = "https://pypi.org/simple" }
         assert_eq!(deps[0].version, "0.111.0");
         assert_eq!(deps[1].name, "pydantic");
         assert_eq!(deps[1].version, "2.7.4");
+    }
+
+    #[test]
+    fn parse_uv_lock_skips_root_and_handles_field_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock_path = dir.path().join("uv.lock");
+        std::fs::write(
+            &lock_path,
+            r#"version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "myproject"
+version = "0.1.0"
+source = { editable = "." }
+
+[[package]]
+version = "1.2.3"
+name = "reversed-fields"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "normal-dep"
+version = "4.5.6"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "virtual-root"
+version = "0.0.0"
+source = { virtual = "." }
+"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_uv_lock(&lock_path).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps[0].name, "normal-dep");
+        assert_eq!(deps[0].version, "4.5.6");
+        assert_eq!(deps[1].name, "reversed-fields");
+        assert_eq!(deps[1].version, "1.2.3");
     }
 
     #[test]
