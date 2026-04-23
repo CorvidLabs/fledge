@@ -357,13 +357,18 @@ fn parse_python_deps(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
         return parse_pipfile_lock(&pipfile_lock);
     }
 
+    let uv_lock = dir.join("uv.lock");
+    if uv_lock.exists() {
+        return parse_uv_lock(&uv_lock);
+    }
+
     let poetry_lock = dir.join("poetry.lock");
     if poetry_lock.exists() {
         return parse_poetry_lock(&poetry_lock);
     }
 
     bail!(
-        "No Python lock/requirements file found (requirements.txt, Pipfile.lock, or poetry.lock)."
+        "No Python lock/requirements file found (requirements.txt, Pipfile.lock, uv.lock, or poetry.lock)."
     );
 }
 
@@ -445,6 +450,28 @@ fn parse_poetry_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     Ok((Some(path.to_path_buf()), deps))
 }
 
+fn parse_uv_lock(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let content = std::fs::read_to_string(path).context("reading uv.lock")?;
+    let mut deps = Vec::new();
+    let mut current_name: Option<String> = None;
+
+    for line in content.lines() {
+        if line.starts_with("name = ") {
+            current_name = Some(unquote(line.trim_start_matches("name = ")));
+        } else if line.starts_with("version = ") {
+            if let Some(name) = current_name.take() {
+                let version = unquote(line.trim_start_matches("version = "));
+                deps.push(Dep { name, version });
+            }
+        } else if line == "[[package]]" {
+            current_name = None;
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((Some(path.to_path_buf()), deps))
+}
+
 fn parse_gemfile_lock(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     let lock_path = dir.join("Gemfile.lock");
     if !lock_path.exists() {
@@ -488,7 +515,13 @@ fn run_outdated(project_type: &str, dir: &Path) -> Result<()> {
         "rust" => ("cargo", vec!["outdated"], "cargo-outdated"),
         "node" => ("npm", vec!["outdated"], "npm"),
         "go" => ("go", vec!["list", "-m", "-u", "all"], "go"),
-        "python" => ("pip", vec!["list", "--outdated"], "pip"),
+        "python" => {
+            if dir.join("uv.lock").exists() {
+                ("uv", vec!["pip", "list", "--outdated"], "uv")
+            } else {
+                ("pip", vec!["list", "--outdated"], "pip")
+            }
+        }
         "ruby" => ("bundle", vec!["outdated"], "bundler"),
         _ => bail!("Outdated check not supported for {}", project_type),
     };
@@ -695,6 +728,37 @@ version = "4.5.0"
         assert_eq!(deps.len(), 2);
         assert_eq!(deps[0].name, "flask");
         assert_eq!(deps[0].version, "2.3.0");
+    }
+
+    #[test]
+    fn parse_uv_lock_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock_path = dir.path().join("uv.lock");
+        std::fs::write(
+            &lock_path,
+            r#"version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "fastapi"
+version = "0.111.0"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "pydantic"
+version = "2.7.4"
+source = { registry = "https://pypi.org/simple" }
+"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_uv_lock(&lock_path).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps[0].name, "fastapi");
+        assert_eq!(deps[0].version, "0.111.0");
+        assert_eq!(deps[1].name, "pydantic");
+        assert_eq!(deps[1].version, "2.7.4");
     }
 
     #[test]

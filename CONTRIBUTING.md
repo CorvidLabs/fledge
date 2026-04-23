@@ -19,12 +19,14 @@ cargo build
 cargo test
 ```
 
-### Run from Source
+Once built, use fledge itself for development (we dogfood our own CLI):
 
 ```bash
-cargo run -- init my-test --template rust-cli
+cargo run -- run build
 cargo run -- run test
 ```
+
+See `fledge.toml` at the repo root for all available tasks and lanes.
 
 ## Development Workflow
 
@@ -35,10 +37,8 @@ Check [existing issues](https://github.com/CorvidLabs/fledge/issues) first. If y
 ### 2. Create a Branch
 
 ```bash
-# Use fledge itself for branch management
+# Use fledge for branch management
 cargo run -- work start my-feature
-# Or manually
-git checkout -b feat/my-feature
 ```
 
 Branch naming convention: `{type}/{description}` where type is `feat`, `fix`, `chore`, `docs`, `refactor`, or `hotfix`.
@@ -53,21 +53,22 @@ Branch naming convention: `{type}/{description}` where type is `feat`, `fix`, `c
 ### 4. Verify
 
 ```bash
-cargo build                        # compiles
-cargo test                         # all tests pass
-cargo clippy -- -D warnings        # no lint warnings
-cargo fmt --check                  # formatting is correct
+# Run the full pre-commit lane (fmt, lint, test, spec check)
+cargo run -- lanes run pre-commit
+
+# Or check individual steps
+cargo run -- run fmt               # formatting is correct
+cargo run -- run lint              # no lint warnings
+cargo run -- run test              # all tests pass
 cargo run -- spec check            # specs are in sync
 ```
 
-All four checks must pass before submitting a PR.
+All checks in the `pre-commit` lane must pass before submitting a PR.
 
 ### 5. Submit a Pull Request
 
 ```bash
-# Use fledge
 cargo run -- work pr --title "Add my feature"
-# Or use gh/GitHub
 ```
 
 In your PR description:
