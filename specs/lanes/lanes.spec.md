@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 8
+version: 9
 status: active
 files:
   - src/lanes.rs
@@ -33,7 +33,7 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 
 | Type | Description |
 |------|-------------|
-| `LaneAction` | Action enum for the lane subcommand (Run, List, Init, Search, Import, Publish, Create, Validate) |
+| `LaneAction` | Action enum for the lane subcommand (Run with json/dry_run, List, Init, Search, Import, Publish, Create, Validate) |
 | `LaneDef` | A named lane with description, steps, and fail_fast flag |
 | `Step` | A single step: task reference, inline command, or parallel group |
 | `ParallelItem` | An item within a parallel group: task reference or inline command |
@@ -187,6 +187,10 @@ Validation failed
 $ fledge laness publish
 ✅ . — valid (2 lanes)
 ➡️ Publishing 2 lanes as owner/my-lanes
+
+# Run a lane with JSON output
+$ fledge lanes run ci --json
+{"lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [...], "failures": []}
 ```
 
 ## Error Cases
@@ -221,6 +225,7 @@ $ fledge laness publish
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 9 | 2026-04-23 | Add `--json` flag to `lane run` for structured JSON output |
 | 8 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 7 | 2026-04-21 | Imported lanes stored in `.fledge/lanes/` instead of appending to fledge.toml; lane loading merges both sources |
 | 6 | 2026-04-21 | Add step timing — each step prints elapsed time, lane summary includes total |

@@ -1,6 +1,6 @@
 ---
 module: main
-version: 1
+version: 2
 status: active
 files:
   - src/main.rs
@@ -34,6 +34,7 @@ depends_on:
   - update
   - validate
   - versioning
+  - watch
   - work
 ---
 
@@ -89,4 +90,5 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-23 | Add `watch` to depends_on |
 | 1 | 2026-04-21 | Initial spec |
