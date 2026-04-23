@@ -11,7 +11,7 @@
 ```bash
 fledge templates init my-tool --template rust-cli
 cd my-tool
-fledge lane ci     # lint + test + build, works out of the box
+fledge lanes run ci  # lint + test + build, works out of the box
 ```
 
 ## Install

@@ -13,7 +13,7 @@ spec: plugin.spec.md
 
 ### Integration Tests
 
-- `fledge plugin list` runs without panic when no plugins installed
-- `fledge plugin list --json` outputs valid JSON
+- `fledge plugins list` runs without panic when no plugins installed
+- `fledge plugins list --json` outputs valid JSON
 - Install/remove cycle works end-to-end with a test plugin
 - Missing plugin produces clear error
