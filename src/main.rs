@@ -163,7 +163,7 @@ enum Commands {
         #[arg(short, long)]
         ext: Option<String>,
         /// Debounce interval in milliseconds
-        #[arg(short, long, default_value = "300")]
+        #[arg(short, long, default_value = "500")]
         debounce: u64,
         /// Clear terminal before each run
         #[arg(long)]
