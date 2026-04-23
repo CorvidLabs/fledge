@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-23
+
+### Added
+
+- Plugin trust tiers and `fledge plugin audit` command — verify plugin provenance (#220)
+- Trust tier badges for templates and lanes — warnings for unverified sources (#221)
+- Non-TTY support for AI agents and CI environments — all interactive prompts gracefully degrade (#222)
+- `uv.lock` support in `fledge deps` for Python projects (#223)
+- Use cases page and enhanced review documentation (#219)
+
+### Fixed
+
+- Proper TOML parsing for `uv.lock` instead of fragile line-based parsing (#224)
+- Plural command names (`lanes`, `plugins`) used consistently across all docs and specs (#216, #217, #218)
+
+### Changed
+
+- CONTRIBUTING.md fully dogfoods fledge — uses `fledge run`, `fledge lanes`, and `fledge work` instead of raw cargo commands (#223, #225, #226)
+
 ## [0.10.0] - 2026-04-22
 
 ### Added
