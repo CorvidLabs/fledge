@@ -15,6 +15,7 @@
 - [Review: Quality and Insight](./review.md)
 - [Ship: Track and Release](./ship.md)
 - [Extend: Grow the Tool](./plugins.md)
+- [Use Cases & Plugin Ideas](./use-cases.md)
 - [GitHub Integration](./github-integration.md)
 - [CLI Reference](./cli-reference.md)
 - [Troubleshooting](./troubleshooting.md)
