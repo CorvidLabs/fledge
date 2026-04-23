@@ -55,12 +55,13 @@ fledge spec check --strict   # warnings become errors
 
 ### Spec format
 
-Each spec is a markdown file with a TOML frontmatter block:
+Each spec is a markdown file with a YAML frontmatter block:
 
 ```markdown
 ---
-module = "auth"
-version = "1.0.0"
+module: auth
+version: 1
+status: active
 ---
 
 # Auth Module
@@ -76,7 +77,7 @@ List the public functions/types and what they do.
 Any guarantees the code must uphold.
 ```
 
-fledge reads the frontmatter to track the module name and version. The body is free-form markdown.
+fledge reads the frontmatter to track the module name, version, and status. The body is free-form markdown.
 
 ### Validation rules
 
@@ -84,8 +85,8 @@ fledge reads the frontmatter to track the module name and version. The body is f
 
 1. Every spec in `specs/` has a corresponding source file (no orphaned specs)
 2. Every tracked module has a spec (no undocumented modules)
-3. Spec frontmatter is valid TOML
-4. Version field is present and follows semver
+3. Spec frontmatter is valid YAML with required fields (module, version, status)
+4. Version field is present (integer)
 
 With `--strict`, warnings (missing optional fields, minor drift) become errors.
 
