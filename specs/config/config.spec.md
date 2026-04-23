@@ -1,6 +1,6 @@
 ---
 module: config
-version: 5
+version: 6
 status: active
 files:
   - src/config.rs

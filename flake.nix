@@ -1,5 +1,5 @@
 {
-  description = "Fledge — corvid-themed project scaffolding CLI";
+  description = "Fledge — one CLI, your whole dev lifecycle";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -14,7 +14,7 @@
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "fledge";
-          version = "0.6.0";
+          version = "0.9.1";
           src = self;
 
           cargoLock = {
@@ -35,7 +35,7 @@
           '';
 
           meta = with pkgs.lib; {
-            description = "Corvid-themed project scaffolding CLI";
+            description = "One CLI, your whole dev lifecycle";
             homepage = "https://github.com/CorvidLabs/fledge";
             license = licenses.mit;
             mainProgram = "fledge";

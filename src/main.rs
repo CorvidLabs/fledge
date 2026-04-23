@@ -1239,7 +1239,7 @@ fn list_templates() -> Result<()> {
     )?;
 
     if available.is_empty() {
-        anyhow::bail!("No templates found. Configure template sources via `fledge config set template_repos`, add templates to the templates/ directory, or set extra_template_paths in ~/.config/fledge/config.toml.");
+        anyhow::bail!("No templates found. Configure template sources via `fledge config add templates.repos <owner/repo>`, add templates to the templates/ directory, or set templates.paths via `fledge config add templates.paths <path>`.");
     }
 
     println!("{}", style("Available templates:").bold());

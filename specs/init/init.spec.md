@@ -138,5 +138,5 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | 2026-04-18 | CorvidAgent | Initial spec |
 | 2026-04-18 | CorvidAgent | v2: fill in export descriptions, re-validate against source |
 | 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |
-| 2026-04-21 | CorvidAgent | v7: add author/org fields to InitOptions, document plugin pre_init hook and versioning check |
 | 2026-04-19 | CorvidAgent | v5: init now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |
+| 2026-04-21 | CorvidAgent | v7: add author/org fields to InitOptions, document plugin pre_init hook and versioning check |

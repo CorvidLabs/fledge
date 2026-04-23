@@ -69,9 +69,9 @@ Browse community templates: `fledge templates search <keyword>`
 
 ## Examples
 
-- **[Official Templates](https://github.com/CorvidLabs/fledge-templates)** — hello-world, bun-api, ts-lib, and more
+- **[Community Templates](https://github.com/CorvidLabs/fledge-templates)** — 18 ready-to-use templates (angular-app, bun-api, deno-cli, mcp-server, rust-workspace, swift-pkg, and more)
 - **[Example Lanes](https://github.com/CorvidLabs/fledge-lanes)** — language-specific CI/CD pipelines
-- **[Example Plugin](https://github.com/CorvidLabs/fledge-deploy)** — deploy/rollback plugin reference
+- **[Example Plugin](https://github.com/CorvidLabs/fledge-plugin-deploy)** — deploy/rollback plugin reference
 
 ## Learn More
 

@@ -44,7 +44,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 |----------|-----------|-------------|
 | `cache_dir` | `() -> PathBuf` | Returns `~/.cache/fledge/templates` (platform-aware) |
 | `is_remote_ref` | `(&str) -> bool` | Returns true if string contains `/` with non-empty segments |
-| `parse_remote_ref` | `(&str) -> (&str, &str, Option<&str>, Option<&str>)` | Splits into (owner, repo, optional subpath, optional git ref) |
+| `parse_remote_ref` | `(&str) -> Result<(&str, &str, Option<&str>, Option<&str>)>` | Splits into (owner, repo, optional subpath, optional git ref) |
 | `fetch_repo` | `(&str, &str, Option<&str>, Option<&str>) -> Result<PathBuf>` | Clone or pull repo with optional git ref, returns local path |
 | `clear_cache` | `(&str, &str) -> Result<()>` | Remove cached repo dir for owner/repo |
 | `resolve_template_dir` | `(&str, &str, Option<&str>, Option<&str>, Option<&str>) -> Result<PathBuf>` | Fetch repo and resolve optional subpath with optional git ref |
