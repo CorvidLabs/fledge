@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-22
+
+### Added
+
+- `fledge lanes create` / `fledge lanes validate` — scaffold and validate lane definitions (#203)
+- `fledge plugin create` / `fledge plugin validate` — scaffold and validate plugin manifests (#203)
+- Plugin protocol v1 — full JSON-lines IPC with capability manifest, structured logging, and lifecycle events (#178, #179, #196, #197)
+- Plugin and lane publishing — `fledge plugin publish` and `fledge lanes publish` (#176, #177)
+- GitHub CLI (`gh`) token fallback — fledge uses `gh auth token` when no `GITHUB_TOKEN` is set (#201)
+- Release workflow hardening — duplicate tag pre-check prevents overwriting existing releases (#214)
+- 10 new release tests covering gemspec, setup.cfg, pom.xml bumping, `--no-tag` flag, and edge cases (#214)
+- Cross-platform plugin protocol tests (#180)
+
+### Fixed
+
+- Plugin state.json locking, env filtering, key validation, and exec timeout cap (#188)
+- Plugin protocol security hardening — input validation, output size limits (#187)
+- Plugin audit findings from security review (#195)
+- TOML serialization crashes, UTF-8 truncation panics, and remote ref parsing failures (#200)
+- 6 crash and security findings from codebase audit (#199)
+- Security review findings — input sanitization and error handling (#198)
+- Error message config keys now reference correct `fledge config` commands (#213)
+- Spec frontmatter documented as YAML (not TOML) with correct field types (#212)
+- Audit round 2 — doc/spec inaccuracies, missing CLI flags, wrong command names (#211)
+- Documentation and spec gaps filled (#210)
+- Infra and publishing audit bug fixes (#209)
+- Dev loop audit bug fixes (#208)
+- Templates audit bug fixes (#206)
+- Doc inaccuracies in language defaults, lane docs, and CLI reference (#214)
+
+### Changed
+
+- Removed TUI module — will be reimplemented as a plugin (#204)
+- CLI documentation updated to match current subcommand structure (#202)
+
 ## [0.9.1] - 2026-04-21
 
 ### Fixed
