@@ -28,10 +28,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
-| `TrustTier` | Trust classification: Official, Community, Unverified |
-| `label` | Return the trust tier as a lowercase string (TrustTier method) |
-| `styled_label` | Return the trust tier as a colored styled string (TrustTier method) |
-| `determine_trust_tier` | Classify a plugin source into a trust tier |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
 
@@ -43,7 +39,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginAction` | Enum: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
 | `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
-| `TrustTier` | Enum: Official, Community, Unverified — serializes as lowercase strings |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
 ### Functions
@@ -51,9 +46,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
-| `label` | `(&self) -> &'static str` | Return trust tier as lowercase string ("official", "community", "unverified") |
-| `styled_label` | `(&self) -> StyledObject<&'static str>` | Return trust tier as colored console label |
-| `determine_trust_tier` | `(&str) -> TrustTier` | Classify plugin source by org (CorvidLabs = official, else unverified) |
 | `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
 | `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
 

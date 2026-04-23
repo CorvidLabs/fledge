@@ -9,6 +9,7 @@ use std::thread;
 use std::time::Instant;
 
 use crate::run::detect_project_type;
+use crate::trust::{determine_trust_tier, determine_trust_tier_from_owner};
 
 #[derive(Debug, Deserialize)]
 struct FledgeFileWithLanes {
@@ -74,6 +75,8 @@ pub struct LaneDef {
     steps: Vec<Step>,
     #[serde(default = "default_true")]
     fail_fast: bool,
+    #[serde(skip, default)]
+    source: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -221,10 +224,15 @@ fn load_lane_config() -> Result<FledgeFileWithLanes> {
                         .with_context(|| format!("reading {}", path.display()))?;
                     let imported: FledgeFileWithLanes = toml::from_str(&imported_content)
                         .with_context(|| format!("parsing {}", path.display()))?;
+                    let import_source = imported_content
+                        .lines()
+                        .find(|l| l.starts_with("# Imported from "))
+                        .map(|l| l.trim_start_matches("# Imported from ").trim().to_string());
                     for (name, task) in imported.tasks {
                         config.tasks.entry(name).or_insert(task);
                     }
-                    for (name, lane) in imported.lanes {
+                    for (name, mut lane) in imported.lanes {
+                        lane.source = import_source.clone();
                         config.lanes.entry(name).or_insert(lane);
                     }
                 }
@@ -248,12 +256,20 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
         let entries: Vec<serde_json::Value> = lanes
             .iter()
             .map(|(name, lane)| {
-                serde_json::json!({
+                let mut entry = serde_json::json!({
                     "name": name,
                     "description": lane.description,
                     "steps": lane.steps.len(),
                     "fail_fast": lane.fail_fast,
-                })
+                });
+                if let Some(ref src) = lane.source {
+                    let tier = determine_trust_tier(src);
+                    entry["source"] = serde_json::json!(src);
+                    entry["trust_tier"] = serde_json::json!(tier.label());
+                } else {
+                    entry["trust_tier"] = serde_json::json!("local");
+                }
+                entry
             })
             .collect();
         println!("{}", serde_json::to_string_pretty(&entries)?);
@@ -264,10 +280,18 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
     let max_name_len = lanes.keys().map(|k| k.len()).max().unwrap_or(0);
     for (name, lane) in lanes {
         let desc = lane.description.as_deref().unwrap_or("(no description)");
+        let tier_label = match &lane.source {
+            Some(src) => {
+                let tier = determine_trust_tier(src);
+                format!(" [{}]", tier.styled_label())
+            }
+            None => String::new(),
+        };
         println!(
-            "  {:<width$}  {}",
+            "  {:<width$}  {}{}",
             style(name).green(),
             style(desc).dim(),
+            tier_label,
             width = max_name_len
         );
     }
@@ -786,7 +810,22 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
     }
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&results)?);
+        let entries: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                let tier = determine_trust_tier_from_owner(&r.owner);
+                serde_json::json!({
+                    "owner": r.owner,
+                    "name": r.name,
+                    "description": r.description,
+                    "stars": r.stars,
+                    "url": r.url,
+                    "topics": r.topics,
+                    "trust_tier": tier.label(),
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&entries)?);
         return Ok(());
     }
 
@@ -797,6 +836,7 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
         .max()
         .unwrap_or(0);
     for r in &results {
+        let tier = determine_trust_tier_from_owner(&r.owner);
         let stars = crate::search::format_stars(r.stars);
         let desc = if r.description.chars().count() > 60 {
             let truncated: String = r.description.chars().take(57).collect();
@@ -810,8 +850,9 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
             format!(" [{}]", r.topics.join(", "))
         };
         println!(
-            "  {:<width$}  {}  {}{}",
+            "  {:<width$}  [{}]  {}  {}{}",
             style(&r.full_name()).green(),
+            tier.styled_label(),
             style(format!("(⭐ {})", stars)).dim(),
             style(&desc).dim(),
             style(&topic_str).cyan(),
@@ -855,6 +896,24 @@ fn import_lanes(source: &str) -> Result<()> {
             .map(|r| format!("@{r}"))
             .unwrap_or_default()
     );
+
+    let tier = determine_trust_tier(&display_source);
+    println!(
+        "\n{} Importing lanes from: {} [{}]",
+        style("!").yellow().bold(),
+        style(&display_source).cyan(),
+        tier.styled_label()
+    );
+    if tier != crate::trust::TrustTier::Official {
+        println!(
+            "  {} Lanes can execute arbitrary commands on your system.",
+            style("*").yellow()
+        );
+        println!(
+            "  {} Only import lanes from sources you trust.\n",
+            style("*").yellow()
+        );
+    }
 
     let sp = crate::spinner::Spinner::start(&format!("Fetching lanes from {}:", display_source,));
 
@@ -1885,6 +1944,7 @@ steps = [{ parallel = [{ run = "echo hello" }] }]
                 ],
             }],
             fail_fast: true,
+            source: None,
         };
         let toml = format_lane_toml("mixed", &lane);
         assert!(toml.contains("\"lint\""));
@@ -2047,6 +2107,7 @@ steps = ["build"]
                 Step::TaskRef("test".to_string()),
             ],
             fail_fast: true,
+            source: None,
         };
         let toml = format_lane_toml("ci", &lane);
         assert!(toml.contains("[lanes.ci]"));
@@ -2062,6 +2123,7 @@ steps = ["build"]
             description: None,
             steps: vec![Step::TaskRef("audit".to_string())],
             fail_fast: false,
+            source: None,
         };
         let toml = format_lane_toml("audit", &lane);
         assert!(toml.contains("fail_fast = false"));
@@ -2075,6 +2137,7 @@ steps = ["build"]
                 run: "echo hello".to_string(),
             }],
             fail_fast: true,
+            source: None,
         };
         let toml = format_lane_toml("test", &lane);
         assert!(toml.contains("{ run = \"echo hello\" }"));
@@ -2091,6 +2154,7 @@ steps = ["build"]
                 ],
             }],
             fail_fast: true,
+            source: None,
         };
         let toml = format_lane_toml("check", &lane);
         assert!(toml.contains("parallel"));
@@ -2108,6 +2172,7 @@ steps = ["build"]
                 Step::TaskRef("build".to_string()),
             ],
             fail_fast: true,
+            source: None,
         };
         let toml_str = format!(
             "[tasks]\nlint = \"echo lint\"\ntest = \"echo test\"\nbuild = \"echo build\"\n{}",
@@ -2348,6 +2413,86 @@ steps = ["lint"]
         .unwrap();
 
         let result = validate_lanes(tmp.path(), false, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn imported_lanes_get_source_tracked() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let fledge_toml = tmp.path().join("fledge.toml");
+        std::fs::write(
+            &fledge_toml,
+            "[tasks]\nlint = \"echo lint\"\n\n[lanes.local]\nsteps = [\"lint\"]\n",
+        )
+        .unwrap();
+
+        let lanes_dir = tmp.path().join(".fledge").join("lanes");
+        std::fs::create_dir_all(&lanes_dir).unwrap();
+        std::fs::write(
+            lanes_dir.join("corvidlabs-fledge-lanes.toml"),
+            "# Imported from CorvidLabs/fledge-lanes\n\n[tasks]\ntest = \"echo test\"\n\n[lanes.ci]\ndescription = \"CI\"\nsteps = [\"lint\", \"test\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            lanes_dir.join("someuser-lanes.toml"),
+            "# Imported from someuser/lanes\n\n[lanes.deploy]\nsteps = [{ run = \"echo deploy\" }]\n",
+        )
+        .unwrap();
+
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        let config = load_lane_config().unwrap();
+        std::env::set_current_dir(&prev).unwrap();
+
+        assert!(config.lanes["local"].source.is_none());
+
+        let ci_source = config.lanes["ci"].source.as_deref();
+        assert_eq!(ci_source, Some("CorvidLabs/fledge-lanes"));
+        assert_eq!(
+            determine_trust_tier(ci_source.unwrap()),
+            crate::trust::TrustTier::Official
+        );
+
+        let deploy_source = config.lanes["deploy"].source.as_deref();
+        assert_eq!(deploy_source, Some("someuser/lanes"));
+        assert_eq!(
+            determine_trust_tier(deploy_source.unwrap()),
+            crate::trust::TrustTier::Unverified
+        );
+    }
+
+    #[test]
+    fn list_lanes_json_includes_trust_tier() {
+        let mut lanes = BTreeMap::new();
+        lanes.insert(
+            "local".to_string(),
+            LaneDef {
+                description: Some("Local lane".to_string()),
+                steps: vec![Step::TaskRef("lint".to_string())],
+                fail_fast: true,
+                source: None,
+            },
+        );
+        lanes.insert(
+            "imported".to_string(),
+            LaneDef {
+                description: Some("Remote lane".to_string()),
+                steps: vec![Step::TaskRef("test".to_string())],
+                fail_fast: true,
+                source: Some("CorvidLabs/fledge-lanes".to_string()),
+            },
+        );
+        lanes.insert(
+            "third_party".to_string(),
+            LaneDef {
+                description: Some("Third party".to_string()),
+                steps: vec![Step::TaskRef("deploy".to_string())],
+                fail_fast: true,
+                source: Some("someuser/lanes".to_string()),
+            },
+        );
+
+        let result = list_lanes(&lanes, true);
         assert!(result.is_ok());
     }
 }

@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
+
 #[derive(Debug, Deserialize)]
 struct PluginManifest {
     plugin: PluginMeta,
@@ -77,59 +79,6 @@ pub struct PluginEntry {
 pub struct PluginOptions {
     pub action: PluginAction,
     pub json: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-#[allow(dead_code)]
-pub enum TrustTier {
-    Official,
-    Community,
-    Unverified,
-}
-
-impl TrustTier {
-    pub fn label(&self) -> &'static str {
-        match self {
-            TrustTier::Official => "official",
-            TrustTier::Community => "community",
-            TrustTier::Unverified => "unverified",
-        }
-    }
-
-    pub fn styled_label(&self) -> console::StyledObject<&'static str> {
-        match self {
-            TrustTier::Official => style("official").green().bold(),
-            TrustTier::Community => style("community").cyan(),
-            TrustTier::Unverified => style("unverified").yellow(),
-        }
-    }
-}
-
-const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
-
-pub fn determine_trust_tier(source: &str) -> TrustTier {
-    let (base, _) = parse_source_ref(source);
-
-    let normalized = if base.starts_with("https://github.com/") {
-        base.strip_prefix("https://github.com/")
-            .unwrap_or(base)
-            .trim_end_matches(".git")
-    } else if base.starts_with("git@github.com:") {
-        base.strip_prefix("git@github.com:")
-            .unwrap_or(base)
-            .trim_end_matches(".git")
-    } else {
-        base
-    };
-
-    if let Some((org, _)) = normalized.split_once('/') {
-        if OFFICIAL_ORGS.contains(&org) {
-            return TrustTier::Official;
-        }
-    }
-
-    TrustTier::Unverified
 }
 
 pub enum PluginAction {
@@ -301,28 +250,6 @@ fn save_registry(registry: &PluginsRegistry) -> Result<()> {
     }
     let content = toml::to_string_pretty(registry).context("serializing plugins.toml")?;
     fs::write(&path, content).context("writing plugins.toml")
-}
-
-fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
-    if source.starts_with("git@") {
-        if let Some(rest) = source.strip_prefix("git@") {
-            if let Some((_, after)) = rest.rsplit_once('@') {
-                if !after.is_empty() {
-                    let split_pos = source.len() - after.len() - 1;
-                    return (&source[..split_pos], Some(after));
-                }
-            }
-        }
-        return (source, None);
-    }
-    match source.rsplit_once('@') {
-        Some((before, after))
-            if !after.is_empty() && !before.is_empty() && !after.contains('/') =>
-        {
-            (before, Some(after))
-        }
-        _ => (source, None),
-    }
 }
 
 fn normalize_source(source: &str) -> String {
@@ -1207,12 +1134,15 @@ fn search_plugins(
         let entries: Vec<serde_json::Value> = items
             .iter()
             .map(|item| {
+                let owner = item["owner"]["login"].as_str().unwrap_or("");
+                let tier = crate::trust::determine_trust_tier_from_owner(owner);
                 serde_json::json!({
                     "name": item["name"],
                     "full_name": item["full_name"],
                     "description": item["description"],
                     "stars": item["stargazers_count"],
                     "url": item["html_url"],
+                    "trust_tier": tier.label(),
                 })
             })
             .collect();
@@ -1230,11 +1160,14 @@ fn search_plugins(
 
     for item in &items {
         let full_name = item["full_name"].as_str().unwrap_or("?");
+        let owner = item["owner"]["login"].as_str().unwrap_or("");
+        let tier = crate::trust::determine_trust_tier_from_owner(owner);
         let desc = item["description"].as_str().unwrap_or("(no description)");
         let stars = item["stargazers_count"].as_u64().unwrap_or(0);
         println!(
-            "  {:<width$}  {}  {}",
+            "  {:<width$}  [{}]  {}  {}",
             style(full_name).green(),
+            tier.styled_label(),
             style(desc).dim(),
             style(format!("⭐ {stars}")).yellow(),
             width = max_name,

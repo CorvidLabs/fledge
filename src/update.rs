@@ -235,6 +235,7 @@ fn resolve_source_template(
                 description: manifest.template.description.clone(),
                 path: template_dir,
                 manifest,
+                source: meta.source.remote.clone(),
             });
         }
 
@@ -243,6 +244,10 @@ fn resolve_source_template(
         found
             .into_iter()
             .find(|t| t.name == meta.source.template)
+            .map(|mut t| {
+                t.source = meta.source.remote.clone();
+                t
+            })
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "Template '{}' not found in remote {}",

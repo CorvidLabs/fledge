@@ -2,6 +2,8 @@ use anyhow::Result;
 use console::style;
 use serde::{Deserialize, Serialize};
 
+use crate::trust::determine_trust_tier_from_owner;
+
 #[derive(Debug)]
 pub struct SearchOptions {
     pub query: Option<String>,
@@ -48,11 +50,26 @@ pub fn run(options: SearchOptions) -> Result<()> {
     }
 
     if options.json {
-        let json = serde_json::to_string_pretty(&results)?;
-        println!("{}", json);
+        let entries: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                let tier = determine_trust_tier_from_owner(&r.owner);
+                serde_json::json!({
+                    "owner": r.owner,
+                    "name": r.name,
+                    "description": r.description,
+                    "stars": r.stars,
+                    "url": r.url,
+                    "topics": r.topics,
+                    "trust_tier": tier.label(),
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&entries)?);
     } else {
         println!("{}\n", style("Fledge templates on GitHub:").bold());
         for r in &results {
+            let tier = determine_trust_tier_from_owner(&r.owner);
             let stars = format_stars(r.stars);
             let desc = if r.description.chars().count() > 60 {
                 let truncated: String = r.description.chars().take(57).collect();
@@ -66,8 +83,9 @@ pub fn run(options: SearchOptions) -> Result<()> {
                 format!(" [{}]", r.topics.join(", "))
             };
             println!(
-                "  {} {} {}{}",
+                "  {} [{}] {} {}{}",
                 style(&r.full_name()).green(),
+                tier.styled_label(),
                 style(format!("({})", stars)).dim(),
                 style(&desc).dim(),
                 style(&topic_str).cyan(),
