@@ -22,6 +22,8 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 | Export | Description |
 |--------|-------------|
 | `TrustTier` | Enum: Official, Community, Unverified — serializes as lowercase strings |
+| `label` | Return the trust tier as a lowercase string (TrustTier method) |
+| `styled_label` | Return the trust tier as a colored styled string (TrustTier method) |
 | `determine_trust_tier` | Classify a source string into a trust tier by parsing the GitHub org |
 | `determine_trust_tier_from_owner` | Classify by GitHub owner string directly |
 | `parse_source_ref` | Split a source string into base URL and optional git ref (e.g., `@v1.0.0`) |
