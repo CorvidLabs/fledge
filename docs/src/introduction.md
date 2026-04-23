@@ -13,11 +13,11 @@ I kept setting up the same boilerplate across projects. CI workflows, linters, t
 | Pillar | Tagline | Commands |
 |--------|---------|----------|
 | **Start** | Scaffold and discover | `templates init`, `templates list`, `templates search`, `templates create`, `templates publish`, `templates validate`, `templates update` |
-| **Build** | Configure and run | `run`, `lane`, `config`, `doctor` |
+| **Build** | Configure and run | `run`, `lanes`, `config`, `doctor` |
 | **Develop** | Branch and spec | `work`, `spec` |
 | **Review** | Quality and insight | `review`, `ask`, `metrics`, `deps` |
 | **Ship** | Track and release | `issues`, `prs`, `checks`, `changelog`, `release` |
-| **Extend** | Grow the tool | `plugin`, `completions` |
+| **Extend** | Grow the tool | `plugins`, `completions` |
 
 Start a project, build your tasks and config, develop features on branches, review quality before merging, ship releases. Extend runs alongside everything with plugins and completions.
 
