@@ -50,11 +50,37 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// Manage templates (init, create, search, update, publish, validate, list)
-    #[command(alias = "template")]
-    Templates {
-        #[command(subcommand)]
-        action: TemplatesSubcommand,
+    /// Ask a question about your codebase
+    Ask {
+        /// The question to ask
+        question: Vec<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Generate a changelog from git tags and commits
+    Changelog {
+        /// Number of releases to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+        /// Show a specific tag only
+        #[arg(short, long)]
+        tag: Option<String>,
+        /// Show unreleased changes since the latest tag
+        #[arg(long)]
+        unreleased: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// View CI/CD check status for a branch
+    Checks {
+        /// Branch to check (default: current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Generate shell completions
     Completions {
@@ -70,15 +96,26 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    /// Manage specs (check, init, new)
-    Spec {
-        #[command(subcommand)]
-        action: SpecSubcommand,
+    /// Check dependency health (outdated, audit, licenses)
+    Deps {
+        /// Check for outdated dependencies
+        #[arg(long)]
+        outdated: bool,
+        /// Run security audit via ecosystem tools
+        #[arg(long)]
+        audit: bool,
+        /// Show dependency licenses
+        #[arg(long)]
+        licenses: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
-    /// Feature branch and PR workflow
-    Work {
-        #[command(subcommand)]
-        action: WorkSubcommand,
+    /// Diagnose project environment health
+    Doctor {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// List and view GitHub issues
     Issues {
@@ -97,113 +134,11 @@ enum Commands {
         #[arg(long, global = true)]
         label: Option<String>,
     },
-    /// List and view GitHub pull requests
-    Prs {
-        #[command(subcommand)]
-        action: Option<PrsSubcommand>,
-        /// Filter by state (open, closed, all)
-        #[arg(short, long, default_value = "open", global = true)]
-        state: String,
-        /// Maximum number of results
-        #[arg(short, long, default_value = "20", global = true)]
-        limit: usize,
-        /// Output results as JSON
-        #[arg(long, global = true)]
-        json: bool,
-    },
-    /// AI-powered code review of current changes
-    Review {
-        /// Base branch to diff against (default: auto-detect)
-        #[arg(short, long)]
-        base: Option<String>,
-        /// Review only a specific file
-        #[arg(short, long)]
-        file: Option<String>,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Claude model to use (e.g. sonnet, opus, haiku)
-        #[arg(short, long)]
-        model: Option<String>,
-        /// Custom review focus prompt (appended to default instructions)
-        #[arg(short, long)]
-        prompt: Option<String>,
-        /// Output format: summary (default), checklist, inline
-        #[arg(long, default_value = "summary")]
-        format: String,
-    },
-    /// View CI/CD check status for a branch
-    Checks {
-        /// Branch to check (default: current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Run a project task defined in fledge.toml
-    Run {
-        /// Task name to run (lists tasks if omitted)
-        task: Option<String>,
-        /// Create a starter fledge.toml
-        #[arg(long)]
-        init: bool,
-        /// List available tasks
-        #[arg(short, long)]
-        list: bool,
-        /// Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)
-        #[arg(long)]
-        lang: Option<String>,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Watch for file changes and re-run a task or lane
-    Watch {
-        /// Task name to re-run on changes (use --lane for lanes)
-        name: String,
-        /// Watch and re-run a lane instead of a task
-        #[arg(long)]
-        lane: bool,
-        /// Only watch a specific directory (default: current directory)
-        #[arg(short, long)]
-        path: Option<PathBuf>,
-        /// Only trigger on specific file extensions (comma-separated, e.g. "rs,toml")
-        #[arg(short, long)]
-        ext: Option<String>,
-        /// Debounce interval in milliseconds
-        #[arg(short, long, default_value = "500")]
-        debounce: u64,
-        /// Clear terminal before each run
-        #[arg(long)]
-        clear: bool,
-    },
     /// Manage and run composable workflow pipelines
     #[command(alias = "lane")]
     Lanes {
         #[command(subcommand)]
         action: LaneSubcommand,
-    },
-    /// Generate a changelog from git tags and commits
-    Changelog {
-        /// Number of releases to show
-        #[arg(short, long, default_value = "10")]
-        limit: usize,
-        /// Show a specific tag only
-        #[arg(short, long)]
-        tag: Option<String>,
-        /// Show unreleased changes since the latest tag
-        #[arg(long)]
-        unreleased: bool,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Diagnose project environment health
-    Doctor {
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
     },
     /// Project code metrics (LOC, churn, test ratio)
     Metrics {
@@ -220,27 +155,26 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// Check dependency health (outdated, audit, licenses)
-    Deps {
-        /// Check for outdated dependencies
-        #[arg(long)]
-        outdated: bool,
-        /// Run security audit via ecosystem tools
-        #[arg(long)]
-        audit: bool,
-        /// Show dependency licenses
-        #[arg(long)]
-        licenses: bool,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
     /// Manage plugins (install, remove, list, search)
     #[command(alias = "plugin")]
     Plugins {
         #[command(subcommand)]
         action: PluginSubcommand,
         /// Output as JSON
+        #[arg(long, global = true)]
+        json: bool,
+    },
+    /// List and view GitHub pull requests
+    Prs {
+        #[command(subcommand)]
+        action: Option<PrsSubcommand>,
+        /// Filter by state (open, closed, all)
+        #[arg(short, long, default_value = "open", global = true)]
+        state: String,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20", global = true)]
+        limit: usize,
+        /// Output results as JSON
         #[arg(long, global = true)]
         json: bool,
     },
@@ -267,13 +201,79 @@ enum Commands {
         #[arg(long)]
         allow_dirty: bool,
     },
-    /// Ask a question about your codebase
-    Ask {
-        /// The question to ask
-        question: Vec<String>,
+    /// AI-powered code review of current changes
+    Review {
+        /// Base branch to diff against (default: auto-detect)
+        #[arg(short, long)]
+        base: Option<String>,
+        /// Review only a specific file
+        #[arg(short, long)]
+        file: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Claude model to use (e.g. sonnet, opus, haiku)
+        #[arg(short, long)]
+        model: Option<String>,
+        /// Custom review focus prompt (appended to default instructions)
+        #[arg(short, long)]
+        prompt: Option<String>,
+        /// Output format: summary (default), checklist, inline
+        #[arg(long, default_value = "summary")]
+        format: String,
+    },
+    /// Run a project task defined in fledge.toml
+    Run {
+        /// Task name to run (lists tasks if omitted)
+        task: Option<String>,
+        /// Create a starter fledge.toml
+        #[arg(long)]
+        init: bool,
+        /// List available tasks
+        #[arg(short, long)]
+        list: bool,
+        /// Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)
+        #[arg(long)]
+        lang: Option<String>,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Manage specs (check, init, new)
+    Spec {
+        #[command(subcommand)]
+        action: SpecSubcommand,
+    },
+    /// Manage templates (init, create, search, update, publish, validate, list)
+    #[command(alias = "template")]
+    Templates {
+        #[command(subcommand)]
+        action: TemplatesSubcommand,
+    },
+    /// Watch for file changes and re-run a task or lane
+    Watch {
+        /// Task name to re-run on changes (use --lane for lanes)
+        name: String,
+        /// Watch and re-run a lane instead of a task
+        #[arg(long)]
+        lane: bool,
+        /// Only watch a specific directory (default: current directory)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+        /// Only trigger on specific file extensions (comma-separated, e.g. "rs,toml")
+        #[arg(short, long)]
+        ext: Option<String>,
+        /// Debounce interval in milliseconds
+        #[arg(short, long, default_value = "500")]
+        debounce: u64,
+        /// Clear terminal before each run
+        #[arg(long)]
+        clear: bool,
+    },
+    /// Feature branch and PR workflow
+    Work {
+        #[command(subcommand)]
+        action: WorkSubcommand,
     },
     #[command(external_subcommand)]
     External(Vec<String>),
@@ -520,6 +520,9 @@ enum LaneSubcommand {
         /// Show execution plan without running
         #[arg(long)]
         dry_run: bool,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// List available lanes
     List {
@@ -832,7 +835,15 @@ fn run() -> Result<()> {
         }
         Commands::Lanes { action } => {
             let action = match action {
-                LaneSubcommand::Run { name, dry_run } => lanes::LaneAction::Run { name, dry_run },
+                LaneSubcommand::Run {
+                    name,
+                    dry_run,
+                    json,
+                } => lanes::LaneAction::Run {
+                    name,
+                    dry_run,
+                    json,
+                },
                 LaneSubcommand::List { json } => lanes::LaneAction::List { json },
                 LaneSubcommand::Init => lanes::LaneAction::Init,
                 LaneSubcommand::Search {
@@ -875,7 +886,12 @@ fn run() -> Result<()> {
                 LaneSubcommand::External(args) => {
                     let name = args.first().cloned().unwrap_or_default();
                     let dry_run = args.iter().any(|a| a == "--dry-run");
-                    lanes::LaneAction::Run { name, dry_run }
+                    let json = args.iter().any(|a| a == "--json");
+                    lanes::LaneAction::Run {
+                        name,
+                        dry_run,
+                        json,
+                    }
                 }
             };
             lanes::run(action)?;

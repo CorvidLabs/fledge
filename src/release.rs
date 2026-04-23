@@ -142,6 +142,7 @@ fn run_pre_lane(lane: &str, dry_run: bool) -> Result<()> {
     let action = crate::lanes::LaneAction::Run {
         name: lane.to_string(),
         dry_run,
+        json: false,
     };
     crate::lanes::run(action)?;
 

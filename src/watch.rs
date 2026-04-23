@@ -149,6 +149,7 @@ fn run_target(opts: &WatchOptions) {
         lanes::run(lanes::LaneAction::Run {
             name: opts.name.clone(),
             dry_run: false,
+            json: false,
         })
     } else {
         task_runner::run(task_runner::RunOptions {

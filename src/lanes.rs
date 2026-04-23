@@ -102,6 +102,7 @@ pub enum LaneAction {
     Run {
         name: String,
         dry_run: bool,
+        json: bool,
     },
     List {
         json: bool,
@@ -163,7 +164,11 @@ pub fn run(action: LaneAction) -> Result<()> {
             let config = load_lane_config()?;
             list_lanes(&config.lanes, json)
         }
-        LaneAction::Run { name, dry_run } => {
+        LaneAction::Run {
+            name,
+            dry_run,
+            json,
+        } => {
             let config = load_lane_config()?;
             let lane = config.lanes.get(&name).ok_or_else(|| {
                 let available: Vec<&str> = config.lanes.keys().map(|s| s.as_str()).collect();
@@ -184,7 +189,7 @@ pub fn run(action: LaneAction) -> Result<()> {
                 dry_run_lane(&name, lane)
             } else {
                 let project_dir = std::env::current_dir().context("getting current directory")?;
-                execute_lane(&name, lane, &config.tasks, &project_dir)
+                execute_lane(&name, lane, &config.tasks, &project_dir, json)
             }
         }
     }
@@ -410,7 +415,12 @@ fn execute_lane(
     lane: &LaneDef,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
+    json: bool,
 ) -> Result<()> {
+    if json {
+        return execute_lane_json(lane_name, lane, tasks, project_dir);
+    }
+
     let desc = lane.description.as_deref().unwrap_or("(no description)");
     println!(
         "{} {} — {}",
@@ -497,6 +507,89 @@ fn execute_lane(
     }
 
     Ok(())
+}
+
+fn execute_lane_json(
+    lane_name: &str,
+    lane: &LaneDef,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_dir: &Path,
+) -> Result<()> {
+    let total_steps = lane.steps.len();
+    let mut step_results: Vec<serde_json::Value> = Vec::new();
+    let mut failures: Vec<String> = Vec::new();
+    let lane_start = Instant::now();
+
+    for (i, step) in lane.steps.iter().enumerate() {
+        let step_desc = step_description(step);
+        let step_start = Instant::now();
+        let result = match step {
+            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
+            Step::Inline { run: cmd } => execute_inline(cmd, project_dir),
+            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir),
+        };
+        let elapsed = step_start.elapsed();
+        let success = result.is_ok();
+        let error_msg = result.err().map(|e| e.to_string());
+
+        step_results.push(serde_json::json!({
+            "step": i + 1,
+            "name": step_desc,
+            "success": success,
+            "duration_ms": elapsed.as_millis() as u64,
+            "error": error_msg,
+        }));
+
+        if !success {
+            failures.push(step_desc.clone());
+            if lane.fail_fast {
+                break;
+            }
+        }
+    }
+
+    let total_elapsed = lane_start.elapsed();
+    let success = failures.is_empty();
+
+    let output = serde_json::json!({
+        "lane": lane_name,
+        "description": lane.description.as_deref().unwrap_or(""),
+        "total_steps": total_steps,
+        "success": success,
+        "duration_ms": total_elapsed.as_millis() as u64,
+        "fail_fast": lane.fail_fast,
+        "steps": step_results,
+        "failures": failures,
+    });
+
+    println!("{}", serde_json::to_string_pretty(&output)?);
+
+    if !success {
+        bail!(
+            "Lane '{}' completed with {} failure(s)",
+            lane_name,
+            failures.len()
+        );
+    }
+
+    Ok(())
+}
+
+fn step_description(step: &Step) -> String {
+    match step {
+        Step::TaskRef(name) => name.clone(),
+        Step::Inline { run: cmd } => cmd.clone(),
+        Step::Parallel { parallel } => {
+            let names: Vec<String> = parallel
+                .iter()
+                .map(|item| match item {
+                    ParallelItem::TaskRef(name) => name.clone(),
+                    ParallelItem::Inline { run: cmd } => cmd.clone(),
+                })
+                .collect();
+            format!("parallel({})", names.join(", "))
+        }
+    }
 }
 
 fn format_duration(d: std::time::Duration) -> String {
@@ -1822,7 +1915,13 @@ steps = ["a", "b"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("seq", &config.lanes["seq"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "seq",
+            &config.lanes["seq"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_ok());
     }
 
@@ -1842,6 +1941,7 @@ steps = [{ run = "echo inline-works" }]
             &config.lanes["inline"],
             &config.tasks,
             &project_dir,
+            false,
         );
         assert!(result.is_ok());
     }
@@ -1859,7 +1959,13 @@ steps = [{ parallel = ["a", "b"] }]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("par", &config.lanes["par"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "par",
+            &config.lanes["par"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_ok());
     }
 
@@ -1901,7 +2007,13 @@ steps = [{ parallel = ["a", { run = "echo inline-b" }] }]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("mixed", &config.lanes["mixed"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "mixed",
+            &config.lanes["mixed"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_ok());
     }
 
@@ -1921,6 +2033,7 @@ steps = [{ parallel = [{ run = "echo one" }, { run = "echo two" }] }]
             &config.lanes["inlines"],
             &config.tasks,
             &project_dir,
+            false,
         );
         assert!(result.is_ok());
     }
@@ -1973,7 +2086,13 @@ steps = ["fail", "ok"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("ff", &config.lanes["ff"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "ff",
+            &config.lanes["ff"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("failed at step 1"));
     }
@@ -1992,7 +2111,13 @@ steps = ["fail", "ok"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("noff", &config.lanes["noff"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "noff",
+            &config.lanes["noff"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("1 failure"));
     }
@@ -2013,7 +2138,13 @@ steps = ["build"]
 "#,
         );
         let project_dir = std::env::current_dir().unwrap();
-        let result = execute_lane("ci", &config.lanes["ci"], &config.tasks, &project_dir);
+        let result = execute_lane(
+            "ci",
+            &config.lanes["ci"],
+            &config.tasks,
+            &project_dir,
+            false,
+        );
         assert!(result.is_ok());
     }
 
