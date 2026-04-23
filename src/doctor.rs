@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
-use crate::run::detect_project_type;
+use crate::run::{detect_node_runner, detect_project_type};
 
 pub struct DoctorOptions {
     pub json: bool,
@@ -47,7 +47,7 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
     let project_type = detect_project_type(&project_dir);
 
     let sections = vec![
-        check_toolchain(project_type),
+        check_toolchain(project_type, &project_dir),
         check_dependencies(project_type, &project_dir),
         check_git(&project_dir),
         check_ai(),
@@ -239,7 +239,7 @@ fn extract_version(text: &str) -> Option<String> {
     })
 }
 
-fn check_toolchain(project_type: &str) -> Section {
+fn check_toolchain(project_type: &str, dir: &Path) -> Section {
     let mut checks = Vec::new();
 
     match project_type {
@@ -266,25 +266,25 @@ fn check_toolchain(project_type: &str) -> Section {
             ));
         }
         "node" => {
-            checks.push(check_tool(
-                "node",
-                &["--version"],
-                "https://nodejs.org/ or use nvm",
-            ));
-            // Check npm first; if missing, suggest yarn check result
-            let npm = check_tool(
-                "npm",
-                &["--version"],
-                "npm is bundled with node — reinstall node",
-            );
-            let yarn = check_tool("yarn", &["--version"], "npm install -g yarn");
-            if npm.status == CheckStatus::Ok {
-                checks.push(npm);
-            } else if yarn.status == CheckStatus::Ok {
-                checks.push(yarn);
+            let runner = detect_node_runner(dir);
+            if runner == "bun" {
+                checks.push(check_tool("bun", &["--version"], "https://bun.sh/"));
             } else {
-                // Both missing: show npm with fix
-                checks.push(npm);
+                checks.push(check_tool(
+                    "node",
+                    &["--version"],
+                    "https://nodejs.org/ or use nvm",
+                ));
+                let tool_check = match runner {
+                    "yarn" => check_tool("yarn", &["--version"], "npm install -g yarn"),
+                    "pnpm" => check_tool("pnpm", &["--version"], "npm install -g pnpm"),
+                    _ => check_tool(
+                        "npm",
+                        &["--version"],
+                        "npm is bundled with node — reinstall node",
+                    ),
+                };
+                checks.push(tool_check);
             }
         }
         "go" => {
@@ -380,27 +380,37 @@ fn check_dependencies(project_type: &str, dir: &Path) -> Section {
             ));
         }
         "node" => {
+            let runner = detect_node_runner(dir);
+            let install_cmd = match runner {
+                "bun" => "bun install",
+                "yarn" => "yarn install",
+                "pnpm" => "pnpm install",
+                _ => "npm install",
+            };
             checks.push(check_path_exists(
                 dir,
                 "node_modules",
                 "node_modules/ exists",
-                "run `npm install`",
+                &format!("run `{install_cmd}`"),
             ));
-            let npm_lock = check_path_exists(
+            let (lock_file, lock_label) = match runner {
+                "bun" => {
+                    if dir.join("bun.lockb").exists() {
+                        ("bun.lockb", "bun.lockb found")
+                    } else {
+                        ("bun.lock", "bun.lock found")
+                    }
+                }
+                "yarn" => ("yarn.lock", "yarn.lock found"),
+                "pnpm" => ("pnpm-lock.yaml", "pnpm-lock.yaml found"),
+                _ => ("package-lock.json", "package-lock.json found"),
+            };
+            checks.push(check_path_exists(
                 dir,
-                "package-lock.json",
-                "package-lock.json found",
-                "run `npm install`",
-            );
-            let yarn_lock =
-                check_path_exists(dir, "yarn.lock", "yarn.lock found", "run `yarn install`");
-            if npm_lock.status == CheckStatus::Ok {
-                checks.push(npm_lock);
-            } else if yarn_lock.status == CheckStatus::Ok {
-                checks.push(yarn_lock);
-            } else {
-                checks.push(npm_lock);
-            }
+                lock_file,
+                lock_label,
+                &format!("run `{install_cmd}`"),
+            ));
         }
         "go" => {
             checks.push(check_path_exists(
@@ -699,9 +709,9 @@ mod tests {
 
     #[test]
     fn toolchain_rust_checks() {
-        let section = check_toolchain("rust");
+        let dir = tempfile::tempdir().unwrap();
+        let section = check_toolchain("rust", dir.path());
         assert_eq!(section.name, "Toolchain");
-        // Should check rustc, cargo, cargo-clippy, rustfmt
         let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"rustc"));
         assert!(names.contains(&"cargo"));
@@ -709,8 +719,43 @@ mod tests {
 
     #[test]
     fn toolchain_generic_empty() {
-        let section = check_toolchain("generic");
+        let dir = tempfile::tempdir().unwrap();
+        let section = check_toolchain("generic", dir.path());
         assert!(section.checks.is_empty());
+    }
+
+    #[test]
+    fn toolchain_node_bun_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
+        let section = check_toolchain("node", dir.path());
+        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"bun"));
+        assert!(!names.contains(&"npm"));
+        assert!(!names.contains(&"node"));
+    }
+
+    #[test]
+    fn dependencies_node_bun_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
+        let section = check_dependencies("node", dir.path());
+        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("bun.lockb")));
+        assert!(!names.iter().any(|n| n.contains("package-lock")));
+    }
+
+    #[test]
+    fn dependencies_node_pnpm_project() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("pnpm-lock.yaml"), "").unwrap();
+        let section = check_dependencies("node", dir.path());
+        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.iter().any(|n| n.contains("pnpm-lock")));
+        assert!(!names.iter().any(|n| n.contains("package-lock")));
     }
 
     #[test]
