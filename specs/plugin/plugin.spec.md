@@ -29,8 +29,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
 | `TrustTier` | Trust classification: Official, Community, Unverified |
-| `TrustTier::label` | Return the trust tier as a lowercase string |
-| `TrustTier::styled_label` | Return the trust tier as a colored styled string |
+| `label` | Return the trust tier as a lowercase string (TrustTier method) |
+| `styled_label` | Return the trust tier as a colored styled string (TrustTier method) |
 | `determine_trust_tier` | Classify a plugin source into a trust tier |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
