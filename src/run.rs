@@ -330,7 +330,7 @@ test = "swift test"
     }
 }
 
-fn detect_node_runner(dir: &Path) -> &'static str {
+pub(crate) fn detect_node_runner(dir: &Path) -> &'static str {
     if dir.join("bun.lockb").exists() || dir.join("bun.lock").exists() {
         "bun"
     } else if dir.join("yarn.lock").exists() {
