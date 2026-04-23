@@ -1,0 +1,24 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Structure
+
+```
+shared/
+  src/
+    commonMain/   — shared business logic
+    jvmMain/      — JVM platform implementation
+    iosMain/      — iOS platform implementation
+```
+
+## Build
+
+```bash
+./gradlew build
+./gradlew allTests
+```
+
+## License
+
+{{ license }}

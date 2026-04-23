@@ -859,7 +859,12 @@ ignore = ["template.toml"]
         assert!(names.contains(&"go-cli"), "missing go-cli");
         assert!(names.contains(&"ts-node"), "missing ts-node");
         assert!(names.contains(&"static-site"), "missing static-site");
-        assert_eq!(names.len(), 6, "expected exactly 6 built-in templates");
+        assert!(names.contains(&"kotlin-kmp"), "missing kotlin-kmp");
+        assert!(
+            names.contains(&"kotlin-ktor-api"),
+            "missing kotlin-ktor-api"
+        );
+        assert_eq!(names.len(), 8, "expected exactly 8 built-in templates");
     }
 
     #[test]

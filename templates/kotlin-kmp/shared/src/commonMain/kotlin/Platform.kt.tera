@@ -1,0 +1,7 @@
+package {{ group_id }}.{{ project_name_snake }}.shared
+
+interface Platform {
+    val name: String
+}
+
+expect fun getPlatform(): Platform
