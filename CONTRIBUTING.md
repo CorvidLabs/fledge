@@ -19,11 +19,12 @@ cargo build
 cargo test
 ```
 
-Once built, use fledge itself for development (we dogfood our own CLI):
+Once built, install locally and use fledge itself for development (we dogfood our own CLI):
 
 ```bash
-cargo run -- run build
-cargo run -- run test
+cargo install --path .
+fledge run build
+fledge run test
 ```
 
 See `fledge.toml` at the repo root for all available tasks and lanes.
@@ -38,7 +39,7 @@ Check [existing issues](https://github.com/CorvidLabs/fledge/issues) first. If y
 
 ```bash
 # Use fledge for branch management
-cargo run -- work start my-feature
+fledge work start my-feature
 ```
 
 Branch naming convention: `{type}/{description}` where type is `feat`, `fix`, `chore`, `docs`, `refactor`, or `hotfix`.
@@ -54,13 +55,13 @@ Branch naming convention: `{type}/{description}` where type is `feat`, `fix`, `c
 
 ```bash
 # Run the full pre-commit lane (fmt, lint, test, spec check)
-cargo run -- lanes run pre-commit
+fledge lanes run pre-commit
 
 # Or check individual steps
-cargo run -- run fmt               # formatting is correct
-cargo run -- run lint              # no lint warnings
-cargo run -- run test              # all tests pass
-cargo run -- spec check            # specs are in sync
+fledge run fmt               # formatting is correct
+fledge run lint              # no lint warnings
+fledge run test              # all tests pass
+fledge spec check            # specs are in sync
 ```
 
 All checks in the `pre-commit` lane must pass before submitting a PR.
@@ -68,7 +69,7 @@ All checks in the `pre-commit` lane must pass before submitting a PR.
 ### 5. Submit a Pull Request
 
 ```bash
-cargo run -- work pr --title "Add my feature"
+fledge work pr --title "Add my feature"
 ```
 
 In your PR description:
@@ -84,7 +85,7 @@ Look for issues labeled [`good first issue`](https://github.com/CorvidLabs/fledg
 
 ### Templates
 
-Create new templates and publish them with `fledge publish`. See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for the full format.
+Create new templates and publish them with `fledge publish`! See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for the full format.
 
 ### Plugins
 
@@ -103,7 +104,7 @@ Documentation lives in `docs/src/` and is built with [mdBook](https://rust-lang.
 cargo install mdbook
 
 # Serve locally
-cargo run -- run docs-serve
+fledge run docs-serve
 ```
 
 ## Code Guidelines
@@ -130,8 +131,8 @@ cargo run -- run docs-serve
 
 ### Style
 
-- Run `cargo run -- run fmt-fix` before committing (or `fledge run fmt-fix` if installed)
-- Run `cargo run -- run lint` and fix all warnings
+- Run `fledge run fmt-fix` before committing
+- Run `fledge run lint` and fix all warnings
 - No `unsafe` code without discussion
 - Prefer standard library types over external crates when practical
 
@@ -141,15 +142,15 @@ Every module has a spec in `specs/<module>/`. The spec is the source of truth fo
 
 1. Read its spec
 2. If your change alters behavior, update the spec first
-3. Run `cargo run -- spec check` to verify alignment
+3. Run `fledge spec check` to verify alignment
 
 ### Dependencies
 
 Check dependency health with:
 
 ```bash
-cargo run -- deps              # list all dependencies
-cargo run -- deps --outdated   # check for outdated deps
+fledge deps              # list all dependencies
+fledge deps --outdated   # check for outdated deps
 ```
 
 ## Release Process
