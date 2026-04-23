@@ -613,6 +613,20 @@ fn create_release_commit(
 
 fn create_tag(dir: &Path, version: &Version) -> Result<()> {
     let tag = format!("v{version}");
+
+    let check = Command::new("git")
+        .args(["tag", "-l", &tag])
+        .current_dir(dir)
+        .output()
+        .context("checking existing tags")?;
+    if !String::from_utf8_lossy(&check.stdout).trim().is_empty() {
+        bail!(
+            "Tag '{}' already exists. Delete it first with: git tag -d {}",
+            tag,
+            tag
+        );
+    }
+
     let output = Command::new("git")
         .args(["tag", "-a", &tag, "-m", &format!("Release {tag}")])
         .current_dir(dir)
@@ -1198,5 +1212,205 @@ files = ["version.txt"]
 
         let content = fs::read_to_string(tmp.path().join("version.txt")).unwrap();
         assert!(content.contains("0.2.0"));
+    }
+
+    #[test]
+    fn read_gemspec_version_test() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("my_gem.gemspec"),
+            r#"
+Gem::Specification.new do |s|
+  s.name = "my_gem"
+  s.version = "1.4.2"
+  s.summary = "A test gem"
+end
+"#,
+        )
+        .unwrap();
+        assert_eq!(read_gemspec_version(tmp.path()).unwrap(), "1.4.2");
+    }
+
+    #[test]
+    fn read_gemspec_version_single_quotes() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("my_gem.gemspec"),
+            "Gem::Specification.new do |s|\n  s.version = '2.0.1'\nend\n",
+        )
+        .unwrap();
+        assert_eq!(read_gemspec_version(tmp.path()).unwrap(), "2.0.1");
+    }
+
+    #[test]
+    fn read_python_version_from_setup_cfg() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("setup.cfg"),
+            "[metadata]\nname = my_pkg\nversion = 3.1.0\n",
+        )
+        .unwrap();
+        assert_eq!(read_python_version(tmp.path()).unwrap(), "3.1.0");
+    }
+
+    #[test]
+    fn read_python_version_pyproject_takes_priority() {
+        let tmp = TempDir::new().unwrap();
+        fs::write(
+            tmp.path().join("pyproject.toml"),
+            "[project]\nname = \"test\"\nversion = \"1.0.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            tmp.path().join("setup.cfg"),
+            "[metadata]\nversion = 2.0.0\n",
+        )
+        .unwrap();
+        assert_eq!(read_python_version(tmp.path()).unwrap(), "1.0.0");
+    }
+
+    #[test]
+    fn duplicate_tag_prevented() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(tmp.path(), "test.txt", "hello");
+
+        Command::new("git")
+            .args(["tag", "-a", "v1.0.0", "-m", "v1.0.0"])
+            .current_dir(tmp.path())
+            .output()
+            .unwrap();
+
+        let version = parse_version("1.0.0").unwrap();
+        let result = create_tag(tmp.path(), &version);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("already exists"),
+            "expected 'already exists' error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn bump_setup_cfg() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(
+            tmp.path(),
+            "setup.cfg",
+            "[metadata]\nname = test\nversion = 0.5.0\n",
+        );
+        commit_file(tmp.path(), "pyproject.toml", "[build-system]\n");
+
+        let new_ver = parse_version("0.6.0").unwrap();
+        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
+        assert!(result.files_bumped.contains(&"setup.cfg".to_string()));
+        let content = fs::read_to_string(tmp.path().join("setup.cfg")).unwrap();
+        assert!(content.contains("0.6.0"));
+    }
+
+    #[test]
+    fn bump_pom_xml() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        let pom = r#"<?xml version="1.0"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>test</artifactId>
+    <version>1.0.0</version>
+</project>"#;
+        commit_file(tmp.path(), "pom.xml", pom);
+
+        let new_ver = parse_version("1.1.0").unwrap();
+        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
+        assert!(result.files_bumped.contains(&"pom.xml".to_string()));
+        let content = fs::read_to_string(tmp.path().join("pom.xml")).unwrap();
+        assert!(content.contains("<version>1.1.0</version>"));
+    }
+
+    #[test]
+    fn bump_gradle() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(
+            tmp.path(),
+            "build.gradle.kts",
+            "plugins { id(\"java\") }\nversion = \"0.3.0\"\n",
+        );
+
+        let new_ver = parse_version("0.4.0").unwrap();
+        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
+        assert!(result
+            .files_bumped
+            .contains(&"build.gradle.kts".to_string()));
+        let content = fs::read_to_string(tmp.path().join("build.gradle.kts")).unwrap();
+        assert!(content.contains("\"0.4.0\""));
+    }
+
+    #[test]
+    fn changelog_created_fresh() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(tmp.path(), "a.txt", "a");
+
+        let tmp_path = tmp.path().to_path_buf();
+        let version = parse_version("0.1.0").unwrap();
+        with_cwd(&tmp_path, || {
+            generate_changelog_entry(&tmp_path, &version).unwrap();
+        });
+
+        let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
+        assert!(changelog.starts_with("# Changelog"));
+        assert!(changelog.contains("[v0.1.0]"));
+    }
+
+    #[test]
+    fn release_with_no_tag_flag() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(
+            tmp.path(),
+            "Cargo.toml",
+            "[package]\nname = \"test\"\nversion = \"0.1.0\"\n",
+        );
+
+        Command::new("git")
+            .args(["tag", "-a", "v0.1.0", "-m", "v0.1.0"])
+            .current_dir(tmp.path())
+            .output()
+            .unwrap();
+
+        commit_file(tmp.path(), "src.rs", "fn main() {}");
+
+        let tmp_path = tmp.path().to_path_buf();
+        let result = with_cwd(&tmp_path, || {
+            run(ReleaseOptions {
+                bump: "patch".to_string(),
+                dry_run: false,
+                no_tag: true,
+                no_changelog: true,
+                push: false,
+                pre_lane: None,
+                allow_dirty: false,
+            })
+        });
+
+        assert!(result.is_ok());
+
+        let content = fs::read_to_string(tmp_path.join("Cargo.toml")).unwrap();
+        assert!(content.contains("version = \"0.1.1\""));
+
+        let tag_output = Command::new("git")
+            .args(["tag", "-l", "v0.1.1"])
+            .current_dir(&tmp_path)
+            .output()
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&tag_output.stdout)
+                .trim()
+                .is_empty(),
+            "no tag should be created with --no-tag"
+        );
     }
 }

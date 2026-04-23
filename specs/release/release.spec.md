@@ -42,7 +42,7 @@ Provides a unified release workflow: version bumping across language ecosystems,
 4. `--dry-run` never modifies any files or creates commits/tags
 5. Changelog entries are inserted before existing entries (newest first)
 6. The release commit message follows conventional commit format: `chore: release vX.Y.Z`
-7. Tags are annotated (`git tag -a`) with message `Release vX.Y.Z`
+7. Tags are annotated (`git tag -a`) with message `Release vX.Y.Z`; creating a tag that already exists is rejected with a clear error
 8. Custom version files can be specified in `[release]` section of `fledge.toml`
 9. All git commands use explicit `current_dir` for correctness in any working directory context
 10. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations
@@ -104,6 +104,7 @@ Then version.txt is bumped alongside auto-detected files
 | No version found | No version file and no git tags |
 | Invalid version string | Explicit version doesn't match semver format |
 | Pre-lane failure | The specified pre-release lane fails |
+| Tag already exists | Target version tag already exists in the repo |
 | Git operations fail | Tag creation, commit, or push fails |
 
 ## Dependencies

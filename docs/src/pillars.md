@@ -36,7 +36,7 @@ Check your code before it ships. AI review, codebase Q&A, code metrics, and depe
 
 Manage issues, review PRs, check CI status, generate changelogs, and cut releases. Everything you need to get code out the door.
 
-**Commands:** `issues`, `prs`, `checks`, `changelog`, `release`, `release`
+**Commands:** `issues`, `prs`, `checks`, `changelog`, `release`
 
 ## Extend: Grow the tool
 
