@@ -144,6 +144,9 @@ enum Commands {
         /// Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)
         #[arg(long)]
         lang: Option<String>,
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Manage and run composable workflow pipelines
     #[command(alias = "lane")]
@@ -750,12 +753,14 @@ fn run() -> Result<()> {
             init,
             list,
             lang,
+            json,
         } => {
             run::run(run::RunOptions {
                 task,
                 init,
                 list,
                 lang,
+                json,
             })?;
         }
         Commands::Review { base, file, json } => {
