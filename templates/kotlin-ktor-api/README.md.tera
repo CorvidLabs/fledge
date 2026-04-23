@@ -1,0 +1,32 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Run
+
+```bash
+./gradlew run
+```
+
+Server starts at http://localhost:8080
+
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /health | Health check |
+| GET | /items | List all items |
+| GET | /items/{id} | Get item by ID |
+| POST | /items | Create item |
+| DELETE | /items/{id} | Delete item |
+
+## Build & Test
+
+```bash
+./gradlew build
+./gradlew test
+```
+
+## License
+
+{{ license }}

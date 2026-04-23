@@ -1,0 +1,18 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+./gradlew build
+./gradlew test
+./gradlew run
+```
+
+## Architecture
+
+- `src/main/kotlin/com/Application.kt` — entry point, module wiring
+- `src/main/kotlin/com/Routing.kt` — REST routes and data models
+- `src/main/kotlin/com/Database.kt` — Exposed table definitions
+- `src/main/kotlin/com/Serialization.kt` — JSON content negotiation

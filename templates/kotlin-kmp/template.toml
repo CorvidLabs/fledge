@@ -1,0 +1,13 @@
+[template]
+name = "kotlin-kmp"
+description = "Kotlin Multiplatform project with shared module and JVM/iOS targets"
+min_fledge_version = "0.1.0"
+
+[prompts]
+description = { message = "Project description", default = "A Kotlin Multiplatform project" }
+group_id = { message = "Group ID (e.g. com.example)", default = "com.example" }
+
+[files]
+render = ["**/*.kt", "**/*.kts", "**/*.md", "**/*.yml", "**/*.toml", "**/*.properties"]
+copy = []
+ignore = ["template.toml"]

@@ -1,0 +1,7 @@
+package {{ group_id }}.{{ project_name_snake }}.shared
+
+class JvmPlatform : Platform {
+    override val name: String = "JVM ${System.getProperty("java.version")}"
+}
+
+actual fun getPlatform(): Platform = JvmPlatform()

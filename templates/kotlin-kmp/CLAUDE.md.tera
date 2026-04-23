@@ -1,0 +1,17 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Build & Test
+
+```bash
+./gradlew build
+./gradlew allTests
+./gradlew detekt
+```
+
+## Architecture
+
+- `shared/src/commonMain/` — shared Kotlin code (expect declarations)
+- `shared/src/jvmMain/` — JVM actual implementations
+- `shared/src/iosMain/` — iOS actual implementations

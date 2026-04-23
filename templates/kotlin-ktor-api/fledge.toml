@@ -1,0 +1,9 @@
+# fledge.toml — project task definitions
+# Docs: https://github.com/CorvidLabs/fledge#task-runner
+
+[tasks]
+build = "./gradlew build"
+test = "./gradlew test"
+run = "./gradlew run"
+lint = "./gradlew detekt"
+clean = "./gradlew clean"
