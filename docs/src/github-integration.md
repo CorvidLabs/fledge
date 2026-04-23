@@ -110,7 +110,7 @@ fledge ask "what tests cover the config module?"
 ```bash
 fledge work start user-auth      # 1. start a work branch
 fledge run test                  # 2. code + test
-fledge lane ci                   # 3. run the full pipeline
+fledge lanes run ci              # 3. run the full pipeline
 fledge review                    # 4. AI review
 fledge work pr --title "Add user auth"  # 5. open PR
 fledge checks                    # 6. watch CI

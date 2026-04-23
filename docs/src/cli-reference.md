@@ -214,7 +214,7 @@ fledge run test --lang swift  # override detected language
 
 ### fledge lanes
 
-Manage and run composable workflow pipelines. Alias: `fledge lane`.
+Manage and run composable workflow pipelines.
 
 ```
 fledge lanes <run|list|init|search|import|publish|create|validate>
@@ -231,7 +231,7 @@ fledge lanes <run|list|init|search|import|publish|create|validate>
 - `create <name>` - Scaffold a new lane repo (`--output`, `--description`, `--yes`)
 - `validate [path]` - Validate lane definitions in fledge.toml (`--strict`, `--json`)
 
-**Shortcut:** `fledge lane ci` is equivalent to `fledge lanes run ci`.
+**Shortcut:** `fledge lanes ci` is equivalent to `fledge lanes run ci`.
 
 **Lane config in fledge.toml:**
 
@@ -264,8 +264,7 @@ steps = [
 | Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
 ```bash
-fledge lane ci                # run a lane (shortcut)
-fledge lanes run ci           # same thing, explicit
+fledge lanes run ci           # run a lane
 fledge lanes run ci --dry-run
 fledge lanes list
 fledge lanes list --json
@@ -587,7 +586,7 @@ fledge release patch --no-tag --no-changelog  # just bump version
 
 ### fledge plugins `<action>`
 
-Install, manage, and run community plugins. Alias: `fledge plugin`.
+Install, manage, and run community plugins.
 
 ```
 fledge plugins <install|remove|update|list|search|run|publish|create|validate> [OPTIONS]

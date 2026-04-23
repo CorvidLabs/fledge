@@ -13,9 +13,9 @@ spec: lanes.spec.md
 
 ### Integration Tests
 
-- `fledge lane` lists available lanes
-- `fledge lane ci` executes steps in order
-- `fledge lane ci --dry-run` prints plan without executing
+- `fledge lanes` lists available lanes
+- `fledge lanes run ci` executes steps in order
+- `fledge lanes run ci --dry-run` prints plan without executing
 - Parallel steps run concurrently
 - Missing task reference fails before execution
-- `fledge lane --init` adds default lanes to fledge.toml
+- `fledge lanes init` adds default lanes to fledge.toml

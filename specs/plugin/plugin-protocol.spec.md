@@ -69,7 +69,7 @@ metadata = false # can read project metadata and environment
 - `store` blocked → store is silently dropped, load returns null
 - `metadata` blocked → response with empty object
 
-**Install flow:** During `fledge plugin install`, if a protocol plugin declares any capabilities, fledge displays them and asks the user to confirm. Granted capabilities are persisted in `plugins.toml` alongside the plugin entry.
+**Install flow:** During `fledge plugins install`, if a protocol plugin declares any capabilities, fledge displays them and asks the user to confirm. Granted capabilities are persisted in `plugins.toml` alongside the plugin entry.
 
 **Init message:** The `init` message includes a `capabilities` object so plugins know which capabilities were granted at runtime.
 

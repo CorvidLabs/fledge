@@ -112,13 +112,13 @@ steps = ["deps-audit", "license-check", "security-scan"]
 
 ```
 # List lanes
-$ fledge lane
+$ fledge lanes
 Available lanes:
   ci       Full CI pipeline
   release  Build and publish a release
 
 # Run a lane (with step timing)
-$ fledge lane ci
+$ fledge lanes ci
 ▶️ Lane: ci — Full CI pipeline
   ▶️ Running task: lint
   ✔ Step 1 done (245ms)
@@ -129,36 +129,36 @@ $ fledge lane ci
 ✅ Lane ci completed (3 steps in 4.733s)
 
 # Dry run
-$ fledge lane ci --dry-run
+$ fledge lanes ci --dry-run
 Lane: ci — Full CI pipeline
   1. lint (task)
   2. test (task)
   3. build (task)
 
 # Parallel steps
-$ fledge lane run check
+$ fledge lanes run check
 ▶️ Lane: check — Quick quality check
   ▶️ Running parallel: lint, fmt
   ▶️ Running task: test
 ✅ Lane check completed (2 steps)
 
 # Init default lanes
-$ fledge lane init
+$ fledge lanes init
 ✅ Added default lanes to fledge.toml
 
 # Search community lanes on GitHub
-$ fledge lane search
+$ fledge lanes search
 Community lanes on GitHub:
   CorvidLabs/fledge-lanes  (⭐ 12)  Official community lane collection
   user/rust-release-lane   (⭐ 3)   Rust release pipeline with cargo-dist
 
 # Search with keyword
-$ fledge lane search rust
+$ fledge lanes search rust
 Community lanes on GitHub:
   user/rust-release-lane   (⭐ 3)   Rust release pipeline with cargo-dist
 
 # Import lanes from a remote repo (saves to .fledge/lanes/)
-$ fledge lane import CorvidLabs/fledge-lanes
+$ fledge lanes import CorvidLabs/fledge-lanes
 ✅ Imported 3 lane(s) from CorvidLabs/fledge-lanes
   + release
   + deploy
@@ -167,24 +167,24 @@ $ fledge lane import CorvidLabs/fledge-lanes
   * Skipped (already exist): ci
 
 # Import with version pinning
-$ fledge lane import CorvidLabs/fledge-lanes@v1.0.0
+$ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 # Scaffold a lane repo
-$ fledge lanes create my-lanes
+$ fledge laness create my-lanes
 ✅ Created lane repo at ./my-lanes
 
 # Validate lanes
-$ fledge lanes validate
+$ fledge laness validate
 ✅ . — valid (3 lanes)
 
 # Validate with strict mode
-$ fledge lanes validate --strict
+$ fledge laness validate --strict
 .
   warn: Lane 'deploy' has no description
 Validation failed
 
 # Publish runs validation first
-$ fledge lanes publish
+$ fledge laness publish
 ✅ . — valid (2 lanes)
 ➡️ Publishing 2 lanes as owner/my-lanes
 ```

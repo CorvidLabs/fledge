@@ -72,7 +72,7 @@ $ fledge unknown-command arg1
 | Error | When | Behavior |
 |-------|------|----------|
 | Unknown command | No matching subcommand or plugin | clap error with suggestions |
-| Plugin not found | External command with no matching plugin | Error with `fledge plugin search` hint |
+| Plugin not found | External command with no matching plugin | Error with `fledge plugins search` hint |
 
 ## Dependencies
 

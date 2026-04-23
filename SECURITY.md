@@ -37,7 +37,7 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 ### Plugins
 
 - Plugins are external executables installed from GitHub repos
-- Plugin installation requires explicit user action (`fledge plugin install`)
+- Plugin installation requires explicit user action (`fledge plugins install`)
 - Plugin binaries are symlinked to `~/.config/fledge/plugins/bin/`
 - Plugins run with the same permissions as the user
 

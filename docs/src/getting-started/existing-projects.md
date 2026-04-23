@@ -61,7 +61,7 @@ These commands work in any git repo regardless of how the project was created:
 | Command | What it does |
 |---------|-------------|
 | `fledge run` | Task runner (zero-config or from fledge.toml) |
-| `fledge lane` | Workflow pipelines |
+| `fledge lanes` | Workflow pipelines |
 | `fledge review` | AI code review of your current branch |
 | `fledge ask` | Ask questions about your codebase |
 | `fledge work` | Feature branch and PR workflow |

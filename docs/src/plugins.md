@@ -4,7 +4,7 @@ Plugins extend fledge with community-built commands. They're external executable
 
 ## Installing
 
-All plugin commands live under `fledge plugins` (alias: `fledge plugin`).
+All plugin commands live under `fledge plugins`.
 
 ```bash
 # From GitHub
@@ -220,8 +220,8 @@ Hooks fire in response to fledge lifecycle events. All fields are optional — p
 | Field | Type | Description |
 |-------|------|-------------|
 | `build` | string | Runs after clone, before binary check |
-| `post_install` | string | Runs after `fledge plugin install` |
-| `post_remove` | string | Runs before `fledge plugin remove` deletes files |
+| `post_install` | string | Runs after `fledge plugins install` |
+| `post_remove` | string | Runs before `fledge plugins remove` deletes files |
 | `pre_init` | string | Runs before `fledge templates init` starts |
 | `post_work_start` | string | Runs after `fledge work start` creates a branch |
 | `pre_pr` | string | Runs before `fledge work pr` pushes and creates a PR |
