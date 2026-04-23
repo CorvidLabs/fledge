@@ -10,6 +10,7 @@ pub struct PublishOptions {
     pub org: Option<String>,
     pub private: bool,
     pub description: Option<String>,
+    pub yes: bool,
 }
 
 pub fn run(options: PublishOptions) -> Result<()> {
@@ -51,17 +52,20 @@ pub fn run(options: PublishOptions) -> Result<()> {
     sp.finish();
 
     if repo_exists {
-        let confirm = Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(format!(
-                "Repository {}/{} already exists. Push update?",
-                owner, repo_name
-            ))
-            .default(false)
-            .interact()?;
+        if !options.yes {
+            crate::utils::require_interactive("yes")?;
+            let confirm = Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(format!(
+                    "Repository {}/{} already exists. Push update?",
+                    owner, repo_name
+                ))
+                .default(false)
+                .interact()?;
 
-        if !confirm {
-            println!("{} Cancelled.", style("*").cyan().bold());
-            return Ok(());
+            if !confirm {
+                println!("{} Cancelled.", style("*").cyan().bold());
+                return Ok(());
+            }
         }
     } else {
         let sp = crate::spinner::Spinner::start("Creating repository:");
@@ -445,6 +449,7 @@ render = ["**/*.rs"]
             org: None,
             private: false,
             description: None,
+            yes: false,
         };
 
         let result = run(options);

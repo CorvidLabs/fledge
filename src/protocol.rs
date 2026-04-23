@@ -382,6 +382,16 @@ fn send_response(child: &mut Child, id: &str, value: serde_json::Value) -> Resul
 }
 
 fn handle_prompt(message: &str, default: Option<&str>, validate: Option<&str>) -> Result<String> {
+    if !crate::utils::is_interactive() {
+        if let Some(d) = default {
+            return Ok(d.to_string());
+        }
+        bail!(
+            "Plugin requested input '{}' but stdin is not a TTY and no default was provided.",
+            message
+        );
+    }
+
     let theme = dialoguer::theme::ColorfulTheme::default();
     let mut prompt = dialoguer::Input::<String>::with_theme(&theme).with_prompt(message);
 
@@ -434,6 +444,9 @@ fn handle_prompt(message: &str, default: Option<&str>, validate: Option<&str>) -
 }
 
 fn handle_confirm(message: &str, default: bool) -> Result<bool> {
+    if !crate::utils::is_interactive() {
+        return Ok(default);
+    }
     let theme = dialoguer::theme::ColorfulTheme::default();
     dialoguer::Confirm::with_theme(&theme)
         .with_prompt(message)
@@ -443,6 +456,16 @@ fn handle_confirm(message: &str, default: bool) -> Result<bool> {
 }
 
 fn handle_select(message: &str, options: &[String], default: Option<usize>) -> Result<String> {
+    if !crate::utils::is_interactive() {
+        let idx = default.unwrap_or(0);
+        if idx < options.len() {
+            return Ok(options[idx].clone());
+        }
+        bail!(
+            "Plugin requested selection '{}' but stdin is not a TTY.",
+            message
+        );
+    }
     let theme = dialoguer::theme::ColorfulTheme::default();
     let mut select = dialoguer::Select::with_theme(&theme)
         .with_prompt(message)
@@ -461,6 +484,14 @@ fn handle_multi_select(
     options: &[String],
     defaults: Option<&[usize]>,
 ) -> Result<Vec<String>> {
+    if !crate::utils::is_interactive() {
+        let indices = defaults.unwrap_or(&[]);
+        return Ok(indices
+            .iter()
+            .filter(|&&i| i < options.len())
+            .map(|&i| options[i].clone())
+            .collect());
+    }
     let theme = dialoguer::theme::ColorfulTheme::default();
     let mut select = dialoguer::MultiSelect::with_theme(&theme)
         .with_prompt(message)

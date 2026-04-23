@@ -108,6 +108,7 @@ pub enum PluginAction {
         org: Option<String>,
         private: bool,
         description: Option<String>,
+        yes: bool,
     },
     Create {
         name: String,
@@ -140,7 +141,8 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             org,
             private,
             description,
-        } => publish_plugin(&path, org.as_deref(), private, description.as_deref()),
+            yes,
+        } => publish_plugin(&path, org.as_deref(), private, description.as_deref(), yes),
         PluginAction::Create {
             name,
             output,
@@ -443,6 +445,12 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     }
 
     if !force {
+        if !crate::utils::is_interactive() {
+            bail!(
+                "Plugin installation requires confirmation in non-interactive mode.\n  \
+                 Use --yes or --force to skip prompts."
+            );
+        }
         let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
             .with_prompt(format!("Install plugin '{repo_name}' from {url}?"))
             .default(true)
@@ -561,6 +569,12 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
             eprintln!(
                 "  {} Capabilities auto-granted via --force",
                 style("WARN").yellow()
+            );
+        } else if !crate::utils::is_interactive() {
+            fs::remove_dir_all(&plugin_dir).ok();
+            bail!(
+                "Plugin capabilities require confirmation in non-interactive mode.\n  \
+                 Use --yes or --force to auto-grant capabilities."
             );
         } else {
             let confirm =
@@ -1383,7 +1397,7 @@ fn create_plugin(name: &str, output: &Path, description: Option<&str>, yes: bool
         bail!("Directory '{}' already exists", target.display());
     }
 
-    let desc = if yes {
+    let desc = if yes || !crate::utils::is_interactive() {
         description.unwrap_or("A fledge plugin").to_string()
     } else {
         let theme = dialoguer::theme::ColorfulTheme::default();
@@ -1636,6 +1650,7 @@ fn publish_plugin(
     org: Option<&str>,
     private: bool,
     description: Option<&str>,
+    yes: bool,
 ) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
@@ -1677,17 +1692,21 @@ fn publish_plugin(
     sp.finish();
 
     if repo_exists {
-        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .with_prompt(format!(
-                "Repository {}/{} already exists. Push update?",
-                owner, repo_name
-            ))
-            .default(false)
-            .interact()?;
+        if !yes {
+            crate::utils::require_interactive("yes")?;
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Repository {}/{} already exists. Push update?",
+                        owner, repo_name
+                    ))
+                    .default(false)
+                    .interact()?;
 
-        if !confirm {
-            println!("{} Cancelled.", style("*").cyan().bold());
-            return Ok(());
+            if !confirm {
+                println!("{} Cancelled.", style("*").cyan().bold());
+                return Ok(());
+            }
         }
     } else {
         let sp = crate::spinner::Spinner::start("Creating repository:");

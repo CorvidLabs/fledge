@@ -340,6 +340,9 @@ enum TemplatesSubcommand {
         /// Override the repository description
         #[arg(long)]
         description: Option<String>,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Validate a template or directory of templates
     Validate {
@@ -508,6 +511,9 @@ enum LaneSubcommand {
     Import {
         /// GitHub repo (owner/repo) or full URL, optionally with @ref
         source: String,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Publish lanes to GitHub
     Publish {
@@ -523,6 +529,9 @@ enum LaneSubcommand {
         /// Override the repository description
         #[arg(long)]
         description: Option<String>,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Scaffold a new lane repo
     Create {
@@ -563,6 +572,9 @@ enum PluginSubcommand {
         /// Reinstall if already present
         #[arg(long)]
         force: bool,
+        /// Skip all confirmation prompts (accept defaults)
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Remove an installed plugin
     Remove {
@@ -611,6 +623,9 @@ enum PluginSubcommand {
         /// Override the repository description
         #[arg(long)]
         description: Option<String>,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
     },
     /// Scaffold a new plugin
     Create {
@@ -760,17 +775,19 @@ fn run() -> Result<()> {
                     author,
                     json,
                 },
-                LaneSubcommand::Import { source } => lanes::LaneAction::Import { source },
+                LaneSubcommand::Import { source, yes } => lanes::LaneAction::Import { source, yes },
                 LaneSubcommand::Publish {
                     path,
                     org,
                     private,
                     description,
+                    yes,
                 } => lanes::LaneAction::Publish {
                     path,
                     org,
                     private,
                     description,
+                    yes,
                 },
                 LaneSubcommand::Create {
                     name,
@@ -838,9 +855,10 @@ fn run() -> Result<()> {
         }
         Commands::Plugins { action, json } => {
             let action = match action {
-                PluginSubcommand::Install { source, force } => {
-                    plugin::PluginAction::Install { source, force }
-                }
+                PluginSubcommand::Install { source, force, yes } => plugin::PluginAction::Install {
+                    source,
+                    force: force || yes,
+                },
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
                 PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
                 PluginSubcommand::List => plugin::PluginAction::List,
@@ -860,11 +878,13 @@ fn run() -> Result<()> {
                     org,
                     private,
                     description,
+                    yes,
                 } => plugin::PluginAction::Publish {
                     path,
                     org,
                     private,
                     description,
+                    yes,
                 },
                 PluginSubcommand::Create {
                     name,
@@ -1024,12 +1044,14 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
             org,
             private,
             description,
+            yes,
         } => {
             publish::run(publish::PublishOptions {
                 path,
                 org,
                 private,
                 description,
+                yes,
             })?;
         }
         TemplatesSubcommand::Validate { path, strict, json } => {
