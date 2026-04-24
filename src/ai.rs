@@ -281,7 +281,11 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
         return Ok(());
     }
 
-    let noun = if filtered.len() == 1 { "model" } else { "models" };
+    let noun = if filtered.len() == 1 {
+        "model"
+    } else {
+        "models"
+    };
     println!(
         "  {} {noun} for {}:",
         filtered.len(),

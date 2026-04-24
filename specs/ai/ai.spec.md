@@ -9,7 +9,6 @@ db_tables: []
 depends_on:
   - config
   - llm
-  - utils
 ---
 
 # Ai
