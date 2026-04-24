@@ -228,6 +228,14 @@ enum Commands {
         /// Output format: summary (default), checklist, inline
         #[arg(long, default_value = "summary")]
         format: String,
+        /// Include full spec + companions for these modules in the review
+        /// context (comma-separated, repeatable). Appended to any
+        /// auto-detected specs.
+        #[arg(long, value_name = "NAMES")]
+        with_specs: Vec<String>,
+        /// Disable auto-detection of specs based on files in the diff
+        #[arg(long)]
+        no_auto_specs: bool,
     },
     /// Run a project task defined in fledge.toml
     Run {
@@ -845,6 +853,8 @@ fn run() -> Result<()> {
             model,
             prompt,
             format,
+            with_specs,
+            no_auto_specs,
         } => {
             let format: review::ReviewFormat =
                 format.parse().map_err(|e: String| anyhow::anyhow!(e))?;
@@ -855,6 +865,8 @@ fn run() -> Result<()> {
                 model,
                 prompt,
                 format,
+                with_specs,
+                no_auto_specs,
             })?;
         }
         Commands::Lanes { action } => {

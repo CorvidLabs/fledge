@@ -613,6 +613,41 @@ pub fn all_module_names(root: &Path) -> Result<Vec<String>> {
     Ok(collect_index(root)?.into_iter().map(|e| e.name).collect())
 }
 
+/// Return the module names whose `files:` frontmatter matches any of the given
+/// paths, or whose `<specs_dir>/<name>/` directory contains any of them.
+///
+/// Used by `fledge review` to automatically include the right spec context
+/// when reviewing a diff. Silent on specs that fail to parse — a broken
+/// spec should never block a review.
+///
+/// Honors the `specs_dir` key from `.specsync/config.toml`, so projects that
+/// put specs under e.g. `docs/specs/` match correctly.
+pub fn specs_for_changed_files(root: &Path, changed_files: &[String]) -> Result<Vec<String>> {
+    let index = collect_index(root)?;
+    // Best-effort: if config is unreadable for any reason, fall back to "specs".
+    let specs_dir_name = load_config(root)
+        .ok()
+        .and_then(|c| c.specs_dir)
+        .unwrap_or_else(|| "specs".to_string());
+    let specs_dir_trimmed = specs_dir_name.trim_end_matches('/');
+
+    let mut matched = Vec::new();
+    for entry in &index {
+        let files_match = entry
+            .files
+            .iter()
+            .any(|f| changed_files.iter().any(|c| c == f));
+        let spec_prefix = format!("{specs_dir_trimmed}/{}/", entry.name);
+        let dir_match = changed_files.iter().any(|c| c.starts_with(&spec_prefix));
+        if files_match || dir_match {
+            matched.push(entry.name.clone());
+        }
+    }
+    matched.sort();
+    matched.dedup();
+    Ok(matched)
+}
+
 /// Load the full spec bundle for a single module: its `.spec.md` plus whichever
 /// companion files exist, concatenated as a single markdown block with headers.
 pub fn load_module_bundle(root: &Path, name: &str) -> Result<String> {
@@ -1420,6 +1455,113 @@ More text.
         assert!(validate_module_name("trust").is_ok());
         assert!(validate_module_name("create_template").is_ok());
         assert!(validate_module_name("plugin-protocol").is_ok());
+    }
+
+    fn scaffold_project_with_source_specs(tmp: &TempDir) {
+        let specsync = tmp.path().join(".specsync");
+        fs::create_dir_all(&specsync).unwrap();
+        fs::write(
+            specsync.join("config.toml"),
+            "specs_dir = \"specs\"\nrequired_sections = []\n",
+        )
+        .unwrap();
+
+        for (name, source_files) in [
+            ("trust", vec!["src/trust.rs"]),
+            ("ask", vec!["src/ask.rs"]),
+            ("work", vec!["src/work.rs"]),
+        ] {
+            let dir = tmp.path().join(format!("specs/{name}"));
+            fs::create_dir_all(&dir).unwrap();
+            let files_yaml = source_files
+                .iter()
+                .map(|f| format!("  - {f}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let spec = format!(
+                "---\nmodule: {name}\nversion: 1\nstatus: active\nfiles:\n{files_yaml}\n\ndb_tables: []\ndepends_on: []\n---\n\n## Purpose\n\nP.\n"
+            );
+            fs::write(dir.join(format!("{name}.spec.md")), spec).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_matches_via_frontmatter_files() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_source_specs(&tmp);
+
+        let changed = vec!["src/trust.rs".to_string(), "src/ask.rs".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["ask", "trust"]);
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_matches_via_spec_directory() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_source_specs(&tmp);
+
+        let changed = vec!["specs/trust/context.md".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["trust"]);
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_deduplicates() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_source_specs(&tmp);
+
+        // Both trust.rs and specs/trust/context.md → single match
+        let changed = vec![
+            "src/trust.rs".to_string(),
+            "specs/trust/context.md".to_string(),
+        ];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["trust"]);
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_no_match() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_source_specs(&tmp);
+
+        let changed = vec!["README.md".to_string(), "Cargo.toml".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert!(matched.is_empty());
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_empty_input() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_source_specs(&tmp);
+        let matched = specs_for_changed_files(tmp.path(), &[]).unwrap();
+        assert!(matched.is_empty());
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_honors_custom_specs_dir() {
+        let tmp = TempDir::new().unwrap();
+        let specsync = tmp.path().join(".specsync");
+        fs::create_dir_all(&specsync).unwrap();
+        fs::write(
+            specsync.join("config.toml"),
+            "specs_dir = \"docs/specs\"\nrequired_sections = []\n",
+        )
+        .unwrap();
+        let dir = tmp.path().join("docs/specs/trust");
+        fs::create_dir_all(&dir).unwrap();
+        let spec = "---\nmodule: trust\nversion: 1\nstatus: active\nfiles:\n  - src/trust.rs\n\ndb_tables: []\ndepends_on: []\n---\n\n## Purpose\n\nP.\n";
+        fs::write(dir.join("trust.spec.md"), spec).unwrap();
+
+        // Match via `docs/specs/trust/...` prefix, not `specs/trust/...`
+        let changed = vec!["docs/specs/trust/context.md".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["trust"]);
+
+        // Changing a file under the legacy `specs/...` path should NOT match
+        // when the project uses a custom specs_dir
+        let changed_wrong = vec!["specs/trust/context.md".to_string()];
+        let matched_wrong = specs_for_changed_files(tmp.path(), &changed_wrong).unwrap();
+        assert!(matched_wrong.is_empty());
     }
 
     #[test]
