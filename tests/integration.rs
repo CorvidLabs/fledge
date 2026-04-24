@@ -1058,14 +1058,46 @@ fn cli_work_status_help_shows_json_flag() {
 
 #[test]
 fn cli_work_status_json_in_repo() {
-    // Current repo is a git repo with a current branch, so this should succeed.
-    let output = run_fledge(&["work", "status", "--json"]);
-    assert!(output.status.success());
+    // Run inside a temp git repo with a real branch — avoids the detached-HEAD
+    // situation that CI check-out sometimes produces.
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "--allow-empty", "-m", "init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["checkout", "-b", "feature"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+
+    let output = run_fledge_in(tmp.path(), &["work", "status", "--json"]);
+    assert!(
+        output.status.success(),
+        "work status --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.is_object());
-    assert!(parsed["branch"].is_string());
-    assert!(parsed["default"].is_string());
+    assert_eq!(parsed["branch"].as_str(), Some("feature"));
+    assert_eq!(parsed["default"].as_str(), Some("main"));
     assert!(parsed["ahead"].is_number());
     // behind is either a number or null (base-not-fetched sentinel)
     assert!(parsed["behind"].is_number() || parsed["behind"].is_null());
