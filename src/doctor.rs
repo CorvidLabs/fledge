@@ -615,36 +615,127 @@ fn check_ai() -> Section {
         &["--version"],
         "Install Claude CLI: https://docs.anthropic.com/en/docs/claude-code — then run `claude` to authenticate",
     );
+    checks.push(claude.clone());
 
-    match claude.status {
-        CheckStatus::Ok => {
-            checks.push(claude);
+    let ollama = check_tool(
+        "ollama",
+        &["--version"],
+        "Install Ollama: https://ollama.com/download — then `ollama pull <model>` (e.g. llama3.3)",
+    );
+    checks.push(ollama.clone());
+
+    // Determine the active provider (config → env → default "claude") and
+    // report whether it's actually reachable.
+    let config = crate::config::Config::load().ok().unwrap_or_default();
+    let active = match crate::llm::resolve_provider_kind(&config, None) {
+        Ok(k) => k,
+        Err(e) => {
+            // Invalid ai.provider config / env — surface it explicitly rather
+            // than silently defaulting to Claude, which would mask the typo.
             checks.push(CheckResult {
-                name: "AI commands".to_string(),
-                status: CheckStatus::Ok,
+                name: "Active provider: (invalid)".to_string(),
+                status: CheckStatus::Error,
                 version: None,
-                detail: Some("fledge review, fledge ask available".to_string()),
-                fix: None,
-            });
-        }
-        _ => {
-            checks.push(claude);
-            checks.push(CheckResult {
-                name: "AI commands".to_string(),
-                status: CheckStatus::Missing,
-                version: None,
-                detail: Some("fledge review, fledge ask disabled".to_string()),
+                detail: Some(format!("{e}")),
                 fix: Some(
-                    "Install Claude CLI to enable AI-powered code review and Q&A".to_string(),
+                    "Set ai.provider to 'claude' or 'ollama' (or unset FLEDGE_AI_PROVIDER)"
+                        .to_string(),
                 ),
             });
+            return Section {
+                name: "AI".to_string(),
+                checks,
+            };
         }
-    }
+    };
+
+    let active_status = match active {
+        crate::llm::ProviderKind::Claude => claude.status.clone(),
+        crate::llm::ProviderKind::Ollama => {
+            // Ollama can be a remote endpoint; the CLI check above doesn't tell
+            // us whether the configured host responds. Probe `/api/tags`.
+            let host =
+                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            if probe_ollama_host(&host) {
+                CheckStatus::Ok
+            } else if ollama.status == CheckStatus::Ok {
+                // Binary exists but endpoint unreachable — likely daemon not running
+                CheckStatus::Error
+            } else {
+                CheckStatus::Missing
+            }
+        }
+    };
+
+    let active_detail = match (active, &active_status) {
+        (crate::llm::ProviderKind::Claude, CheckStatus::Ok) => {
+            Some("claude is the active provider and is reachable".to_string())
+        }
+        (crate::llm::ProviderKind::Ollama, CheckStatus::Ok) => {
+            let host =
+                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            Some(format!(
+                "ollama is the active provider (model: {}, host: {host})",
+                config.ai.ollama.model
+            ))
+        }
+        (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => {
+            let host =
+                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            Some(format!(
+                "ollama CLI installed but endpoint {host} is not responding"
+            ))
+        }
+        (provider, _) => Some(format!(
+            "{} is the active provider but is not available",
+            provider.as_str()
+        )),
+    };
+
+    let active_fix = match (active, &active_status) {
+        (_, CheckStatus::Ok) => None,
+        (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => Some(
+            "Start the Ollama daemon (`ollama serve`) or correct OLLAMA_HOST / ai.ollama.host"
+                .to_string(),
+        ),
+        (crate::llm::ProviderKind::Claude, _) => Some(
+            "Install Claude CLI or set `ai.provider = \"ollama\"` to use Ollama instead"
+                .to_string(),
+        ),
+        (crate::llm::ProviderKind::Ollama, _) => Some(
+            "Install Ollama or set `ai.provider = \"claude\"` to use Claude CLI instead"
+                .to_string(),
+        ),
+    };
+
+    checks.push(CheckResult {
+        name: format!("Active provider: {}", active.as_str()),
+        status: active_status,
+        version: None,
+        detail: active_detail,
+        fix: active_fix,
+    });
 
     Section {
         name: "AI".to_string(),
         checks,
     }
+}
+
+fn probe_ollama_host(host: &str) -> bool {
+    let url = format!("{}/api/tags", host.trim_end_matches('/'));
+    // Short timeout — doctor should fail fast on unreachable hosts (e.g.
+    // black-holed DNS, disconnected VPN). If the endpoint is healthy but
+    // slow, the subsequent real request will still work with its longer
+    // timeout from `ollama_timeout()`.
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(3)))
+        .build()
+        .into();
+    ureq::Agent::get(&agent, &url)
+        .header("User-Agent", "fledge-cli")
+        .call()
+        .is_ok()
 }
 
 #[cfg(test)]

@@ -1,7 +1,8 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use std::path::Path;
-use std::process::Command;
 
+use crate::config::Config;
+use crate::llm::{self, ProviderOverride};
 use crate::spec;
 
 pub struct AskOptions {
@@ -9,40 +10,42 @@ pub struct AskOptions {
     pub json: bool,
     pub with_specs: Vec<String>,
     pub no_spec_index: bool,
+    pub provider: Option<String>,
+    pub model: Option<String>,
 }
 
 pub fn run(options: AskOptions) -> Result<()> {
-    crate::github::ensure_claude_cli()?;
-
     let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let spec_context = build_spec_context(&root, &options.with_specs, options.no_spec_index)?;
     let prompt = build_prompt(&options.question, options.json, spec_context.as_deref());
 
-    let sp = crate::spinner::Spinner::start("Thinking:");
+    let config = Config::load().context("loading config")?;
+    let provider = llm::build_provider(
+        &config,
+        &ProviderOverride {
+            provider: options.provider.clone(),
+            model: options.model.clone(),
+        },
+    )?;
 
-    let output = Command::new("claude").args(["--print", &prompt]).output()?;
-
+    let sp = crate::spinner::Spinner::start(&format!("Thinking [{}]:", llm::describe(&*provider)));
+    // Finish spinner before surfacing any provider error so the user sees a
+    // clean terminal state when the bail! fires.
+    let answer = provider.invoke(&prompt);
     sp.finish();
     println!();
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !stderr.is_empty() {
-            eprintln!("{stderr}");
-        }
-        bail!("claude CLI exited with an error.");
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let answer = answer?;
 
     if options.json {
         let response = serde_json::json!({
             "question": options.question,
-            "answer": stdout.trim(),
+            "answer": answer.trim(),
+            "provider": provider.kind().as_str(),
+            "model": provider.model_name(),
         });
         println!("{}", serde_json::to_string_pretty(&response)?);
     } else {
-        print!("{stdout}");
+        println!("{answer}");
     }
 
     Ok(())
@@ -179,9 +182,13 @@ mod tests {
             json: false,
             with_specs: Vec::new(),
             no_spec_index: false,
+            provider: None,
+            model: None,
         };
         assert_eq!(opts.question, "what is this?");
         assert!(!opts.json);
+        assert!(opts.provider.is_none());
+        assert!(opts.model.is_none());
     }
 
     #[test]

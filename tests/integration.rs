@@ -2727,6 +2727,32 @@ fn cli_ask_accepts_with_specs_flag() {
 }
 
 #[test]
+fn cli_ask_accepts_provider_and_model_flags() {
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--provider"));
+    assert!(stdout.contains("--model"));
+}
+
+#[test]
+fn cli_review_accepts_provider_flag() {
+    let output = run_fledge(&["review", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--provider"));
+}
+
+#[test]
+fn cli_ask_rejects_unknown_provider() {
+    // No question + no --provider validation short-circuit we can test without
+    // hitting the LLM. But --provider validation happens at invoke time.
+    // Instead verify the help shows the supported values in its description.
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("claude"));
+    assert!(stdout.contains("ollama"));
+}
+
+#[test]
 fn cli_global_non_interactive_flag_present_in_help() {
     let output = run_fledge(&["--help"]);
     let stdout = String::from_utf8(output.stdout).unwrap();

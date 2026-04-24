@@ -10,6 +10,8 @@ pub struct Config {
     pub templates: TemplatesConfig,
     #[serde(default)]
     pub github: GitHubConfig,
+    #[serde(default)]
+    pub ai: AiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,6 +43,57 @@ pub struct TemplatesConfig {
 pub struct GitHubConfig {
     pub token: Option<String>,
 }
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct AiConfig {
+    /// Active provider. `None` defaults to `"claude"` for backwards compatibility.
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub claude: ClaudeConfig,
+    #[serde(default)]
+    pub ollama: OllamaConfig,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct ClaudeConfig {
+    /// Default model name passed to the `claude` CLI via `--model`. When None,
+    /// `claude` uses its own default.
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OllamaConfig {
+    /// Base URL of the Ollama-compatible endpoint.
+    #[serde(default = "default_ollama_host")]
+    pub host: String,
+    /// Bearer token for Ollama Cloud / Turbo or any authenticated endpoint.
+    /// Read from `OLLAMA_API_KEY` env var if this field is None.
+    pub api_key: Option<String>,
+    /// Default model name (e.g. `llama3.3:70b` or a cloud-registry model).
+    #[serde(default = "default_ollama_model")]
+    pub model: String,
+}
+
+impl Default for OllamaConfig {
+    fn default() -> Self {
+        Self {
+            host: default_ollama_host(),
+            api_key: None,
+            model: default_ollama_model(),
+        }
+    }
+}
+
+fn default_ollama_host() -> String {
+    "http://localhost:11434".to_string()
+}
+
+fn default_ollama_model() -> String {
+    "llama3.3".to_string()
+}
+
+const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model";
 
 impl Config {
     pub fn load() -> Result<Self> {
@@ -98,6 +151,11 @@ impl Config {
             "github.token" => self.github.token.clone(),
             "templates.paths" => Some(self.templates.paths.join("\n")),
             "templates.repos" => Some(self.templates.repos.join("\n")),
+            "ai.provider" => self.ai.provider.clone(),
+            "ai.claude.model" => self.ai.claude.model.clone(),
+            "ai.ollama.host" => Some(self.ai.ollama.host.clone()),
+            "ai.ollama.api_key" => self.ai.ollama.api_key.clone(),
+            "ai.ollama.model" => Some(self.ai.ollama.model.clone()),
             _ => None,
         }
     }
@@ -111,6 +169,11 @@ impl Config {
                 | "github.token"
                 | "templates.paths"
                 | "templates.repos"
+                | "ai.provider"
+                | "ai.claude.model"
+                | "ai.ollama.host"
+                | "ai.ollama.api_key"
+                | "ai.ollama.model"
         )
     }
 
@@ -120,15 +183,23 @@ impl Config {
             "defaults.github_org" => self.defaults.github_org = Some(value.to_string()),
             "defaults.license" => self.defaults.license = Some(value.to_string()),
             "github.token" => self.github.token = Some(value.to_string()),
+            "ai.provider" => {
+                let normalized = value.trim().to_ascii_lowercase();
+                if normalized != "claude" && normalized != "ollama" {
+                    anyhow::bail!("Invalid provider '{}'. Supported: claude, ollama", value);
+                }
+                self.ai.provider = Some(normalized);
+            }
+            "ai.claude.model" => self.ai.claude.model = Some(value.to_string()),
+            "ai.ollama.host" => self.ai.ollama.host = value.to_string(),
+            "ai.ollama.api_key" => self.ai.ollama.api_key = Some(value.to_string()),
+            "ai.ollama.model" => self.ai.ollama.model = value.to_string(),
             "templates.paths" | "templates.repos" => anyhow::bail!(
                 "'{}' is a list key — use `fledge config add/remove {}` instead",
                 key,
                 key
             ),
-            _ => anyhow::bail!(
-                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
-                key
-            ),
+            _ => anyhow::bail!("Unknown config key '{}'. {}", key, VALID_KEYS_HINT),
         }
         Ok(())
     }
@@ -141,10 +212,12 @@ impl Config {
             "github.token" => self.github.token = None,
             "templates.paths" => self.templates.paths.clear(),
             "templates.repos" => self.templates.repos.clear(),
-            _ => anyhow::bail!(
-                "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
-                key
-            ),
+            "ai.provider" => self.ai.provider = None,
+            "ai.claude.model" => self.ai.claude.model = None,
+            "ai.ollama.host" => self.ai.ollama.host = default_ollama_host(),
+            "ai.ollama.api_key" => self.ai.ollama.api_key = None,
+            "ai.ollama.model" => self.ai.ollama.model = default_ollama_model(),
+            _ => anyhow::bail!("Unknown config key '{}'. {}", key, VALID_KEYS_HINT),
         }
         Ok(())
     }
@@ -153,7 +226,7 @@ impl Config {
         let list = match key {
             "templates.paths" => &mut self.templates.paths,
             "templates.repos" => &mut self.templates.repos,
-            "defaults.author" | "defaults.github_org" | "defaults.license" | "github.token" => {
+            key if Self::is_valid_key(key) => {
                 anyhow::bail!(
                     "'{}' is a scalar key — use `fledge config set {} <value>` instead",
                     key,
@@ -176,7 +249,7 @@ impl Config {
         let list = match key {
             "templates.paths" => &mut self.templates.paths,
             "templates.repos" => &mut self.templates.repos,
-            "defaults.author" | "defaults.github_org" | "defaults.license" | "github.token" => {
+            key if Self::is_valid_key(key) => {
                 anyhow::bail!(
                     "'{}' is a scalar key — use `fledge config unset {}` instead",
                     key,

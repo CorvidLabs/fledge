@@ -1,6 +1,6 @@
 ---
 module: review
-version: 5
+version: 6
 status: active
 files:
   - src/review.rs
@@ -8,6 +8,8 @@ files:
 db_tables: []
 depends_on:
   - spec
+  - llm
+  - config
 ---
 
 # Review
@@ -30,7 +32,7 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 
 | Type | Description |
 |------|-------------|
-| `ReviewOptions` | `{ base, file, json, model, prompt, format, with_specs: Vec<String>, no_auto_specs: bool }` |
+| `ReviewOptions` | `{ base, file, json, model, prompt, format, with_specs, no_auto_specs, provider }` |
 | `ReviewFormat` | Enum: `Summary` (default, concise markdown), `Checklist` (markdown checklist), `Inline` (file:line comments) |
 
 ### Functions
@@ -60,6 +62,8 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 14. A broken or missing `.specsync/` never blocks a review — spec auto-detection silently falls back to empty
 15. An explicit `--with-specs <name>` that doesn't resolve bails with a clear error naming the missing module
 16. `--file <path>` narrows both the diff AND the auto-detection input — only specs whose `files:` or directory intersects that single path will be auto-included. Use `--with-specs` alongside `--file` if you want additional context
+17. `--provider {claude,ollama}` overrides env and config for this invocation; `--model` does the same for model selection. The provider chain is identical to `fledge ask`'s (see `llm` spec)
+18. JSON output gains `provider` and `model` fields alongside the existing `spec_context` array
 
 ## Behavioral Examples
 
@@ -133,14 +137,17 @@ $ fledge review --prompt "Focus on security vulnerabilities"
 
 ## Dependencies
 
-- Claude CLI — AI inference (external dependency)
+- Active LLM provider — Claude CLI or an Ollama-speaking endpoint (see `llm` spec)
 - Git CLI — diff generation, `--name-only` for changed-file detection
 - `spec` module — `specs_for_changed_files` (auto-detect), `load_module_bundle` (full spec+companions)
+- `llm` module — provider dispatch and construction
+- `config` module — `ai.*` section
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-04-23 | Provider abstraction: `--provider` flag, JSON gains `provider`/`model` fields, invocation routes through `llm::build_provider` instead of shelling out to `claude` directly. Works with Ollama (local or cloud) end-to-end. |
 | 5 | 2026-04-23 | Spec-aware review: auto-detect specs for diffed modules (honors `specs_dir` config), `--with-specs`, `--no-auto-specs`, `spec_context` field in JSON output, prompt constraints to keep review target on the diff only |
 | 4 | 2026-04-23 | Add ReviewFormat enum, model/prompt/format fields to ReviewOptions |
 | 3 | 2026-04-22 | Document default branch fallback algorithm (symbolic-ref → main → master → fallback main) |

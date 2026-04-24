@@ -1,6 +1,6 @@
 ---
 module: main
-version: 4
+version: 5
 status: active
 files:
   - src/main.rs
@@ -19,6 +19,7 @@ depends_on:
   - introspect
   - issues
   - lanes
+  - llm
   - metrics
   - plugin
   - prompts
@@ -93,6 +94,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-04-23 | Add `llm` to depends_on for the provider abstraction that powers `fledge ask` and `fledge review`. No new top-level command; dispatch changes are localized to the Ask/Review variants. |
 | 4 | 2026-04-23 | Add `fledge introspect` command that dumps the clap command tree as JSON or a pretty listing. Closes the "how does an agent learn the command surface?" gap. |
 | 3 | 2026-04-23 | Add `--non-interactive` global flag (alias `--ni`) and `FLEDGE_NON_INTERACTIVE` env var. Sets `utils::NON_INTERACTIVE` before dispatch; each subcommand with `--yes`/`--force` auto-promotes it when the flag is set; prompts that have no default bail with a clear error. |
 | 2 | 2026-04-23 | Add `watch` to depends_on |
