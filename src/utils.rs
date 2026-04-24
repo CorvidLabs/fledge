@@ -1,10 +1,58 @@
 use std::io::IsTerminal;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+/// Global flag: when set, every prompt site must either auto-answer (because
+/// its command also has `--yes`/`--force` passed explicitly or now forced by
+/// this flag) or bail with a clear error.
+static NON_INTERACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Whether the user has explicitly asked for a non-interactive run, either via
+/// the `--non-interactive` flag or the `FLEDGE_NON_INTERACTIVE` env var.
+pub fn is_non_interactive() -> bool {
+    NON_INTERACTIVE.load(Ordering::Relaxed)
+}
+
+/// Set the global non-interactive flag. Called from `main` after parsing CLI
+/// args and the env var.
+pub fn set_non_interactive(value: bool) {
+    NON_INTERACTIVE.store(value, Ordering::Relaxed);
+}
+
+/// Read `FLEDGE_NON_INTERACTIVE` from the environment and, if set to a truthy
+/// value, flip the global flag. Accepts `1`, `true`, `yes`, `y`, `on`
+/// (case-insensitive).
+pub fn init_non_interactive_from_env() {
+    if let Ok(raw) = std::env::var("FLEDGE_NON_INTERACTIVE") {
+        if is_truthy(&raw) {
+            set_non_interactive(true);
+        }
+    }
+}
+
+fn is_truthy(s: &str) -> bool {
+    matches!(
+        s.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "y" | "on"
+    )
+}
+
+/// A run is "interactive" if stdin is a TTY **and** the non-interactive flag
+/// is not set. This means `require_interactive` and any code gating on this
+/// helper will correctly refuse to prompt when the user asked for a scripted
+/// run.
 pub fn is_interactive() -> bool {
-    std::io::stdin().is_terminal()
+    !is_non_interactive() && std::io::stdin().is_terminal()
 }
 
 pub fn require_interactive(flag_name: &str) -> anyhow::Result<()> {
+    if is_non_interactive() {
+        anyhow::bail!(
+            "This command requires interactive input but --non-interactive (or FLEDGE_NON_INTERACTIVE) is set.\n  \
+             Use --{} to skip prompts, provide all required arguments via flags,\n  \
+             or unset FLEDGE_NON_INTERACTIVE / omit --non-interactive to run interactively.",
+            flag_name
+        );
+    }
     if !is_interactive() {
         anyhow::bail!(
             "This command requires interactive input but stdin is not a TTY.\n  \
@@ -222,5 +270,81 @@ mod tests {
     #[test]
     fn test_validate_github_org_slashes() {
         assert!(validate_github_org("my/org").is_err());
+    }
+
+    #[test]
+    fn test_is_truthy_accepts_common_values() {
+        for v in ["1", "true", "TRUE", "Yes", "y", "ON", "  on "] {
+            assert!(is_truthy(v), "expected '{v}' to be truthy");
+        }
+    }
+
+    #[test]
+    fn test_is_truthy_rejects_common_falsy_values() {
+        for v in ["", "0", "false", "no", "off", "nope", "blue"] {
+            assert!(!is_truthy(v), "expected '{v}' to be falsy");
+        }
+    }
+
+    // The global atomic is process-wide. `cargo test` runs tests in parallel
+    // threads by default, so every test that mutates the flag serializes on
+    // this mutex. A Drop guard restores the previous value even if a test
+    // panics mid-body.
+    use std::sync::Mutex;
+    static NON_INTERACTIVE_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct NonInteractiveGuard<'a> {
+        _lock: std::sync::MutexGuard<'a, ()>,
+        prev: bool,
+    }
+
+    impl NonInteractiveGuard<'_> {
+        fn new(set_to: bool) -> Self {
+            let lock = NON_INTERACTIVE_TEST_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let prev = is_non_interactive();
+            set_non_interactive(set_to);
+            Self { _lock: lock, prev }
+        }
+    }
+
+    impl Drop for NonInteractiveGuard<'_> {
+        fn drop(&mut self) {
+            set_non_interactive(self.prev);
+        }
+    }
+
+    #[test]
+    fn test_set_and_is_non_interactive() {
+        let _guard = NonInteractiveGuard::new(true);
+        assert!(is_non_interactive());
+        set_non_interactive(false);
+        assert!(!is_non_interactive());
+    }
+
+    #[test]
+    fn test_require_interactive_bails_when_non_interactive_set() {
+        let _guard = NonInteractiveGuard::new(true);
+        let result = require_interactive("yes");
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("--non-interactive") || msg.contains("FLEDGE_NON_INTERACTIVE"),
+            "error should mention the flag or env var, got: {msg}"
+        );
+        assert!(
+            msg.contains("unset FLEDGE_NON_INTERACTIVE") || msg.contains("omit --non-interactive"),
+            "error should offer escape hatch, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_is_interactive_respects_non_interactive_flag() {
+        let _guard = NonInteractiveGuard::new(true);
+        assert!(
+            !is_interactive(),
+            "should be non-interactive when flag is set"
+        );
     }
 }

@@ -1,6 +1,6 @@
 ---
 module: main
-version: 2
+version: 3
 status: active
 files:
   - src/main.rs
@@ -85,10 +85,13 @@ All modules are dependencies — main dispatches to every subcommand module. See
 2. Unknown commands are forwarded to `plugin::resolve_plugin_command` for plugin pass-through
 3. Shell completions support bash, zsh, fish, and PowerShell via `--install` flag
 4. The `--version` and `--help` flags are handled by clap
+5. The top-level `--non-interactive` flag (aliased `--ni`) is a clap `global = true` arg, available on every subcommand. When set, or when `FLEDGE_NON_INTERACTIVE` env var is truthy (`1`/`true`/`yes`/`y`/`on`), `utils::set_non_interactive(true)` is called before dispatch, so every prompt site in the dispatched command observes it
+6. `utils::init_non_interactive_from_env()` runs before `Cli::parse()` so the env var is honored even when users don't pass the flag
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-23 | Add `--non-interactive` global flag (alias `--ni`) and `FLEDGE_NON_INTERACTIVE` env var. Sets `utils::NON_INTERACTIVE` before dispatch; each subcommand with `--yes`/`--force` auto-promotes it when the flag is set; prompts that have no default bail with a clear error. |
 | 2 | 2026-04-23 | Add `watch` to depends_on |
 | 1 | 2026-04-21 | Initial spec |

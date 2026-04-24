@@ -13,7 +13,10 @@ pub struct PublishOptions {
     pub yes: bool,
 }
 
-pub fn run(options: PublishOptions) -> Result<()> {
+pub fn run(mut options: PublishOptions) -> Result<()> {
+    if crate::utils::is_non_interactive() {
+        options.yes = true;
+    }
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
         anyhow::anyhow!(

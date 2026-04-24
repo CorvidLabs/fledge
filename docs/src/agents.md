@@ -37,9 +37,11 @@ fledge follows three rules that make it agent-usable:
 | `fledge work pr --json` | `{url, number, title, head, base, draft}` |
 | `fledge work status --json` | `{branch, default, ahead, behind, pr}` |
 
-### Commands that block without `--yes`
+### Non-interactive mode (one switch)
 
-`fledge init`, `fledge templates publish`, `fledge templates create`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`. Pass `--yes` (and `--force` for plugin install) in agent contexts.
+Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes: every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
+
+Commands covered: `fledge init`, `fledge templates publish`, `fledge templates create`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lane publish`.
 
 ### AI-powered commands
 
@@ -132,7 +134,6 @@ Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.m
 These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
 
 - `fledge run`, `fledge init`, `fledge spec init/new`, `fledge release` have no `--json` today
-- No global `--non-interactive` flag that forces `--yes` on every subcommand at once
 - No `fledge introspect --json` to dump the full command tree as JSON
 
 ## Contributing agent-surface improvements

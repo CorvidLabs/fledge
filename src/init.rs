@@ -21,7 +21,10 @@ pub struct InitOptions {
     pub yes: bool,
 }
 
-pub fn run(opts: InitOptions) -> Result<()> {
+pub fn run(mut opts: InitOptions) -> Result<()> {
+    if crate::utils::is_non_interactive() {
+        opts.yes = true;
+    }
     crate::plugin::run_lifecycle_hook("pre_init").ok();
     let config = Config::load().context("loading config")?;
     let extra_paths = config.extra_template_paths();

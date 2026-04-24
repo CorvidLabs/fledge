@@ -1505,6 +1505,7 @@ fn publish_lanes(
     description: Option<&str>,
     yes: bool,
 ) -> Result<()> {
+    let yes = yes || crate::utils::is_non_interactive();
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
         anyhow::anyhow!(
