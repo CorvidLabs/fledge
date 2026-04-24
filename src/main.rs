@@ -518,6 +518,15 @@ enum WorkSubcommand {
         /// Skip the preview/confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
+        /// Generate the PR body via the configured AI provider (uses commit log + diff as context)
+        #[arg(long)]
+        ai: bool,
+        /// Override AI provider for --ai (claude or ollama)
+        #[arg(long, value_parser = ["claude", "ollama"])]
+        provider: Option<String>,
+        /// Override AI model for --ai
+        #[arg(long)]
+        model: Option<String>,
     },
     /// Show current branch and PR status
     Status {
@@ -859,6 +868,9 @@ fn run() -> Result<()> {
                     base,
                     json,
                     yes,
+                    ai,
+                    provider,
+                    model,
                 } => work::WorkAction::Pr {
                     title,
                     body,
@@ -866,6 +878,9 @@ fn run() -> Result<()> {
                     base,
                     json,
                     yes,
+                    ai,
+                    provider,
+                    model,
                 },
                 WorkSubcommand::Status { json } => work::WorkAction::Status { json },
             };

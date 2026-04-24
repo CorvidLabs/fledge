@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::Deserialize;
 use std::process::Command;
@@ -73,6 +73,9 @@ pub enum WorkAction {
         base: Option<String>,
         json: bool,
         yes: bool,
+        ai: bool,
+        provider: Option<String>,
+        model: Option<String>,
     },
     Status {
         json: bool,
@@ -104,6 +107,9 @@ pub fn run(action: WorkAction) -> Result<()> {
             base,
             json,
             yes,
+            ai,
+            provider,
+            model,
         } => pr(
             title.as_deref(),
             body.as_deref(),
@@ -111,6 +117,9 @@ pub fn run(action: WorkAction) -> Result<()> {
             base.as_deref(),
             json,
             yes,
+            ai,
+            provider.as_deref(),
+            model.as_deref(),
         ),
         WorkAction::Status { json } => status(json),
     }
@@ -279,6 +288,7 @@ fn start(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn pr(
     title: Option<&str>,
     body: Option<&str>,
@@ -286,6 +296,9 @@ fn pr(
     base: Option<&str>,
     json: bool,
     yes: bool,
+    ai: bool,
+    provider_override: Option<&str>,
+    model_override: Option<&str>,
 ) -> Result<()> {
     if Command::new("gh").arg("--version").output().is_err() {
         bail!(
@@ -318,6 +331,13 @@ fn pr(
     };
     let pr_body = match body {
         Some(b) => b.to_string(),
+        None if ai => generate_body_with_ai(
+            &branch,
+            &base_branch,
+            provider_override,
+            model_override,
+            json,
+        )?,
         None => generate_body_from_commits(&branch, &base_branch)?,
     };
 
@@ -576,6 +596,90 @@ pub fn generate_body_from_commits(branch: &str, base: &str) -> Result<String> {
     };
 
     Ok(body)
+}
+
+/// Build a richer PR body by handing the branch context to the configured
+/// LLM (`fledge ai use ...` / `--provider` / `--model`). Includes the full
+/// commit log, file-level diffstat, and a truncated unified diff so the
+/// model has enough context to write a real description, not just a list
+/// of subjects.
+fn generate_body_with_ai(
+    branch: &str,
+    base: &str,
+    provider_override: Option<&str>,
+    model_override: Option<&str>,
+    json: bool,
+) -> Result<String> {
+    let range = format!("{base}..{branch}");
+    let commits =
+        git_output(&["log", "--pretty=format:%h %s%n%b%n---", &range]).unwrap_or_default();
+    let diffstat = git_output(&["diff", "--stat", &range]).unwrap_or_default();
+
+    // Truncate the diff to keep small/local models inside their context
+    // window. 600 lines is enough for most PRs to convey shape; reviewers
+    // see the full diff on GitHub regardless.
+    let diff_full = git_output(&["diff", &range]).unwrap_or_default();
+    let mut diff_lines: Vec<&str> = diff_full.lines().collect();
+    let truncated = diff_lines.len() > 600;
+    if truncated {
+        diff_lines.truncate(600);
+    }
+    let diff = diff_lines.join("\n");
+    let truncation_note = if truncated {
+        "\n\n[diff truncated to 600 lines for context]"
+    } else {
+        ""
+    };
+
+    let prompt = format!(
+        "You are writing a GitHub pull request description.\n\
+         \n\
+         Branch: {branch} → {base}\n\
+         \n\
+         Commits:\n\
+         {commits}\n\
+         \n\
+         Files changed:\n\
+         {diffstat}\n\
+         \n\
+         Diff:\n\
+         {diff}{truncation_note}\n\
+         \n\
+         Write a Markdown PR description with:\n\
+         \n\
+         ## Summary\n\
+         - 2 to 5 bullets describing what changed and why\n\
+         \n\
+         ## Test plan\n\
+         - [ ] checklist items the reviewer should verify\n\
+         \n\
+         Be concrete. Reference specific files or functions when relevant. \
+         Do not invent features that aren't in the diff. \
+         Do not include any preamble or sign-off — output ONLY the Markdown body."
+    );
+
+    let config = crate::config::Config::load().context("loading config")?;
+    let provider = crate::llm::build_provider(
+        &config,
+        &crate::llm::ProviderOverride {
+            provider: provider_override.map(|s| s.to_string()),
+            model: model_override.map(|s| s.to_string()),
+        },
+    )?;
+
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Drafting PR body [{}]:",
+            crate::llm::describe(&*provider)
+        )))
+    };
+    let answer = provider.invoke(&prompt);
+    if let Some(sp) = sp {
+        sp.finish();
+    }
+    Ok(answer?.trim().to_string())
 }
 
 fn format_commit_subject_as_bullet(subject: &str) -> String {
