@@ -2600,3 +2600,11 @@ fn cli_ask_accepts_json_flag() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("--json"));
 }
+
+#[test]
+fn cli_ask_accepts_with_specs_flag() {
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--with-specs"));
+    assert!(stdout.contains("--no-spec-index"));
+}
