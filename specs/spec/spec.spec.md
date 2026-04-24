@@ -64,6 +64,10 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 8. `spec list` returns sorted results by module name; `--json` emits an array (empty array when no specs)
 9. `spec show` errors if the spec is not found and suggests `fledge spec list`
 10. `spec list` and `spec show` are read-only — they never mutate the filesystem
+11. `collect_index` silently skips specs whose frontmatter is malformed or files are unreadable, so a single broken spec never breaks a caller like `fledge ask`
+12. `collect_index` returns an empty `Vec` (not an error) when the project has no `.specsync/` or no `specs/` directory
+13. `load_module_bundle` errors only when the specific requested module is missing; missing companions are simply omitted
+14. `render_index_markdown` produces stable output (entries must be pre-sorted; `collect_index` already guarantees this)
 
 ## Behavioral Examples
 
@@ -206,5 +210,6 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-23 | Expose `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`, and `IndexEntry` for consumers that need spec content in prompt-friendly form (`ask` is the first such consumer). Add `extract_purpose` helper. |
 | 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |
 | 1 | 2026-04-19 | Initial spec for fledge spec integration |

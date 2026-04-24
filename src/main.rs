@@ -57,6 +57,13 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Include full spec + companions for these modules in the prompt
+        /// (comma-separated, repeatable, use "all" for every spec)
+        #[arg(long, value_name = "NAMES")]
+        with_specs: Vec<String>,
+        /// Omit the compact spec index from the prompt (saves tokens)
+        #[arg(long)]
+        no_spec_index: bool,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -1024,13 +1031,20 @@ fn run() -> Result<()> {
                 allow_dirty,
             })?;
         }
-        Commands::Ask { question, json } => {
+        Commands::Ask {
+            question,
+            json,
+            with_specs,
+            no_spec_index,
+        } => {
             if question.is_empty() {
                 anyhow::bail!("Please provide a question. Usage: fledge ask <question>");
             }
             ask::run(ask::AskOptions {
                 question: question.join(" "),
                 json,
+                with_specs,
+                no_spec_index,
             })?;
         }
         Commands::Completions { shell, install } => {

@@ -67,16 +67,34 @@ Commands safe to call non-interactively today: `ask`, `review`, `checks`, `docto
 
 `fledge ask` and `fledge review` delegate to the `claude` CLI, which must be installed and authenticated on the host. The agent running fledge inherits whatever auth the `claude` CLI has.
 
-```bash
-fledge ask "how does the work module build branch names?" --json
-# -> {"question": "...", "answer": "..."}
+### `fledge ask` is spec-aware by default
 
+**Every `fledge ask` invocation automatically prepends a compact index of all specs** (one line per module: name, version, status, files, first-paragraph purpose). Claude can then cite specific specs in its answer even when the user didn't mention them.
+
+```bash
+# Default: compact index of every spec auto-included
+fledge ask "how does the work module build branch names?" --json
+
+# Include full spec + all companion files for one or more modules
+fledge ask --with-specs work "why does it sanitize names this way?"
+fledge ask --with-specs work,trust "how do these modules interact?"
+fledge ask --with-specs all "which modules touch GitHub?"
+
+# Skip the index entirely (saves tokens for off-topic questions)
+fledge ask --no-spec-index "quick Rust syntax question"
+```
+
+When `--with-specs <name>` is passed, fledge loads `specs/<name>/<name>.spec.md` plus every existing companion (`requirements.md`, `context.md`, `tasks.md`, `testing.md`) into the prompt. Companions carry the design rationale — usually what you want for *why* questions.
+
+### `fledge review`
+
+```bash
 fledge review --json                   # reviews current diff vs main
 fledge review --base HEAD~3 --json     # reviews last 3 commits
 fledge review --model opus --format checklist --json
 ```
 
-Neither command currently feeds spec content into the prompt automatically. If you want the LLM to know about specs, grep/read them first and paste excerpts into your own prompt, or use `fledge spec show <name> --json` and include the result.
+Review does not yet feed specs into its prompt — if you want spec-aware review, run `fledge ask --with-specs <name> "review the recent change to X module"` as a workaround.
 
 ## Typical agent workflows
 

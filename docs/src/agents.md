@@ -41,6 +41,25 @@ fledge follows three rules that make it agent-usable:
 
 `fledge ask` and `fledge review` wrap the `claude` CLI. The host environment must have `claude` installed and authenticated. These commands will exit non-zero if auth is missing — that's a host-config issue, not a fledge issue.
 
+#### `fledge ask` is spec-aware
+
+Every `fledge ask` invocation automatically includes a compact index of every project spec in the prompt, so Claude knows what modules exist and can cite them. For deeper questions, use `--with-specs <name>` (comma-separated, repeatable, or `all`) to load the full spec *and* companions (`requirements.md`, `context.md`, `tasks.md`, `testing.md`) for named modules.
+
+```bash
+# Default: compact index auto-included
+fledge ask "how does the work module build branch names?"
+
+# Full spec + companions for a module
+fledge ask --with-specs work "why does it sanitize names this way?"
+fledge ask --with-specs work,trust "how do these modules interact?"
+fledge ask --with-specs all "which modules touch GitHub?"
+
+# Skip the index (saves tokens for off-topic questions)
+fledge ask --no-spec-index "quick Rust syntax question"
+```
+
+The index adds a few hundred tokens per call; `--with-specs` can add more depending on spec size. Use `--no-spec-index` for questions that have nothing to do with the repo.
+
 ## Typical agent workflows
 
 ### Orient to a new repo
@@ -92,7 +111,7 @@ Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.m
 These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
 
 - `fledge run`, `fledge init`, `fledge spec check/init/new`, `fledge work`, `fledge release` have no `--json` today
-- `fledge ask` does not automatically feed specs into its prompt — agents must paste spec excerpts themselves
+- `fledge review` does not feed specs into its prompt yet (only `ask` does)
 - No global `--non-interactive` flag that forces `--yes` on every subcommand at once
 - No `fledge introspect --json` to dump the full command tree as JSON
 

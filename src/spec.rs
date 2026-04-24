@@ -103,6 +103,16 @@ struct SpecDetail {
     missing_companions: Vec<String>,
 }
 
+/// A compact entry suitable for prompt-context indexes.
+#[derive(Debug, Clone)]
+pub struct IndexEntry {
+    pub name: String,
+    pub version: u32,
+    pub status: String,
+    pub purpose: Option<String>,
+    pub files: Vec<String>,
+}
+
 fn load_config(project_root: &Path) -> Result<SpecSyncConfig> {
     let config_path = project_root.join(".specsync/config.toml");
     if !config_path.exists() {
@@ -216,6 +226,41 @@ fn extract_sections(body: &str) -> Vec<String> {
         }
     }
     sections
+}
+
+fn extract_purpose(body: &str) -> Option<String> {
+    let mut in_purpose = false;
+    let mut paragraph = String::new();
+    for line in body.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("## ") {
+            if in_purpose {
+                break;
+            }
+            if trimmed == "## Purpose" {
+                in_purpose = true;
+            }
+            continue;
+        }
+        if !in_purpose {
+            continue;
+        }
+        if line.trim().is_empty() {
+            if !paragraph.is_empty() {
+                break;
+            }
+            continue;
+        }
+        if !paragraph.is_empty() {
+            paragraph.push(' ');
+        }
+        paragraph.push_str(line.trim());
+    }
+    if paragraph.is_empty() {
+        None
+    } else {
+        Some(paragraph)
+    }
 }
 
 fn validate_spec(
@@ -493,6 +538,120 @@ fn classify_companions(spec_dir: &Path) -> (Vec<String>, Vec<String>) {
     (present, missing)
 }
 
+fn specs_dir_from_config(root: &Path) -> Result<PathBuf> {
+    let config = load_config(root)?;
+    Ok(root.join(config.specs_dir.as_deref().unwrap_or("specs")))
+}
+
+fn validate_module_name(name: &str) -> Result<()> {
+    if name.is_empty() {
+        bail!("Module name cannot be empty");
+    }
+    if name == "." || name == ".." {
+        bail!("Invalid module name '{name}'");
+    }
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        bail!("Invalid module name '{name}': may not contain path separators or '..'");
+    }
+    Ok(())
+}
+
+/// Collect a compact, sorted index of every spec in the project.
+/// Intended for feeding into LLM prompts or other machine-readable consumers.
+pub fn collect_index(root: &Path) -> Result<Vec<IndexEntry>> {
+    let specs_dir = specs_dir_from_config(root)?;
+    if !specs_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for path in find_spec_files(&specs_dir) {
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok((fm, body)) = parse_frontmatter(&content) else {
+            continue;
+        };
+        entries.push(IndexEntry {
+            name: fm.module,
+            version: fm.version,
+            status: fm.status,
+            purpose: extract_purpose(&body),
+            files: fm.files,
+        });
+    }
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(entries)
+}
+
+/// Render an index as a compact markdown block suitable for prompt injection.
+pub fn render_index_markdown(entries: &[IndexEntry]) -> String {
+    let mut out = String::from("## Available specs\n\n");
+    out.push_str(
+        "This project documents each module in `specs/<name>/`. \
+         Run `fledge spec show <name>` for the full detail.\n\n",
+    );
+    for entry in entries {
+        let purpose = entry
+            .purpose
+            .as_deref()
+            .unwrap_or("(no purpose documented)");
+        let files = if entry.files.is_empty() {
+            String::new()
+        } else {
+            format!(" — {}", entry.files.join(", "))
+        };
+        out.push_str(&format!(
+            "- **{}** v{} ({}){} — {}\n",
+            entry.name, entry.version, entry.status, files, purpose,
+        ));
+    }
+    out
+}
+
+/// Return every module name that has a `specs/<name>/<name>.spec.md` file.
+pub fn all_module_names(root: &Path) -> Result<Vec<String>> {
+    Ok(collect_index(root)?.into_iter().map(|e| e.name).collect())
+}
+
+/// Load the full spec bundle for a single module: its `.spec.md` plus whichever
+/// companion files exist, concatenated as a single markdown block with headers.
+pub fn load_module_bundle(root: &Path, name: &str) -> Result<String> {
+    validate_module_name(name)?;
+    let specs_dir = specs_dir_from_config(root)?;
+    let module_dir = specs_dir.join(name);
+    let spec_path = module_dir.join(format!("{name}.spec.md"));
+    if !spec_path.exists() {
+        bail!(
+            "No spec found for '{}' (looked at {})",
+            name,
+            spec_path.display()
+        );
+    }
+
+    let mut bundle = String::new();
+    bundle.push_str(&format!("## Spec bundle: {name}\n\n"));
+
+    let spec_content = fs::read_to_string(&spec_path)
+        .with_context(|| format!("reading {}", spec_path.display()))?;
+    bundle.push_str(&format!("### `{name}.spec.md`\n\n"));
+    bundle.push_str(spec_content.trim_end());
+    bundle.push_str("\n\n");
+
+    for companion in COMPANION_FILES {
+        let companion_path = module_dir.join(companion);
+        if !companion_path.exists() {
+            continue;
+        }
+        let companion_content = fs::read_to_string(&companion_path)
+            .with_context(|| format!("reading {}", companion_path.display()))?;
+        bundle.push_str(&format!("### `{companion}`\n\n"));
+        bundle.push_str(companion_content.trim_end());
+        bundle.push_str("\n\n");
+    }
+
+    Ok(bundle)
+}
+
 fn build_summary(spec_path: &Path, root: &Path, required_count: usize) -> Result<SpecSummary> {
     let content = fs::read_to_string(spec_path)
         .with_context(|| format!("reading {}", spec_path.display()))?;
@@ -620,6 +779,7 @@ fn list_specs(root: &Path, json: bool) -> Result<()> {
 }
 
 fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
+    validate_module_name(name)?;
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
     let spec_path = specs_dir.join(name).join(format!("{name}.spec.md"));
@@ -783,6 +943,7 @@ hashes.json
 }
 
 fn new_spec(root: &Path, name: &str) -> Result<()> {
+    validate_module_name(name)?;
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
     let spec_dir = specs_dir.join(name);
@@ -1119,6 +1280,146 @@ More text.
         let body = "No sections here, just text.";
         let sections = extract_sections(body);
         assert!(sections.is_empty());
+    }
+
+    #[test]
+    fn test_extract_purpose_happy_path() {
+        let body = "\n## Purpose\n\nA short description.\n\n## Public API\n\ntext\n";
+        assert_eq!(extract_purpose(body), Some("A short description.".into()));
+    }
+
+    #[test]
+    fn test_extract_purpose_multiline_joined() {
+        let body = "## Purpose\n\nLine one\nline two\n\n## Next\n";
+        assert_eq!(extract_purpose(body), Some("Line one line two".into()));
+    }
+
+    #[test]
+    fn test_extract_purpose_missing_section() {
+        let body = "## Public API\n\ntext\n";
+        assert_eq!(extract_purpose(body), None);
+    }
+
+    fn scaffold_min_project(tmp: &TempDir, modules: &[&str]) {
+        let specsync = tmp.path().join(".specsync");
+        fs::create_dir_all(&specsync).unwrap();
+        fs::write(
+            specsync.join("config.toml"),
+            "specs_dir = \"specs\"\nrequired_sections = []\n",
+        )
+        .unwrap();
+        for name in modules {
+            let dir = tmp.path().join(format!("specs/{name}"));
+            fs::create_dir_all(&dir).unwrap();
+            let spec = format!(
+                "---\nmodule: {name}\nversion: 1\nstatus: active\nfiles: []\ndb_tables: []\ndepends_on: []\n---\n\n## Purpose\n\nPurpose of {name}.\n\n## Public API\n\n## Invariants\n\n## Behavioral Examples\n\n## Error Cases\n\n## Dependencies\n\n## Change Log\n"
+            );
+            fs::write(dir.join(format!("{name}.spec.md")), spec).unwrap();
+            fs::write(dir.join("requirements.md"), "---\nspec: x\n---\nreq body\n").unwrap();
+            fs::write(dir.join("context.md"), "---\nspec: x\n---\ncontext body\n").unwrap();
+        }
+    }
+
+    #[test]
+    fn test_collect_index_sorted_with_purpose() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &["zebra", "alpha", "mango"]);
+
+        let entries = collect_index(tmp.path()).unwrap();
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, vec!["alpha", "mango", "zebra"]);
+        assert_eq!(entries[0].purpose, Some("Purpose of alpha.".into()));
+        assert_eq!(entries[0].version, 1);
+        assert_eq!(entries[0].status, "active");
+    }
+
+    #[test]
+    fn test_collect_index_empty_project() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &[]);
+        let entries = collect_index(tmp.path()).unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_render_index_markdown_contains_entries() {
+        let entries = vec![
+            IndexEntry {
+                name: "foo".into(),
+                version: 2,
+                status: "active".into(),
+                purpose: Some("Does foo.".into()),
+                files: vec!["src/foo.rs".into()],
+            },
+            IndexEntry {
+                name: "bar".into(),
+                version: 1,
+                status: "draft".into(),
+                purpose: None,
+                files: Vec::new(),
+            },
+        ];
+        let md = render_index_markdown(&entries);
+        assert!(md.contains("## Available specs"));
+        assert!(md.contains("**foo** v2 (active)"));
+        assert!(md.contains("Does foo."));
+        assert!(md.contains("**bar** v1 (draft)"));
+        assert!(md.contains("(no purpose documented)"));
+    }
+
+    #[test]
+    fn test_all_module_names_sorted() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &["beta", "alpha"]);
+        let names = all_module_names(tmp.path()).unwrap();
+        assert_eq!(names, vec!["alpha", "beta"]);
+    }
+
+    #[test]
+    fn test_load_module_bundle_includes_spec_and_companions() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &["alpha"]);
+        let bundle = load_module_bundle(tmp.path(), "alpha").unwrap();
+        assert!(bundle.contains("## Spec bundle: alpha"));
+        assert!(bundle.contains("### `alpha.spec.md`"));
+        assert!(bundle.contains("Purpose of alpha."));
+        assert!(bundle.contains("### `requirements.md`"));
+        assert!(bundle.contains("req body"));
+        assert!(bundle.contains("### `context.md`"));
+        assert!(bundle.contains("context body"));
+        // tasks and testing not scaffolded, so not present
+        assert!(!bundle.contains("### `tasks.md`"));
+        assert!(!bundle.contains("### `testing.md`"));
+    }
+
+    #[test]
+    fn test_load_module_bundle_missing_module_errors() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &[]);
+        let err = load_module_bundle(tmp.path(), "ghost").unwrap_err();
+        assert!(err.to_string().contains("No spec found"));
+    }
+
+    #[test]
+    fn test_load_module_bundle_rejects_path_traversal() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_min_project(&tmp, &["real"]);
+
+        for bad in ["../evil", "..\\evil", "foo/bar", "foo\\bar", "..", ".", ""] {
+            let err = load_module_bundle(tmp.path(), bad).unwrap_err();
+            let msg = err.to_string();
+            assert!(
+                msg.contains("Invalid module name") || msg.contains("cannot be empty"),
+                "expected rejection for '{bad}', got: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_module_name_allows_normal_names() {
+        assert!(validate_module_name("trust").is_ok());
+        assert!(validate_module_name("create_template").is_ok());
+        assert!(validate_module_name("plugin-protocol").is_ok());
     }
 
     #[test]
