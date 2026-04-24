@@ -2760,3 +2760,68 @@ fn cli_non_interactive_alias_ni_accepted() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn cli_introspect_json_produces_valid_tree() {
+    let output = run_fledge(&["introspect", "--json"]);
+    assert!(
+        output.status.success(),
+        "introspect --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_object());
+    assert_eq!(parsed["name"].as_str(), Some("fledge"));
+    assert!(parsed["subcommands"].is_array());
+    let subs = parsed["subcommands"].as_array().unwrap();
+    assert!(!subs.is_empty(), "expected non-empty subcommands list");
+}
+
+#[test]
+fn cli_introspect_json_includes_core_commands() {
+    let output = run_fledge(&["introspect", "--json"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let subs = parsed["subcommands"].as_array().unwrap();
+    let names: Vec<&str> = subs.iter().filter_map(|s| s["name"].as_str()).collect();
+    for expected in ["ask", "review", "spec", "work", "introspect"] {
+        assert!(
+            names.contains(&expected),
+            "expected '{expected}' in introspect output, got: {names:?}"
+        );
+    }
+}
+
+#[test]
+fn cli_introspect_pretty_succeeds() {
+    let output = run_fledge(&["introspect"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("fledge"));
+    assert!(stdout.contains("ask"));
+    // Pretty output is not JSON
+    assert!(!stdout.trim().starts_with('{'));
+}
+
+#[test]
+fn cli_introspect_json_surfaces_global_non_interactive_flag() {
+    let output = run_fledge(&["introspect", "--json"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let args = parsed["args"].as_array().unwrap();
+    let ni = args
+        .iter()
+        .find(|a| a["long"].as_str() == Some("non-interactive"))
+        .expect("global --non-interactive should appear in root args");
+    assert_eq!(ni["global"].as_bool(), Some(true));
+    assert_eq!(ni["takes_value"].as_bool(), Some(false));
+    // Bool flags must not include a value_name
+    assert!(ni.get("value_name").is_none());
+    // The `ni` alias should be surfaced so agents can recognize --ni
+    let aliases = ni["aliases"].as_array().expect("aliases array");
+    assert!(
+        aliases.iter().any(|a| a.as_str() == Some("ni")),
+        "expected 'ni' alias, got: {aliases:?}"
+    );
+}

@@ -18,6 +18,7 @@ fledge follows three rules that make it agent-usable:
 
 | Command | Payload shape |
 |---------|---------------|
+| `fledge introspect --json` | Full command tree: `{name, about, aliases, args, subcommands}` recursively |
 | `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
 | `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
 | `fledge spec check --json` | `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}` |
@@ -134,7 +135,6 @@ Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.m
 These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
 
 - `fledge run`, `fledge init`, `fledge spec init/new`, `fledge release` have no `--json` today
-- No `fledge introspect --json` to dump the full command tree as JSON
 
 ## Contributing agent-surface improvements
 
