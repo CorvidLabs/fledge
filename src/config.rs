@@ -98,7 +98,7 @@ fn default_ollama_model() -> String {
     "llama3.3".to_string()
 }
 
-pub(crate) fn default_ollama_timeout_seconds() -> u64 {
+fn default_ollama_timeout_seconds() -> u64 {
     600
 }
 
