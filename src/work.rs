@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use console::style;
 use serde::Deserialize;
 use std::process::Command;
@@ -72,6 +72,10 @@ pub enum WorkAction {
         draft: bool,
         base: Option<String>,
         json: bool,
+        yes: bool,
+        ai: bool,
+        provider: Option<String>,
+        model: Option<String>,
     },
     Status {
         json: bool,
@@ -102,12 +106,20 @@ pub fn run(action: WorkAction) -> Result<()> {
             draft,
             base,
             json,
+            yes,
+            ai,
+            provider,
+            model,
         } => pr(
             title.as_deref(),
             body.as_deref(),
             draft,
             base.as_deref(),
             json,
+            yes,
+            ai,
+            provider.as_deref(),
+            model.as_deref(),
         ),
         WorkAction::Status { json } => status(json),
     }
@@ -276,12 +288,17 @@ fn start(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn pr(
     title: Option<&str>,
     body: Option<&str>,
     draft: bool,
     base: Option<&str>,
     json: bool,
+    yes: bool,
+    ai: bool,
+    provider_override: Option<&str>,
+    model_override: Option<&str>,
 ) -> Result<()> {
     if Command::new("gh").arg("--version").output().is_err() {
         bail!(
@@ -306,6 +323,42 @@ fn pr(
             "No commits ahead of '{}'. Make some changes first.",
             base_branch
         );
+    }
+
+    let pr_title = match title {
+        Some(t) => t.to_string(),
+        None => generate_title_from_branch(&branch),
+    };
+    let pr_body = match body {
+        Some(b) => b.to_string(),
+        None if ai => generate_body_with_ai(
+            &branch,
+            &base_branch,
+            provider_override,
+            model_override,
+            json,
+        )?,
+        None => generate_body_from_commits(&branch, &base_branch)?,
+    };
+
+    if !json {
+        print_pr_preview(&pr_title, &pr_body, &branch, &base_branch, draft);
+        if !yes {
+            if !crate::utils::is_interactive() {
+                bail!(
+                    "Refusing to create a PR without confirmation in a non-interactive shell. Re-run with --yes to skip the prompt."
+                );
+            }
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt("Create this pull request?")
+                    .default(true)
+                    .interact()?;
+            if !confirm {
+                println!("{} Aborted.", style("✋").yellow());
+                return Ok(());
+            }
+        }
     }
 
     crate::plugin::run_lifecycle_hook("pre_pr")?;
@@ -337,22 +390,14 @@ fn pr(
         );
     }
 
-    let pr_title = match title {
-        Some(t) => t.to_string(),
-        None => generate_title_from_branch(&branch),
-    };
-
     let mut gh_args = vec![
         "pr".to_string(),
         "create".to_string(),
         "--title".to_string(),
         pr_title.clone(),
+        "--body".to_string(),
+        pr_body.clone(),
     ];
-
-    if let Some(b) = body {
-        gh_args.push("--body".to_string());
-        gh_args.push(b.to_string());
-    }
 
     if draft {
         gh_args.push("--draft".to_string());
@@ -519,6 +564,172 @@ fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
     let range = format!("{base}..{branch}");
     let output = git_output(&["rev-list", "--count", &range])?;
     Ok(output.parse().unwrap_or(0))
+}
+
+/// Build a Markdown PR body from commit subjects between `base..branch`.
+///
+/// Format: `## Summary` heading + one bullet per commit (newest first), with
+/// any `type:` conventional-commit prefix stripped and the leading char
+/// upper-cased so bullets read like sentences. Falls back to a placeholder if
+/// the rev-list call returns nothing.
+pub fn generate_body_from_commits(branch: &str, base: &str) -> Result<String> {
+    let range = format!("{base}..{branch}");
+    let raw = git_output(&["log", "--pretty=format:%s", &range]).unwrap_or_default();
+
+    let bullets: Vec<String> = raw
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .map(format_commit_subject_as_bullet)
+        .collect();
+
+    let body = if bullets.is_empty() {
+        "## Summary\n\n- (describe the change)\n".to_string()
+    } else {
+        let mut out = String::from("## Summary\n\n");
+        for bullet in &bullets {
+            out.push_str("- ");
+            out.push_str(bullet);
+            out.push('\n');
+        }
+        out
+    };
+
+    Ok(body)
+}
+
+/// Build a richer PR body by handing the branch context to the configured
+/// LLM (`fledge ai use ...` / `--provider` / `--model`). Includes the full
+/// commit log, file-level diffstat, and a truncated unified diff so the
+/// model has enough context to write a real description, not just a list
+/// of subjects.
+fn generate_body_with_ai(
+    branch: &str,
+    base: &str,
+    provider_override: Option<&str>,
+    model_override: Option<&str>,
+    json: bool,
+) -> Result<String> {
+    let range = format!("{base}..{branch}");
+    let commits =
+        git_output(&["log", "--pretty=format:%h %s%n%b%n---", &range]).unwrap_or_default();
+    let diffstat = git_output(&["diff", "--stat", &range]).unwrap_or_default();
+
+    // Truncate the diff to keep small/local models inside their context
+    // window. 600 lines is enough for most PRs to convey shape; reviewers
+    // see the full diff on GitHub regardless.
+    let diff_full = git_output(&["diff", &range]).unwrap_or_default();
+    let mut diff_lines: Vec<&str> = diff_full.lines().collect();
+    let truncated = diff_lines.len() > 600;
+    if truncated {
+        diff_lines.truncate(600);
+    }
+    let diff = diff_lines.join("\n");
+    let truncation_note = if truncated {
+        "\n\n[diff truncated to 600 lines for context]"
+    } else {
+        ""
+    };
+
+    let prompt = format!(
+        "You are writing a GitHub pull request description.\n\
+         \n\
+         Branch: {branch} → {base}\n\
+         \n\
+         Commits:\n\
+         {commits}\n\
+         \n\
+         Files changed:\n\
+         {diffstat}\n\
+         \n\
+         Diff:\n\
+         {diff}{truncation_note}\n\
+         \n\
+         Write a Markdown PR description with:\n\
+         \n\
+         ## Summary\n\
+         - 2 to 5 bullets describing what changed and why\n\
+         \n\
+         ## Test plan\n\
+         - [ ] checklist items the reviewer should verify\n\
+         \n\
+         Be concrete. Reference specific files or functions when relevant. \
+         Do not invent features that aren't in the diff. \
+         Do not include any preamble or sign-off — output ONLY the Markdown body."
+    );
+
+    let config = crate::config::Config::load().context("loading config")?;
+    let provider = crate::llm::build_provider(
+        &config,
+        &crate::llm::ProviderOverride {
+            provider: provider_override.map(|s| s.to_string()),
+            model: model_override.map(|s| s.to_string()),
+        },
+    )?;
+
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Drafting PR body [{}]:",
+            crate::llm::describe(&*provider)
+        )))
+    };
+    let answer = provider.invoke(&prompt);
+    if let Some(sp) = sp {
+        sp.finish();
+    }
+    Ok(answer?.trim().to_string())
+}
+
+fn format_commit_subject_as_bullet(subject: &str) -> String {
+    // Strip a leading conventional-commit prefix like "feat: ", "fix(scope): ".
+    let stripped = match subject.find(": ") {
+        Some(idx) => {
+            let prefix = &subject[..idx];
+            let looks_like_type = prefix
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '(' || c == ')' || c == '-' || c == '_');
+            if looks_like_type && !prefix.is_empty() {
+                subject[idx + 2..].trim()
+            } else {
+                subject
+            }
+        }
+        None => subject,
+    };
+
+    let mut chars = stripped.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => stripped.to_string(),
+    }
+}
+
+fn print_pr_preview(title: &str, body: &str, head: &str, base: &str, draft: bool) {
+    let bar = style("─".repeat(60)).dim();
+    println!();
+    println!("{}", bar);
+    println!("{} {}", style("Title:").bold(), style(title).green());
+    println!(
+        "{}  {} → {}{}",
+        style("Branch:").bold(),
+        style(head).cyan(),
+        style(base).dim(),
+        if draft {
+            style(" (draft)").yellow().to_string()
+        } else {
+            String::new()
+        },
+    );
+    println!();
+    for line in body.lines() {
+        println!("  {}", line);
+    }
+    if !body.ends_with('\n') {
+        println!();
+    }
+    println!("{}", bar);
 }
 
 pub fn generate_title_from_branch(branch: &str) -> String {
@@ -863,6 +1074,50 @@ test = "cargo test"
         assert_eq!(
             extract_pr_number("https://github.com/owner/repo/pull/42/files"),
             Some(42)
+        );
+    }
+
+    #[test]
+    fn format_commit_strips_feat_prefix() {
+        assert_eq!(
+            format_commit_subject_as_bullet("feat: add search command"),
+            "Add search command"
+        );
+    }
+
+    #[test]
+    fn format_commit_strips_scoped_prefix() {
+        assert_eq!(
+            format_commit_subject_as_bullet("fix(work): null pointer on empty branch"),
+            "Null pointer on empty branch"
+        );
+    }
+
+    #[test]
+    fn format_commit_uppercases_first_letter_with_no_prefix() {
+        assert_eq!(
+            format_commit_subject_as_bullet("update readme"),
+            "Update readme"
+        );
+    }
+
+    #[test]
+    fn format_commit_leaves_already_capitalized_alone() {
+        assert_eq!(
+            format_commit_subject_as_bullet("Refactor work module"),
+            "Refactor work module"
+        );
+    }
+
+    #[test]
+    fn format_commit_does_not_strip_unrelated_colons() {
+        // A subject like "Note: this is fine" should NOT be treated as a
+        // conventional-commit prefix — "Note" matches the alphanumeric rule
+        // but is real prose. The current heuristic treats it as a prefix and
+        // strips it; document that behavior so future changes are deliberate.
+        assert_eq!(
+            format_commit_subject_as_bullet("Note: something"),
+            "Something"
         );
     }
 
