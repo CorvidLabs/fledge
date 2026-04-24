@@ -1,6 +1,6 @@
 ---
 module: work
-version: 5
+version: 6
 status: active
 files:
   - src/work.rs
@@ -32,7 +32,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 
 | Type | Description |
 |------|-------------|
-| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base), Pr, Status |
+| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base, json), Pr (title, body, draft, base, json), Status (json) |
 | `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 
 ### Traits
@@ -45,9 +45,9 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(WorkAction) -> Result<()>` | Dispatches to start, pr, or status |
-| `start` | `(name, branch_type, issue, prefix, base) -> Result<()>` | Creates and checks out a branch with configurable type and naming |
-| `pr` | `(title, body, draft, base) -> Result<()>` | Creates a PR via `gh` CLI |
-| `status` | `() -> Result<()>` | Shows current branch, commits ahead, and PR status |
+| `start` | `(name, branch_type, issue, prefix, base, json) -> Result<()>` | Creates and checks out a branch with configurable type and naming |
+| `pr` | `(title, body, draft, base, json) -> Result<()>` | Creates a PR via `gh` CLI |
+| `status` | `(json: bool) -> Result<()>` | Shows current branch, commits ahead/behind, and PR status |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
 | `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
 | `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
@@ -71,6 +71,10 @@ Provides opinionated git workflow commands for feature branch development. `fled
 12. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
 13. Plugin lifecycle hook `post_work_start` runs after branch creation (errors silently ignored via `.ok()`)
 14. Plugin lifecycle hook `pre_pr` runs before PR creation (errors propagate and abort the PR)
+15. `--json` on `start` emits `{branch, base, type, prefix, issue}` and suppresses the pretty ✅ output
+16. `--json` on `pr` emits `{url, number, title, head, base, draft}` and suppresses spinner + pretty output
+17. `--json` on `status` emits `{branch, default, ahead, behind, pr: {number, state, url} | null}`. `behind` is `null` when `git rev-list` can't compute it (e.g. the base hasn't been fetched) — this is distinct from `0` (up-to-date) so agents can detect "needs fetch" vs "up to date"
+18. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
 
 ## Behavioral Examples
 
@@ -144,6 +148,59 @@ $ fledge work status
   PR: #42 (open) — https://github.com/owner/repo/pull/42
 ```
 
+### work start --json
+```
+$ fledge work start add-search --json
+{
+  "branch": "leif/feat/add-search",
+  "base": "main",
+  "type": "feat",
+  "prefix": null,
+  "issue": null
+}
+```
+
+### work pr --json
+```
+$ fledge work pr --json
+{
+  "url": "https://github.com/owner/repo/pull/42",
+  "number": 42,
+  "title": "Add search command",
+  "head": "leif/feat/add-search",
+  "base": "main",
+  "draft": false
+}
+```
+
+### work status --json
+```
+$ fledge work status --json
+{
+  "branch": "leif/feat/add-search",
+  "default": "main",
+  "ahead": 3,
+  "behind": 0,
+  "pr": {
+    "number": 42,
+    "state": "open",
+    "url": "https://github.com/owner/repo/pull/42"
+  }
+}
+```
+
+### work status --json — when base hasn't been fetched
+```
+$ fledge work status --json
+{
+  "branch": "leif/feat/add-search",
+  "default": "main",
+  "ahead": 3,
+  "behind": null,
+  "pr": null
+}
+```
+
 ## Error Cases
 
 | Error | When | Behavior |
@@ -173,3 +230,4 @@ $ fledge work status
 | 3 | 2026-04-20 | Added `feature`, `bug`, `task` as valid branch types |
 | 4 | 2026-04-21 | Correct load_work_config as internal (not exported) |
 | 5 | 2026-04-22 | Document lifecycle hooks: post_work_start (silent) and pre_pr (propagating) |
+| 6 | 2026-04-23 | Add `--json` to `start`, `pr`, and `status`. `status` now also reports `behind`. Pretty output suppressed in JSON mode; errors still go to stderr. |

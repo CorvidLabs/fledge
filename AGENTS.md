@@ -33,6 +33,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 |---------|-------------|----------|
 | `fledge spec list --json` | Array of spec summaries (module, version, status, sections, companions) | Orienting to a new codebase |
 | `fledge spec show <name> --json` | Single spec detail (frontmatter + section list + companion status) | Need structured view of one module |
+| `fledge spec check --json` | `{specs: [{name, version, status, errors, warnings, ...}], totals, strict}` | Spec-sync validation as data |
 | `fledge ask "..." --json` | `{question, answer}` from an LLM over the codebase | Answering a question about the code |
 | `fledge review --json` | `{base, file, diff_stats, spec_context, review}` AI code review of current changes (auto-includes specs of touched modules) | Before opening a PR |
 | `fledge checks --json` | CI/CD check status for a branch | Verifying a branch is green |
@@ -45,8 +46,11 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge plugins list --json` | Installed plugins with trust tier, capabilities | Auditing plugin state |
 | `fledge issues --json` | GitHub issues list | Picking up work |
 | `fledge lane run <name> --json` | Lane execution results | Running the project's own CI pipeline |
+| `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
+| `fledge work pr --json` | `{url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
+| `fledge work status --json` | `{branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
 
-Commands **without** `--json` (pretty output only): `init`, `spec check`, `spec init`, `spec new`, `run`, `publish`, `create-template`, `watch`, `work`, `release`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `publish`, `create-template`, `watch`, `release`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
 
 ## Commands that block on TTY prompts
 

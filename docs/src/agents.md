@@ -20,6 +20,7 @@ fledge follows three rules that make it agent-usable:
 |---------|---------------|
 | `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
 | `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
+| `fledge spec check --json` | `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}` |
 | `fledge ask "..." --json` | `{question, answer}` |
 | `fledge review --json` | `{base, file, diff_stats, spec_context, review}` |
 | `fledge checks --json` | CI check status |
@@ -32,6 +33,9 @@ fledge follows three rules that make it agent-usable:
 | `fledge plugins list --json` | Installed plugins |
 | `fledge issues --json` | GitHub issues |
 | `fledge lane run <name> --json` | Lane execution results |
+| `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` |
+| `fledge work pr --json` | `{url, number, title, head, base, draft}` |
+| `fledge work status --json` | `{branch, default, ahead, behind, pr}` |
 
 ### Commands that block without `--yes`
 
@@ -127,7 +131,7 @@ Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.m
 
 These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
 
-- `fledge run`, `fledge init`, `fledge spec check/init/new`, `fledge work`, `fledge release` have no `--json` today
+- `fledge run`, `fledge init`, `fledge spec init/new`, `fledge release` have no `--json` today
 - No global `--non-interactive` flag that forces `--yes` on every subcommand at once
 - No `fledge introspect --json` to dump the full command tree as JSON
 

@@ -996,6 +996,115 @@ fn cli_spec_show_missing_module_fails() {
     assert!(stderr.contains("No spec found") || stderr.contains("not"));
 }
 
+#[test]
+fn cli_spec_check_json_valid() {
+    let output = run_fledge(&["spec", "check", "--json"]);
+    // May pass or fail on the repo's specs; either way stdout must be JSON
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_object());
+    assert!(parsed["specs"].is_array());
+    assert!(parsed["totals"].is_object());
+    assert!(parsed["totals"]["checked"].is_number());
+    assert!(parsed["totals"]["errors"].is_number());
+    assert!(parsed["totals"]["warnings"].is_number());
+    assert!(parsed["strict"].is_boolean());
+}
+
+#[test]
+fn cli_spec_check_json_spec_shape() {
+    let output = run_fledge(&["spec", "check", "--json"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let specs = parsed["specs"].as_array().unwrap();
+    assert!(!specs.is_empty(), "fledge repo should have specs");
+    let first = &specs[0];
+    for field in [
+        "name",
+        "version",
+        "status",
+        "file_count",
+        "section_count",
+        "required_count",
+        "errors",
+        "warnings",
+    ] {
+        assert!(first.get(field).is_some(), "missing field: {field}");
+    }
+    assert!(first["errors"].is_array());
+    assert!(first["warnings"].is_array());
+}
+
+#[test]
+fn cli_work_start_help_shows_json_flag() {
+    let output = run_fledge(&["work", "start", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--json"));
+}
+
+#[test]
+fn cli_work_pr_help_shows_json_flag() {
+    let output = run_fledge(&["work", "pr", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--json"));
+}
+
+#[test]
+fn cli_work_status_help_shows_json_flag() {
+    let output = run_fledge(&["work", "status", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--json"));
+}
+
+#[test]
+fn cli_work_status_json_in_repo() {
+    // Run inside a temp git repo with a real branch — avoids the detached-HEAD
+    // situation that CI check-out sometimes produces.
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "--allow-empty", "-m", "init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["checkout", "-b", "feature"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+
+    let output = run_fledge_in(tmp.path(), &["work", "status", "--json"]);
+    assert!(
+        output.status.success(),
+        "work status --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_object());
+    assert_eq!(parsed["branch"].as_str(), Some("feature"));
+    assert_eq!(parsed["default"].as_str(), Some("main"));
+    assert!(parsed["ahead"].is_number());
+    // behind is either a number or null (base-not-fetched sentinel)
+    assert!(parsed["behind"].is_number() || parsed["behind"].is_null());
+    // pr is either null or an object — both are valid
+    assert!(parsed.get("pr").is_some());
+}
+
 // ──────────────────────────────────────────────────────────
 // Changelog command (requires git repo)
 // ──────────────────────────────────────────────────────────

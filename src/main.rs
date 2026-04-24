@@ -415,6 +415,9 @@ enum SpecSubcommand {
         /// Treat warnings as errors
         #[arg(long)]
         strict: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Initialize spec-sync configuration
     Init,
@@ -458,6 +461,9 @@ enum WorkSubcommand {
         /// Base branch to branch from (default: main)
         #[arg(long)]
         base: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Create a pull request from the current branch
     Pr {
@@ -473,9 +479,16 @@ enum WorkSubcommand {
         /// Target base branch for the PR
         #[arg(long)]
         base: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Show current branch and PR status
-    Status,
+    Status {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -740,7 +753,7 @@ fn run() -> Result<()> {
         }
         Commands::Spec { action } => {
             let action = match action {
-                SpecSubcommand::Check { strict } => spec::SpecAction::Check { strict },
+                SpecSubcommand::Check { strict, json } => spec::SpecAction::Check { strict, json },
                 SpecSubcommand::Init => spec::SpecAction::Init,
                 SpecSubcommand::List { json } => spec::SpecAction::List { json },
                 SpecSubcommand::New { name } => spec::SpecAction::New { name },
@@ -756,25 +769,29 @@ fn run() -> Result<()> {
                     issue,
                     prefix,
                     base,
+                    json,
                 } => work::WorkAction::Start {
                     name,
                     branch_type,
                     issue,
                     prefix,
                     base,
+                    json,
                 },
                 WorkSubcommand::Pr {
                     title,
                     body,
                     draft,
                     base,
+                    json,
                 } => work::WorkAction::Pr {
                     title,
                     body,
                     draft,
                     base,
+                    json,
                 },
-                WorkSubcommand::Status => work::WorkAction::Status,
+                WorkSubcommand::Status { json } => work::WorkAction::Status { json },
             };
             work::run(action)?;
         }
