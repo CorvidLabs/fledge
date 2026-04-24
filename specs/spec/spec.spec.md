@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 2
+version: 3
 status: active
 files:
   - src/spec.rs
@@ -13,7 +13,7 @@ depends_on: []
 
 ## Purpose
 
-Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, and `fledge spec show <name>` to inspect a single spec's structure. `list` and `show` support `--json` so agents and tools can consume spec metadata programmatically.
+Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, and `fledge spec show <name>` to inspect a single spec's structure. Also exposes public helpers (`collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`) for other modules (notably `ask`) to feed spec content into LLM prompts.
 
 ## Public API
 
@@ -24,6 +24,11 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
 | `SpecAction` | Enum of subcommands: Check, Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
+| `IndexEntry` | Compact prompt-friendly record of one spec (name, version, status, purpose, files) |
+| `collect_index` | Enumerate every spec as `IndexEntry`s, sorted by name |
+| `render_index_markdown` | Render a slice of `IndexEntry` as a markdown block suitable for prompt injection |
+| `load_module_bundle` | Concatenate a module's `.spec.md` and existing companion files into one markdown blob |
+| `all_module_names` | Sorted list of every module name with a `.spec.md` file |
 
 ### Structs & Enums
 
@@ -34,6 +39,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `SpecResult` | Result of validating a single spec (warnings + errors) |
 | `SpecSummary` | (private) Summary for `list`: name, version, status, path, files, section/required counts, companions, missing companions |
 | `SpecDetail` | (private) Detail for `show`: name, version, status, path, files, sections, companions, missing companions |
+| `IndexEntry` | `{name, version, status, purpose: Option<String>, files}` |
 | `ValidationIssue` | Individual issue: message and is_error flag |
 
 ### Traits
@@ -51,6 +57,10 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `new_spec` | `(root: &Path, name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files (private) |
 | `list_specs` | `(root: &Path, json: bool) -> Result<()>` | Enumerate specs with frontmatter, section counts, and companion status (private) |
 | `show_spec` | `(root: &Path, name: &str, json: bool) -> Result<()>` | Show a single spec's frontmatter, sections, and companion status (private) |
+| `collect_index` | `(&Path) -> Result<Vec<IndexEntry>>` | Read every `.spec.md`, parse frontmatter, extract first paragraph of `## Purpose` |
+| `render_index_markdown` | `(&[IndexEntry]) -> String` | Format entries as `## Available specs\n- **name** vN (status) — src/foo.rs — purpose` |
+| `load_module_bundle` | `(&Path, &str) -> Result<String>` | Spec body + each existing companion, each under its own `### \`filename\`` header |
+| `all_module_names` | `(&Path) -> Result<Vec<String>>` | Convenience wrapper over `collect_index` returning just names |
 
 ## Invariants
 
@@ -64,6 +74,10 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 8. `spec list` returns sorted results by module name; `--json` emits an array (empty array when no specs)
 9. `spec show` errors if the spec is not found and suggests `fledge spec list`
 10. `spec list` and `spec show` are read-only — they never mutate the filesystem
+11. `collect_index` silently skips specs whose frontmatter is malformed or files are unreadable, so a single broken spec never breaks a caller like `fledge ask`
+12. `collect_index` returns an empty `Vec` (not an error) when the project has no `.specsync/` or no `specs/` directory
+13. `load_module_bundle` errors only when the specific requested module is missing; missing companions are simply omitted
+14. `render_index_markdown` produces stable output (entries must be pre-sorted; `collect_index` already guarantees this)
 
 ## Behavioral Examples
 
@@ -206,5 +220,6 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-23 | Expose `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`, and `IndexEntry` for consumers that need spec content in prompt-friendly form (`ask` is the first such consumer). Add `extract_purpose` helper. |
 | 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |
 | 1 | 2026-04-19 | Initial spec for fledge spec integration |
