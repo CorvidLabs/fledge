@@ -17,7 +17,7 @@ spec: llm.spec.md
 
 ## Gaps
 
-- No live model-catalog UX in this PR — that's the `fledge ai models` / `ai use` / `ai status` tree planned for the next PR
+- Live model-catalog UX landed — see `specs/ai/` (`fledge ai status` / `models` / `use`)
 - `ClaudeProvider` still shells out to the `claude` CLI; a direct Anthropic API impl would remove the external-process dependency but adds key management surface we don't need yet
 - Ollama streaming not implemented; large prompts block until the model finishes
 - No retry on transient HTTP failures — a single connection error fails the invocation

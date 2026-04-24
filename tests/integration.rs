@@ -2792,6 +2792,65 @@ fn cli_review_rejects_unknown_provider_at_parse_time() {
 }
 
 #[test]
+fn cli_ai_help_lists_subcommands() {
+    let output = run_fledge(&["ai", "--help"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("status"));
+    assert!(stdout.contains("models"));
+    assert!(stdout.contains("use"));
+}
+
+#[test]
+fn cli_ai_status_json_shape() {
+    let output = run_fledge(&["ai", "status", "--json"]);
+    assert!(
+        output.status.success(),
+        "ai status should succeed, got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("ai status --json should be valid JSON: {e}\n{stdout}"));
+    assert!(parsed.get("provider").is_some());
+    assert!(parsed.get("provider_source").is_some());
+}
+
+#[test]
+fn cli_ai_use_rejects_unknown_provider_at_parse_time() {
+    let output = run_fledge(&["ai", "use", "gpt"]);
+    assert!(!output.status.success(), "clap should reject `ai use gpt`");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("gpt") || stderr.contains("invalid") || stderr.contains("possible"),
+        "stderr should mention the bad value, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_ai_use_non_interactive_without_provider_fails() {
+    let output = run_fledge(&["--non-interactive", "ai", "use"]);
+    assert!(
+        !output.status.success(),
+        "ai use without a provider in --non-interactive mode should fail"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("interactive") || stderr.contains("provider"),
+        "stderr should explain the missing interaction, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_ai_models_rejects_unknown_provider_at_parse_time() {
+    let output = run_fledge(&["ai", "models", "--provider", "gemini"]);
+    assert!(
+        !output.status.success(),
+        "clap should reject --provider gemini on `ai models`"
+    );
+}
+
+#[test]
 fn cli_global_non_interactive_flag_present_in_help() {
     let output = run_fledge(&["--help"]);
     let stdout = String::from_utf8(output.stdout).unwrap();

@@ -674,9 +674,10 @@ fn check_ai() -> Section {
         (crate::llm::ProviderKind::Ollama, CheckStatus::Ok) => {
             let host =
                 std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            let model =
+                std::env::var("FLEDGE_AI_MODEL").unwrap_or_else(|_| config.ai.ollama.model.clone());
             Some(format!(
-                "ollama is the active provider (model: {}, host: {host})",
-                config.ai.ollama.model
+                "ollama is the active provider (model: {model}, host: {host})"
             ))
         }
         (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => {

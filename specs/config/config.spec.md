@@ -1,6 +1,6 @@
 ---
 module: config
-version: 6
+version: 8
 status: active
 files:
   - src/config.rs
@@ -27,7 +27,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `GitHubConfig` | Struct holding optional GitHub token for authenticated access |
 | `AiConfig` | Struct holding LLM provider selection and per-provider settings |
 | `ClaudeConfig` | `{ model: Option<String> }` — optional default model passed to `claude --model` |
-| `OllamaConfig` | `{ host: String, api_key: Option<String>, model: String }` — endpoint, auth, and default model |
+| `OllamaConfig` | `{ host: String, api_key: Option<String>, model: String, timeout_seconds: u64 }` — endpoint, auth, default model, and per-request timeout |
 | `load` | Loads config from disk or returns defaults if file is missing |
 | `config_path` | Returns the platform-appropriate path to the config file |
 | `save` | Serializes config to TOML and writes to disk, creating parent directories if needed |
@@ -55,7 +55,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `GitHubConfig` | Optional GitHub token for authenticated access |
 | `AiConfig` | Active provider and per-provider settings |
 | `ClaudeConfig` | Per-Claude settings: default model override |
-| `OllamaConfig` | Per-Ollama settings: host URL, API key, default model |
+| `OllamaConfig` | Per-Ollama settings: host URL, API key, default model, per-request timeout in seconds |
 
 ### Traits
 
@@ -91,16 +91,17 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 4. GitHub token resolution order: `FLEDGE_GITHUB_TOKEN` env → `GITHUB_TOKEN` env → config file
 5. Template repos default to empty list
 6. `save` creates parent directories if they don't exist
-7. `get`/`set`/`unset` accept dotted keys: `defaults.author`, `defaults.github_org`, `defaults.license`, `github.token`, `templates.paths`, `templates.repos`, `ai.provider`, `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`
+7. `get`/`set`/`unset` accept dotted keys: `defaults.author`, `defaults.github_org`, `defaults.license`, `github.token`, `templates.paths`, `templates.repos`, `ai.provider`, `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
 8. `set`/`unset` return an error for unknown keys
 9. `set` rejects list keys with guidance to use `add_to_list`
 10. `add_to_list`/`remove_from_list` reject scalar keys with guidance to use `set`/`unset`
 11. `add_to_list` deduplicates — adding an existing value is a no-op
 12. `get` returns newline-separated values for list keys, empty string for empty lists
 13. `set("ai.provider", value)` normalizes and validates: only `"claude"` and `"ollama"` are accepted (case-insensitive, trimmed)
-14. `unset("ai.ollama.host")` / `unset("ai.ollama.model")` restore the built-in defaults (`http://localhost:11434` / `llama3.3`) rather than clearing to empty strings — empty here would always fail at request time
-15. `OllamaConfig` has a `Default` impl that sets sensible values (local daemon, `llama3.3`); an `[ai]` section absent from the config file yields the same defaults
+14. `unset("ai.ollama.host")` / `unset("ai.ollama.model")` / `unset("ai.ollama.timeout_seconds")` restore the built-in defaults (`http://localhost:11434` / `llama3.3` / `600`) rather than clearing to zero/empty values — those would always fail or hang at request time
+15. `OllamaConfig` has a `Default` impl that sets sensible values (local daemon, `llama3.3`, 600s timeout); an `[ai]` section absent from the config file yields the same defaults
 16. Absence of an `[ai]` section preserves pre-v0.13 behavior: Claude is the provider with no model override
+17. `set("ai.ollama.timeout_seconds", value)` requires a non-negative integer; non-numeric input is rejected with an "Invalid timeout" error
 
 ## Behavioral Examples
 
@@ -209,3 +210,4 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | 2026-04-19 | CorvidAgent | v5: add add_to_list(), remove_from_list(), is_valid_key(); extend get/set/unset for list keys (templates.paths, templates.repos) |
 | 2026-04-22 | CorvidAgent | v6: github_token() now falls back to `gh auth token` CLI when no env var or config is set |
 | 2026-04-23 | CorvidAgent | v7: add `[ai]` section — `ai.provider` (scalar, `claude`/`ollama` only), `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`. Defaults preserve pre-v0.13 Claude-only behavior. `add_to_list`/`remove_from_list` now route through `is_valid_key` so new scalar keys get the right error message. |
+| 2026-04-24 | CorvidAgent | v8: add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default. |
