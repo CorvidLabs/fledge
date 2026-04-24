@@ -43,6 +43,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.14.0] - 2026-04-24
+
+**The multi-model feedback release.** v0.13.0 made fledge speak any LLM. v0.14.0 makes that easy to *use*. `fledge ai status`/`models`/`use` gives you a one-line provider+model switcher with a live picker for Ollama (local or cloud), so trying the same `fledge review` or `fledge ask` across qwen3-coder, gpt-oss, deepseek, and kimi takes seconds, not env-var gymnastics. And `fledge work pr` turns that velocity into shipped work — auto-generates the body from your commits, shows you a preview with a yes/no confirm, and (with `--ai`) hands the diff to whichever model you just selected to draft a real `## Summary` + `## Test plan` for review.
+
+### Added
+
+- **`fledge ai`** subcommand tree — three actions for managing AI providers without editing config or typing long env exports (#251)
+  - `fledge ai status [--json]` — show the active provider, model, and host with a `(from env / config / default)` source tag on each value, so you can see *why* a setting is active
+  - `fledge ai models --provider {ollama,claude} [--search <q>] [--json]` — live list of available models. For Ollama, hits `<host>/api/tags` with a 5-second timeout (graceful "is the server running?" hint on failure); for Claude, returns a curated alias list with a "not authoritative" note
+  - `fledge ai use [provider] [model]` — interactive picker (live model list for Ollama, with a `(custom…)` escape for not-yet-pulled models) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`. Honors `--non-interactive` / non-TTY shells with a clear error
+- **`fledge work pr` auto body + preview + confirmation** (#253)
+  - When `--body` is omitted, generates `## Summary` + bullets from `git log base..branch`, stripping conventional-commit prefixes (`feat:`, `fix(scope):`) and sentence-casing each bullet
+  - Styled preview block (title, `head → base`, draft tag, full body) before any push or `gh pr create` call
+  - `Create this pull request? (Y/n)` confirmation prompt with default Yes; choosing "n" prints `✋ Aborted.` and exits 0 with no side effects
+  - `--yes` / `-y` skips the prompt; `--json` skips it as well (agent-friendly). Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging
+- **`fledge work pr --ai`** for LLM-drafted PR bodies (#253)
+  - Hands the full commit log + `git diff --stat` + a 600-line-truncated unified diff to the configured provider (`fledge ai use`-aware)
+  - Generates a richer Markdown body with both `## Summary` and `## Test plan` sections — the model can reference specific files and functions because it sees the diff
+  - Per-call overrides: `--provider {claude,ollama}`, `--model <name>`. `--body <text>` always wins over `--ai` (literal beats generated)
+  - Spinner shows `Drafting PR body [provider (model)]:` during the call (suppressed in `--json`)
+- **`ai.ollama.timeout_seconds` config key** (default `600`) plus **`FLEDGE_AI_TIMEOUT`** env var — control the per-request HTTP timeout for the Ollama provider. Useful for slow local models or long-context cloud calls (#251)
+
+### Changed
+
+- `fledge work pr` now always passes `--body` to `gh pr create` (even when generated heuristically), so the resulting PR is never empty (#253)
+
+### Fixed
+
+- `fledge doctor` now honors `FLEDGE_AI_MODEL` when displaying the active Ollama model — previously ignored the env override, mirroring the existing `OLLAMA_HOST` lookup (#251)
+
+### Spec bumps
+
+- `work` v6 → v8, `config` v7 → v8, `doctor` v3 → v4, `llm` v1 → v2
+- New module spec: `ai` v1
+
 ## [0.12.1] - 2026-04-23
 
 ### Added
