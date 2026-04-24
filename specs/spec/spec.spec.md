@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 4
+version: 5
 status: active
 files:
   - src/spec.rs
@@ -22,7 +22,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
-| `SpecAction` | Enum of subcommands: Check, Init, New, List, Show |
+| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 | `IndexEntry` | Compact prompt-friendly record of one spec (name, version, status, purpose, files) |
 | `collect_index` | Enumerate every spec as `IndexEntry`s, sorted by name |
@@ -35,7 +35,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 
 | Type | Description |
 |------|-------------|
-| `SpecAction` | Enum of subcommands: Check, Init, New, List, Show |
+| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 | `SpecResult` | Result of validating a single spec (warnings + errors) |
 | `SpecSummary` | (private) Summary for `list`: name, version, status, path, files, section/required counts, companions, missing companions |
@@ -53,7 +53,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, new, list, or show |
-| `check` | `(root: &Path, strict: bool) -> Result<()>` | Validates all specs and prints report (private) |
+| `check` | `(root: &Path, strict: bool, json: bool) -> Result<()>` | Validates all specs and prints a human or JSON report (private) |
 | `init` | `(root: &Path) -> Result<()>` | Scaffolds `.specsync/` with config.toml, registry.toml, .gitignore, version (private) |
 | `new_spec` | `(root: &Path, name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files (private) |
 | `list_specs` | `(root: &Path, json: bool) -> Result<()>` | Enumerate specs with frontmatter, section counts, and companion status (private) |
@@ -222,6 +222,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-04-23 | Add `--json` to `spec check`. Payload: `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}`. Exit code still non-zero on errors or strict-with-warnings. |
 | 4 | 2026-04-23 | Add `specs_for_changed_files` for `review`'s spec auto-detection (matches frontmatter `files:` and `<specs_dir>/<name>/` directory prefix, respecting the configured `specs_dir`) |
 | 3 | 2026-04-23 | Expose `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`, and `IndexEntry` for consumers that need spec content in prompt-friendly form (`ask` is the first such consumer). Add `extract_purpose` helper. |
 | 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |

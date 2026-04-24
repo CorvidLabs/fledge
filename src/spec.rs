@@ -61,7 +61,7 @@ impl SpecResult {
 pub fn run(action: SpecAction) -> Result<()> {
     let root = find_project_root();
     match action {
-        SpecAction::Check { strict } => check(&root, strict),
+        SpecAction::Check { strict, json } => check(&root, strict, json),
         SpecAction::Init => init(&root),
         SpecAction::New { name } => new_spec(&root, &name),
         SpecAction::List { json } => list_specs(&root, json),
@@ -71,7 +71,7 @@ pub fn run(action: SpecAction) -> Result<()> {
 
 #[derive(Debug)]
 pub enum SpecAction {
-    Check { strict: bool },
+    Check { strict: bool, json: bool },
     Init,
     New { name: String },
     List { json: bool },
@@ -378,16 +378,25 @@ fn validate_spec(
     }
 }
 
-fn check(root: &Path, strict: bool) -> Result<()> {
+fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
 
     if !specs_dir.exists() {
-        println!(
-            "{} No specs directory found at {}",
-            style("*").cyan().bold(),
-            style(specs_dir.display()).dim()
-        );
+        if json {
+            let payload = serde_json::json!({
+                "specs": [],
+                "totals": { "checked": 0, "errors": 0, "warnings": 0 },
+                "strict": strict,
+            });
+            println!("{}", serde_json::to_string_pretty(&payload)?);
+        } else {
+            println!(
+                "{} No specs directory found at {}",
+                style("*").cyan().bold(),
+                style(specs_dir.display()).dim()
+            );
+        }
         return Ok(());
     }
 
@@ -418,11 +427,20 @@ fn check(root: &Path, strict: bool) -> Result<()> {
     }
 
     if results.is_empty() {
-        println!(
-            "{} No spec files found in {}",
-            style("*").cyan().bold(),
-            style(specs_dir.display()).dim()
-        );
+        if json {
+            let payload = serde_json::json!({
+                "specs": [],
+                "totals": { "checked": 0, "errors": 0, "warnings": 0 },
+                "strict": strict,
+            });
+            println!("{}", serde_json::to_string_pretty(&payload)?);
+        } else {
+            println!(
+                "{} No spec files found in {}",
+                style("*").cyan().bold(),
+                style(specs_dir.display()).dim()
+            );
+        }
         return Ok(());
     }
 
@@ -430,13 +448,56 @@ fn check(root: &Path, strict: bool) -> Result<()> {
 
     let mut total_errors = 0;
     let mut total_warnings = 0;
+    for result in &results {
+        total_errors += result.error_count();
+        total_warnings += result.warning_count();
+    }
+
+    if json {
+        let specs_payload: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                let errors: Vec<&str> = r
+                    .issues
+                    .iter()
+                    .filter(|i| i.is_error)
+                    .map(|i| i.message.as_str())
+                    .collect();
+                let warnings: Vec<&str> = r
+                    .issues
+                    .iter()
+                    .filter(|i| !i.is_error)
+                    .map(|i| i.message.as_str())
+                    .collect();
+                serde_json::json!({
+                    "name": r.name,
+                    "version": r.version,
+                    "status": r.status,
+                    "file_count": r.file_count,
+                    "section_count": r.section_count,
+                    "required_count": r.required_count,
+                    "errors": errors,
+                    "warnings": warnings,
+                })
+            })
+            .collect();
+        let payload = serde_json::json!({
+            "specs": specs_payload,
+            "totals": {
+                "checked": results.len(),
+                "errors": total_errors,
+                "warnings": total_warnings,
+            },
+            "strict": strict,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+        if total_errors > 0 || (strict && total_warnings > 0) {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
 
     for result in &results {
-        let errors = result.error_count();
-        let warnings = result.warning_count();
-        total_errors += errors;
-        total_warnings += warnings;
-
         if result.has_errors() || (strict && result.has_warnings()) {
             print!(
                 "{} {} (v{}, {})",

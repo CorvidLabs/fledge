@@ -64,14 +64,18 @@ pub enum WorkAction {
         issue: Option<u64>,
         prefix: Option<String>,
         base: Option<String>,
+        json: bool,
     },
     Pr {
         title: Option<String>,
         body: Option<String>,
         draft: bool,
         base: Option<String>,
+        json: bool,
     },
-    Status,
+    Status {
+        json: bool,
+    },
 }
 
 pub fn run(action: WorkAction) -> Result<()> {
@@ -83,20 +87,29 @@ pub fn run(action: WorkAction) -> Result<()> {
             issue,
             prefix,
             base,
+            json,
         } => start(
             &name,
             branch_type.as_deref(),
             issue,
             prefix.as_deref(),
             base.as_deref(),
+            json,
         ),
         WorkAction::Pr {
             title,
             body,
             draft,
             base,
-        } => pr(title.as_deref(), body.as_deref(), draft, base.as_deref()),
-        WorkAction::Status => status(),
+            json,
+        } => pr(
+            title.as_deref(),
+            body.as_deref(),
+            draft,
+            base.as_deref(),
+            json,
+        ),
+        WorkAction::Status { json } => status(json),
     }
 }
 
@@ -171,6 +184,7 @@ fn start(
     issue: Option<u64>,
     prefix: Option<&str>,
     base: Option<&str>,
+    json: bool,
 ) -> Result<()> {
     if has_uncommitted_changes()? {
         bail!("Uncommitted changes detected. Commit or stash before starting work.");
@@ -234,24 +248,41 @@ fn start(
 
     git_output(&["checkout", "-b", &branch_name, &base_branch])?;
 
-    println!(
-        "{} Created branch {} from {}",
-        style("✅").green().bold(),
-        style(&branch_name).cyan(),
-        style(&base_branch).dim()
-    );
-    println!(
-        "{} Switched to {}",
-        style("✅").green().bold(),
-        style(&branch_name).cyan()
-    );
-
     crate::plugin::run_lifecycle_hook("post_work_start").ok();
+
+    if json {
+        let payload = serde_json::json!({
+            "branch": branch_name,
+            "base": base_branch,
+            "type": btype,
+            "prefix": prefix,
+            "issue": issue,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        println!(
+            "{} Created branch {} from {}",
+            style("✅").green().bold(),
+            style(&branch_name).cyan(),
+            style(&base_branch).dim()
+        );
+        println!(
+            "{} Switched to {}",
+            style("✅").green().bold(),
+            style(&branch_name).cyan()
+        );
+    }
 
     Ok(())
 }
 
-fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) -> Result<()> {
+fn pr(
+    title: Option<&str>,
+    body: Option<&str>,
+    draft: bool,
+    base: Option<&str>,
+    json: bool,
+) -> Result<()> {
     if Command::new("gh").arg("--version").output().is_err() {
         bail!(
             "GitHub CLI (gh) is not installed. Install it from https://cli.github.com/ and run `gh auth login`."
@@ -268,31 +299,43 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
         );
     }
 
-    let commits_ahead = commits_ahead_of(&branch, base.unwrap_or(&default))?;
+    let base_branch = base.unwrap_or(&default).to_string();
+    let commits_ahead = commits_ahead_of(&branch, &base_branch)?;
     if commits_ahead == 0 {
         bail!(
             "No commits ahead of '{}'. Make some changes first.",
-            base.unwrap_or(&default)
+            base_branch
         );
     }
 
     crate::plugin::run_lifecycle_hook("pre_pr")?;
 
-    let sp = crate::spinner::Spinner::start(&format!("Pushing {} to origin:", &branch));
+    let push_sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Pushing {} to origin:",
+            &branch
+        )))
+    };
     let push_output = Command::new("git")
         .args(["push", "-u", "origin", &branch])
         .output()?;
-    sp.finish();
+    if let Some(sp) = push_sp {
+        sp.finish();
+    }
     if !push_output.status.success() {
         let stderr = String::from_utf8_lossy(&push_output.stderr);
         bail!("Failed to push: {}", stderr.trim());
     }
 
-    println!(
-        "{} Pushed {} to origin",
-        style("✅").green().bold(),
-        style(&branch).cyan()
-    );
+    if !json {
+        println!(
+            "{} Pushed {} to origin",
+            style("✅").green().bold(),
+            style(&branch).cyan()
+        );
+    }
 
     let pr_title = match title {
         Some(t) => t.to_string(),
@@ -320,9 +363,15 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
         gh_args.push(b.to_string());
     }
 
-    let sp = crate::spinner::Spinner::start("Creating pull request:");
+    let create_sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Creating pull request:"))
+    };
     let gh_output = Command::new("gh").args(&gh_args).output()?;
-    sp.finish();
+    if let Some(sp) = create_sp {
+        sp.finish();
+    }
 
     if !gh_output.status.success() {
         let stderr = String::from_utf8_lossy(&gh_output.stderr);
@@ -332,20 +381,33 @@ fn pr(title: Option<&str>, body: Option<&str>, draft: bool, base: Option<&str>) 
     let pr_url = String::from_utf8_lossy(&gh_output.stdout)
         .trim()
         .to_string();
+    let pr_number = extract_pr_number(&pr_url);
 
-    let draft_label = if draft { "draft " } else { "" };
-    println!(
-        "{} Created {}PR: \"{}\"",
-        style("✅").green().bold(),
-        draft_label,
-        style(&pr_title).green()
-    );
-    println!("  {}", style(&pr_url).dim());
+    if json {
+        let payload = serde_json::json!({
+            "url": pr_url,
+            "number": pr_number,
+            "title": pr_title,
+            "head": branch,
+            "base": base_branch,
+            "draft": draft,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        let draft_label = if draft { "draft " } else { "" };
+        println!(
+            "{} Created {}PR: \"{}\"",
+            style("✅").green().bold(),
+            draft_label,
+            style(&pr_title).green()
+        );
+        println!("  {}", style(&pr_url).dim());
+    }
 
     Ok(())
 }
 
-fn status() -> Result<()> {
+fn status(json: bool) -> Result<()> {
     let branch = current_branch()?;
     if branch.is_empty() {
         bail!("Detached HEAD — not on any branch.");
@@ -353,16 +415,12 @@ fn status() -> Result<()> {
 
     let default = default_branch()?;
     let ahead = commits_ahead_of(&branch, &default)?;
+    // `behind` needs the remote-tracking base; returns None if the base hasn't
+    // been fetched. That's distinct from "actually 0 behind" and agents need
+    // to tell them apart.
+    let behind: Option<usize> = commits_behind_of(&branch, &default).ok();
 
-    println!(
-        "  Branch: {} ({} {} ahead of {})",
-        style(&branch).cyan(),
-        ahead,
-        if ahead == 1 { "commit" } else { "commits" },
-        style(&default).dim()
-    );
-
-    if Command::new("gh").arg("--version").output().is_ok() {
+    let pr_info = if Command::new("gh").arg("--version").output().is_ok() {
         let gh_output = Command::new("gh")
             .args([
                 "pr",
@@ -379,21 +437,82 @@ fn status() -> Result<()> {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let lines: Vec<&str> = stdout.trim().lines().collect();
                 if lines.len() >= 3 {
-                    println!(
-                        "  PR: #{} ({}) — {}",
-                        style(lines[0]).green(),
-                        lines[1].to_lowercase(),
-                        style(lines[2]).dim()
-                    );
+                    let number: Option<u64> = lines[0].parse().ok();
+                    Some((number, lines[1].to_lowercase(), lines[2].to_string()))
+                } else {
+                    None
                 }
             }
-            _ => {
+            _ => None,
+        }
+    } else {
+        None
+    };
+
+    if json {
+        let pr_payload = match &pr_info {
+            Some((number, state, url)) => serde_json::json!({
+                "number": number,
+                "state": state,
+                "url": url,
+            }),
+            None => serde_json::Value::Null,
+        };
+        let payload = serde_json::json!({
+            "branch": branch,
+            "default": default,
+            "ahead": ahead,
+            "behind": behind,  // null when rev-list fails (e.g. base not fetched)
+            "pr": pr_payload,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        let behind_display = match behind {
+            Some(n) if n > 0 => format!(", {} behind", n),
+            _ => String::new(),
+        };
+        println!(
+            "  Branch: {} ({} {} ahead of {}{})",
+            style(&branch).cyan(),
+            ahead,
+            if ahead == 1 { "commit" } else { "commits" },
+            style(&default).dim(),
+            behind_display,
+        );
+        match &pr_info {
+            Some((number, state, url)) => {
+                let number_display = number
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "?".to_string());
+                println!(
+                    "  PR: #{} ({}) — {}",
+                    style(number_display).green(),
+                    state,
+                    style(url).dim()
+                );
+            }
+            None => {
                 println!("  PR: {}", style("none").dim());
             }
         }
     }
 
     Ok(())
+}
+
+fn commits_behind_of(branch: &str, base: &str) -> Result<usize> {
+    let range = format!("{branch}..{base}");
+    let output = git_output(&["rev-list", "--count", &range])?;
+    Ok(output.parse().unwrap_or(0))
+}
+
+fn extract_pr_number(url: &str) -> Option<u64> {
+    // GitHub PR URLs always contain `/pull/<n>`. Anchor on that rather than
+    // the last path segment so trailing `/`, `?query`, or `#fragment` don't
+    // silently turn into `None`.
+    let after_pull = url.rsplit_once("/pull/")?.1;
+    let end = after_pull.find(['/', '?', '#']).unwrap_or(after_pull.len());
+    after_pull[..end].parse().ok()
 }
 
 fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
@@ -705,5 +824,58 @@ test = "cargo test"
         assert!(VALID_BRANCH_TYPES.contains(&"hotfix"));
         assert!(VALID_BRANCH_TYPES.contains(&"refactor"));
         assert!(!VALID_BRANCH_TYPES.contains(&"yolo"));
+    }
+
+    #[test]
+    fn extract_pr_number_basic() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/pull/42"),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_trailing_slash() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/pull/42/"),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_with_query() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/pull/42?q=1"),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_with_fragment() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/pull/42#comment"),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_subpath() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/pull/42/files"),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_no_pull_segment() {
+        assert_eq!(
+            extract_pr_number("https://github.com/owner/repo/issues/42"),
+            None
+        );
+    }
+
+    #[test]
+    fn extract_pr_number_not_a_url() {
+        assert_eq!(extract_pr_number("not-a-url"), None);
     }
 }
