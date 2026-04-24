@@ -22,3 +22,9 @@ spec: spec.spec.md
 - `fledge spec check` on fledge's own specs (self-validation)
 - `fledge spec init` in a temp directory
 - `fledge spec new` in an initialized project
+- `fledge spec list` enumerates all specs, sorted by name
+- `fledge spec list --json` produces parseable JSON array (empty array for empty projects)
+- `fledge spec ls` is a working alias for `list`
+- `fledge spec show <name>` prints frontmatter, sections, companions for a real module
+- `fledge spec show <name> --json` produces parseable JSON object
+- `fledge spec show <missing>` exits non-zero with a suggestion to run `fledge spec list`

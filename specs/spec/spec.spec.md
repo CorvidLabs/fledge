@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 1
+version: 2
 status: active
 files:
   - src/spec.rs
@@ -13,7 +13,7 @@ depends_on: []
 
 ## Purpose
 
-Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, and `fledge spec new <name>` to create a new spec module with companion files.
+Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, and `fledge spec show <name>` to inspect a single spec's structure. `list` and `show` support `--json` so agents and tools can consume spec metadata programmatically.
 
 ## Public API
 
@@ -22,16 +22,18 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
-| `SpecAction` | Enum of subcommands: Check, Init, New |
+| `SpecAction` | Enum of subcommands: Check, Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `SpecAction` | Enum of subcommands: Check, Init, New |
+| `SpecAction` | Enum of subcommands: Check, Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 | `SpecResult` | Result of validating a single spec (warnings + errors) |
+| `SpecSummary` | (private) Summary for `list`: name, version, status, path, files, section/required counts, companions, missing companions |
+| `SpecDetail` | (private) Detail for `show`: name, version, status, path, files, sections, companions, missing companions |
 | `ValidationIssue` | Individual issue: message and is_error flag |
 
 ### Traits
@@ -43,10 +45,12 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, or new |
+| `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, new, list, or show |
 | `check` | `(root: &Path, strict: bool) -> Result<()>` | Validates all specs and prints report (private) |
 | `init` | `(root: &Path) -> Result<()>` | Scaffolds `.specsync/` with config.toml, registry.toml, .gitignore, version (private) |
 | `new_spec` | `(root: &Path, name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files (private) |
+| `list_specs` | `(root: &Path, json: bool) -> Result<()>` | Enumerate specs with frontmatter, section counts, and companion status (private) |
+| `show_spec` | `(root: &Path, name: &str, json: bool) -> Result<()>` | Show a single spec's frontmatter, sections, and companion status (private) |
 
 ## Invariants
 
@@ -57,6 +61,9 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 5. All files listed in frontmatter `files` must exist on disk
 6. All required sections from config must be present in the spec body
 7. Companion files (requirements.md, tasks.md, context.md, testing.md) are validated if present
+8. `spec list` returns sorted results by module name; `--json` emits an array (empty array when no specs)
+9. `spec show` errors if the spec is not found and suggests `fledge spec list`
+10. `spec list` and `spec show` are read-only — they never mutate the filesystem
 
 ## Behavioral Examples
 
@@ -111,19 +118,86 @@ $ fledge spec new auth
   Spec module 'auth' created. Edit specs/auth/auth.spec.md to get started.
 ```
 
+### spec list — enumerate specs
+```
+$ fledge spec list
+● ask v2 (active)
+    specs/ask/ask.spec.md — 1 source file, 7/7 sections, 4 companion files
+● trust v1 (active)
+    specs/trust/trust.spec.md — 1 source file, 7/7 sections, 4 companion files
+
+  32 spec(s) found
+```
+
+### spec list --json — machine-readable summary
+```
+$ fledge spec list --json
+[
+  {
+    "name": "trust",
+    "version": 1,
+    "status": "active",
+    "path": "specs/trust/trust.spec.md",
+    "files": ["src/trust.rs"],
+    "section_count": 7,
+    "required_sections": 7,
+    "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
+    "missing_companions": []
+  }
+]
+```
+
+### spec show — inspect one spec
+```
+$ fledge spec show trust
+trust v1 (active)
+  path: specs/trust/trust.spec.md
+  source files:
+    - src/trust.rs
+  sections (7):
+    - Purpose
+    - Public API
+    - Invariants
+    - Behavioral Examples
+    - Error Cases
+    - Dependencies
+    - Change Log
+  companions:
+    ✓ requirements.md
+    ✓ tasks.md
+    ✓ context.md
+    ✓ testing.md
+```
+
+### spec show --json — full detail
+```
+$ fledge spec show trust --json
+{
+  "name": "trust",
+  "version": 1,
+  "status": "active",
+  "path": "specs/trust/trust.spec.md",
+  "files": ["src/trust.rs"],
+  "sections": ["Purpose", "Public API", "Invariants", ...],
+  "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
+  "missing_companions": []
+}
+```
+
 ## Error Cases
 
 | Error | When | Behavior |
 |-------|------|----------|
-| `.specsync/config.toml` not found | `spec check` without init | Print helpful message suggesting `fledge spec init` |
+| `.specsync/config.toml` not found | `spec check`, `spec list`, or `spec show` without init | Print helpful message suggesting `fledge spec init` |
 | `.specsync/` already exists | `spec init` on initialized project | Bail with message |
 | Spec directory already exists | `spec new <name>` where `specs/<name>/` exists | Bail with message |
-| Invalid YAML frontmatter | Spec file has malformed frontmatter | Report as error, continue checking other specs |
-| No specs found | `spec check` with empty specs directory | Print message, exit 0 |
+| Invalid YAML frontmatter | Spec file has malformed frontmatter | `check` reports as error; `list` surfaces as a parse error line; `show` bails with context |
+| No specs found | `spec check` or `spec list` with empty specs directory | Print message (or `[]` with `--json`), exit 0 |
+| Spec not found | `spec show <name>` with unknown module | Bail with suggestion to run `fledge spec list` |
 
 ## Dependencies
 
-- `serde` / `serde_json` — frontmatter parsing
+- `serde` / `serde_json` — frontmatter parsing and JSON output
 - `toml` — config reading/writing
 - `walkdir` — spec directory traversal
 - `console` — styled terminal output
@@ -132,4 +206,5 @@ $ fledge spec new auth
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |
 | 1 | 2026-04-19 | Initial spec for fledge spec integration |

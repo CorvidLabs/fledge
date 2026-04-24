@@ -18,3 +18,6 @@ The implementation focuses on structural validation (frontmatter, sections, file
 - Parse YAML frontmatter manually (split on `---` delimiters) rather than adding a YAML dependency
 - Reuse serde for frontmatter deserialization via a simple YAML-to-JSON converter
 - Compatible with spec-sync v4 config format so CI and local checks stay in sync
+- `spec list` and `spec show` were added in v2 specifically to give AI agents a machine-readable view of the spec tree. Without them, an agent had to shell out to `ls specs/`, guess filenames, and hand-parse frontmatter. Both commands expose the same frontmatter-derived shape that `check` already computes internally.
+- `spec list --json` emits `[]` on empty directories (not an error, not a message) so agents can unconditionally parse the output as JSON.
+- `spec show` errors when the module is missing, rather than returning null/empty — an agent getting a non-zero exit immediately knows to fall back to `spec list`.
