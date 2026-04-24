@@ -25,6 +25,8 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 |--------|-------------|
 | `LlmProvider` | Trait all providers implement |
 | `ProviderKind` | Enum: `Claude`, `Ollama` |
+| `ProviderKind::as_str` | Returns `"claude"` or `"ollama"` for display / JSON output |
+| `ProviderKind::parse` | Case-insensitive parser; trims whitespace; errors on unknown values |
 | `ClaudeProvider` | Wraps the existing `claude` CLI shell-out |
 | `OllamaProvider` | POSTs `{model, prompt, stream:false}` to `<host>/api/generate`, optional Bearer auth |
 | `ProviderOverride` | `{ provider: Option<String>, model: Option<String> }` — per-invocation overrides |

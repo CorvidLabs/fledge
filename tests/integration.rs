@@ -2679,19 +2679,30 @@ fn cli_review_no_changes_fails() {
         .current_dir(tmp.path())
         .output()
         .unwrap();
+    // CI doesn't have a global git identity; set a local one so `git commit`
+    // actually writes a commit instead of silently failing.
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
     Command::new("git")
         .args(["commit", "--allow-empty", "-m", "init"])
         .current_dir(tmp.path())
         .output()
         .unwrap();
     let output = run_fledge_in(tmp.path(), &["review", "--base", "HEAD"]);
-    if !output.status.success() {
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(
-            stderr.contains("No changes") || stderr.contains("Claude CLI"),
-            "expected no-changes or CLI error, got: {stderr}"
-        );
-    }
+    assert!(!output.status.success(), "expected failure on empty diff");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No changes") || stderr.contains("Claude CLI") || stderr.contains("Ollama"),
+        "expected no-changes or provider error, got: {stderr}"
+    );
 }
 
 #[test]
