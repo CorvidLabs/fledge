@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.13.0] - 2026-04-23
+
+**The agent-surface release.** fledge is now designed for humans and AI agents to drive the same CLI. Pick any LLM backend — Claude CLI or Ollama (local, cloud, or self-hosted) — and they all speak the same spec-aware `fledge ask` / `fledge review`. Set `FLEDGE_NON_INTERACTIVE=1` once, get JSON on every read command, and let the AI commands automatically include the right spec context from your repo's design docs. See the new [AGENTS.md](./AGENTS.md) for the one-page guide.
+
+### Added
+
+- **`AGENTS.md`** at the repo root plus `docs/src/agents.md` — canonical one-page guide for AI agents driving fledge, covering the machine-readable surface, non-interactive mode, provider selection, and typical workflows (#242)
+- **LLM provider abstraction + Ollama support** — `fledge ask` and `fledge review` now route through a `LlmProvider` trait. Two implementations ship in core: Claude CLI (default, unchanged) and Ollama. The Ollama provider covers the local daemon, Ollama Cloud / Turbo (with `OLLAMA_API_KEY`), and any self-hosted Ollama-speaking endpoint in one impl. Select via `ai.provider` config, `FLEDGE_AI_PROVIDER` env, or `--provider {claude,ollama}` per invocation. (#250)
+- **`fledge introspect [--json]`** — dumps the full clap command tree (every subcommand, every arg, every alias) as nested JSON or an indented listing. One call teaches an agent the entire CLI (#248)
+- **`fledge spec list [--json]`** (alias `ls`) and **`fledge spec show <name> [--json]`** — enumerate and inspect specs programmatically (#242)
+- **`fledge spec check --json`** — structured validation output with per-spec errors/warnings (#246)
+- **`fledge ask`** is spec-aware by default: every invocation prepends a compact index of the project's specs. New `--with-specs <names>` loads full spec + companion bundles for named modules (`all` supported); `--no-spec-index` for off-topic questions. JSON output gains `provider` and `model` fields. (#244, #250)
+- **`fledge review`** auto-detects relevant specs from the diff's changed-file list (matches each spec's `files:` frontmatter and the `<specs_dir>/<name>/` prefix, honoring custom `specs_dir`). New `--with-specs` to force-include; `--no-auto-specs` to disable. JSON output gains `spec_context`, `provider`, and `model` arrays. (#245, #250)
+- **`fledge work start --json`**, **`fledge work pr --json`**, **`fledge work status --json`** — structured output for scripting branch and PR workflows. `status` distinguishes `behind: null` (base not fetched) from `behind: 0` (up to date) (#246)
+- **Global `--non-interactive` flag** (alias `--ni`) and **`FLEDGE_NON_INTERACTIVE` env var** — one switch that treats every confirmation prompt as `--yes`/`--force` and bails with an actionable error on prompts that have no default (#247)
+- **`fledge doctor` dual-provider AI section** — detects both `claude` and `ollama` binaries, reports the active provider, and probes the Ollama host's `/api/tags` with a 3-second timeout. Distinguishes "daemon down" from "not installed" from "typo in `ai.provider`" (#250)
+- **New `[ai]` config section** — `ai.provider`, `ai.claude.model`, `ai.ollama.{host,api_key,model}`. Env var overrides: `FLEDGE_AI_PROVIDER`, `FLEDGE_AI_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `FLEDGE_AI_TIMEOUT`. All follow the CLI > env > config > default precedence. (#250)
+- Completed companion-file set for the `trust` spec module (#241)
+
+### Changed
+
+- README gains a short "Working with AI agents?" callout near the top pointing to `AGENTS.md` — mentions both Claude CLI and Ollama paths (#248, #250)
+- Prompt constraints on `fledge review` explicitly tell the active provider to treat specs as context-only and review only the diff itself — no suggestions on unchanged code, no critique of the specs (#245)
+- `fledge work pr` URL parsing is now robust to trailing slashes, query strings, and subpaths (`/pull/42/files`, `/pull/42?x=1`, etc.) (#246)
+
+### Fixed
+
+- `fledge work status --json`'s `behind` field no longer silently reports `0` when `git rev-list` can't compute it (base branch not fetched) — emits `null` instead so agents can tell "needs fetch" from "up to date" (#246)
+- `fledge doctor` no longer silently falls back to Claude when `ai.provider` is set to an invalid value; it now surfaces the parse error as an Error-level check (#250)
+- `OllamaProvider` distinguishes HTTP status errors (401, 404, 500) from connection failures, so users get a clean "endpoint returned HTTP 500" message instead of "decoding response" (#250)
+
+### Spec bumps
+
+- `ask` v2 → v4, `review` v4 → v6, `spec` v2 → v5, `work` v5 → v6, `main` v2 → v5, `config` v6 → v7, `doctor` v2 → v3
+- New module specs: `introspect` v1, `llm` v1, `trust` v1 companion files
+
 ## [Unreleased]
 
 ## [0.12.1] - 2026-04-23
