@@ -34,7 +34,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge spec list --json` | Array of spec summaries (module, version, status, sections, companions) | Orienting to a new codebase |
 | `fledge spec show <name> --json` | Single spec detail (frontmatter + section list + companion status) | Need structured view of one module |
 | `fledge ask "..." --json` | `{question, answer}` from an LLM over the codebase | Answering a question about the code |
-| `fledge review --json` | `{base, file, diff_stats, review}` AI code review of current changes | Before opening a PR |
+| `fledge review --json` | `{base, file, diff_stats, spec_context, review}` AI code review of current changes (auto-includes specs of touched modules) | Before opening a PR |
 | `fledge checks --json` | CI/CD check status for a branch | Verifying a branch is green |
 | `fledge doctor --json` | Environment health diagnostics | Debugging a broken toolchain |
 | `fledge deps --json` | Dependency report (outdated, audit, licenses) | Auditing a project |
@@ -86,15 +86,19 @@ fledge ask --no-spec-index "quick Rust syntax question"
 
 When `--with-specs <name>` is passed, fledge loads `specs/<name>/<name>.spec.md` plus every existing companion (`requirements.md`, `context.md`, `tasks.md`, `testing.md`) into the prompt. Companions carry the design rationale — usually what you want for *why* questions.
 
-### `fledge review`
+### `fledge review` (spec-aware, auto-detect)
+
+`fledge review` auto-detects which modules a diff touches (via each spec's frontmatter `files:` and any edits under `specs/<name>/`) and includes their full spec + companion files as context. Nothing to pass — it just works.
 
 ```bash
-fledge review --json                   # reviews current diff vs main
-fledge review --base HEAD~3 --json     # reviews last 3 commits
+fledge review --json                       # auto-detects, cites specs in review
+fledge review --base HEAD~3 --json         # reviews last 3 commits with spec context
+fledge review --with-specs plugin --json   # auto-detected + force-include plugin spec
+fledge review --no-auto-specs --json       # back to spec-free review
 fledge review --model opus --format checklist --json
 ```
 
-Review does not yet feed specs into its prompt — if you want spec-aware review, run `fledge ask --with-specs <name> "review the recent change to X module"` as a workaround.
+The JSON output now contains a `spec_context` array listing every module whose spec was included. The prompt is explicitly constrained: Claude reviews *only the diff*, treats the specs as context-only, and must not suggest changes to code outside the diff or critique the specs themselves.
 
 ## Typical agent workflows
 

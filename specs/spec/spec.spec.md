@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 3
+version: 4
 status: active
 files:
   - src/spec.rs
@@ -29,6 +29,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `render_index_markdown` | Render a slice of `IndexEntry` as a markdown block suitable for prompt injection |
 | `load_module_bundle` | Concatenate a module's `.spec.md` and existing companion files into one markdown blob |
 | `all_module_names` | Sorted list of every module name with a `.spec.md` file |
+| `specs_for_changed_files` | Module names whose `files:` or `specs/<name>/` directory intersects a given set of paths |
 
 ### Structs & Enums
 
@@ -61,6 +62,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `render_index_markdown` | `(&[IndexEntry]) -> String` | Format entries as `## Available specs\n- **name** vN (status) — src/foo.rs — purpose` |
 | `load_module_bundle` | `(&Path, &str) -> Result<String>` | Spec body + each existing companion, each under its own `### \`filename\`` header |
 | `all_module_names` | `(&Path) -> Result<Vec<String>>` | Convenience wrapper over `collect_index` returning just names |
+| `specs_for_changed_files` | `(&Path, &[String]) -> Result<Vec<String>>` | Used by `fledge review` to auto-detect which module specs are relevant to a diff |
 
 ## Invariants
 
@@ -220,6 +222,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-23 | Add `specs_for_changed_files` for `review`'s spec auto-detection (matches frontmatter `files:` and `<specs_dir>/<name>/` directory prefix, respecting the configured `specs_dir`) |
 | 3 | 2026-04-23 | Expose `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`, and `IndexEntry` for consumers that need spec content in prompt-friendly form (`ask` is the first such consumer). Add `extract_purpose` helper. |
 | 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |
 | 1 | 2026-04-19 | Initial spec for fledge spec integration |

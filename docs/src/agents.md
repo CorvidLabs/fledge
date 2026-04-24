@@ -21,7 +21,7 @@ fledge follows three rules that make it agent-usable:
 | `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
 | `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
 | `fledge ask "..." --json` | `{question, answer}` |
-| `fledge review --json` | `{base, file, diff_stats, review}` |
+| `fledge review --json` | `{base, file, diff_stats, spec_context, review}` |
 | `fledge checks --json` | CI check status |
 | `fledge doctor --json` | Environment diagnostics |
 | `fledge deps --json` | Dependency report |
@@ -59,6 +59,23 @@ fledge ask --no-spec-index "quick Rust syntax question"
 ```
 
 The index adds a few hundred tokens per call; `--with-specs` can add more depending on spec size. Use `--no-spec-index` for questions that have nothing to do with the repo.
+
+#### `fledge review` is spec-aware via auto-detection
+
+`fledge review` inspects the diff's changed-file list, matches each path against every spec's frontmatter `files:` field and against the `specs/<name>/` prefix, and automatically includes the matched modules' full spec bundles as context. No flag needed — just run it.
+
+```bash
+# Default: auto-detect specs for modules in the diff
+fledge review
+
+# Auto-detected + force-include additional specs
+fledge review --with-specs plugin,config
+
+# Opt out of auto-detection (still honors --with-specs if passed)
+fledge review --no-auto-specs
+```
+
+The review prompt is explicitly constrained: specs are context *only*, the review target is always the diff, Claude must not suggest changes to unchanged code or critique the specs. JSON output adds a `spec_context` array so agents can see which specs shaped the review.
 
 ## Typical agent workflows
 
@@ -111,7 +128,6 @@ Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.m
 These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
 
 - `fledge run`, `fledge init`, `fledge spec check/init/new`, `fledge work`, `fledge release` have no `--json` today
-- `fledge review` does not feed specs into its prompt yet (only `ask` does)
 - No global `--non-interactive` flag that forces `--yes` on every subcommand at once
 - No `fledge introspect --json` to dump the full command tree as JSON
 

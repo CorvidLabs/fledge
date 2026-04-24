@@ -2595,6 +2595,14 @@ fn cli_review_accepts_base_flag() {
 }
 
 #[test]
+fn cli_review_accepts_spec_flags() {
+    let output = run_fledge(&["review", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--with-specs"));
+    assert!(stdout.contains("--no-auto-specs"));
+}
+
+#[test]
 fn cli_ask_accepts_json_flag() {
     let output = run_fledge(&["ask", "--help"]);
     let stdout = String::from_utf8(output.stdout).unwrap();
