@@ -32,7 +32,7 @@ pub fn run(opts: DepsOptions) -> Result<()> {
 
     if project_type == "generic" {
         bail!(
-            "Could not detect project type. Supported: Rust, Node, Go, Python, Ruby, Java (Gradle/Maven)."
+            "Could not detect project type. Supported: Rust, Node, Go, Python, Ruby, Swift, Java/Kotlin (Gradle/Maven)."
         );
     }
 
@@ -107,16 +107,9 @@ fn parse_dependencies(
         "go" => parse_go_sum(project_dir),
         "python" => parse_python_deps(project_dir),
         "ruby" => parse_gemfile_lock(project_dir),
-        "java-gradle" | "java-maven" => {
-            println!(
-                "  {} Lock file parsing not supported for {}. Use {} or {} instead.",
-                style("*").cyan().bold(),
-                project_type,
-                style("--outdated").cyan(),
-                style("--audit").cyan()
-            );
-            Ok((None, vec![]))
-        }
+        "swift" => parse_swift_resolved(project_dir),
+        "java-gradle" => parse_gradle_deps(project_dir),
+        "java-maven" => parse_maven_deps(project_dir),
         _ => bail!("Unsupported project type: {}", project_type),
     }
 }
@@ -520,6 +513,194 @@ fn parse_gemfile_lock(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
     Ok((Some(lock_path), deps))
 }
 
+fn parse_swift_resolved(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let resolved_path = dir.join("Package.resolved");
+    if !resolved_path.exists() {
+        bail!("No Package.resolved found. Run `swift package resolve` first.");
+    }
+
+    let content = std::fs::read_to_string(&resolved_path).context("reading Package.resolved")?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&content).context("parsing Package.resolved")?;
+
+    let mut deps = Vec::new();
+
+    let version = parsed.get("version").and_then(|v| v.as_u64()).unwrap_or(1);
+
+    let pins = if version >= 2 {
+        parsed.get("pins").and_then(|p| p.as_array())
+    } else {
+        parsed
+            .get("object")
+            .and_then(|o| o.get("pins"))
+            .and_then(|p| p.as_array())
+    };
+
+    if let Some(pins) = pins {
+        for pin in pins {
+            let identity = pin
+                .get("identity")
+                .or_else(|| pin.get("package"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+
+            let version_str = pin
+                .get("state")
+                .and_then(|s| s.get("version").or_else(|| s.get("revision")))
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+
+            deps.push(Dep {
+                name: identity.to_string(),
+                version: version_str.to_string(),
+            });
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((Some(resolved_path), deps))
+}
+
+fn parse_gradle_deps(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let lockfile = dir.join("gradle.lockfile");
+    if lockfile.exists() {
+        return parse_gradle_lockfile(&lockfile);
+    }
+
+    let gradlew = if cfg!(windows) {
+        dir.join("gradlew.bat")
+    } else {
+        dir.join("gradlew")
+    };
+
+    let cmd = if gradlew.exists() {
+        gradlew.to_string_lossy().to_string()
+    } else {
+        "gradle".to_string()
+    };
+
+    let output = Command::new(&cmd)
+        .args([
+            "dependencies",
+            "--configuration",
+            "runtimeClasspath",
+            "--console=plain",
+            "-q",
+        ])
+        .current_dir(dir)
+        .output()
+        .with_context(|| format!("running {} dependencies", cmd))?;
+
+    if !output.status.success() {
+        let fallback = Command::new(&cmd)
+            .args(["dependencies", "--console=plain", "-q"])
+            .current_dir(dir)
+            .output()
+            .with_context(|| format!("running {} dependencies", cmd))?;
+
+        if !fallback.status.success() {
+            bail!(
+                "Failed to run Gradle dependencies. Ensure Gradle wrapper or Gradle is available."
+            );
+        }
+        return parse_gradle_tree_output(&String::from_utf8_lossy(&fallback.stdout));
+    }
+
+    parse_gradle_tree_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_gradle_lockfile(path: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let content = std::fs::read_to_string(path).context("reading gradle.lockfile")?;
+    let mut deps = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("empty=") {
+            continue;
+        }
+        // Format: group:artifact:version=configuration1,configuration2
+        if let Some((coord, _configs)) = trimmed.split_once('=') {
+            let parts: Vec<&str> = coord.split(':').collect();
+            if parts.len() >= 3 {
+                let name = format!("{}:{}", parts[0], parts[1]);
+                let version = parts[2].to_string();
+                if seen.insert(name.clone()) {
+                    deps.push(Dep { name, version });
+                }
+            }
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((Some(path.to_path_buf()), deps))
+}
+
+fn parse_gradle_tree_output(output: &str) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let mut deps = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let dep_pattern = regex_lite::Regex::new(r"[+\\|`]---\s+(\S+):(\S+):(\S+)").unwrap();
+
+    for line in output.lines() {
+        if let Some(caps) = dep_pattern.captures(line) {
+            let name = format!("{}:{}", &caps[1], &caps[2]);
+            let raw_version = caps[3].trim_end_matches(" (*)").to_string();
+            // Check for "1.0 -> 2.0" version resolution after the match
+            let after_match = &line[caps.get(0).unwrap().end()..];
+            let version = if let Some(rest) = after_match.strip_prefix(" -> ") {
+                rest.split_whitespace()
+                    .next()
+                    .unwrap_or(&raw_version)
+                    .to_string()
+            } else {
+                raw_version
+            };
+            if seen.insert(name.clone()) {
+                deps.push(Dep { name, version });
+            }
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((None, deps))
+}
+
+fn parse_maven_deps(dir: &Path) -> Result<(Option<PathBuf>, Vec<Dep>)> {
+    let output = Command::new("mvn")
+        .args([
+            "dependency:list",
+            "-DoutputAbsoluteArtifactFilename=false",
+            "-q",
+        ])
+        .current_dir(dir)
+        .output()
+        .context("running mvn dependency:list")?;
+
+    if !output.status.success() {
+        bail!("Failed to run mvn dependency:list. Ensure Maven is installed and pom.xml is valid.");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut deps = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        // Format: "   group:artifact:type:version:scope"
+        let parts: Vec<&str> = trimmed.split(':').collect();
+        if parts.len() >= 4 {
+            let name = format!("{}:{}", parts[0], parts[1]);
+            let version = parts[3].to_string();
+            if seen.insert(name.clone()) {
+                deps.push(Dep { name, version });
+            }
+        }
+    }
+
+    deps.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok((None, deps))
+}
+
 fn run_outdated(project_type: &str, dir: &Path) -> Result<()> {
     let (cmd, args, tool_name) = match project_type {
         "rust" => ("cargo", vec!["outdated"], "cargo-outdated"),
@@ -533,10 +714,68 @@ fn run_outdated(project_type: &str, dir: &Path) -> Result<()> {
             }
         }
         "ruby" => ("bundle", vec!["outdated"], "bundler"),
+        "swift" => (
+            "swift",
+            vec!["package", "show-dependencies"],
+            "swift-package-manager",
+        ),
+        "java-gradle" => {
+            return run_gradle_outdated(dir);
+        }
+        "java-maven" => (
+            "mvn",
+            vec!["versions:display-dependency-updates"],
+            "versions-maven-plugin",
+        ),
         _ => bail!("Outdated check not supported for {}", project_type),
     };
 
     run_ecosystem_command(cmd, &args, dir, tool_name, "outdated check")
+}
+
+fn run_gradle_outdated(dir: &Path) -> Result<()> {
+    let gradlew = if cfg!(windows) {
+        dir.join("gradlew.bat")
+    } else {
+        dir.join("gradlew")
+    };
+
+    let cmd = if gradlew.exists() {
+        gradlew.to_string_lossy().to_string()
+    } else {
+        "gradle".to_string()
+    };
+
+    println!(
+        "{} Running {} ({} dependencyUpdates)...\n",
+        style("▶️").cyan().bold(),
+        style("outdated check").bold(),
+        cmd,
+    );
+
+    let result = Command::new(&cmd)
+        .args(["dependencyUpdates", "--console=plain"])
+        .current_dir(dir)
+        .status();
+
+    match result {
+        Ok(status) if !status.success() => {
+            println!(
+                "\n{} dependencyUpdates task not available. Install the com.github.ben-manes.versions plugin, or run {} to view the dependency tree.",
+                style("!").yellow().bold(),
+                style(format!("{} dependencies", cmd)).cyan()
+            );
+            Ok(())
+        }
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            bail!(
+                "'{}' not found. Ensure Gradle wrapper or Gradle is installed.",
+                cmd
+            );
+        }
+        Err(e) => Err(e).with_context(|| format!("running {cmd}")),
+    }
 }
 
 fn run_audit(project_type: &str, dir: &Path) -> Result<()> {
@@ -546,10 +785,63 @@ fn run_audit(project_type: &str, dir: &Path) -> Result<()> {
         "go" => ("govulncheck", vec!["./..."], "govulncheck"),
         "python" => ("pip-audit", vec![], "pip-audit"),
         "ruby" => ("bundle", vec!["audit", "check"], "bundler-audit"),
+        "swift" => ("swift", vec!["package", "audit"], "swift-package-manager"),
+        "java-gradle" => {
+            return run_gradle_audit(dir);
+        }
+        "java-maven" => (
+            "mvn",
+            vec!["org.owasp:dependency-check-maven:check"],
+            "dependency-check-maven",
+        ),
         _ => bail!("Security audit not supported for {}", project_type),
     };
 
     run_ecosystem_command(cmd, &args, dir, tool_name, "security audit")
+}
+
+fn run_gradle_audit(dir: &Path) -> Result<()> {
+    let gradlew = if cfg!(windows) {
+        dir.join("gradlew.bat")
+    } else {
+        dir.join("gradlew")
+    };
+
+    let cmd = if gradlew.exists() {
+        gradlew.to_string_lossy().to_string()
+    } else {
+        "gradle".to_string()
+    };
+
+    println!(
+        "{} Running {} ({} dependencyCheckAnalyze)...\n",
+        style("▶️").cyan().bold(),
+        style("security audit").bold(),
+        cmd,
+    );
+
+    let result = Command::new(&cmd)
+        .args(["dependencyCheckAnalyze", "--console=plain"])
+        .current_dir(dir)
+        .status();
+
+    match result {
+        Ok(status) if !status.success() => {
+            println!(
+                "\n{} dependencyCheckAnalyze task not available. Install the org.owasp.dependencycheck plugin for security audits.",
+                style("!").yellow().bold(),
+            );
+            Ok(())
+        }
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            bail!(
+                "'{}' not found. Ensure Gradle wrapper or Gradle is installed.",
+                cmd
+            );
+        }
+        Err(e) => Err(e).with_context(|| format!("running {cmd}")),
+    }
 }
 
 fn run_licenses(project_type: &str, dir: &Path) -> Result<()> {
@@ -563,6 +855,8 @@ fn run_licenses(project_type: &str, dir: &Path) -> Result<()> {
         "go" => ("go-licenses", vec!["report", "./..."], "go-licenses"),
         "python" => ("pip-licenses", vec![], "pip-licenses"),
         "ruby" => ("bundle", vec!["exec", "license_finder"], "license_finder"),
+        "swift" => bail!("License scanning not yet supported for Swift. Check package repositories directly."),
+        "java-gradle" | "java-maven" => bail!("License scanning not yet supported for Java/Kotlin. Check dependency POM files directly."),
         _ => bail!("License scanning not supported for {}", project_type),
     };
 
@@ -959,6 +1253,154 @@ lodash@^4.17.0:
         assert_eq!(unquote("\"hello\""), "hello");
         assert_eq!(unquote("  \"world\"  "), "world");
         assert_eq!(unquote("bare"), "bare");
+    }
+
+    #[test]
+    fn parse_swift_resolved_v2() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("Package.swift"),
+            "// swift-tools-version:5.9",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("Package.resolved"),
+            r#"{
+  "originHash": "abc123",
+  "pins": [
+    {
+      "identity": "swift-argument-parser",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/apple/swift-argument-parser.git",
+      "state": {
+        "revision": "abc",
+        "version": "1.3.0"
+      }
+    },
+    {
+      "identity": "swift-nio",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/apple/swift-nio.git",
+      "state": {
+        "revision": "def",
+        "version": "2.65.0"
+      }
+    }
+  ],
+  "version": 3
+}"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_swift_resolved(dir.path()).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps[0].name, "swift-argument-parser");
+        assert_eq!(deps[0].version, "1.3.0");
+        assert_eq!(deps[1].name, "swift-nio");
+        assert_eq!(deps[1].version, "2.65.0");
+    }
+
+    #[test]
+    fn parse_swift_resolved_v1() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("Package.swift"),
+            "// swift-tools-version:5.5",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("Package.resolved"),
+            r#"{
+  "object": {
+    "pins": [
+      {
+        "package": "Alamofire",
+        "state": {
+          "revision": "abc",
+          "version": "5.9.1"
+        }
+      }
+    ]
+  },
+  "version": 1
+}"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_swift_resolved(dir.path()).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 1);
+        assert_eq!(deps[0].name, "Alamofire");
+        assert_eq!(deps[0].version, "5.9.1");
+    }
+
+    #[test]
+    fn parse_swift_resolved_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = parse_swift_resolved(dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_gradle_lockfile_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("build.gradle.kts"), "plugins {}").unwrap();
+        std::fs::write(
+            dir.path().join("gradle.lockfile"),
+            r#"# This is a Gradle generated file for dependency locking.
+# Manual edits can mess up your build.
+# This file is expected to be part of source control.
+com.google.code.gson:gson:2.10.1=runtimeClasspath
+com.squareup.okhttp3:okhttp:4.12.0=compileClasspath,runtimeClasspath
+org.jetbrains.kotlin:kotlin-stdlib:1.9.22=compileClasspath,runtimeClasspath
+empty=
+"#,
+        )
+        .unwrap();
+
+        let (lock, deps) = parse_gradle_lockfile(&dir.path().join("gradle.lockfile")).unwrap();
+        assert!(lock.is_some());
+        assert_eq!(deps.len(), 3);
+        assert_eq!(deps[0].name, "com.google.code.gson:gson");
+        assert_eq!(deps[0].version, "2.10.1");
+        assert_eq!(deps[1].name, "com.squareup.okhttp3:okhttp");
+        assert_eq!(deps[1].version, "4.12.0");
+        assert_eq!(deps[2].name, "org.jetbrains.kotlin:kotlin-stdlib");
+        assert_eq!(deps[2].version, "1.9.22");
+    }
+
+    #[test]
+    fn parse_gradle_tree_output_basic() {
+        let output = r#"
+runtimeClasspath - Runtime classpath of source set 'main'.
++--- org.jetbrains.kotlin:kotlin-stdlib:1.9.22
++--- com.google.code.gson:gson:2.10.1
++--- com.squareup.okhttp3:okhttp:4.12.0
+|    +--- com.squareup.okio:okio:3.6.0
+|    \--- org.jetbrains.kotlin:kotlin-stdlib:1.9.22 (*)
+\--- org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0
+     +--- org.jetbrains.kotlin:kotlin-stdlib:1.9.22 (*)
+"#;
+
+        let (lock, deps) = parse_gradle_tree_output(output).unwrap();
+        assert!(lock.is_none());
+        assert_eq!(deps.len(), 5);
+        assert_eq!(deps[0].name, "com.google.code.gson:gson");
+        assert_eq!(deps[0].version, "2.10.1");
+    }
+
+    #[test]
+    fn parse_gradle_tree_handles_version_resolution() {
+        let output = r#"
++--- org.slf4j:slf4j-api:1.7.36 -> 2.0.9
+\--- com.google.guava:guava:32.1.3-jre
+"#;
+
+        let (_lock, deps) = parse_gradle_tree_output(output).unwrap();
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps[1].name, "org.slf4j:slf4j-api");
+        assert_eq!(deps[1].version, "2.0.9");
     }
 
     #[test]
