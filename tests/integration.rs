@@ -906,6 +906,96 @@ fn cli_spec_new_creates_spec() {
     assert!(tmp.path().join("specs/auth").exists());
 }
 
+#[test]
+fn cli_spec_list_in_project() {
+    let output = run_fledge(&["spec", "list"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("spec(s) found"),
+        "expected summary line in output: {stdout}"
+    );
+}
+
+#[test]
+fn cli_spec_list_ls_alias() {
+    let output = run_fledge(&["spec", "ls"]);
+    assert!(output.status.success());
+}
+
+#[test]
+fn cli_spec_list_json_valid() {
+    let output = run_fledge(&["spec", "list", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_array(), "expected JSON array, got {parsed}");
+    let arr = parsed.as_array().unwrap();
+    assert!(!arr.is_empty(), "fledge project should have specs");
+    let first = &arr[0];
+    for field in [
+        "name",
+        "version",
+        "status",
+        "path",
+        "files",
+        "section_count",
+        "required_sections",
+        "companions",
+        "missing_companions",
+    ] {
+        assert!(first.get(field).is_some(), "missing field: {field}");
+    }
+}
+
+#[test]
+fn cli_spec_list_json_empty_dir() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+
+    let output = run_fledge_in(tmp.path(), &["spec", "list", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+    assert!(parsed.is_array());
+    assert!(parsed.as_array().unwrap().is_empty());
+}
+
+#[test]
+fn cli_spec_show_existing_module() {
+    let output = run_fledge(&["spec", "show", "spec"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("spec"));
+    assert!(stdout.contains("sections"));
+}
+
+#[test]
+fn cli_spec_show_json_valid() {
+    let output = run_fledge(&["spec", "show", "spec", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed.is_object());
+    assert_eq!(parsed["name"].as_str(), Some("spec"));
+    assert!(parsed["sections"].is_array());
+    assert!(parsed["companions"].is_array());
+    assert!(parsed["missing_companions"].is_array());
+}
+
+#[test]
+fn cli_spec_show_missing_module_fails() {
+    let output = run_fledge(&["spec", "show", "definitely-not-a-real-spec-xyz"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("No spec found") || stderr.contains("not"));
+}
+
 // ──────────────────────────────────────────────────────────
 // Changelog command (requires git repo)
 // ──────────────────────────────────────────────────────────

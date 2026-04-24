@@ -18,5 +18,6 @@
 - [Use Cases & Plugin Ideas](./use-cases.md)
 - [GitHub Integration](./github-integration.md)
 - [CLI Reference](./cli-reference.md)
+- [Using fledge with AI Agents](./agents.md)
 - [Troubleshooting](./troubleshooting.md)
 - [Changelog](./changelog.md)

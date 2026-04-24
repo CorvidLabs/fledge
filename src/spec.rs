@@ -1,9 +1,11 @@
 use anyhow::{bail, Context, Result};
 use console::style;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+const COMPANION_FILES: &[&str] = &["requirements.md", "tasks.md", "context.md", "testing.md"];
 
 #[derive(Debug, Deserialize)]
 struct SpecSyncConfig {
@@ -62,6 +64,8 @@ pub fn run(action: SpecAction) -> Result<()> {
         SpecAction::Check { strict } => check(&root, strict),
         SpecAction::Init => init(&root),
         SpecAction::New { name } => new_spec(&root, &name),
+        SpecAction::List { json } => list_specs(&root, json),
+        SpecAction::Show { name, json } => show_spec(&root, &name, json),
     }
 }
 
@@ -70,6 +74,33 @@ pub enum SpecAction {
     Check { strict: bool },
     Init,
     New { name: String },
+    List { json: bool },
+    Show { name: String, json: bool },
+}
+
+#[derive(Debug, Serialize)]
+struct SpecSummary {
+    name: String,
+    version: u32,
+    status: String,
+    path: String,
+    files: Vec<String>,
+    section_count: usize,
+    required_sections: usize,
+    companions: Vec<String>,
+    missing_companions: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SpecDetail {
+    name: String,
+    version: u32,
+    status: String,
+    path: String,
+    files: Vec<String>,
+    sections: Vec<String>,
+    companions: Vec<String>,
+    missing_companions: Vec<String>,
 }
 
 fn load_config(project_root: &Path) -> Result<SpecSyncConfig> {
@@ -281,8 +312,7 @@ fn validate_spec(
     }
 
     let spec_dir = spec_path.parent().unwrap_or(project_root);
-    let companion_files = ["requirements.md", "tasks.md", "context.md", "testing.md"];
-    for companion in &companion_files {
+    for companion in COMPANION_FILES {
         let companion_path = spec_dir.join(companion);
         if !companion_path.exists() {
             issues.push(ValidationIssue {
@@ -431,6 +461,243 @@ fn check(root: &Path, strict: bool) -> Result<()> {
             );
         }
         std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn find_spec_files(specs_dir: &Path) -> Vec<PathBuf> {
+    let mut spec_paths = Vec::new();
+    for entry in WalkDir::new(specs_dir).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.extension().is_some_and(|ext| ext == "md") {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            if name.ends_with(".spec.md") {
+                spec_paths.push(path.to_path_buf());
+            }
+        }
+    }
+    spec_paths
+}
+
+fn classify_companions(spec_dir: &Path) -> (Vec<String>, Vec<String>) {
+    let mut present = Vec::new();
+    let mut missing = Vec::new();
+    for companion in COMPANION_FILES {
+        if spec_dir.join(companion).exists() {
+            present.push((*companion).to_string());
+        } else {
+            missing.push((*companion).to_string());
+        }
+    }
+    (present, missing)
+}
+
+fn build_summary(spec_path: &Path, root: &Path, required_count: usize) -> Result<SpecSummary> {
+    let content = fs::read_to_string(spec_path)
+        .with_context(|| format!("reading {}", spec_path.display()))?;
+    let (fm, body) = parse_frontmatter(&content)
+        .with_context(|| format!("parsing frontmatter in {}", spec_path.display()))?;
+    let sections = extract_sections(&body);
+    let (companions, missing_companions) = classify_companions(spec_path.parent().unwrap_or(root));
+    let rel_path = spec_path
+        .strip_prefix(root)
+        .unwrap_or(spec_path)
+        .display()
+        .to_string();
+    Ok(SpecSummary {
+        name: fm.module,
+        version: fm.version,
+        status: fm.status,
+        path: rel_path,
+        files: fm.files,
+        section_count: sections.len(),
+        required_sections: required_count,
+        companions,
+        missing_companions,
+    })
+}
+
+fn list_specs(root: &Path, json: bool) -> Result<()> {
+    let config = load_config(root)?;
+    let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
+    let required_count = if config.required_sections.is_empty() {
+        7
+    } else {
+        config.required_sections.len()
+    };
+
+    if !specs_dir.exists() {
+        if json {
+            println!("[]");
+        } else {
+            println!(
+                "{} No specs directory found at {}",
+                style("*").cyan().bold(),
+                style(specs_dir.display()).dim()
+            );
+        }
+        return Ok(());
+    }
+
+    let mut summaries: Vec<SpecSummary> = Vec::new();
+    let mut parse_errors: Vec<(PathBuf, String)> = Vec::new();
+    for path in find_spec_files(&specs_dir) {
+        match build_summary(&path, root, required_count) {
+            Ok(summary) => summaries.push(summary),
+            Err(e) => parse_errors.push((path, e.to_string())),
+        }
+    }
+    summaries.sort_by(|a, b| a.name.cmp(&b.name));
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&summaries)?);
+        return Ok(());
+    }
+
+    if summaries.is_empty() && parse_errors.is_empty() {
+        println!(
+            "{} No spec files found in {}",
+            style("*").cyan().bold(),
+            style(specs_dir.display()).dim()
+        );
+        return Ok(());
+    }
+
+    for summary in &summaries {
+        let status_marker = match summary.status.as_str() {
+            "active" | "stable" => style("●").green(),
+            "draft" | "review" => style("●").yellow(),
+            "deprecated" | "archived" => style("●").red(),
+            _ => style("●").dim(),
+        };
+        println!(
+            "{} {} {} ({})",
+            status_marker,
+            style(&summary.name).bold(),
+            style(format!("v{}", summary.version)).dim(),
+            summary.status,
+        );
+        println!(
+            "    {} — {} source {}, {}/{} sections, {} companion {}",
+            style(&summary.path).dim(),
+            summary.files.len(),
+            if summary.files.len() == 1 {
+                "file"
+            } else {
+                "files"
+            },
+            summary.section_count,
+            summary.required_sections,
+            summary.companions.len(),
+            if summary.companions.len() == 1 {
+                "file"
+            } else {
+                "files"
+            },
+        );
+        if !summary.missing_companions.is_empty() {
+            println!(
+                "    {} {}",
+                style("missing:").yellow(),
+                summary.missing_companions.join(", ")
+            );
+        }
+    }
+
+    for (path, err) in &parse_errors {
+        println!(
+            "{} {} — {}",
+            style("❌").red().bold(),
+            path.display(),
+            style(err).red()
+        );
+    }
+
+    println!();
+    println!("  {} spec(s) found", summaries.len());
+    Ok(())
+}
+
+fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
+    let config = load_config(root)?;
+    let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
+    let spec_path = specs_dir.join(name).join(format!("{name}.spec.md"));
+
+    if !spec_path.exists() {
+        bail!(
+            "No spec found for '{}'. Looked at {}. Run {} to see available specs.",
+            name,
+            spec_path.display(),
+            style("fledge spec list").cyan()
+        );
+    }
+
+    let content = fs::read_to_string(&spec_path)
+        .with_context(|| format!("reading {}", spec_path.display()))?;
+    let (fm, body) = parse_frontmatter(&content)
+        .with_context(|| format!("parsing frontmatter in {}", spec_path.display()))?;
+    let sections = extract_sections(&body);
+    let spec_dir = spec_path.parent().unwrap_or(root);
+    let (companions, missing_companions) = classify_companions(spec_dir);
+    let rel_path = spec_path
+        .strip_prefix(root)
+        .unwrap_or(&spec_path)
+        .display()
+        .to_string();
+
+    let detail = SpecDetail {
+        name: fm.module,
+        version: fm.version,
+        status: fm.status,
+        path: rel_path,
+        files: fm.files,
+        sections,
+        companions,
+        missing_companions,
+    };
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&detail)?);
+        return Ok(());
+    }
+
+    println!(
+        "{} {} ({})",
+        style(&detail.name).bold().cyan(),
+        style(format!("v{}", detail.version)).dim(),
+        detail.status,
+    );
+    println!("  path: {}", style(&detail.path).dim());
+
+    if detail.files.is_empty() {
+        println!("  source files: {}", style("(none)").dim());
+    } else {
+        println!("  source files:");
+        for file in &detail.files {
+            println!("    - {file}");
+        }
+    }
+
+    if detail.sections.is_empty() {
+        println!("  sections: {}", style("(none)").dim());
+    } else {
+        println!("  sections ({}):", detail.sections.len());
+        for section in &detail.sections {
+            println!("    - {section}");
+        }
+    }
+
+    if detail.companions.is_empty() {
+        println!("  companions: {}", style("(none present)").yellow());
+    } else {
+        println!("  companions:");
+        for companion in &detail.companions {
+            println!("    {} {}", style("✓").green(), companion);
+        }
+    }
+    for companion in &detail.missing_companions {
+        println!("    {} {}", style("✗").yellow(), companion);
     }
 
     Ok(())

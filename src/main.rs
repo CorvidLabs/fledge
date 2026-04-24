@@ -403,10 +403,25 @@ enum SpecSubcommand {
     },
     /// Initialize spec-sync configuration
     Init,
+    /// List all specs in the project
+    #[command(alias = "ls")]
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Scaffold a new spec module
     New {
         /// Module name
         name: String,
+    },
+    /// Show a single spec's frontmatter, sections, and companions
+    Show {
+        /// Module name
+        name: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -712,7 +727,9 @@ fn run() -> Result<()> {
             let action = match action {
                 SpecSubcommand::Check { strict } => spec::SpecAction::Check { strict },
                 SpecSubcommand::Init => spec::SpecAction::Init,
+                SpecSubcommand::List { json } => spec::SpecAction::List { json },
                 SpecSubcommand::New { name } => spec::SpecAction::New { name },
+                SpecSubcommand::Show { name, json } => spec::SpecAction::Show { name, json },
             };
             spec::run(action)?;
         }
