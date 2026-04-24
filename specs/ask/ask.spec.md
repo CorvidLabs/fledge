@@ -1,6 +1,6 @@
 ---
 module: ask
-version: 3
+version: 4
 status: active
 files:
   - src/ask.rs
@@ -8,13 +8,15 @@ files:
 db_tables: []
 depends_on:
   - spec
+  - llm
+  - config
 ---
 
 # Ask
 
 ## Purpose
 
-Ask questions about your codebase using AI. Sends the question to Claude CLI together with a compact index of every module's spec (so Claude knows what modules exist and can cite them), and optionally the full spec + companions for named modules. Streams the answer back.
+Ask questions about your codebase using AI. Builds a spec-augmented prompt (compact index of every module plus optional full bundles for named modules) and sends it to the active LLM provider — Claude CLI or any Ollama-speaking endpoint. The question composition is provider-agnostic; the provider is resolved from CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > default `"claude"`.
 
 ## Public API
 
@@ -23,34 +25,36 @@ Ask questions about your codebase using AI. Sends the question to Claude CLI tog
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point for the ask command |
-| `AskOptions` | Options struct with question, json, with_specs, and no_spec_index fields |
+| `AskOptions` | Options struct with question, json, with_specs, no_spec_index, provider, model |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `AskOptions` | `{ question: String, json: bool, with_specs: Vec<String>, no_spec_index: bool }` |
+| `AskOptions` | `{ question: String, json: bool, with_specs: Vec<String>, no_spec_index: bool, provider: Option<String>, model: Option<String> }` |
 
 ### Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(AskOptions) -> Result<()>` | Builds the spec-augmented prompt and delegates to Claude CLI |
+| `run` | `(AskOptions) -> Result<()>` | Builds the spec-augmented prompt, resolves the provider, invokes it |
 | `build_spec_context` | `(&Path, &[String], bool) -> Result<Option<String>>` | (private) Assemble the spec-context block (index + requested bundles) |
 | `expand_with_specs` | `(&[String], &Path) -> Result<Vec<String>>` | (private) Flatten comma-separated names; `"all"` expands to every module |
 | `build_prompt` | `(&str, bool, Option<&str>) -> String` | (private) Final prompt = preamble + optional spec context + question |
 
 ## Invariants
 
-1. Requires Claude CLI (`claude`) to be installed and authenticated
+1. Requires the active provider's dependency to be installed and reachable (Claude CLI for `provider = claude`; an Ollama-speaking endpoint for `provider = ollama`). `fledge doctor` reports which is active and whether it's available.
 2. Question is joined from multiple args (no quotes required)
-3. Claude CLI runs in the current project directory for context
-4. `--json` outputs `{question, answer}` structured response
-5. By default, a compact spec index is always prepended to the prompt (one line per module: name, version, status, files, first-paragraph purpose). Skipped only when `--no-spec-index` is passed.
-6. `--with-specs <names>` (comma-separated or repeated) loads full spec + existing companion files for each named module. `"all"` expands to every spec in the project and supersedes any other names in the same invocation.
-7. When no specs exist in the project and no `--with-specs` flag is passed, the prompt is unchanged from the pre-v3 behavior. When `--with-specs <name>` is passed against a project with no specs (or an unknown name), the command bails with a clear error rather than silently succeeding.
-8. Spec loading never silently swallows a user-requested bundle: any `--with-specs <name>` that fails to resolve bails with `loading spec bundle for '<name>'`. The ambient index (when `--no-spec-index` is not set) is best-effort — a malformed frontmatter on an unrelated spec is skipped from the index so one bad spec can't break `ask`.
-9. Module names passed to `--with-specs` are validated to prevent path traversal: `/`, `\`, `..`, `.`, and empty strings are rejected before any filesystem access.
+3. `--json` outputs `{question, answer, provider, model}` structured response
+4. `--provider {claude,ollama}` overrides env and config; validated at parse time (typos rejected with a clap error)
+5. `--model <name>` overrides env and config
+6. Prompt composition is provider-agnostic: the exact same text flows to whichever provider is active
+7. By default, a compact spec index is always prepended to the prompt (one line per module: name, version, status, files, first-paragraph purpose). Skipped only when `--no-spec-index` is passed.
+8. `--with-specs <names>` (comma-separated or repeated) loads full spec + existing companion files for each named module. `"all"` expands to every spec in the project and supersedes any other names in the same invocation.
+9. When no specs exist in the project and no `--with-specs` flag is passed, the prompt is unchanged from the pre-spec-index behavior. When `--with-specs <name>` is passed against a project with no specs (or an unknown name), the command bails with a clear error rather than silently succeeding.
+10. Spec loading never silently swallows a user-requested bundle: any `--with-specs <name>` that fails to resolve bails with `loading spec bundle for '<name>'`. The ambient index (when `--no-spec-index` is not set) is best-effort — a malformed frontmatter on an unrelated spec is skipped from the index so one bad spec can't break `ask`.
+11. Module names passed to `--with-specs` are validated to prevent path traversal: `/`, `\`, `..`, `.`, and empty strings are rejected before any filesystem access.
 
 ## Behavioral Examples
 
@@ -112,13 +116,16 @@ error: Please provide a question. Usage: fledge ask <question>
 
 ## Dependencies
 
-- Claude CLI — AI inference (external dependency)
+- Active LLM provider — either Claude CLI or an Ollama-speaking endpoint (see `llm` spec)
 - `spec` module — `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`
+- `llm` module — `build_provider`, `ProviderOverride`, `describe`
+- `config` module — `ai.*` section for provider + model resolution
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-23 | Provider abstraction: Claude CLI is no longer hardcoded. New `--provider` and `--model` flags. JSON output gains `provider` and `model` fields. Runs through `llm::build_provider` with config / env / override precedence. |
 | 3 | 2026-04-23 | Default-on spec index in prompt; add `--with-specs` for full spec+companion bundles; add `--no-spec-index` escape hatch. Depends on `spec` module helpers. |
 | 2 | 2026-04-21 | Add json field to AskOptions |
 | 1 | 2026-04-19 | Initial spec |

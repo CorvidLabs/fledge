@@ -16,6 +16,7 @@ mod init;
 mod introspect;
 mod issues;
 mod lanes;
+mod llm;
 mod metrics;
 mod plugin;
 mod prompts;
@@ -71,6 +72,14 @@ enum Commands {
         /// Omit the compact spec index from the prompt (saves tokens)
         #[arg(long)]
         no_spec_index: bool,
+        /// LLM provider: claude (default) or ollama. Overrides
+        /// FLEDGE_AI_PROVIDER and ai.provider in config.
+        #[arg(long, value_name = "NAME", value_parser = ["claude", "ollama"])]
+        provider: Option<String>,
+        /// Model name. Overrides FLEDGE_AI_MODEL and
+        /// ai.{claude,ollama}.model in config.
+        #[arg(long, value_name = "MODEL")]
+        model: Option<String>,
     },
     /// Generate a changelog from git tags and commits
     Changelog {
@@ -232,7 +241,8 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// Claude model to use (e.g. sonnet, opus, haiku)
+        /// Model name for the active provider (overrides FLEDGE_AI_MODEL
+        /// and ai.{claude,ollama}.model in config)
         #[arg(short, long)]
         model: Option<String>,
         /// Custom review focus prompt (appended to default instructions)
@@ -249,6 +259,10 @@ enum Commands {
         /// Disable auto-detection of specs based on files in the diff
         #[arg(long)]
         no_auto_specs: bool,
+        /// LLM provider: claude (default) or ollama. Overrides
+        /// FLEDGE_AI_PROVIDER and ai.provider in config.
+        #[arg(long, value_name = "NAME", value_parser = ["claude", "ollama"])]
+        provider: Option<String>,
     },
     /// Run a project task defined in fledge.toml
     Run {
@@ -891,6 +905,7 @@ fn run() -> Result<()> {
             format,
             with_specs,
             no_auto_specs,
+            provider,
         } => {
             let format: review::ReviewFormat =
                 format.parse().map_err(|e: String| anyhow::anyhow!(e))?;
@@ -903,6 +918,7 @@ fn run() -> Result<()> {
                 format,
                 with_specs,
                 no_auto_specs,
+                provider,
             })?;
         }
         Commands::Lanes { action } => {
@@ -1088,6 +1104,8 @@ fn run() -> Result<()> {
             json,
             with_specs,
             no_spec_index,
+            provider,
+            model,
         } => {
             if question.is_empty() {
                 anyhow::bail!("Please provide a question. Usage: fledge ask <question>");
@@ -1097,6 +1115,8 @@ fn run() -> Result<()> {
                 json,
                 with_specs,
                 no_spec_index,
+                provider,
+                model,
             })?;
         }
         Commands::Completions { shell, install } => {

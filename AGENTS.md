@@ -39,8 +39,8 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge spec list --json` | Array of spec summaries (module, version, status, sections, companions) | Orienting to a new codebase |
 | `fledge spec show <name> --json` | Single spec detail (frontmatter + section list + companion status) | Need structured view of one module |
 | `fledge spec check --json` | `{specs: [{name, version, status, errors, warnings, ...}], totals, strict}` | Spec-sync validation as data |
-| `fledge ask "..." --json` | `{question, answer}` from an LLM over the codebase | Answering a question about the code |
-| `fledge review --json` | `{base, file, diff_stats, spec_context, review}` AI code review of current changes (auto-includes specs of touched modules) | Before opening a PR |
+| `fledge ask "..." --json` | `{question, answer, provider, model}` from the active LLM provider over the codebase | Answering a question about the code |
+| `fledge review --json` | `{base, file, diff_stats, spec_context, review, provider, model}` AI code review of current changes (auto-includes specs of touched modules) | Before opening a PR |
 | `fledge checks --json` | CI/CD check status for a branch | Verifying a branch is green |
 | `fledge doctor --json` | Environment health diagnostics | Debugging a broken toolchain |
 | `fledge deps --json` | Dependency report (outdated, audit, licenses) | Auditing a project |
@@ -87,7 +87,32 @@ Commands safe to call even without this flag (they never prompt): `ask`, `review
 
 ## AI commands
 
-`fledge ask` and `fledge review` delegate to the `claude` CLI, which must be installed and authenticated on the host. The agent running fledge inherits whatever auth the `claude` CLI has.
+`fledge ask` and `fledge review` go through a provider abstraction. Two providers ship in core:
+
+- **Claude** (default) — shells out to the `claude` CLI, which must be installed and authenticated on the host.
+- **Ollama** — HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key.
+
+### Picking a provider
+
+```bash
+# Config (persists)
+fledge config set ai.provider ollama
+fledge config set ai.ollama.host https://ollama.com
+fledge config set ai.ollama.api_key sk-...
+fledge config set ai.ollama.model "llama3.3:70b"
+
+# Or env vars (agent-shell friendly)
+export FLEDGE_AI_PROVIDER=ollama
+export OLLAMA_HOST=https://ollama.com
+export OLLAMA_API_KEY=sk-...
+export FLEDGE_AI_MODEL=llama3.3:70b
+
+# Or per invocation (highest precedence)
+fledge ask --provider ollama --model llama3.3:70b "..."
+fledge review --provider claude --model opus-4
+```
+
+Precedence: CLI flag > env var > config > default (`claude`).
 
 ### `fledge ask` is spec-aware by default
 

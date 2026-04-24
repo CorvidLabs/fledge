@@ -1,6 +1,6 @@
 ---
 module: doctor
-version: 2
+version: 3
 status: active
 files:
   - src/doctor.rs
@@ -8,6 +8,8 @@ files:
 db_tables: []
 depends_on:
   - run
+  - config
+  - llm
 ---
 
 # Doctor
@@ -93,6 +95,9 @@ $ fledge doctor --json
 
 - `run::detect_project_type` for ecosystem detection
 - `std::process::Command` for running tool version checks
+- `config` module — reads `ai.provider` and `ai.ollama.host` to determine the active LLM provider
+- `llm` module — `resolve_provider_kind` for active-provider selection, `ProviderKind` for display
+- `ureq` — probes the Ollama endpoint's `/api/tags` to check reachability
 - `console` for styled output
 - `serde` + `serde_json` for JSON output
 
@@ -100,5 +105,6 @@ $ fledge doctor --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-23 | AI section now reports both Claude CLI and Ollama binary presence, the active provider (from config / env), and probes the Ollama host's `/api/tags` endpoint for reachability so "daemon down" vs "not installed" are distinguishable |
 | 2 | 2026-04-21 | Add swift to supported project types |
 | 1 | 2026-04-20 | Initial spec |

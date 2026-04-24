@@ -2679,19 +2679,30 @@ fn cli_review_no_changes_fails() {
         .current_dir(tmp.path())
         .output()
         .unwrap();
+    // CI doesn't have a global git identity; set a local one so `git commit`
+    // actually writes a commit instead of silently failing.
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
     Command::new("git")
         .args(["commit", "--allow-empty", "-m", "init"])
         .current_dir(tmp.path())
         .output()
         .unwrap();
     let output = run_fledge_in(tmp.path(), &["review", "--base", "HEAD"]);
-    if !output.status.success() {
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        assert!(
-            stderr.contains("No changes") || stderr.contains("Claude CLI"),
-            "expected no-changes or CLI error, got: {stderr}"
-        );
-    }
+    assert!(!output.status.success(), "expected failure on empty diff");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No changes") || stderr.contains("Claude CLI") || stderr.contains("Ollama"),
+        "expected no-changes or provider error, got: {stderr}"
+    );
 }
 
 #[test]
@@ -2724,6 +2735,60 @@ fn cli_ask_accepts_with_specs_flag() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("--with-specs"));
     assert!(stdout.contains("--no-spec-index"));
+}
+
+#[test]
+fn cli_ask_accepts_provider_and_model_flags() {
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--provider"));
+    assert!(stdout.contains("--model"));
+}
+
+#[test]
+fn cli_review_accepts_provider_flag() {
+    let output = run_fledge(&["review", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--provider"));
+}
+
+#[test]
+fn cli_ask_help_lists_supported_providers() {
+    let output = run_fledge(&["ask", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("claude"));
+    assert!(stdout.contains("ollama"));
+}
+
+#[test]
+fn cli_ask_rejects_unknown_provider_at_parse_time() {
+    // clap's value_parser should reject `--provider invalid` before the
+    // command ever runs — no LLM contact, exit non-zero, stderr mentions
+    // the invalid value.
+    let output = run_fledge(&["ask", "--provider", "gpt", "whatever"]);
+    assert!(
+        !output.status.success(),
+        "expected clap to reject --provider gpt"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("gpt") || stderr.contains("invalid") || stderr.contains("possible"),
+        "stderr should mention the bad value, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_review_rejects_unknown_provider_at_parse_time() {
+    let output = run_fledge(&["review", "--provider", "gemini"]);
+    assert!(
+        !output.status.success(),
+        "expected clap to reject --provider gemini"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("gemini") || stderr.contains("invalid") || stderr.contains("possible"),
+        "stderr should mention the bad value, got: {stderr}"
+    );
 }
 
 #[test]

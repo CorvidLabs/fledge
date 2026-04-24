@@ -4,6 +4,8 @@ use std::fmt;
 use std::path::Path;
 use std::process::Command;
 
+use crate::config::Config;
+use crate::llm::{self, ProviderOverride};
 use crate::spec;
 
 #[derive(Debug, Clone, Default)]
@@ -48,10 +50,10 @@ pub struct ReviewOptions {
     pub format: ReviewFormat,
     pub with_specs: Vec<String>,
     pub no_auto_specs: bool,
+    pub provider: Option<String>,
 }
 
 pub fn run(options: ReviewOptions) -> Result<()> {
-    crate::github::ensure_claude_cli()?;
     crate::github::ensure_git_repo()?;
 
     let base = match options.base {
@@ -100,30 +102,26 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         spec_context.as_ref().map(|(_, body)| body.as_str()),
     );
 
-    let sp = crate::spinner::Spinner::start(&format!("Reviewing changes against {}:", &base));
+    let config = Config::load().context("loading config")?;
+    let provider = llm::build_provider(
+        &config,
+        &ProviderOverride {
+            provider: options.provider.clone(),
+            model: options.model.clone(),
+        },
+    )?;
 
-    let mut args = Vec::new();
-    if let Some(ref model) = options.model {
-        args.push("--model".to_string());
-        args.push(model.clone());
-    }
-    args.push("--print".to_string());
-    args.push(prompt);
-
-    let output = Command::new("claude").args(&args).output()?;
-
+    let sp = crate::spinner::Spinner::start(&format!(
+        "Reviewing changes against {} [{}]:",
+        &base,
+        llm::describe(&*provider)
+    ));
+    // Finish spinner before surfacing provider errors so the terminal state
+    // is clean when `bail!` fires.
+    let answer = provider.invoke(&prompt);
     sp.finish();
     println!();
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if !stderr.is_empty() {
-            eprintln!("{stderr}");
-        }
-        bail!("claude CLI exited with an error.");
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let answer = answer?;
 
     if options.json {
         let spec_names = spec_context
@@ -135,11 +133,13 @@ pub fn run(options: ReviewOptions) -> Result<()> {
             "file": options.file,
             "diff_stats": diff_stats,
             "spec_context": spec_names,
-            "review": stdout.trim(),
+            "review": answer.trim(),
+            "provider": provider.kind().as_str(),
+            "model": provider.model_name(),
         });
         println!("{}", serde_json::to_string_pretty(&response)?);
     } else {
-        print!("{stdout}");
+        println!("{answer}");
     }
 
     Ok(())
@@ -444,9 +444,8 @@ mod tests {
         assert_eq!(ReviewFormat::Inline.to_string(), "inline");
     }
 
-    #[test]
-    fn review_options_defaults() {
-        let opts = ReviewOptions {
+    fn default_review_options() -> ReviewOptions {
+        ReviewOptions {
             base: None,
             file: None,
             json: false,
@@ -455,7 +454,13 @@ mod tests {
             format: ReviewFormat::Summary,
             with_specs: Vec::new(),
             no_auto_specs: false,
-        };
+            provider: None,
+        }
+    }
+
+    #[test]
+    fn review_options_defaults() {
+        let opts = default_review_options();
         assert!(opts.base.is_none());
         assert!(opts.file.is_none());
         assert!(!opts.json);
@@ -464,19 +469,15 @@ mod tests {
         assert!(matches!(opts.format, ReviewFormat::Summary));
         assert!(opts.with_specs.is_empty());
         assert!(!opts.no_auto_specs);
+        assert!(opts.provider.is_none());
     }
 
     #[test]
     fn review_options_with_base() {
         let opts = ReviewOptions {
             base: Some("develop".to_string()),
-            file: None,
             json: true,
-            model: None,
-            prompt: None,
-            format: ReviewFormat::Summary,
-            with_specs: Vec::new(),
-            no_auto_specs: false,
+            ..default_review_options()
         };
         assert_eq!(opts.base.unwrap(), "develop");
         assert!(opts.json);
@@ -485,14 +486,8 @@ mod tests {
     #[test]
     fn review_options_with_file() {
         let opts = ReviewOptions {
-            base: None,
             file: Some("src/main.rs".to_string()),
-            json: false,
-            model: None,
-            prompt: None,
-            format: ReviewFormat::Summary,
-            with_specs: Vec::new(),
-            no_auto_specs: false,
+            ..default_review_options()
         };
         assert_eq!(opts.file.unwrap(), "src/main.rs");
     }
@@ -500,20 +495,20 @@ mod tests {
     #[test]
     fn review_options_with_all_new_fields() {
         let opts = ReviewOptions {
-            base: None,
-            file: None,
-            json: false,
             model: Some("opus".to_string()),
             prompt: Some("Focus on security".to_string()),
             format: ReviewFormat::Checklist,
             with_specs: vec!["trust".to_string()],
             no_auto_specs: true,
+            provider: Some("ollama".to_string()),
+            ..default_review_options()
         };
         assert_eq!(opts.model.unwrap(), "opus");
         assert_eq!(opts.prompt.unwrap(), "Focus on security");
         assert!(matches!(opts.format, ReviewFormat::Checklist));
         assert_eq!(opts.with_specs, vec!["trust"]);
         assert!(opts.no_auto_specs);
+        assert_eq!(opts.provider.unwrap(), "ollama");
     }
 
     #[test]

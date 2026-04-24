@@ -22,8 +22,8 @@ fledge follows three rules that make it agent-usable:
 | `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
 | `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
 | `fledge spec check --json` | `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}` |
-| `fledge ask "..." --json` | `{question, answer}` |
-| `fledge review --json` | `{base, file, diff_stats, spec_context, review}` |
+| `fledge ask "..." --json` | `{question, answer, provider, model}` |
+| `fledge review --json` | `{base, file, diff_stats, spec_context, review, provider, model}` |
 | `fledge checks --json` | CI check status |
 | `fledge doctor --json` | Environment diagnostics |
 | `fledge deps --json` | Dependency report |
@@ -46,7 +46,16 @@ Commands covered: `fledge init`, `fledge templates publish`, `fledge templates c
 
 ### AI-powered commands
 
-`fledge ask` and `fledge review` wrap the `claude` CLI. The host environment must have `claude` installed and authenticated. These commands will exit non-zero if auth is missing — that's a host-config issue, not a fledge issue.
+`fledge ask` and `fledge review` route through a provider abstraction. Two providers ship in core:
+
+| Provider | Transport | Auth | Use case |
+|----------|-----------|------|----------|
+| `claude` (default) | `claude` CLI shell-out | Whatever `claude` is already authenticated with | Best-in-class reasoning, paid |
+| `ollama` | HTTP to `<host>/api/generate` | Optional Bearer token | Local-only, offline, cloud alternatives, self-hosted |
+
+Select via `fledge config set ai.provider ollama`, `FLEDGE_AI_PROVIDER=ollama`, or `--provider ollama` per invocation. `fledge doctor` reports which is active and whether it's reachable.
+
+Ollama covers everything that speaks its API: the local daemon, Ollama Cloud / Turbo (host + API key), and self-hosted mirrors.
 
 #### `fledge ask` is spec-aware
 

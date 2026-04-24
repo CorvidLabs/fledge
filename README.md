@@ -14,7 +14,7 @@ cd my-tool
 fledge lanes run ci  # lint + test + build, works out of the box
 ```
 
-> **Working with AI agents?** fledge has a first-class agent surface: every read command exposes `--json`, `FLEDGE_NON_INTERACTIVE=1` silences every prompt, `fledge ask` and `fledge review` are automatically spec-aware, and `fledge introspect --json` dumps the full command tree. See [AGENTS.md](./AGENTS.md) for the one-page guide.
+> **Working with AI agents?** fledge has a first-class agent surface: every read command exposes `--json`, `FLEDGE_NON_INTERACTIVE=1` silences every prompt, `fledge ask` and `fledge review` are automatically spec-aware, and `fledge introspect --json` dumps the full command tree. Works with Claude CLI or Ollama (local, cloud, or self-hosted). See [AGENTS.md](./AGENTS.md) for the one-page guide.
 
 ## Install
 
