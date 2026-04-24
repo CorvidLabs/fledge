@@ -2725,3 +2725,38 @@ fn cli_ask_accepts_with_specs_flag() {
     assert!(stdout.contains("--with-specs"));
     assert!(stdout.contains("--no-spec-index"));
 }
+
+#[test]
+fn cli_global_non_interactive_flag_present_in_help() {
+    let output = run_fledge(&["--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("--non-interactive"),
+        "expected --non-interactive in top-level help: {stdout}"
+    );
+}
+
+#[test]
+fn cli_non_interactive_accepted_on_subcommand() {
+    // Global clap args don't appear in every subcommand's --help, but they
+    // must still be *accepted* on subcommands. A passing help invocation
+    // (exit 0) is enough to confirm the parser accepts the arg there.
+    let output = run_fledge(&["--non-interactive", "spec", "list", "--json"]);
+    assert!(
+        output.status.success(),
+        "--non-interactive was rejected: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let _parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+}
+
+#[test]
+fn cli_non_interactive_alias_ni_accepted() {
+    let output = run_fledge(&["--ni", "doctor", "--json"]);
+    assert!(
+        output.status.success(),
+        "--ni was rejected: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

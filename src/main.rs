@@ -44,6 +44,12 @@ mod work;
     about = "Dev-lifecycle CLI — get your projects ready to fly."
 )]
 struct Cli {
+    /// Run without prompts: treat every interactive confirmation as --yes,
+    /// and bail with a clear error on prompts that have no default. Also
+    /// settable via the FLEDGE_NON_INTERACTIVE env var.
+    #[arg(long, global = true, visible_alias = "ni")]
+    non_interactive: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -742,7 +748,13 @@ fn main() {
 }
 
 fn run() -> Result<()> {
+    // Env var is honored regardless of how the CLI is invoked, so agent shells
+    // can set FLEDGE_NON_INTERACTIVE=1 once and forget about it.
+    utils::init_non_interactive_from_env();
     let cli = Cli::parse();
+    if cli.non_interactive {
+        utils::set_non_interactive(true);
+    }
 
     match cli.command {
         Commands::Templates { action } => {

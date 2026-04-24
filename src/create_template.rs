@@ -21,7 +21,10 @@ struct TemplateAnswers {
     include_prompts: bool,
 }
 
-pub fn run(options: CreateTemplateOptions) -> Result<()> {
+pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
+    if crate::utils::is_non_interactive() {
+        options.yes = true;
+    }
     let target = options.output.join(&options.name);
 
     if target.exists() {

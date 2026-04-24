@@ -416,6 +416,7 @@ fn validate_plugin_name(name: &str) -> Result<()> {
 }
 
 fn install_plugin(source: &str, force: bool) -> Result<()> {
+    let force = force || crate::utils::is_non_interactive();
     let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
@@ -1391,6 +1392,7 @@ fn make_executable(_path: &Path) -> Result<()> {
 }
 
 fn create_plugin(name: &str, output: &Path, description: Option<&str>, yes: bool) -> Result<()> {
+    let yes = yes || crate::utils::is_non_interactive();
     let target = output.join(name);
 
     if target.exists() {
@@ -1652,6 +1654,7 @@ fn publish_plugin(
     description: Option<&str>,
     yes: bool,
 ) -> Result<()> {
+    let yes = yes || crate::utils::is_non_interactive();
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
         anyhow::anyhow!(

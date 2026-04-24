@@ -12,7 +12,7 @@ If you are about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr cre
 
 1. **Prefer fledge subcommands over raw tools** when wrapped. E.g. use `fledge work start` instead of `git checkout -b`, `fledge run test` instead of guessing `cargo test` vs `npm test`.
 2. **Always add `--json` when a command supports it** (see list below). Parse the JSON; do not screen-scrape pretty output.
-3. **Always pass `--yes` / `--force` to commands that otherwise prompt** (see TTY table). A stalled prompt looks like success to you but blocks forever.
+3. **Set `FLEDGE_NON_INTERACTIVE=1` once** in your shell, or pass `--non-interactive` (alias `--ni`) per invocation. Every command then treats confirmation prompts as `--yes`; prompts with no default bail with a clear error instead of blocking forever.
 4. **Check exit codes.** Non-zero means something failed, even if stdout looks fine.
 5. **Don't mutate without running `fledge lane run pre-commit` first** — it's the project-defined quality gate.
 
@@ -52,20 +52,33 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 
 Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `publish`, `create-template`, `watch`, `release`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
 
-## Commands that block on TTY prompts
+## Non-interactive mode (the one-switch answer)
 
-These commands use `dialoguer` prompts. Agents must pass the bypass flag or the process will hang forever.
+Set this once at the top of your shell session and forget about it:
 
-| Command | Bypass flag | Effect |
-|---------|------------|--------|
-| `fledge init` | `--yes` | Skip interactive template-variable prompts (uses detected defaults) |
-| `fledge templates publish` | `--yes` | Skip "update existing repo?" confirmation |
-| `fledge templates create` | `--yes` | Skip name/description/type prompts |
-| `fledge plugins install` | `--yes` + `--force` | Skip trust-tier and capability-grant prompts |
-| `fledge plugins publish` | `--yes` | Skip confirmations |
-| `fledge plugins create` | `--yes` | Skip scaffolding prompts |
+```bash
+export FLEDGE_NON_INTERACTIVE=1
+```
 
-Commands safe to call non-interactively today: `ask`, `review`, `checks`, `doctor`, `deps`, `metrics`, `changelog`, `spec *`, `work start`, `work pr`, `run`, `lane run`, `release`, `validate-template`, `search`, `plugins list`, `plugins remove`, `plugins update`, `plugins audit`, `issues`, `prs`, `watch`.
+Or pass the flag per invocation: `fledge --non-interactive <cmd>` (alias `--ni`). Both are equivalent.
+
+When non-interactive mode is active, every command that would otherwise prompt behaves **as if `--yes` / `--force` were passed**:
+
+| Command | Effect |
+|---------|--------|
+| `fledge init` | Skip template-variable prompts (uses detected defaults) |
+| `fledge templates publish` | Skip "update existing repo?" confirmation |
+| `fledge templates create` | Skip name/description/type prompts |
+| `fledge plugins install` | Skip trust-tier and capability-grant prompts |
+| `fledge plugins publish` | Skip confirmations |
+| `fledge plugins create` | Skip scaffolding prompts |
+| `fledge lane publish` | Skip description prompt |
+
+Prompts that have **no sensible default** (e.g. `fledge init` being asked to pick a template when none was specified) fail fast with a clear error naming the flag to pass instead. No silent hangs.
+
+You can still pass `--yes`/`--force` per command if you prefer — they and `FLEDGE_NON_INTERACTIVE` compose.
+
+Commands safe to call even without this flag (they never prompt): `ask`, `review`, `checks`, `doctor`, `deps`, `metrics`, `changelog`, `spec *`, `work start`, `work pr`, `work status`, `run`, `lane run`, `release`, `validate-template`, `search`, `plugins list`, `plugins remove`, `plugins update`, `plugins audit`, `issues`, `prs`, `watch`.
 
 ## AI commands
 
