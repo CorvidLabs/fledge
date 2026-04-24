@@ -1,6 +1,6 @@
 ---
 module: doctor
-version: 3
+version: 4
 status: active
 files:
   - src/doctor.rs
@@ -48,7 +48,7 @@ Diagnoses project environment health by checking toolchain availability, depende
 2. Toolchain checks verify required tools exist and capture their version strings
 3. Dependency state checks verify lock files and install directories exist
 4. Git checks verify git is installed, repo is initialized, and remote is configured
-5. AI checks verify Claude CLI is installed and report availability of AI commands (fledge review, fledge ask)
+5. AI checks verify Claude CLI is installed and report availability of AI commands (fledge review, fledge ask); when Ollama is the active provider, the displayed `model` honors the same `FLEDGE_AI_MODEL` env override that `build_provider` uses, so doctor's report matches what `ask` / `review` will actually send
 6. Each failing check includes an actionable fix command
 7. `--json` outputs a structured `DoctorReport`
 8. Exit summary shows count of passed checks and issues found
@@ -105,6 +105,7 @@ $ fledge doctor --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-24 | Active-Ollama display honors `FLEDGE_AI_MODEL` env override (previously only `OLLAMA_HOST` was honored), so doctor's reported model matches what `build_provider` will actually use |
 | 3 | 2026-04-23 | AI section now reports both Claude CLI and Ollama binary presence, the active provider (from config / env), and probes the Ollama host's `/api/tags` endpoint for reachability so "daemon down" vs "not installed" are distinguishable |
 | 2 | 2026-04-21 | Add swift to supported project types |
 | 1 | 2026-04-20 | Initial spec |

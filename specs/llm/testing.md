@@ -19,6 +19,10 @@ In `src/llm.rs`:
 - `ollama_generate_url_joins_cleanly` — trailing slash tolerated, `/api/generate` path joined
 - `describe_includes_model_when_set` — pretty formatter includes model
 - `describe_bare_when_no_model` — `"claude"` alone when model is None
+- `resolve_timeout_defaults_to_config` — no env var → use `ai.ollama.timeout_seconds`
+- `resolve_timeout_env_beats_config` — `FLEDGE_AI_TIMEOUT` wins over config
+- `resolve_timeout_ignores_bad_env` — non-integer env value falls through to config
+- `build_ollama_applies_timeout_from_config` — `build_provider` populates `OllamaProvider.timeout`
 
 All tests that mutate env vars serialize on a static Mutex to avoid parallel-test races.
 

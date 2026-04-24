@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 1
+version: 2
 status: active
 files:
   - src/llm.rs
@@ -40,7 +40,7 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 |------|-------------|
 | `ProviderKind` | `Claude` or `Ollama` |
 | `ClaudeProvider` | `{ model: Option<String> }` |
-| `OllamaProvider` | `{ host, api_key: Option<String>, model }` |
+| `OllamaProvider` | `{ host, api_key: Option<String>, model, timeout: Duration }` |
 | `ProviderOverride` | Per-invocation overrides (CLI flags bypass env and config) |
 | `OllamaGenerateResponse` | (private) The `{ response: String }` payload decoded from `/api/generate` |
 
@@ -70,6 +70,7 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 6. `OllamaProvider.invoke` POSTs `{"model": ..., "prompt": ..., "stream": false}` to `<host>/api/generate` and parses `{"response": "..."}` from the reply
 7. Network errors from Ollama surface with the full URL in the message so users can diagnose host / port / daemon-down issues quickly
 8. No provider implementation modifies the prompt text — spec context composition stays in `ask` / `review`
+9. `OllamaProvider.timeout` is resolved by `build_provider` with precedence `FLEDGE_AI_TIMEOUT` env var (seconds, integer) > `ai.ollama.timeout_seconds` config > default 600s; a non-integer env value is ignored and falls through to config
 
 ## Behavioral Examples
 
@@ -123,4 +124,5 @@ $ fledge review --provider claude --model opus-4
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-24 | `OllamaProvider` gains a `timeout: Duration` field populated by `build_provider`; adds `ai.ollama.timeout_seconds` config fallback so the per-request timeout is tunable without env vars (`FLEDGE_AI_TIMEOUT` still wins) |
 | 1 | 2026-04-23 | Initial spec — provider abstraction with Claude + Ollama implementations, env-var and config resolution, CLI overrides |

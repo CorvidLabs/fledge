@@ -73,6 +73,10 @@ pub struct OllamaConfig {
     /// Default model name (e.g. `llama3.3:70b` or a cloud-registry model).
     #[serde(default = "default_ollama_model")]
     pub model: String,
+    /// Per-request timeout in seconds. `FLEDGE_AI_TIMEOUT` env var takes
+    /// precedence when set.
+    #[serde(default = "default_ollama_timeout_seconds")]
+    pub timeout_seconds: u64,
 }
 
 impl Default for OllamaConfig {
@@ -81,6 +85,7 @@ impl Default for OllamaConfig {
             host: default_ollama_host(),
             api_key: None,
             model: default_ollama_model(),
+            timeout_seconds: default_ollama_timeout_seconds(),
         }
     }
 }
@@ -93,7 +98,11 @@ fn default_ollama_model() -> String {
     "llama3.3".to_string()
 }
 
-const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model";
+fn default_ollama_timeout_seconds() -> u64 {
+    600
+}
+
+const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
 
 impl Config {
     pub fn load() -> Result<Self> {
@@ -156,6 +165,7 @@ impl Config {
             "ai.ollama.host" => Some(self.ai.ollama.host.clone()),
             "ai.ollama.api_key" => self.ai.ollama.api_key.clone(),
             "ai.ollama.model" => Some(self.ai.ollama.model.clone()),
+            "ai.ollama.timeout_seconds" => Some(self.ai.ollama.timeout_seconds.to_string()),
             _ => None,
         }
     }
@@ -174,6 +184,7 @@ impl Config {
                 | "ai.ollama.host"
                 | "ai.ollama.api_key"
                 | "ai.ollama.model"
+                | "ai.ollama.timeout_seconds"
         )
     }
 
@@ -194,6 +205,15 @@ impl Config {
             "ai.ollama.host" => self.ai.ollama.host = value.to_string(),
             "ai.ollama.api_key" => self.ai.ollama.api_key = Some(value.to_string()),
             "ai.ollama.model" => self.ai.ollama.model = value.to_string(),
+            "ai.ollama.timeout_seconds" => {
+                let secs: u64 = value.trim().parse().map_err(|_| {
+                    anyhow::anyhow!(
+                        "Invalid timeout '{}' — must be a non-negative integer in seconds",
+                        value
+                    )
+                })?;
+                self.ai.ollama.timeout_seconds = secs;
+            }
             "templates.paths" | "templates.repos" => anyhow::bail!(
                 "'{}' is a list key — use `fledge config add/remove {}` instead",
                 key,
@@ -217,6 +237,9 @@ impl Config {
             "ai.ollama.host" => self.ai.ollama.host = default_ollama_host(),
             "ai.ollama.api_key" => self.ai.ollama.api_key = None,
             "ai.ollama.model" => self.ai.ollama.model = default_ollama_model(),
+            "ai.ollama.timeout_seconds" => {
+                self.ai.ollama.timeout_seconds = default_ollama_timeout_seconds()
+            }
             _ => anyhow::bail!("Unknown config key '{}'. {}", key, VALID_KEYS_HINT),
         }
         Ok(())
@@ -742,6 +765,51 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     fn remove_from_list_scalar_key_errors() {
         let mut config = Config::default();
         assert!(config.remove_from_list("defaults.author", "val").is_err());
+    }
+
+    #[test]
+    fn ollama_timeout_default_is_600() {
+        let config = Config::default();
+        assert_eq!(config.ai.ollama.timeout_seconds, 600);
+    }
+
+    #[test]
+    fn set_ollama_timeout_parses_u64() {
+        let mut config = Config::default();
+        config.set("ai.ollama.timeout_seconds", "120").unwrap();
+        assert_eq!(config.ai.ollama.timeout_seconds, 120);
+    }
+
+    #[test]
+    fn set_ollama_timeout_rejects_non_integer() {
+        let mut config = Config::default();
+        let err = config
+            .set("ai.ollama.timeout_seconds", "abc")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Invalid timeout"));
+    }
+
+    #[test]
+    fn unset_ollama_timeout_restores_default() {
+        let mut config = Config::default();
+        config.set("ai.ollama.timeout_seconds", "7").unwrap();
+        config.unset("ai.ollama.timeout_seconds").unwrap();
+        assert_eq!(config.ai.ollama.timeout_seconds, 600);
+    }
+
+    #[test]
+    fn get_ollama_timeout_returns_string() {
+        let config = Config::default();
+        assert_eq!(
+            config.get("ai.ollama.timeout_seconds").as_deref(),
+            Some("600")
+        );
+    }
+
+    #[test]
+    fn is_valid_key_accepts_timeout_seconds() {
+        assert!(Config::is_valid_key("ai.ollama.timeout_seconds"));
     }
 
     #[test]

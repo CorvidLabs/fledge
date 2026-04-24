@@ -4,6 +4,7 @@ use clap_complete::Shell;
 use console::style;
 use std::path::PathBuf;
 
+mod ai;
 mod ask;
 mod changelog;
 mod checks;
@@ -58,6 +59,11 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Commands {
+    /// Manage AI provider and model selection
+    Ai {
+        #[command(subcommand)]
+        action: AiSubcommand,
+    },
     /// Ask a question about your codebase
     Ask {
         /// The question to ask
@@ -533,6 +539,38 @@ enum PrsSubcommand {
     View {
         /// PR number
         number: u64,
+    },
+}
+
+#[derive(clap::Subcommand)]
+enum AiSubcommand {
+    /// Show the active AI provider, model, and host
+    Status {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// List available models for the active (or specified) provider
+    Models {
+        /// Provider: claude or ollama (default: active provider)
+        #[arg(long, value_name = "NAME", value_parser = ["claude", "ollama"])]
+        provider: Option<String>,
+        /// Filter models by substring (case-insensitive)
+        #[arg(long, value_name = "QUERY")]
+        search: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Select the active provider (and optionally model); interactive if args
+    /// are omitted
+    #[command(name = "use")]
+    Use {
+        /// Provider: claude or ollama
+        #[arg(value_parser = ["claude", "ollama"])]
+        provider: Option<String>,
+        /// Model name (e.g. qwen3-coder:480b-cloud)
+        model: Option<String>,
     },
 }
 
@@ -1098,6 +1136,22 @@ fn run() -> Result<()> {
                 pre_lane,
                 allow_dirty,
             })?;
+        }
+        Commands::Ai { action } => {
+            let action = match action {
+                AiSubcommand::Status { json } => ai::AiAction::Status { json },
+                AiSubcommand::Models {
+                    provider,
+                    search,
+                    json,
+                } => ai::AiAction::Models {
+                    provider,
+                    search,
+                    json,
+                },
+                AiSubcommand::Use { provider, model } => ai::AiAction::Use { provider, model },
+            };
+            ai::run(action)?;
         }
         Commands::Ask {
             question,
