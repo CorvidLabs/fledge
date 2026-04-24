@@ -1,6 +1,6 @@
 ---
 module: main
-version: 3
+version: 4
 status: active
 files:
   - src/main.rs
@@ -16,6 +16,7 @@ depends_on:
   - doctor
   - github
   - init
+  - introspect
   - issues
   - lanes
   - metrics
@@ -92,6 +93,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-23 | Add `fledge introspect` command that dumps the clap command tree as JSON or a pretty listing. Closes the "how does an agent learn the command surface?" gap. |
 | 3 | 2026-04-23 | Add `--non-interactive` global flag (alias `--ni`) and `FLEDGE_NON_INTERACTIVE` env var. Sets `utils::NON_INTERACTIVE` before dispatch; each subcommand with `--yes`/`--force` auto-promotes it when the flag is set; prompts that have no default bail with a clear error. |
 | 2 | 2026-04-23 | Add `watch` to depends_on |
 | 1 | 2026-04-21 | Initial spec |

@@ -19,11 +19,15 @@ If you are about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr cre
 ## Discover what fledge can do
 
 ```bash
+fledge introspect --json             # full command tree — every subcommand, every flag
+fledge introspect                    # same, human-readable indented listing
 fledge --help                        # top-level command list (human text)
 fledge <cmd> --help                  # per-command flags
-fledge spec list --json              # all 32 specs as a JSON array
+fledge spec list --json              # all specs as a JSON array
 fledge spec show <name> --json       # one spec's structure as JSON
 ```
+
+`fledge introspect --json` is the right starting point for an agent that has never seen fledge before — it reveals the entire CLI surface in one call.
 
 Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for *why* a module exists. When you need context beyond what the code shows, read the spec — particularly `specs/<name>/context.md` (design decisions) and `specs/<name>/requirements.md` (user stories).
 
@@ -31,6 +35,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 
 | Command | What you get | Use when |
 |---------|-------------|----------|
+| `fledge introspect --json` | Full command tree: every subcommand, every flag, every arg | First contact with fledge |
 | `fledge spec list --json` | Array of spec summaries (module, version, status, sections, companions) | Orienting to a new codebase |
 | `fledge spec show <name> --json` | Single spec detail (frontmatter + section list + companion status) | Need structured view of one module |
 | `fledge spec check --json` | `{specs: [{name, version, status, errors, warnings, ...}], totals, strict}` | Spec-sync validation as data |

@@ -13,6 +13,7 @@ mod deps;
 mod doctor;
 mod github;
 mod init;
+mod introspect;
 mod issues;
 mod lanes;
 mod metrics;
@@ -127,6 +128,12 @@ enum Commands {
     /// Diagnose project environment health
     Doctor {
         /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Dump the full command tree (for agents and tooling)
+    Introspect {
+        /// Output as JSON (default: pretty tree)
         #[arg(long)]
         json: bool,
     },
@@ -976,6 +983,10 @@ fn run() -> Result<()> {
         }
         Commands::Doctor { json } => {
             doctor::run(doctor::DoctorOptions { json })?;
+        }
+        Commands::Introspect { json } => {
+            let cmd = <Cli as clap::CommandFactory>::command();
+            introspect::run(introspect::IntrospectOptions { json }, cmd)?;
         }
         Commands::Metrics {
             churn,
