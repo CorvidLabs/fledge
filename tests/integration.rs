@@ -2753,14 +2753,42 @@ fn cli_review_accepts_provider_flag() {
 }
 
 #[test]
-fn cli_ask_rejects_unknown_provider() {
-    // No question + no --provider validation short-circuit we can test without
-    // hitting the LLM. But --provider validation happens at invoke time.
-    // Instead verify the help shows the supported values in its description.
+fn cli_ask_help_lists_supported_providers() {
     let output = run_fledge(&["ask", "--help"]);
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("claude"));
     assert!(stdout.contains("ollama"));
+}
+
+#[test]
+fn cli_ask_rejects_unknown_provider_at_parse_time() {
+    // clap's value_parser should reject `--provider invalid` before the
+    // command ever runs — no LLM contact, exit non-zero, stderr mentions
+    // the invalid value.
+    let output = run_fledge(&["ask", "--provider", "gpt", "whatever"]);
+    assert!(
+        !output.status.success(),
+        "expected clap to reject --provider gpt"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("gpt") || stderr.contains("invalid") || stderr.contains("possible"),
+        "stderr should mention the bad value, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_review_rejects_unknown_provider_at_parse_time() {
+    let output = run_fledge(&["review", "--provider", "gemini"]);
+    assert!(
+        !output.status.success(),
+        "expected clap to reject --provider gemini"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("gemini") || stderr.contains("invalid") || stderr.contains("possible"),
+        "stderr should mention the bad value, got: {stderr}"
+    );
 }
 
 #[test]
