@@ -503,7 +503,7 @@ enum WorkSubcommand {
         /// PR title (auto-generated from branch name if omitted)
         #[arg(short, long)]
         title: Option<String>,
-        /// PR body/description
+        /// PR body (auto-generated from commits if omitted)
         #[arg(short, long)]
         body: Option<String>,
         /// Create as a draft PR
@@ -515,6 +515,9 @@ enum WorkSubcommand {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Skip the preview/confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
     /// Show current branch and PR status
     Status {
@@ -855,12 +858,14 @@ fn run() -> Result<()> {
                     draft,
                     base,
                     json,
+                    yes,
                 } => work::WorkAction::Pr {
                     title,
                     body,
                     draft,
                     base,
                     json,
+                    yes,
                 },
                 WorkSubcommand::Status { json } => work::WorkAction::Status { json },
             };

@@ -1,6 +1,6 @@
 ---
 module: work
-version: 6
+version: 7
 status: active
 files:
   - src/work.rs
@@ -26,13 +26,14 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | `WorkAction` | Enum of subcommands: Start, Pr, Status |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
 | `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces |
+| `generate_body_from_commits` | Generates a Markdown PR body from `git log base..branch` — `## Summary` heading + one bullet per commit subject (conventional-commit prefix stripped) |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base, json), Pr (title, body, draft, base, json), Status (json) |
+| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base, json), Pr (title, body, draft, base, json, yes), Status (json) |
 | `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 
 ### Traits
@@ -46,14 +47,17 @@ Provides opinionated git workflow commands for feature branch development. `fled
 |----------|-----------|-------------|
 | `run` | `(WorkAction) -> Result<()>` | Dispatches to start, pr, or status |
 | `start` | `(name, branch_type, issue, prefix, base, json) -> Result<()>` | Creates and checks out a branch with configurable type and naming |
-| `pr` | `(title, body, draft, base, json) -> Result<()>` | Creates a PR via `gh` CLI |
+| `pr` | `(title, body, draft, base, json, yes) -> Result<()>` | Creates a PR via `gh` CLI; auto-generates title/body and shows a preview + confirmation unless `--yes` or `--json` |
 | `status` | `(json: bool) -> Result<()>` | Shows current branch, commits ahead/behind, and PR status |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
 | `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
+| `generate_body_from_commits` | `(branch, base) -> Result<String>` | Build `## Summary` body from `base..branch` commit subjects; strips conventional-commit prefixes |
 | `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
 
 **Internal (not exported):**
 - `load_work_config() -> WorkConfig` — Reads `[work]` section from `fledge.toml`, falls back to defaults
+- `format_commit_subject_as_bullet(&str) -> String` — Strips a leading conventional-commit prefix and upper-cases the first letter
+- `print_pr_preview(title, body, head, base, draft)` — Renders the boxed preview block
 
 ## Invariants
 
@@ -75,6 +79,10 @@ Provides opinionated git workflow commands for feature branch development. `fled
 16. `--json` on `pr` emits `{url, number, title, head, base, draft}` and suppresses spinner + pretty output
 17. `--json` on `status` emits `{branch, default, ahead, behind, pr: {number, state, url} | null}`. `behind` is `null` when `git rev-list` can't compute it (e.g. the base hasn't been fetched) — this is distinct from `0` (up-to-date) so agents can detect "needs fetch" vs "up to date"
 18. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
+19. `pr` auto-generates the body from `git log base..branch` when `--body` is omitted; conventional-commit prefixes (`feat:`, `fix(scope):`, etc.) are stripped and bullets read as sentences. If no commits between base and branch, falls back to a `(describe the change)` placeholder
+20. `pr` shows a styled preview of the title, branch flow, and full body before invoking `gh pr create`; the preview is suppressed in `--json` mode
+21. `pr` prompts `Create this pull request?` with default Yes after the preview. `--yes` / `-y` skips the prompt; `--json` skips it as well (assumes agent intent). In a non-interactive shell without `--yes` or `--json`, `pr` bails rather than hanging
+22. Choosing "No" at the confirmation prompt aborts cleanly with a `✋ Aborted.` message and exits 0 without pushing or calling `gh`
 
 ## Behavioral Examples
 
@@ -125,9 +133,30 @@ $ fledge work start foo --type yolo
 error: Unknown branch type 'yolo'. Valid types: feat, feature, fix, bug, chore, task, docs, hotfix, refactor
 ```
 
-### work pr — create pull request
+### work pr — create pull request (with preview + confirmation)
 ```
 $ fledge work pr
+
+────────────────────────────────────────────────────────────
+Title: Add search command
+Branch:  leif/feat/add-search → main
+
+  ## Summary
+
+  - Add search command
+  - Wire up search index
+
+────────────────────────────────────────────────────────────
+? Create this pull request? (Y/n) y
+✓ Pushed leif/feat/add-search to origin
+✓ Created PR #42: "Add search command"
+  https://github.com/owner/repo/pull/42
+```
+
+### work pr — skip the prompt
+```
+$ fledge work pr --yes
+… preview …
 ✓ Pushed leif/feat/add-search to origin
 ✓ Created PR #42: "Add search command"
   https://github.com/owner/repo/pull/42
@@ -135,7 +164,7 @@ $ fledge work pr
 
 ### work pr — with title and draft
 ```
-$ fledge work pr --title "WIP: search command" --draft
+$ fledge work pr --title "WIP: search command" --draft --yes
 ✓ Pushed leif/feat/add-search to origin
 ✓ Created draft PR #42: "WIP: search command"
   https://github.com/owner/repo/pull/42
@@ -212,12 +241,16 @@ $ fledge work status --json
 | On main/master | `work pr` from default branch | Bail with message |
 | `gh` not installed | `work pr` | Bail with install instructions |
 | No commits ahead | `work pr` with no new commits | Bail with message |
+| Non-interactive without --yes | `work pr` in a non-TTY shell without `--yes` or `--json` | Bail asking for `--yes` rather than hanging on the prompt |
+| User declines confirmation | `work pr` and answers "n" at the prompt | Print `✋ Aborted.` and exit 0 without pushing |
 
 ## Dependencies
 
 - `console` — styled terminal output
+- `dialoguer` — `Confirm` prompt for the PR preview confirmation
 - `serde` / `toml` — config deserialization for `[work]` section in `fledge.toml`
 - `crate::config::Config` — global config for author resolution
+- `crate::utils::is_interactive` — TTY gate for the confirmation prompt
 - Git CLI — branch operations
 - `gh` CLI — PR creation (optional for `status`)
 
@@ -231,3 +264,4 @@ $ fledge work status --json
 | 4 | 2026-04-21 | Correct load_work_config as internal (not exported) |
 | 5 | 2026-04-22 | Document lifecycle hooks: post_work_start (silent) and pre_pr (propagating) |
 | 6 | 2026-04-23 | Add `--json` to `start`, `pr`, and `status`. `status` now also reports `behind`. Pretty output suppressed in JSON mode; errors still go to stderr. |
+| 7 | 2026-04-24 | `work pr` auto-generates the PR body from commits when `--body` is omitted, shows a styled preview, and prompts for confirmation before creating the PR. `--yes` / `-y` skips the prompt; non-interactive shells must pass `--yes` or `--json`. |
