@@ -269,6 +269,17 @@ enum Commands {
         /// FLEDGE_AI_PROVIDER and ai.provider in config.
         #[arg(long, value_name = "NAME", value_parser = ["claude", "ollama"])]
         provider: Option<String>,
+        /// Add another model to the review panel — runs in parallel against
+        /// the same diff + spec context. Format: provider[:model], e.g.
+        /// `ollama:gpt-oss:120b-cloud` or just `claude` to use the active
+        /// claude config. Repeatable and comma-separated.
+        #[arg(long, value_name = "REF")]
+        with_model: Vec<String>,
+        /// Drop the active config (--provider/--model or
+        /// `fledge ai use`) from the panel. Only the explicit --with-model
+        /// entries will run. Useful for "compare exactly these N models".
+        #[arg(long)]
+        no_active: bool,
     },
     /// Run a project task defined in fledge.toml
     Run {
@@ -964,6 +975,8 @@ fn run() -> Result<()> {
             with_specs,
             no_auto_specs,
             provider,
+            with_model,
+            no_active,
         } => {
             let format: review::ReviewFormat =
                 format.parse().map_err(|e: String| anyhow::anyhow!(e))?;
@@ -977,6 +990,8 @@ fn run() -> Result<()> {
                 with_specs,
                 no_auto_specs,
                 provider,
+                with_model,
+                no_active,
             })?;
         }
         Commands::Lanes { action } => {
