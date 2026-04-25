@@ -12,6 +12,10 @@ pub struct ReleaseOptions {
     pub dry_run: bool,
     pub no_tag: bool,
     pub no_changelog: bool,
+    /// Skip bumping any version files. Tag-only release — useful for repos
+    /// whose version source-of-truth lives outside the working tree (e.g. a
+    /// GitHub Release whose tag is the canonical version).
+    pub no_bump: bool,
     pub push: bool,
     pub pre_lane: Option<String>,
     pub allow_dirty: bool,
@@ -40,12 +44,16 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
             style("*").cyan().bold(),
             new_version
         );
-        let files = detect_version_files(&dir);
-        if files.is_empty() {
-            println!("  Tag-only release (no version files detected)");
+        if opts.no_bump {
+            println!("  Tag-only release (--no-bump)");
         } else {
-            for f in &files {
-                println!("  Would bump: {}", style(f).cyan());
+            let files = detect_version_files(&dir);
+            if files.is_empty() {
+                println!("  Tag-only release (no version files detected)");
+            } else {
+                for f in &files {
+                    println!("  Would bump: {}", style(f).cyan());
+                }
             }
         }
         if !opts.no_changelog {
@@ -60,7 +68,19 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
         return Ok(());
     }
 
-    let result = bump_version_files(&dir, &new_version)?;
+    let result = if opts.no_bump {
+        BumpResult {
+            old: detect_current_version(&dir).unwrap_or(Version {
+                major: 0,
+                minor: 0,
+                patch: 0,
+            }),
+            new: new_version.clone(),
+            files_bumped: Vec::new(),
+        }
+    } else {
+        bump_version_files(&dir, &new_version)?
+    };
 
     println!(
         "{} {} → {}",
@@ -161,6 +181,15 @@ fn resolve_target_version(dir: &Path, bump: &str) -> Result<Version> {
 }
 
 fn detect_current_version(dir: &Path) -> Result<Version> {
+    // plugin.toml is the canonical fledge-ecosystem identity — prefer it over
+    // any language-specific manifest. Rust plugins keep both Cargo.toml and
+    // plugin.toml in sync; the plugin.toml version is the source of truth.
+    if dir.join("plugin.toml").exists() {
+        if let Ok(v) = read_plugin_toml_version(dir) {
+            return parse_version(&v);
+        }
+    }
+
     let project_type = detect_project_type(dir);
 
     let version_str = match project_type {
@@ -180,6 +209,16 @@ fn read_cargo_version(dir: &Path) -> Result<String> {
     let content = std::fs::read_to_string(dir.join("Cargo.toml")).context("reading Cargo.toml")?;
     extract_toml_version(&content)
         .ok_or_else(|| anyhow::anyhow!("No version field found in Cargo.toml"))
+}
+
+/// Read `[plugin].version` from a fledge plugin manifest. Looks for the field
+/// inside (or just after) the `[plugin]` table header so we don't accidentally
+/// match a `version = "..."` line in a different table (e.g. a `[[commands]]`).
+fn read_plugin_toml_version(dir: &Path) -> Result<String> {
+    let content =
+        std::fs::read_to_string(dir.join("plugin.toml")).context("reading plugin.toml")?;
+    extract_versioned_toml_section(&content, "plugin")
+        .ok_or_else(|| anyhow::anyhow!("No [plugin].version field found in plugin.toml"))
 }
 
 fn read_package_json_version(dir: &Path) -> Result<String> {
@@ -264,6 +303,76 @@ fn extract_toml_version(content: &str) -> Option<String> {
     re.captures(content).map(|c| c[1].to_string())
 }
 
+/// Extract `version = "X.Y.Z"` from a specific `[section]` table within a TOML
+/// file. Stops scanning at the next table header so a later table's `version`
+/// (e.g. on a `[[commands]]` entry) doesn't get picked up by accident.
+fn extract_versioned_toml_section(content: &str, section: &str) -> Option<String> {
+    let header = format!("[{section}]");
+    let mut in_section = false;
+    let version_re = Regex::new(r#"^\s*version\s*=\s*"([^"]+)"\s*$"#).unwrap();
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            in_section = trimmed == header;
+            continue;
+        }
+        if in_section {
+            if let Some(caps) = version_re.captures(line) {
+                return Some(caps[1].to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Replace the `version = "..."` line scoped to a specific `[section]` table.
+/// Returns `Some(new_content)` if a replacement was made, `None` if either the
+/// section or its `version` line was absent (so the caller knows whether to
+/// touch the file). Preserves the original line-ending (LF / CRLF).
+fn replace_versioned_toml_section(
+    content: &str,
+    section: &str,
+    new_version: &str,
+) -> Option<String> {
+    let header = format!("[{section}]");
+    let version_re = Regex::new(r#"^(\s*version\s*=\s*")[^"]+("\s*)$"#).unwrap();
+    let crlf = content.contains("\r\n");
+    let line_sep = if crlf { "\r\n" } else { "\n" };
+    let trailing_newline = content.ends_with('\n');
+
+    let mut in_section = false;
+    let mut replaced = false;
+    let mut out_lines: Vec<String> = Vec::new();
+
+    for raw in content.split_inclusive('\n') {
+        let line = raw.trim_end_matches(['\r', '\n']);
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('[') {
+            in_section = trimmed == header;
+            out_lines.push(line.to_string());
+            continue;
+        }
+        if in_section && !replaced {
+            if let Some(caps) = version_re.captures(line) {
+                out_lines.push(format!("{}{}{}", &caps[1], new_version, &caps[2]));
+                replaced = true;
+                continue;
+            }
+        }
+        out_lines.push(line.to_string());
+    }
+
+    if !replaced {
+        return None;
+    }
+
+    let mut joined = out_lines.join(line_sep);
+    if trailing_newline {
+        joined.push_str(line_sep);
+    }
+    Some(joined)
+}
+
 fn apply_bump(current: &Version, bump: &str) -> Version {
     match bump {
         "major" => Version {
@@ -287,6 +396,7 @@ fn apply_bump(current: &Version, bump: &str) -> Version {
 
 fn detect_version_files(dir: &Path) -> Vec<String> {
     let candidates: &[(&str, &str)] = &[
+        ("plugin.toml", "fledge-plugin"),
         ("Cargo.toml", "rust"),
         ("package.json", "node"),
         ("pyproject.toml", "python"),
@@ -311,6 +421,16 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
     });
     let new_str = new_version.to_string();
     let mut bumped = Vec::new();
+
+    // plugin.toml: only touch the version field inside the [plugin] table.
+    // Other tables (e.g. `[[commands]]`) may have their own `version` and we
+    // must not rewrite those.
+    if let Ok(content) = std::fs::read_to_string(dir.join("plugin.toml")) {
+        if let Some(updated) = replace_versioned_toml_section(&content, "plugin", &new_str) {
+            std::fs::write(dir.join("plugin.toml"), updated.as_bytes())?;
+            bumped.push("plugin.toml".to_string());
+        }
+    }
 
     if let Ok(content) = std::fs::read_to_string(dir.join("Cargo.toml")) {
         let re = Regex::new(r#"(?m)^(version\s*=\s*")[^"]+(")"#).unwrap();
@@ -925,6 +1045,94 @@ edition = "2021"
     }
 
     #[test]
+    fn detect_version_from_plugin_toml() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(
+            tmp.path(),
+            "plugin.toml",
+            "[plugin]\nname = \"fledge-deploy\"\nversion = \"0.3.0\"\n\n[[commands]]\nname = \"deploy\"\nbinary = \"bin/deploy\"\n",
+        );
+        let v = detect_current_version(tmp.path()).unwrap();
+        assert_eq!(v.to_string(), "0.3.0");
+    }
+
+    #[test]
+    fn bump_plugin_toml_only_touches_plugin_section() {
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        // Manifest has version inside [plugin] AND a `version` key elsewhere
+        // (a `[[commands]]` table) — the bumper must only rewrite the [plugin]
+        // one.
+        let manifest = "[plugin]\nname = \"fledge-deploy\"\nversion = \"0.1.0\"\n\n[[commands]]\nname = \"deploy\"\nbinary = \"bin/deploy\"\nversion = \"99.99.99\"\n";
+        commit_file(tmp.path(), "plugin.toml", manifest);
+        let new_ver = parse_version("0.2.0").unwrap();
+        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
+        assert!(result.files_bumped.contains(&"plugin.toml".to_string()));
+        let updated = fs::read_to_string(tmp.path().join("plugin.toml")).unwrap();
+        assert!(updated.contains("[plugin]\nname = \"fledge-deploy\"\nversion = \"0.2.0\""));
+        // The bogus `version` on the command row stays put.
+        assert!(updated.contains("version = \"99.99.99\""));
+    }
+
+    #[test]
+    fn bump_plugin_toml_with_cargo_toml_keeps_them_in_sync() {
+        // Rust plugins (e.g. fledge-plugin-metrics) carry both manifests and
+        // expect both to bump together.
+        let tmp = TempDir::new().unwrap();
+        init_git_repo(tmp.path());
+        commit_file(
+            tmp.path(),
+            "plugin.toml",
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\n",
+        );
+        commit_file(
+            tmp.path(),
+            "Cargo.toml",
+            "[package]\nname = \"x\"\nversion = \"0.1.0\"\n",
+        );
+        let new_ver = parse_version("0.2.0").unwrap();
+        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
+        assert!(result.files_bumped.contains(&"plugin.toml".to_string()));
+        assert!(result.files_bumped.contains(&"Cargo.toml".to_string()));
+        let plugin = fs::read_to_string(tmp.path().join("plugin.toml")).unwrap();
+        let cargo = fs::read_to_string(tmp.path().join("Cargo.toml")).unwrap();
+        assert!(plugin.contains("version = \"0.2.0\""));
+        assert!(cargo.contains("version = \"0.2.0\""));
+    }
+
+    #[test]
+    fn extract_versioned_section_skips_other_tables() {
+        let toml = "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\n\n[[commands]]\nname = \"y\"\nversion = \"99.0.0\"\n";
+        assert_eq!(
+            extract_versioned_toml_section(toml, "plugin"),
+            Some("0.1.0".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_versioned_section_returns_none_when_section_absent() {
+        let toml = "[plugin]\nname = \"x\"\n";
+        assert_eq!(extract_versioned_toml_section(toml, "plugin"), None);
+    }
+
+    #[test]
+    fn replace_versioned_section_returns_none_when_no_match() {
+        let toml = "[other]\nversion = \"1.0.0\"\n";
+        assert_eq!(
+            replace_versioned_toml_section(toml, "plugin", "2.0.0"),
+            None
+        );
+    }
+
+    #[test]
+    fn replace_versioned_section_preserves_trailing_newline() {
+        let toml = "[plugin]\nversion = \"0.1.0\"\n";
+        let out = replace_versioned_toml_section(toml, "plugin", "0.2.0").unwrap();
+        assert_eq!(out, "[plugin]\nversion = \"0.2.0\"\n");
+    }
+
+    #[test]
     fn bump_release_files_flake_nix() {
         let tmp = TempDir::new().unwrap();
         init_git_repo(tmp.path());
@@ -1019,6 +1227,7 @@ edition = "2021"
                 dry_run: true,
                 no_tag: false,
                 no_changelog: false,
+                no_bump: false,
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
@@ -1055,6 +1264,7 @@ edition = "2021"
                 dry_run: false,
                 no_tag: false,
                 no_changelog: false,
+                no_bump: false,
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
@@ -1097,6 +1307,7 @@ edition = "2021"
                 dry_run: false,
                 no_tag: false,
                 no_changelog: false,
+                no_bump: false,
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
@@ -1417,6 +1628,7 @@ end
                 dry_run: false,
                 no_tag: true,
                 no_changelog: true,
+                no_bump: false,
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,

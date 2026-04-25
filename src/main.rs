@@ -151,6 +151,11 @@ enum Commands {
         /// Skip changelog generation
         #[arg(long)]
         no_changelog: bool,
+        /// Skip bumping any version files. Tag-only release — useful when the
+        /// canonical version lives outside the tree (e.g. the GitHub Release
+        /// tag itself is the source of truth).
+        #[arg(long)]
+        no_bump: bool,
         /// Push commit and tag to remote after release
         #[arg(long)]
         push: bool,
@@ -1009,6 +1014,7 @@ fn run() -> Result<()> {
             dry_run,
             no_tag,
             no_changelog,
+            no_bump,
             push,
             pre_lane,
             allow_dirty,
@@ -1018,6 +1024,7 @@ fn run() -> Result<()> {
                 dry_run,
                 no_tag,
                 no_changelog,
+                no_bump,
                 push,
                 pre_lane,
                 allow_dirty,
