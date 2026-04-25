@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.2] - 2026-04-25
+
+**Default-plugin slim-down + distribution sync.** Two of the v0.15 default plugins (`templates-remote`, `doctor`) were doing redundant work and are now back in core. `DEFAULT_PLUGINS` shrinks from 5 to 3. The Nix flake and Homebrew formula were six versions behind; both are now in sync and wired into the release flow so they stay that way.
+
+### Added
+
+- **`fledge templates search`** and **`fledge templates publish`** — re-absorbed from `fledge-plugin-templates-remote`. Same flags (`--author`, `--limit`, `--json` for search; `--org`, `--private`, `--description`, `--yes` for publish) and identical JSON shapes. The plugin was a shell wrapper around `src/search.rs`/`src/publish.rs` modules that fledge already used internally — re-exposing the templates flavor in core eliminates the duplicate implementation. (#260)
+- **`fledge doctor` Toolchains section** — re-absorbed from `fledge-plugin-doctor`. Probes 16 toolchains across rust/node/python/go/ruby/swift/JVM. Marked **informational**: missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals (a Python project shouldn't fail because Swift is absent). (#260)
+- **`[release].files` Homebrew support** — release auto-bump now handles the Homebrew DSL's `version "X"` syntax (no `=`), and resets `sha256` lines to `PLACEHOLDER` on bump (the new release's shas don't exist at bump time and must be filled in post-build). (#259)
+
+### Changed
+
+- **`DEFAULT_PLUGINS` is now 3 entries**: `github`, `deps`, `metrics`. `fledge plugins install --defaults` no longer pulls `templates-remote` or `doctor` (their commands are in core). Existing users who previously installed the dropped plugins can remove them with `fledge plugins remove`. (#260)
+- **`fledge-plugin-metrics` rewritten in Rust** — links `tokei` as a library (no separate `cargo install tokei`), uses the `ignore` crate for gitignore-aware walking, and emits stable plugin-owned JSON shapes instead of pass-through `tokei --output json`. Auto-detected build via `Cargo.toml`. (CorvidLabs/fledge-plugin-metrics#1)
+- **`fledge.toml` gains `[release].files`** — `flake.nix` and `Formula/fledge.rb` now bump alongside `Cargo.toml` on every release. (#259)
+- **`Section.informational: bool`** added to the doctor report; informational sections appear in `--json` output but are excluded from the passed/failed counts. (#260)
+
+### Fixed
+
+- **Nix flake version**: 0.9.1 → 0.15.1 → 0.15.2. Cosmetic (the lockfile drives the actual build), but the label was misleading. (#259)
+- **Homebrew formula**: 0.9.0 (with `sha256 "PLACEHOLDER"` ×3 — never actually installed since the formula was added) → 0.15.1 with real sha256 hashes pulled from the v0.15.1 release artifacts → 0.15.2. (#259)
+- **`CLAUDE.md` src/ list** refreshed: dropped 6 files removed in the v0.15 tight-core refactor (`checks.rs`, `deps.rs`, `metrics.rs`, `issues.rs`, `prs.rs`, `update.rs`); added 9 real files that were missing (`ai.rs`, `introspect.rs`, `llm.rs`, `meta.rs`, `protocol.rs`, `spinner.rs`, `trust.rs`, `utils.rs`, `watch.rs`). (#259)
+
+### Deprecated
+
+- **`CorvidLabs/fledge-plugin-templates-remote`** and **`CorvidLabs/fledge-plugin-doctor`** are archived. Their READMEs now point at the corresponding core commands. The repos still exist (`fledge plugins install` still works against them) but are no longer maintained.
+
+### Spec bumps
+
+- `search` v3, `publish` v4, `doctor` v6 (full rewrite for the Toolchains section + the informational Section field), `plugin` v11 (DEFAULT_PLUGINS shrink + 2 export rows added to satisfy spec-sync `--strict`).
+
 ## [v0.13.0] - 2026-04-23
 
 **The agent-surface release.** fledge is now designed for humans and AI agents to drive the same CLI. Pick any LLM backend — Claude CLI or Ollama (local, cloud, or self-hosted) — and they all speak the same spec-aware `fledge ask` / `fledge review`. Set `FLEDGE_NON_INTERACTIVE=1` once, get JSON on every read command, and let the AI commands automatically include the right spec context from your repo's design docs. See the new [AGENTS.md](./AGENTS.md) for the one-page guide.
