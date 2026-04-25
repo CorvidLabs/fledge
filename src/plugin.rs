@@ -108,6 +108,8 @@ pub enum PluginAction {
     },
     Update {
         name: Option<String>,
+        /// Update only the curated set of default plugins (DEFAULT_PLUGINS) — skip community plugins
+        defaults: bool,
     },
     List,
     Audit,
@@ -148,7 +150,7 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             defaults,
         } => install_action(source.as_deref(), force, defaults),
         PluginAction::Remove { name } => remove_plugin(&name),
-        PluginAction::Update { name } => update_plugins(name.as_deref()),
+        PluginAction::Update { name, defaults } => update_plugins(name.as_deref(), defaults),
         PluginAction::List => list_plugins(opts.json),
         PluginAction::Audit => audit_plugins(opts.json),
         PluginAction::Search {
@@ -733,24 +735,62 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn update_plugins(name: Option<&str>) -> Result<()> {
+fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
+    if defaults && name.is_some() {
+        bail!("--defaults updates the curated set; do not pass a plugin name alongside it.");
+    }
     let registry = load_registry()?;
 
-    let targets: Vec<&PluginEntry> = match name {
-        Some(n) => {
-            let entry = registry
-                .plugins
-                .iter()
-                .find(|p| p.name == n || p.name == format!("fledge-{n}"))
-                .ok_or_else(|| anyhow::anyhow!("Plugin '{n}' is not installed."))?;
-            vec![entry]
+    let targets: Vec<&PluginEntry> = if defaults {
+        // Match each installed plugin's source against the DEFAULT_PLUGINS
+        // list. Stored sources use either the shorthand `owner/repo` form
+        // (the install-time input) or the normalized URL — accept both.
+        // Plugins from the curated set get updated; every community plugin
+        // (figma, weather, e2e, ...) is left alone.
+        let is_default = |source: &str| -> bool {
+            DEFAULT_PLUGINS.iter().any(|d| {
+                source == *d
+                    || source == normalize_source(d)
+                    || source.trim_end_matches(".git").ends_with(d)
+            })
+        };
+        let matched: Vec<&PluginEntry> = registry
+            .plugins
+            .iter()
+            .filter(|p| is_default(&p.source))
+            .collect();
+        if matched.is_empty() {
+            println!(
+                "{} No default plugins are installed. Run {} first.",
+                style("*").cyan().bold(),
+                style("fledge plugins install --defaults").cyan()
+            );
+            return Ok(());
         }
-        None => {
-            if registry.plugins.is_empty() {
-                println!("{} No plugins installed.", style("*").cyan().bold());
-                return Ok(());
+        println!(
+            "{} Updating {} of {} default plugins...",
+            style("*").cyan().bold(),
+            matched.len(),
+            DEFAULT_PLUGINS.len()
+        );
+        matched
+    } else {
+        match name {
+            Some(n) => {
+                let entry = registry
+                    .plugins
+                    .iter()
+                    .find(|p| p.name == n || p.name == format!("fledge-{n}"))
+                    .ok_or_else(|| anyhow::anyhow!("Plugin '{n}' is not installed."))?;
+                vec![entry]
             }
-            registry.plugins.iter().collect()
+            None => {
+                if registry.plugins.is_empty() {
+                    println!("{} No plugins installed.", style("*").cyan().bold());
+                    return Ok(());
+                }
+                registry.plugins.iter().collect()
+            }
         }
     };
 
@@ -1869,6 +1909,37 @@ mod tests {
     fn install_action_requires_source_or_defaults() {
         let err = install_action(None, false, false).unwrap_err().to_string();
         assert!(err.contains("--defaults"));
+    }
+
+    #[test]
+    fn update_plugins_rejects_name_with_defaults() {
+        let err = update_plugins(Some("foo"), true).unwrap_err().to_string();
+        assert!(err.contains("--defaults"));
+    }
+
+    #[test]
+    fn default_source_match_recognizes_shorthand() {
+        // The matcher used by `update_plugins(.., defaults=true)` must
+        // recognize stored sources in any of three forms: bare shorthand,
+        // normalized URL, or URL without `.git`. This duplicates the
+        // closure in `update_plugins` to test the matching logic in
+        // isolation — keep the two in sync.
+        let is_default = |source: &str| -> bool {
+            DEFAULT_PLUGINS.iter().any(|d| {
+                source == *d
+                    || source == normalize_source(d)
+                    || source.trim_end_matches(".git").ends_with(d)
+            })
+        };
+        assert!(is_default("CorvidLabs/fledge-plugin-github"));
+        assert!(is_default(
+            "https://github.com/CorvidLabs/fledge-plugin-github.git"
+        ));
+        assert!(is_default(
+            "https://github.com/CorvidLabs/fledge-plugin-github"
+        ));
+        assert!(!is_default("CorvidLabs/fledge-plugin-figma"));
+        assert!(!is_default("someone/random-plugin"));
     }
 
     #[test]

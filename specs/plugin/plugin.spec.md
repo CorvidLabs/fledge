@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 9
+version: 10
 status: active
 files:
   - src/plugin.rs
@@ -157,6 +157,7 @@ pinned_ref = "v0.2.0"
 10. `--json` outputs structured data for all list/search operations
 11. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15: `fledge-plugin-{github,deps,metrics,templates-remote,doctor}` — the plugins that took over commands removed from core in the tight-core refactor
 12. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
+13. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
 
 ## Behavioral Examples
 
@@ -275,6 +276,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-04-25 | Add `fledge plugins update --defaults` — symmetric with install. Updates only the installed plugins from `DEFAULT_PLUGINS`, leaving community plugins alone. Mutually exclusive with a positional plugin name. |
 | 9 | 2026-04-25 | Add `fledge plugins install --defaults` for one-command bulk install of the curated `DEFAULT_PLUGINS` set. Source positional becomes optional when --defaults is used. Per-plugin failures don't abort the bulk install. |
 | 8 | 2026-04-23 | Add trust tiers (official/community/unverified) and `audit` subcommand; trust tier shown in list, install, and JSON output |
 | 7 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
