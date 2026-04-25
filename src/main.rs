@@ -621,6 +621,9 @@ enum PluginSubcommand {
     Update {
         /// Plugin name (omit to update all)
         name: Option<String>,
+        /// Update only fledge's curated default plugins (skip community plugins)
+        #[arg(long, conflicts_with = "name")]
+        defaults: bool,
     },
     /// List installed plugins
     List,
@@ -924,7 +927,9 @@ fn run() -> Result<()> {
                     defaults,
                 },
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
-                PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },
+                PluginSubcommand::Update { name, defaults } => {
+                    plugin::PluginAction::Update { name, defaults }
+                }
                 PluginSubcommand::List => plugin::PluginAction::List,
                 PluginSubcommand::Audit => plugin::PluginAction::Audit,
                 PluginSubcommand::Search {
