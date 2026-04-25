@@ -24,12 +24,9 @@ Plugin system for community extensions. Plugins are external executables that re
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point — install, list, remove, or run plugins |
-| `PluginOptions` | Options for the plugin subcommand |
-| `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
-| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
-| `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
+| `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
 
 ### Structs & Enums
 
