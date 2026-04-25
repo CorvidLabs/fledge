@@ -1,20 +1,21 @@
 ---
 module: search
-version: 1
+version: 2
 status: active
 files:
   - src/search.rs
 
 db_tables: []
-depends_on:
-  - config
+depends_on: []
 ---
 
 # Search
 
 ## Purpose
 
-Discovers fledge-compatible templates on GitHub by searching for repositories tagged with the `fledge-template` topic. Allows users to find community templates, view details, and use them directly with `fledge init`.
+Library helpers for GitHub topic-based discovery. As of v0.15 this module is *internal* — the user-facing `templates search` command moved out to `fledge-plugin-templates-remote`. The remaining helpers are still consumed by `lanes search` (lane discovery), `plugins search` (plugin discovery), and `github_api_get` (URL encoding).
+
+The split is intentional: discovering "GitHub repos tagged with topic X" is a generic mechanism, but each consumer (templates, lanes, plugins) wires it to a different topic and renders results differently. Keeping the mechanism here as a library and the user-facing surfaces in their respective callers means a future GitLab-search backend can swap this module out without touching the callers.
 
 ## Public API
 
@@ -22,117 +23,88 @@ Discovers fledge-compatible templates on GitHub by searching for repositories ta
 
 | Export | Description |
 |--------|-------------|
-| `SearchOptions` | Options struct for the search command |
 | `SearchResult` | A single matching repository with metadata |
-| `run` | Entry point that queries GitHub and displays matching templates |
 | `full_name` | Method on `SearchResult` returning `owner/repo` string |
-| `build_search_query_ex` | Constructs GitHub search query string with topic, optional author filter |
-| `search_github_ex` | Executes GitHub search API call with extended options and parses results |
+| `build_search_query_ex` | Constructs a GitHub search query string with topic + optional keyword/author |
 | `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
-| `format_stars` | Formats star count with `k` suffix for thousands |
+| `format_stars` | Formats a star count with `k` suffix for thousands |
 | `urlencod` | URL-encodes a string for use in query parameters |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `SearchOptions` | Command options: optional query string, limit, JSON output flag |
-| `SearchResult` | A single matching repository with name, description, owner, stars, URL |
-
-### Traits
-
-| Trait | Description |
-|-------|-------------|
+| `SearchResult` | A single matching repository: owner, name, description, stars, url, topics |
 
 ### Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(SearchOptions) -> Result<()>` | Search GitHub API for fledge-template repos, display results |
 | `full_name` | `(&self) -> String` | Returns `owner/repo` format string for a `SearchResult` |
-| `build_search_query_ex` | `(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String` | Constructs GitHub search query with topic filter and optional author |
-| `search_github_ex` | `(keyword: Option<&str>, author: Option<&str>, token: Option<&str>, limit: usize, topic: &str) -> Result<Vec<SearchResult>>` | Execute GitHub search API call with extended options and parse results |
-| `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parse GitHub API JSON into search results |
-| `format_stars` | `(count: u64) -> String` | Format star count with `k` suffix for thousands |
-| `urlencod` | `(s: &str) -> String` | URL-encode a string for use in query parameters |
+| `build_search_query_ex` | `(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String` | Constructs a GitHub search query string |
+| `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parses GitHub search API JSON |
+| `format_stars` | `(count: u64) -> String` | Formats star count: `42`, `1.5k`, `123k` |
+| `urlencod` | `(s: &str) -> String` | Percent-encodes a string for query parameters |
 
 ## Invariants
 
-1. Always searches for repos with the `fledge-template` topic
-2. Optional keyword query narrows results within that topic
-3. Results are sorted by stars (descending) by default
-4. Works without authentication (lower rate limit) but respects `github.token` config
-5. Limit defaults to 20 results
-6. Each result includes owner/repo reference usable with `fledge init -t owner/repo`
-7. JSON output mode (`--json`) prints machine-readable output
+1. Callers compose the actual API call — this module only builds the query, encodes parameters, and parses responses
+2. `build_search_query_ex` always emits the topic filter (`topic:<topic>`), placing it after any keyword and before any user filter so the resulting search string reads left-to-right
+3. `parse_search_response` is tolerant: missing `description` becomes `"No description"`; missing `stargazers_count` becomes `0`; missing `topics` becomes an empty list. An item without an `owner.login` is skipped
+4. `format_stars` uses `1.0k` formatting under 10k and `123k` (no decimal) above
+5. `urlencod` keeps `[A-Za-z0-9-_.~]` unreserved per RFC 3986 and percent-encodes everything else; spaces become `%20` (not `+`)
 
 ## Behavioral Examples
 
-### Scenario: Basic search with no query
+### build_search_query_ex
+```rust
+build_search_query_ex(None, None, "fledge-template")
+// "topic:fledge-template"
 
-- **Given** GitHub has repos tagged `fledge-template`
-- **When** `fledge search` is run
-- **Then** displays up to 20 repos sorted by stars with name, description, owner, stars
+build_search_query_ex(Some("rust"), None, "fledge-template")
+// "rust in:name,description,topics topic:fledge-template"
 
-### Scenario: Search with keyword filter
+build_search_query_ex(Some("rust"), Some("CorvidLabs"), "fledge-template")
+// "rust in:name,description,topics topic:fledge-template user:CorvidLabs"
+```
 
-- **Given** GitHub has repos tagged `fledge-template`
-- **When** `fledge search rust` is run
-- **Then** displays repos matching both the topic and keyword "rust"
+### format_stars
+```rust
+format_stars(42)     // "42"
+format_stars(1500)   // "1.5k"
+format_stars(123456) // "123k"
+```
 
-### Scenario: Custom limit
-
-- **Given** user passes `--limit 5`
-- **When** search executes
-- **Then** displays at most 5 results
-
-### Scenario: JSON output
-
-- **Given** user passes `--json`
-- **When** search executes
-- **Then** outputs JSON array of result objects instead of formatted table
-
-### Scenario: No results found
-
-- **Given** no repos match the search criteria
-- **When** search executes
-- **Then** prints "No templates found." message
-
-### Scenario: API rate limit exceeded
-
-- **Given** GitHub returns 403 rate limit error
-- **When** search executes
-- **Then** returns friendly error suggesting `fledge config set github.token`
+### urlencod
+```rust
+urlencod("hello world")        // "hello%20world"
+urlencod("topic:fledge-template")  // "topic%3Afledge-template"
+```
 
 ## Error Cases
 
 | Condition | Behavior |
 |-----------|----------|
-| No internet / DNS failure | Returns error with connection context |
-| GitHub API rate limit (403) | Returns error suggesting token configuration |
-| GitHub API error (5xx) | Returns error with status code |
-| Malformed API response | Returns parse error with context |
+| Malformed API response (missing `items` array) | `parse_search_response` returns `Err` with context |
+| Item missing `owner.login` | Item is silently skipped — keeps the rest of the response usable |
 
 ## Dependencies
 
-### Consumes
-
 | Crate/Module | What is used |
 |-------------|-------------|
-| `ureq` | HTTP client for GitHub API |
-| `serde_json` | JSON parsing of API responses |
-| `console` | `style` for colored output |
-| `anyhow` | Error handling |
-| `config` | `Config::load()`, `github_token()` for authentication |
+| `serde` / `serde_json` | `SearchResult` derive + JSON parsing of API responses |
 
-### Consumed By
+## Consumed By
 
 | Module | What is used |
 |--------|-------------|
-| `main` | `run()`, `SearchOptions` for the `search` subcommand |
+| `lanes` | `build_search_query_ex`, `parse_search_response`, `format_stars` for `fledge lanes search` |
+| `plugin` | `build_search_query_ex` for `fledge plugins search` |
+| `github` | `urlencod` for `github_api_get` query parameters |
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-19 | CorvidAgent | Initial spec |
+| Version | Date | Changes |
+|---------|------|---------|
+| 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex` — the user-facing `templates search` command lives in `fledge-plugin-templates-remote` now. This module is a library of query/parse helpers consumed by `lanes`, `plugins`, and `github`. |
+| 1 | 2026-04-19 | Initial spec |

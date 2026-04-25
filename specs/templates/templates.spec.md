@@ -1,6 +1,6 @@
 ---
 module: templates
-version: 4
+version: 5
 status: active
 files:
   - src/templates.rs
@@ -30,7 +30,6 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `discover_templates` | Scans built-in and extra directories for valid templates |
 | `discover_templates_with_repos` | Discovers templates from local paths and remote GitHub repos |
 | `render_template` | Renders a template's files into a target directory using Tera variable substitution |
-| `load_templates_from_dir_pub` | Loads templates from a specific directory into a mutable vector |
 | `matches_glob_pub` | Tests whether a file path matches a glob pattern |
 | `check_requirements` | Checks which required tools from `template.toml` are available on PATH |
 
@@ -57,7 +56,6 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `discover_templates` | `(&[PathBuf]) -> Result<Vec<Template>>` | Find all templates from built-in and extra paths |
 | `discover_templates_with_repos` | `(&[PathBuf], &[String], Option<&str>) -> Result<Vec<Template>>` | Find templates from local paths and remote GitHub repos |
 | `render_template` | `(&Template, &Path, &tera::Context) -> Result<Vec<PathBuf>>` | Render template files into target directory |
-| `load_templates_from_dir_pub` | `(&Path, &mut Vec<Template>) -> Result<()>` | Load templates from a directory into a vector |
 | `matches_glob_pub` | `(&str, &str) -> bool` | Test if a path matches a glob pattern |
 | `check_requirements` | `(&[String]) -> (Vec<String>, Vec<String>)` | Returns (found, missing) tools from PATH |
 
@@ -155,3 +153,4 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | 2026-04-18 | CorvidAgent | v2: Fill in export descriptions, add invariants for sort order and directory resolution, expand behavioral examples and error cases |
 | 2026-04-18 | CorvidAgent | v3: Add discover_templates_with_repos for remote GitHub template support |
 | 2026-04-20 | CorvidAgent | v4: Add check_requirements for template tool dependency checking |
+| 2026-04-25 | 0xLeif | v5: Remove `load_templates_from_dir_pub` (was only used by deleted `templates update` and `templates publish`); now an internal `fn` |
