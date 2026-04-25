@@ -90,10 +90,10 @@ fledge plugins install --defaults
 | [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` | the GitHub-specific browsing trio |
 | [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` | polyglot lockfile audits |
 | [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` | LOC/churn/test-ratio (now via `tokei` + `git`) |
-| [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) | `templates-search`, `templates-publish` | GitHub template registry |
-| [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor) | `doctor-tools` | toolchain probes (rust/node/python/swift/...) |
 
-Why split them out? Because not every fledge user is on GitHub, runs a polyglot project, or cares about LOC counts. The core stays tight; you opt in to what you need.
+Why split them out? Because not every fledge user is on GitHub or runs a polyglot project. The core stays tight; you opt in to what you need.
+
+(`fledge-plugin-templates-remote` and `fledge-plugin-doctor` were dropped from the default set in v0.15.2 and re-absorbed into core: `fledge templates search`/`publish` and the `Toolchains` section of `fledge doctor`. The standalone plugin repos still exist but are no longer part of `--defaults`.)
 
 ## Built-in Templates
 

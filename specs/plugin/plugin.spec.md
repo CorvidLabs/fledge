@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 10
+version: 11
 status: active
 files:
   - src/plugin.rs
@@ -155,7 +155,7 @@ pinned_ref = "v0.2.0"
 9. `plugin search` uses GitHub topic search (same as template search)
 9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
 10. `--json` outputs structured data for all list/search operations
-11. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15: `fledge-plugin-{github,deps,metrics,templates-remote,doctor}` — the plugins that took over commands removed from core in the tight-core refactor
+11. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
 12. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
 13. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
 
@@ -276,6 +276,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11 | 2026-04-25 | Trim `DEFAULT_PLUGINS` from 5 entries to 3. `fledge-plugin-templates-remote` was duplicating the in-tree `search.rs`/`publish.rs` helpers in shell — re-absorbed into core (`fledge templates search`/`publish`). `fledge-plugin-doctor` was 110 LOC of shell parallel to core doctor — re-absorbed as the informational `Toolchains` section. Default set is now `{github, deps, metrics}`. |
 | 10 | 2026-04-25 | Add `fledge plugins update --defaults` — symmetric with install. Updates only the installed plugins from `DEFAULT_PLUGINS`, leaving community plugins alone. Mutually exclusive with a positional plugin name. |
 | 9 | 2026-04-25 | Add `fledge plugins install --defaults` for one-command bulk install of the curated `DEFAULT_PLUGINS` set. Source positional becomes optional when --defaults is used. Per-plugin failures don't abort the bulk install. |
 | 8 | 2026-04-23 | Add trust tiers (official/community/unverified) and `audit` subcommand; trust tier shown in list, install, and JSON output |

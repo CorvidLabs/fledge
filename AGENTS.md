@@ -12,7 +12,7 @@ If you are about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr cre
 
 ```bash
 export FLEDGE_NON_INTERACTIVE=1               # silence every prompt
-fledge plugins install --defaults             # curated plugin set: github, deps, metrics, templates-remote, doctor
+fledge plugins install --defaults             # curated plugin set: github, deps, metrics
 fledge introspect --json                       # dump the full command tree (incl. plugin commands)
 fledge spec list --json                        # orient to the codebase via specs
 ```
@@ -75,10 +75,8 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge prs --json` / `fledge prs view <n> --json` | `fledge-plugin-github` | GitHub PRs — list or one |
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, …) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
-| `fledge templates-search --json` / `templates-publish` | `fledge-plugin-templates-remote` | GitHub registry of fledge templates |
-| `fledge doctor-tools --json` | `fledge-plugin-doctor` | Array of `{tool, group, status, version}` for installed toolchains |
 
-Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `templates publish` (plugin), `templates create`, `watch`, `release`, `ai use`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `templates publish`, `templates create`, `watch`, `release`, `ai use`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
 
 ## Non-interactive mode (the one-switch answer)
 
@@ -102,7 +100,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 | `fledge plugins publish` | Skip confirmations |
 | `fledge plugins create` | Skip scaffolding prompts |
 | `fledge lane publish` | Skip description prompt |
-| `fledge templates-publish` (plugin) | Skip the confirmation prompt |
+| `fledge templates publish` | Skip the confirmation prompt |
 
 Prompts that have **no sensible default** (e.g. `fledge ai use` being asked to pick a provider when none was specified) fail fast with a clear error naming the flag to pass instead. No silent hangs.
 

@@ -1,6 +1,6 @@
 ---
 module: publish
-version: 3
+version: 4
 status: active
 files:
   - src/publish.rs
@@ -14,7 +14,7 @@ depends_on:
 
 ## Purpose
 
-Shared GitHub-publishing helpers used by `lanes publish` and `plugins publish`: authenticate to GitHub, create or check a repo, set topics, and push a directory. As of v0.15 this module is a *library* — the user-facing `templates publish` command moved out to `fledge-plugin-templates-remote`, so the publish module no longer exposes a `run`/`PublishOptions` entry point or `validate_template`. Other modules consume the lower-level helpers directly.
+Shared GitHub-publishing helpers used by `templates publish`, `lanes publish`, and `plugins publish`: authenticate to GitHub, create or check a repo, set topics, and push a directory. The module is a library of helpers — there is no `run`/`PublishOptions` entry point; each caller drives the flow itself with the topic and validation that suit it.
 
 ## Public API
 
@@ -46,7 +46,7 @@ Shared GitHub-publishing helpers used by `lanes publish` and `plugins publish`: 
 2. `create_github_repo` returns a clear error message for the common failure modes — 422 (name conflict / invalid name), 403 (insufficient scope) — so callers don't have to interpret raw HTTP codes
 3. `push_directory` uses an in-memory `http.extraheader` env-injection trick to avoid embedding the token in the persisted git remote; the remote is reset to a clean URL after the push
 4. `set_repo_topic` is additive — it merges the new topic into the existing topic set rather than replacing the whole list
-5. Caller modules (`lanes publish`, `plugins publish`, `fledge-plugin-templates-remote`) are responsible for the user-facing concerns: validating template/lane/plugin manifests, prompting for confirmation, formatting output
+5. Caller modules (`templates publish`, `lanes publish`, `plugins publish`) are responsible for the user-facing concerns: validating template/lane/plugin manifests, prompting for confirmation, formatting output
 
 ## Behavioral Examples
 
@@ -93,6 +93,7 @@ set_repo_topic("CorvidLabs", "my-template", "fledge-template", token)?;
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 3 | 2026-04-25 | v0.15 tight-core: removed the `run` / `PublishOptions` / `validate_template` / `set_repo_topics` exports. The user-facing `templates publish` command now lives in `fledge-plugin-templates-remote`; this module is a library of shared helpers for the remaining in-core publish callers (`lanes publish`, `plugins publish`). |
+| 4 | 2026-04-25 | `templates publish` re-absorbed into core (`main.rs::publish_template`); `fledge-plugin-templates-remote` was duplicating these helpers in shell and is dropped from `DEFAULT_PLUGINS`. Module remains a library of helpers consumed by `templates publish`, `lanes publish`, and `plugins publish`. |
+| 3 | 2026-04-25 | v0.15 tight-core: removed the `run` / `PublishOptions` / `validate_template` / `set_repo_topics` exports. The user-facing `templates publish` command lived in `fledge-plugin-templates-remote` then. |
 | 2 | 2026-04-22 | Updated exports for plugin/lane publish support; document newly-public helpers |
 | 1 | 2026-04-19 | Initial spec |

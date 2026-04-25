@@ -18,8 +18,6 @@ pub const DEFAULT_PLUGINS: &[&str] = &[
     "CorvidLabs/fledge-plugin-github",
     "CorvidLabs/fledge-plugin-deps",
     "CorvidLabs/fledge-plugin-metrics",
-    "CorvidLabs/fledge-plugin-templates-remote",
-    "CorvidLabs/fledge-plugin-doctor",
 ];
 
 #[derive(Debug, Deserialize)]
