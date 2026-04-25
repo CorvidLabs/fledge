@@ -27,6 +27,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
 | `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
+| `PluginOptions` | Options for the plugin subcommand |
+| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 
 ### Structs & Enums
 
