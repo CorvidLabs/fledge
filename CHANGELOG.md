@@ -43,6 +43,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.15.1] - 2026-04-25
+
+**Patch release — symmetric `update --defaults`.**
+
+### Added
+
+- **`fledge plugins update --defaults`** (#257) — symmetric with the v0.15 `install --defaults` flag. Updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, leaving community plugins untouched. Source matching is tolerant of all three forms a plugin's stored `source` can take: `owner/repo` shorthand, normalized URL, and URL without `.git`. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0.
+
+### Spec bumps
+
+- `plugin` v9 → v10
+
 ## [v0.15.0] - 2026-04-24
 
 **The tight-core release.** v0.15 keeps the load-bearing pillars — templates, lanes, plugins, spec-sync, AI (ask/review/multi-model), work, run, release — and removes everything else from the core binary. The signature is now: *one Rust binary, six pillars, spec-driven by default*. Anything ecosystem-specific or platform-specific (GitHub clients, language toolchain probes, lockfile parsers, vanity metrics) belongs in plugins where it can evolve independently and not bloat the binary for users who don't need it.
