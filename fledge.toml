@@ -56,6 +56,7 @@ steps = [{ parallel = ["fmt", "lint"] }, "test", "build"]
 
 [release]
 # Extra files whose `version "X.Y.Z"` lines should be bumped alongside Cargo.toml.
-# `flake.nix` matches the existing release.rs regex; `Formula/fledge.rb` is
-# handled by a Formula-specific bumper in release.rs (see bump_homebrew_formula).
-files = ["flake.nix", "Formula/fledge.rb"]
+# Formula/fledge.rb is intentionally NOT here — Homebrew formulae need both the
+# version AND fresh sha256s that don't exist until release.yml uploads binaries.
+# A separate post-release workflow handles the formula update once shas exist.
+files = ["flake.nix"]

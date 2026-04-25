@@ -13,19 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`fledge templates search`** and **`fledge templates publish`** — re-absorbed from `fledge-plugin-templates-remote`. Same flags (`--author`, `--limit`, `--json` for search; `--org`, `--private`, `--description`, `--yes` for publish) and identical JSON shapes. The plugin was a shell wrapper around `src/search.rs`/`src/publish.rs` modules that fledge already used internally — re-exposing the templates flavor in core eliminates the duplicate implementation. (#260)
 - **`fledge doctor` Toolchains section** — re-absorbed from `fledge-plugin-doctor`. Probes 16 toolchains across rust/node/python/go/ruby/swift/JVM. Marked **informational**: missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals (a Python project shouldn't fail because Swift is absent). (#260)
-- **`[release].files` Homebrew support** — release auto-bump now handles the Homebrew DSL's `version "X"` syntax (no `=`), and resets `sha256` lines to `PLACEHOLDER` on bump (the new release's shas don't exist at bump time and must be filled in post-build). (#259)
+- **Post-release formula workflow** (`.github/workflows/post-release-formula.yml`) — runs after the `Release` workflow finishes uploading binaries + their `.sha256` sidecars. Fetches the real shas, rewrites `Formula/fledge.rb` with the new version + shas, and opens a PR. This is the only correct moment to bump the formula — at `fledge release` time the new version's binaries don't exist yet, so any pre-build sha would be a lie. (#261)
 
 ### Changed
 
 - **`DEFAULT_PLUGINS` is now 3 entries**: `github`, `deps`, `metrics`. `fledge plugins install --defaults` no longer pulls `templates-remote` or `doctor` (their commands are in core). Existing users who previously installed the dropped plugins can remove them with `fledge plugins remove`. (#260)
 - **`fledge-plugin-metrics` rewritten in Rust** — links `tokei` as a library (no separate `cargo install tokei`), uses the `ignore` crate for gitignore-aware walking, and emits stable plugin-owned JSON shapes instead of pass-through `tokei --output json`. Auto-detected build via `Cargo.toml`. (CorvidLabs/fledge-plugin-metrics#1)
-- **`fledge.toml` gains `[release].files`** — `flake.nix` and `Formula/fledge.rb` now bump alongside `Cargo.toml` on every release. (#259)
+- **`fledge.toml` gains `[release].files`** — `flake.nix` now bumps alongside `Cargo.toml` on every release. (`Formula/fledge.rb` is intentionally excluded; see the post-release workflow above.) (#259)
 - **`Section.informational: bool`** added to the doctor report; informational sections appear in `--json` output but are excluded from the passed/failed counts. (#260)
 
 ### Fixed
 
 - **Nix flake version**: 0.9.1 → 0.15.1 → 0.15.2. Cosmetic (the lockfile drives the actual build), but the label was misleading. (#259)
-- **Homebrew formula**: 0.9.0 (with `sha256 "PLACEHOLDER"` ×3 — never actually installed since the formula was added) → 0.15.1 with real sha256 hashes pulled from the v0.15.1 release artifacts → 0.15.2. (#259)
+- **Homebrew formula**: 0.9.0 (with `sha256 "PLACEHOLDER"` ×3 — never actually installed since the formula was added) → 0.15.1 with real sha256 hashes pulled from the v0.15.1 release artifacts. The formula will move to v0.15.2 automatically once the post-release workflow runs against the v0.15.2 tag and opens a PR. (#259, #261)
 - **`CLAUDE.md` src/ list** refreshed: dropped 6 files removed in the v0.15 tight-core refactor (`checks.rs`, `deps.rs`, `metrics.rs`, `issues.rs`, `prs.rs`, `update.rs`); added 9 real files that were missing (`ai.rs`, `introspect.rs`, `llm.rs`, `meta.rs`, `protocol.rs`, `spinner.rs`, `trust.rs`, `utils.rs`, `watch.rs`). (#259)
 
 ### Deprecated
@@ -35,44 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Spec bumps
 
 - `search` v3, `publish` v4, `doctor` v6 (full rewrite for the Toolchains section + the informational Section field), `plugin` v11 (DEFAULT_PLUGINS shrink + 2 export rows added to satisfy spec-sync `--strict`).
-
-## [v0.13.0] - 2026-04-23
-
-**The agent-surface release.** fledge is now designed for humans and AI agents to drive the same CLI. Pick any LLM backend — Claude CLI or Ollama (local, cloud, or self-hosted) — and they all speak the same spec-aware `fledge ask` / `fledge review`. Set `FLEDGE_NON_INTERACTIVE=1` once, get JSON on every read command, and let the AI commands automatically include the right spec context from your repo's design docs. See the new [AGENTS.md](./AGENTS.md) for the one-page guide.
-
-### Added
-
-- **`AGENTS.md`** at the repo root plus `docs/src/agents.md` — canonical one-page guide for AI agents driving fledge, covering the machine-readable surface, non-interactive mode, provider selection, and typical workflows (#242)
-- **LLM provider abstraction + Ollama support** — `fledge ask` and `fledge review` now route through a `LlmProvider` trait. Two implementations ship in core: Claude CLI (default, unchanged) and Ollama. The Ollama provider covers the local daemon, Ollama Cloud / Turbo (with `OLLAMA_API_KEY`), and any self-hosted Ollama-speaking endpoint in one impl. Select via `ai.provider` config, `FLEDGE_AI_PROVIDER` env, or `--provider {claude,ollama}` per invocation. (#250)
-- **`fledge introspect [--json]`** — dumps the full clap command tree (every subcommand, every arg, every alias) as nested JSON or an indented listing. One call teaches an agent the entire CLI (#248)
-- **`fledge spec list [--json]`** (alias `ls`) and **`fledge spec show <name> [--json]`** — enumerate and inspect specs programmatically (#242)
-- **`fledge spec check --json`** — structured validation output with per-spec errors/warnings (#246)
-- **`fledge ask`** is spec-aware by default: every invocation prepends a compact index of the project's specs. New `--with-specs <names>` loads full spec + companion bundles for named modules (`all` supported); `--no-spec-index` for off-topic questions. JSON output gains `provider` and `model` fields. (#244, #250)
-- **`fledge review`** auto-detects relevant specs from the diff's changed-file list (matches each spec's `files:` frontmatter and the `<specs_dir>/<name>/` prefix, honoring custom `specs_dir`). New `--with-specs` to force-include; `--no-auto-specs` to disable. JSON output gains `spec_context`, `provider`, and `model` arrays. (#245, #250)
-- **`fledge work start --json`**, **`fledge work pr --json`**, **`fledge work status --json`** — structured output for scripting branch and PR workflows. `status` distinguishes `behind: null` (base not fetched) from `behind: 0` (up to date) (#246)
-- **Global `--non-interactive` flag** (alias `--ni`) and **`FLEDGE_NON_INTERACTIVE` env var** — one switch that treats every confirmation prompt as `--yes`/`--force` and bails with an actionable error on prompts that have no default (#247)
-- **`fledge doctor` dual-provider AI section** — detects both `claude` and `ollama` binaries, reports the active provider, and probes the Ollama host's `/api/tags` with a 3-second timeout. Distinguishes "daemon down" from "not installed" from "typo in `ai.provider`" (#250)
-- **New `[ai]` config section** — `ai.provider`, `ai.claude.model`, `ai.ollama.{host,api_key,model}`. Env var overrides: `FLEDGE_AI_PROVIDER`, `FLEDGE_AI_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `FLEDGE_AI_TIMEOUT`. All follow the CLI > env > config > default precedence. (#250)
-- Completed companion-file set for the `trust` spec module (#241)
-
-### Changed
-
-- README gains a short "Working with AI agents?" callout near the top pointing to `AGENTS.md` — mentions both Claude CLI and Ollama paths (#248, #250)
-- Prompt constraints on `fledge review` explicitly tell the active provider to treat specs as context-only and review only the diff itself — no suggestions on unchanged code, no critique of the specs (#245)
-- `fledge work pr` URL parsing is now robust to trailing slashes, query strings, and subpaths (`/pull/42/files`, `/pull/42?x=1`, etc.) (#246)
-
-### Fixed
-
-- `fledge work status --json`'s `behind` field no longer silently reports `0` when `git rev-list` can't compute it (base branch not fetched) — emits `null` instead so agents can tell "needs fetch" from "up to date" (#246)
-- `fledge doctor` no longer silently falls back to Claude when `ai.provider` is set to an invalid value; it now surfaces the parse error as an Error-level check (#250)
-- `OllamaProvider` distinguishes HTTP status errors (401, 404, 500) from connection failures, so users get a clean "endpoint returned HTTP 500" message instead of "decoding response" (#250)
-
-### Spec bumps
-
-- `ask` v2 → v4, `review` v4 → v6, `spec` v2 → v5, `work` v5 → v6, `main` v2 → v5, `config` v6 → v7, `doctor` v2 → v3
-- New module specs: `introspect` v1, `llm` v1, `trust` v1 companion files
-
-## [Unreleased]
 
 ## [v0.15.1] - 2026-04-25
 
@@ -161,13 +123,49 @@ The following commands and their modules left core. Some will return as plugins;
 - `work` v6 → v8, `config` v7 → v8, `doctor` v3 → v4, `llm` v1 → v2
 - New module spec: `ai` v1
 
-## [0.12.1] - 2026-04-23
+## [v0.13.0] - 2026-04-23
+
+**The agent-surface release.** fledge is now designed for humans and AI agents to drive the same CLI. Pick any LLM backend — Claude CLI or Ollama (local, cloud, or self-hosted) — and they all speak the same spec-aware `fledge ask` / `fledge review`. Set `FLEDGE_NON_INTERACTIVE=1` once, get JSON on every read command, and let the AI commands automatically include the right spec context from your repo's design docs. See the new [AGENTS.md](./AGENTS.md) for the one-page guide.
+
+### Added
+
+- **`AGENTS.md`** at the repo root plus `docs/src/agents.md` — canonical one-page guide for AI agents driving fledge, covering the machine-readable surface, non-interactive mode, provider selection, and typical workflows (#242)
+- **LLM provider abstraction + Ollama support** — `fledge ask` and `fledge review` now route through a `LlmProvider` trait. Two implementations ship in core: Claude CLI (default, unchanged) and Ollama. The Ollama provider covers the local daemon, Ollama Cloud / Turbo (with `OLLAMA_API_KEY`), and any self-hosted Ollama-speaking endpoint in one impl. Select via `ai.provider` config, `FLEDGE_AI_PROVIDER` env, or `--provider {claude,ollama}` per invocation. (#250)
+- **`fledge introspect [--json]`** — dumps the full clap command tree (every subcommand, every arg, every alias) as nested JSON or an indented listing. One call teaches an agent the entire CLI (#248)
+- **`fledge spec list [--json]`** (alias `ls`) and **`fledge spec show <name> [--json]`** — enumerate and inspect specs programmatically (#242)
+- **`fledge spec check --json`** — structured validation output with per-spec errors/warnings (#246)
+- **`fledge ask`** is spec-aware by default: every invocation prepends a compact index of the project's specs. New `--with-specs <names>` loads full spec + companion bundles for named modules (`all` supported); `--no-spec-index` for off-topic questions. JSON output gains `provider` and `model` fields. (#244, #250)
+- **`fledge review`** auto-detects relevant specs from the diff's changed-file list (matches each spec's `files:` frontmatter and the `<specs_dir>/<name>/` prefix, honoring custom `specs_dir`). New `--with-specs` to force-include; `--no-auto-specs` to disable. JSON output gains `spec_context`, `provider`, and `model` arrays. (#245, #250)
+- **`fledge work start --json`**, **`fledge work pr --json`**, **`fledge work status --json`** — structured output for scripting branch and PR workflows. `status` distinguishes `behind: null` (base not fetched) from `behind: 0` (up to date) (#246)
+- **Global `--non-interactive` flag** (alias `--ni`) and **`FLEDGE_NON_INTERACTIVE` env var** — one switch that treats every confirmation prompt as `--yes`/`--force` and bails with an actionable error on prompts that have no default (#247)
+- **`fledge doctor` dual-provider AI section** — detects both `claude` and `ollama` binaries, reports the active provider, and probes the Ollama host's `/api/tags` with a 3-second timeout. Distinguishes "daemon down" from "not installed" from "typo in `ai.provider`" (#250)
+- **New `[ai]` config section** — `ai.provider`, `ai.claude.model`, `ai.ollama.{host,api_key,model}`. Env var overrides: `FLEDGE_AI_PROVIDER`, `FLEDGE_AI_MODEL`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `FLEDGE_AI_TIMEOUT`. All follow the CLI > env > config > default precedence. (#250)
+- Completed companion-file set for the `trust` spec module (#241)
+
+### Changed
+
+- README gains a short "Working with AI agents?" callout near the top pointing to `AGENTS.md` — mentions both Claude CLI and Ollama paths (#248, #250)
+- Prompt constraints on `fledge review` explicitly tell the active provider to treat specs as context-only and review only the diff itself — no suggestions on unchanged code, no critique of the specs (#245)
+- `fledge work pr` URL parsing is now robust to trailing slashes, query strings, and subpaths (`/pull/42/files`, `/pull/42?x=1`, etc.) (#246)
+
+### Fixed
+
+- `fledge work status --json`'s `behind` field no longer silently reports `0` when `git rev-list` can't compute it (base branch not fetched) — emits `null` instead so agents can tell "needs fetch" from "up to date" (#246)
+- `fledge doctor` no longer silently falls back to Claude when `ai.provider` is set to an invalid value; it now surfaces the parse error as an Error-level check (#250)
+- `OllamaProvider` distinguishes HTTP status errors (401, 404, 500) from connection failures, so users get a clean "endpoint returned HTTP 500" message instead of "decoding response" (#250)
+
+### Spec bumps
+
+- `ask` v2 → v4, `review` v4 → v6, `spec` v2 → v5, `work` v5 → v6, `main` v2 → v5, `config` v6 → v7, `doctor` v2 → v3
+- New module specs: `introspect` v1, `llm` v1, `trust` v1 companion files
+
+## [v0.12.1] - 2026-04-23
 
 ### Added
 
 - Swift (Package.swift) and Kotlin (Gradle/Maven) dependency support in `fledge deps` (#239)
 
-## [0.12.0] - 2026-04-23
+## [v0.12.0] - 2026-04-23
 
 ### Added
 
@@ -186,13 +184,13 @@ The following commands and their modules left core. Some will return as plugins;
 
 - CLI commands reordered alphabetically for consistency (#237)
 
-## [0.11.1] - 2026-04-23
+## [v0.11.1] - 2026-04-23
 
 ### Added
 
 - `fledge run --json` flag for structured JSON output — improves AI agent usability (#228)
 
-## [0.11.0] - 2026-04-23
+## [v0.11.0] - 2026-04-23
 
 ### Added
 
@@ -211,7 +209,7 @@ The following commands and their modules left core. Some will return as plugins;
 
 - CONTRIBUTING.md fully dogfoods fledge — uses `fledge run`, `fledge lanes`, and `fledge work` instead of raw cargo commands (#223, #225, #226)
 
-## [0.10.0] - 2026-04-22
+## [v0.10.0] - 2026-04-22
 
 ### Added
 
@@ -246,13 +244,13 @@ The following commands and their modules left core. Some will return as plugins;
 - Removed TUI module — will be reimplemented as a plugin (#204)
 - CLI documentation updated to match current subcommand structure (#202)
 
-## [0.9.1] - 2026-04-21
+## [v0.9.1] - 2026-04-21
 
 ### Fixed
 
 - Release workflow: use `cp` instead of `mv` in checksum step to fix artifact packaging with `download-artifact@v4` (#173)
 
-## [0.9.0] - 2026-04-21
+## [v0.9.0] - 2026-04-21
 
 ### Added
 
@@ -304,7 +302,7 @@ The following commands and their modules left core. Some will return as plugins;
 - Homebrew formula updated to 0.9.0
 - CLI commands reorganized: `fledge templates`, `fledge lanes`, `fledge plugins` with subcommands
 
-## [0.8.0] - 2026-04-19
+## [v0.8.0] - 2026-04-19
 
 ### Added
 
@@ -313,7 +311,7 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge doctor` - environment diagnostics (toolchain versions, missing dependencies, config validation)
 - JSON output for all three commands (`--json`)
 
-## [0.7.0] - 2026-04-19
+## [v0.7.0] - 2026-04-19
 
 ### Added
 
@@ -327,7 +325,13 @@ The following commands and their modules left core. Some will return as plugins;
 - Split Java detection into Gradle/Maven, reinstated `/target/` in `.gitignore`
 - Removed invalid `--prompt` flag from Claude CLI calls in `fledge ask`/`fledge review`
 
-## [0.6.0] - 2026-04-19
+## [v0.6.1] - 2026-04-19
+
+### Fixed
+
+- Add missing `version` field in `TemplateInfo` constructor — the v0.6.0 crates.io publish was built before this fix landed and didn't compile, so v0.6.1 is a republish of the same feature set with the build error resolved.
+
+## [v0.6.0] - 2026-04-19
 
 ### Added
 
@@ -337,7 +341,7 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge completions --install` — auto-installs shell completions for bash, zsh, or fish
 - SHA256 checksums in GitHub releases
 
-## [0.5.0] - 2026-04-19
+## [v0.5.0] - 2026-04-19
 
 ### Added
 
@@ -346,7 +350,7 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge review` — AI-powered code review of current changes via Claude CLI
 - `fledge ask` — ask questions about your codebase via Claude CLI
 
-## [0.4.0] - 2026-04-19
+## [v0.4.0] - 2026-04-19
 
 ### Added
 
@@ -358,7 +362,7 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge work pr` — create a PR from the current branch
 - `fledge work status` — show current branch and PR status
 
-## [0.3.0] - 2026-04-19
+## [v0.3.0] - 2026-04-19
 
 ### Added
 
@@ -374,7 +378,20 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge config` — full subcommand interface (get/set/unset/add/remove/list/path)
 - mdBook documentation site on GitHub Pages
 
-## [0.1.0] - 2026-04-18
+## [v0.2.1] - 2026-04-18
+
+### Fixed
+
+- Templates were only discoverable via filesystem paths, so `cargo install` users got "No templates found" errors. Templates are now compiled into the binary with `include_dir` and extracted to a versioned cache directory on first use. (#25)
+
+## [v0.2.0] - 2026-04-18
+
+### Added
+
+- `cargo publish` step in the release workflow — tagging a release auto-publishes to crates.io. Includes a `cargo publish --dry-run` preflight to catch packaging errors before burning a version slot, and a `startsWith(github.ref, 'refs/tags/v')` guard for defense-in-depth. (#22)
+- Initial `CHANGELOG.md` (this file).
+
+## [v0.1.0] - 2026-04-18
 
 ### Added
 
