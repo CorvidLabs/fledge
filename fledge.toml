@@ -53,3 +53,9 @@ steps = ["lint", "fmt", "test", "audit"]
 [lanes.ci-fast]
 description = "CI with parallel static checks (faster on multi-core)"
 steps = [{ parallel = ["fmt", "lint"] }, "test", "build"]
+
+[release]
+# Extra files whose `version "X.Y.Z"` lines should be bumped alongside Cargo.toml.
+# `flake.nix` matches the existing release.rs regex; `Formula/fledge.rb` is
+# handled by a Formula-specific bumper in release.rs (see bump_homebrew_formula).
+files = ["flake.nix", "Formula/fledge.rb"]
