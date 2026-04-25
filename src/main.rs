@@ -228,7 +228,7 @@ enum Commands {
         #[command(subcommand)]
         action: SpecSubcommand,
     },
-    /// Manage templates (init, create, search, update, publish, validate, list)
+    /// Manage templates (init, create, validate, list)
     #[command(alias = "template")]
     Templates {
         #[command(subcommand)]
