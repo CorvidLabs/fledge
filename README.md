@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://corvidlabs.github.io/fledge/)
 
-**One CLI, your whole dev lifecycle.** Scaffold, build, review, ship — zero config for the common case.
+> **fledge: one Rust binary, six pillars, spec-driven by default. Templates scaffold, lanes run, plugins extend, spec-sync keeps the docs honest about the code — and any LLM drives the same CLI you do.**
 
 ```bash
 fledge templates init my-tool --template rust-cli
@@ -14,13 +14,15 @@ cd my-tool
 fledge lanes run ci  # lint + test + build, works out of the box
 ```
 
-> **Working with AI agents?** fledge has a first-class agent surface: every read command exposes `--json`, `FLEDGE_NON_INTERACTIVE=1` silences every prompt, `fledge ask` and `fledge review` are automatically spec-aware, and `fledge introspect --json` dumps the full command tree. Works with Claude CLI or Ollama (local, cloud, or self-hosted). See [AGENTS.md](./AGENTS.md) for the one-page guide.
+> **Working with AI agents?** fledge has a first-class agent surface: every read command exposes `--json`, `FLEDGE_NON_INTERACTIVE=1` silences every prompt, `fledge ask` and `fledge review` are automatically spec-aware, and `fledge introspect --json` dumps the full command tree. Works with Claude CLI or any Ollama-speaking endpoint (local, cloud, or self-hosted). See [AGENTS.md](./AGENTS.md) for the one-page guide.
 
 ## Install
 
 ```bash
-cargo install fledge              # from crates.io
-brew install CorvidLabs/tap/fledge # homebrew
+cargo install fledge                       # from crates.io
+brew install CorvidLabs/tap/fledge         # homebrew
+
+fledge plugins install --defaults          # one line to install the curated plugin set
 ```
 
 <details>
@@ -41,7 +43,9 @@ git clone https://github.com/CorvidLabs/fledge.git && cd fledge && cargo install
 ```bash
 fledge run test       # runs your language's test command
 fledge run build      # same for build
-fledge review         # AI code review via Claude
+fledge review         # single-model AI code review
+fledge review --with-model ollama:gpt-oss:120b-cloud,ollama:qwen3-coder:480b-cloud
+              # multi-model panel — same diff, parallel critiques, one merge decision
 ```
 
 **Starting fresh?** Scaffold from a template:
@@ -52,22 +56,50 @@ fledge templates init my-app --template user/repo    # any GitHub repo
 fledge templates init my-app                         # interactive picker
 ```
 
-## What's Inside
+**Switch AI providers in one line:**
 
-| Stage | Commands | What it does |
-|-------|----------|-------------|
-| **Start** | `templates` (`init`, `create`, `search`, `publish`, `validate`, `update`, `list`) | Scaffold projects from local or remote templates |
-| **Build** | `run`, `lanes`, `config`, `doctor` | Task runner, workflow pipelines, environment checks |
-| **Develop** | `work`, `spec` | Feature branches, PRs, spec-sync |
-| **Review** | `review`, `ask`, `metrics`, `deps` | AI code review, codebase Q&A, health checks |
-| **Ship** | `issues`, `prs`, `checks`, `changelog`, `release` | GitHub integration, CI status, releases |
-| **Extend** | `plugins`, `completions` | Community plugins, shell completions |
+```bash
+fledge ai use                                  # interactive picker (live model list for Ollama)
+fledge ai use ollama qwen3-coder:480b-cloud    # scriptable
+fledge ai status                               # shows provider, model, and where each value came from
+```
+
+## The Six Pillars
+
+| Pillar | Commands | What it does |
+|--------|----------|-------------|
+| **Scaffold** | `templates` (`init`, `create`, `validate`, `list`) | Local templates pillar — start any project |
+| **Run** | `run`, `lanes`, `watch` | Task runner, composable pipelines, file-watch reruns |
+| **Spec** | `spec` | spec-sync — modules declare their contract; AI uses it as context |
+| **AI** | `ai`, `ask`, `review` | Provider+model selection, spec-aware Q&A, single- and multi-model code review |
+| **Ship** | `work`, `release`, `changelog` | Branch + PR flow with AI-drafted bodies, version bump, tag, push |
+| **Extend** | `plugins`, `config`, `introspect`, `completions`, `doctor` | Plugin protocol, global config, command-tree introspection, env health |
+
+That's the whole core. **Anything else is a plugin.** See `fledge plugins install --defaults` below.
+
+## Default Plugins
+
+The plugins that took over commands removed from core in v0.15. Install all five with one command:
+
+```bash
+fledge plugins install --defaults
+```
+
+| Plugin | Adds | Replaces (pre-v0.15) |
+|--------|------|----------------------|
+| [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` | the GitHub-specific browsing trio |
+| [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` | polyglot lockfile audits |
+| [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` | LOC/churn/test-ratio (now via `tokei` + `git`) |
+| [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) | `templates-search`, `templates-publish` | GitHub template registry |
+| [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor) | `doctor-tools` | toolchain probes (rust/node/python/swift/...) |
+
+Why split them out? Because not every fledge user is on GitHub, runs a polyglot project, or cares about LOC counts. The core stays tight; you opt in to what you need.
 
 ## Built-in Templates
 
 `rust-cli` · `ts-bun` · `python-cli` · `go-cli` · `ts-node` · `static-site`
 
-Browse community templates: `fledge templates search <keyword>`
+Browse community templates with the remote-templates plugin: `fledge templates-search <keyword>`
 
 ## Examples
 

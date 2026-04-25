@@ -31,16 +31,18 @@ fledge lane ci     # same pipeline shape everywhere
 Get a second opinion on your changes without waiting for a human reviewer:
 
 ```bash
-fledge review                    # review all changes vs main
-fledge review --file src/auth.rs # focus on one file
+fledge review                                           # review with active model
+fledge review --file src/auth.rs                        # focus on one file
+fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
+                                                        # multi-model panel — parallel critiques
 ```
 
 ### Branch workflow without remembering git incantations
 
 ```bash
 fledge work start fix-login      # creates author/fix/fix-login, pushes
-fledge work pr                   # opens PR with auto-generated title
-fledge checks                    # watch CI status
+fledge work pr --ai              # AI-drafted body, preview + confirm
+fledge checks                    # watch CI status (via fledge-plugin-github)
 ```
 
 ## For Teams
@@ -73,8 +75,8 @@ fledge plugins install your-org/fledge-plugin-lint-config
 ### Dependency auditing across the stack
 
 ```bash
-fledge deps --outdated --audit --licenses
-# Works for Rust, Node, Go, Python, Ruby — one command
+fledge plugins install --defaults    # one-line install of fledge-plugin-deps + 4 others
+fledge deps --outdated --audit       # Works for Rust, Node, Python — auto-detected from lockfiles
 ```
 
 ## For AI Agents
@@ -84,9 +86,14 @@ AI agents benefit from fledge's structured output and consistent interface. Ever
 ### Structured project understanding
 
 ```bash
-fledge lanes list --json         # know what pipelines exist
-fledge plugins list --json       # know what tools are available
-fledge deps --json               # dependency graph as data
+fledge introspect --json         # full command tree (incl. plugin commands)
+fledge lanes list --json         # what pipelines exist
+fledge plugins list --json       # what extensions are installed
+fledge spec list --json          # spec index — semantic project map
+fledge ai status --json          # what model is active and where each value came from
+
+# After fledge plugins install --defaults:
+fledge deps --json               # dependency report as data
 fledge metrics --json            # codebase stats as data
 fledge checks --json             # CI status as data
 ```
@@ -96,10 +103,11 @@ fledge checks --json             # CI status as data
 An AI agent can:
 1. `fledge work start fix-issue-42 --issue 42` — create a branch linked to an issue
 2. Make changes
-3. `fledge lane ci` — run the full pipeline
-4. `fledge review --json` — get structured review feedback
-5. Fix issues from the review
-6. `fledge work pr` — open a PR
+3. `fledge lanes run ci` — run the full pipeline
+4. `fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json`
+   — multi-model review for higher-confidence findings
+5. Fix issues that multiple models agree on
+6. `fledge work pr --ai --yes` — AI-drafted PR with no prompt needed
 
 ### Plugin protocol for agent tooling
 

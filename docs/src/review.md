@@ -1,10 +1,23 @@
-# Review: Quality and Insight
+# AI: Ask and Review
 
-Check your code before it ships. AI-powered review, codebase Q&A, code metrics, and dependency auditing.
+The AI pillar is the daily-driver path for asking questions about your code and reviewing diffs before they land. Provider-agnostic (Claude or any Ollama-speaking endpoint), spec-aware, and (in v0.15+) capable of running multiple models in parallel against the same diff.
+
+## Pick your provider and model
+
+```bash
+fledge ai use                                  # interactive picker
+fledge ai use ollama qwen3-coder:480b-cloud    # scriptable
+fledge ai use claude opus-4.7
+fledge ai status                               # shows provider, model, host, and where each value came from
+fledge ai models --provider ollama             # live list of installed/cloud models
+fledge ai models --provider ollama --search cloud
+```
+
+Per-invocation overrides via `--provider` / `--model` flags work on every AI command and take precedence over config and env vars.
 
 ## AI Code Review
 
-Get feedback on your changes before opening a PR. Diffs your branch against the base and runs it through Claude.
+Get feedback on your changes before opening a PR. Diffs your branch against the base and runs it through the configured model.
 
 ```bash
 fledge review                       # all changes on current branch
@@ -14,9 +27,25 @@ fledge review --file src/auth.rs    # review a single file
 fledge review --json                # machine-readable output
 ```
 
+### Multi-model review (v0.15+)
+
+Pass `--with-model <provider[:model]>` to add another slot to the panel. All slots run in parallel against the same diff and spec context. Per-slot failures don't abort the panel — you still get reviews from the models that succeeded.
+
+```bash
+# Active config + two cloud models
+fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
+
+# Comma-separated, exclude active config
+fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud
+
+# JSON output gains a reviews[] array; legacy fields preserved when panel size is 1
+fledge review --with-model ollama:gpt-oss:120b-cloud --json
+```
+
+The text output prints cyan banner headers between model slots and includes per-slot elapsed seconds. JSON output's `reviews[]` array has one entry per slot with `provider`, `model`, `elapsed_seconds`, and either `review` or `error`.
+
 ### What it reviews
 
-The review checks for:
 - **Bugs and logic errors** — off-by-ones, null handling, race conditions
 - **Security issues** — injection, auth bypasses, secret exposure
 - **Performance** — unnecessary allocations, N+1 queries, blocking calls
@@ -25,14 +54,17 @@ The review checks for:
 ### How it works
 
 1. Computes a diff between your current branch and the base (defaults to `main` or `master`)
-2. Shows you a summary of changed files
-3. Sends the diff to Claude with a structured review prompt
+2. Auto-detects which spec modules the diff touches (from each spec's `files:` frontmatter and any `specs/<name>/` edits) and includes them as context
+3. Sends the diff + spec context to the model(s) with a structured review prompt
 4. Returns findings with file locations and severity
+
+The prompt is explicitly constrained: the model reviews *only the diff*, treats specs as context-only, and must not suggest changes to code outside the diff or critique the specs themselves.
 
 ### Tips
 
 - Review early and often — smaller diffs get better reviews
 - Use `--file` to focus on the module you're least confident about
+- Multi-model is most useful for high-stakes diffs — the models often disagree, and the disagreement is the signal
 - Pipe `--json` output into other tools for automated quality gates
 - Combine with lanes for pre-PR automation:
 
@@ -40,24 +72,25 @@ The review checks for:
 [lanes.pre-pr]
 steps = [
   { parallel = ["lint", "test"] },
-  { run = "fledge review" },
+  { run = "fledge review --json > review.json" },
 ]
 ```
 
-### Requirements
-
-Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated. See [Troubleshooting](./troubleshooting.md) if `fledge review` reports that Claude is not found.
-
 ## Ask Your Codebase
 
-Got a question about how something works? Ask it. Uses Claude to answer questions with your project as context.
+Got a question about how something works? Ask it. The model gets your project's spec index automatically as context.
 
 ```bash
 fledge ask "how does the template rendering work?"
 fledge ask "what tests cover the config module?"
-fledge ask "what does the release command do?"
-fledge ask "where are environment variables loaded?" --json
+fledge ask --with-specs work,trust "how do these modules interact?"
+fledge ask --with-specs all "which modules touch GitHub?"
+fledge ask --no-spec-index "quick Rust syntax question"
 ```
+
+### Spec-awareness
+
+By default `fledge ask` injects a compact one-line-per-module index of every spec into the prompt. The model can cite specific specs in its answer even when you didn't mention them. Pass `--with-specs <names>` to include the *full* spec + companion files (requirements, context, tasks, testing) for one or more modules — useful for *why* questions where the design rationale matters.
 
 ### Good questions to ask
 
@@ -72,48 +105,37 @@ fledge ask "where are environment variables loaded?" --json
 Both `review` and `ask` support `--json` output, making them composable in automated pipelines:
 
 ```bash
-# AI agent workflow
 REVIEW=$(fledge review --json)
 # Parse findings, fix issues, re-run
 ```
 
-## Code Metrics
+## Plugin: code metrics
 
-Lines of code by language, file churn from git history, and test coverage ratio.
+`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) — a thin wrapper over `tokei` and `git`. Install:
 
 ```bash
-fledge metrics                   # full overview
+fledge plugins install --defaults
+fledge metrics                   # LOC summary by language (tokei)
 fledge metrics --churn           # most-changed files
-fledge metrics --tests           # test file ratio
-fledge metrics --churn --tests --json
+fledge metrics --tests           # test/source ratio
 ```
 
-### What you get
+## Plugin: dependency health
 
-- **LOC by language** — breakdown of source lines across detected languages
-- **Churn** — files with the most commits (high churn + low coverage = risk)
-- **Test ratio** — percentage of files that are test files vs source files
-
-## Dependency Health
-
-Find outdated packages, run security audits, and scan licenses. Works across Rust, Node, Go, Python, and Ruby.
+`fledge deps` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) — auto-detects the ecosystem from lockfiles and shells out to the canonical tool. Install:
 
 ```bash
-fledge deps                      # overview
-fledge deps --outdated           # outdated packages
-fledge deps --audit              # security vulnerabilities
-fledge deps --licenses           # license inventory
-fledge deps --outdated --audit --licenses --json
+fledge plugins install --defaults
+fledge deps --outdated           # ecosystem's outdated checker (cargo outdated, npm outdated, …)
+fledge deps --audit              # ecosystem's security audit (cargo audit, npm audit, …)
 ```
 
-### Cross-language support
-
-| Language | Outdated | Audit | Licenses |
-|----------|----------|-------|----------|
-| Rust | `cargo outdated` | `cargo audit` | `cargo license` |
-| Node | `npm outdated` | `npm audit` | `license-checker` |
-| Go | `go list -m -u` | `govulncheck` | `go-licenses` |
-| Python | `pip list --outdated` | `pip-audit` | `pip-licenses` |
-| Ruby | `bundle outdated` | `bundle audit` | `license_finder` |
-
-fledge auto-detects your project type and runs the appropriate tools. If a tool isn't installed, it tells you how to get it.
+| Lockfile | Ecosystem | Tool |
+|----------|-----------|------|
+| `Cargo.lock` | Rust | `cargo outdated` / `cargo audit` |
+| `bun.lockb` | Node (Bun) | `bun outdated` / `bun audit` |
+| `pnpm-lock.yaml` | Node (pnpm) | `pnpm outdated` / `pnpm audit` |
+| `package-lock.json` | Node (npm) | `npm outdated` / `npm audit` |
+| `yarn.lock` | Node (Yarn) | `yarn outdated` / `yarn npm audit` |
+| `poetry.lock` | Python (Poetry) | `poetry show --outdated` |
+| `uv.lock` | Python (uv) | `uv pip list --outdated` |

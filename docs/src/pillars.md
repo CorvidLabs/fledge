@@ -1,45 +1,59 @@
 # The Six Pillars
 
-fledge organizes your dev workflow into six stages. Each one maps to a set of commands, and they flow naturally from project creation to release.
+fledge organizes your dev workflow into six pillars. They cover the whole lifecycle from project creation to release, and they're explicitly the *only* things core ships. Anything else is a plugin.
 
 ```
-Start --> Build --> Develop --> Review --> Ship
-                                              \
-                       Extend (runs alongside all stages)
+Scaffold --> Run --> Spec --> AI --> Ship
+                                       \
+                  Extend (the protocol that lets plugins add the rest)
 ```
 
-## Start: Scaffold and discover
+## Scaffold
 
-Get a project off the ground. Pick a template (built-in, remote, or your own), scaffold it, and you're writing code in under a minute.
+Get a project off the ground. Pick a template (built-in or remote), scaffold it, and you're writing code in under a minute.
 
-**Commands:** `templates init`, `templates list`, `templates search`, `templates create`, `templates publish`, `templates validate`, `templates update`
+**Commands:** `templates init`, `templates create`, `templates validate`, `templates list`
 
-## Build: Configure and run
+For remote template search and publishing — `templates-search`, `templates-publish` — install [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). It ships in the default plugin set (`fledge plugins install --defaults`).
 
-Define your tasks, wire them into pipelines, set your defaults, and make sure your environment is ready. This is where `fledge.toml` lives.
+## Run
 
-**Commands:** `run`, `lanes`, `config`, `doctor`
+Define your tasks, wire them into pipelines, watch files for re-runs. This is where `fledge.toml` lives.
 
-## Develop: Branch and spec
+**Commands:** `run`, `lanes`, `watch`
 
-Work on features with proper branch isolation and keep your specs in sync with the code.
+## Spec
 
-**Commands:** `work`, `spec`
+spec-sync: every module declares a contract (`specs/<name>/<name>.spec.md` plus optional companion files). The contract is the source of truth for *why* a module exists, and AI commands inject the relevant specs as context. Your code and your docs literally cannot drift.
 
-## Review: Quality and insight
+**Commands:** `spec` (subcommands: `check`, `init`, `list`, `show`, `new`)
 
-Check your code before it ships. AI review, codebase Q&A, code metrics, and dependency health. All from the terminal.
+## AI
 
-**Commands:** `review`, `ask`, `metrics`, `deps`
+Provider-agnostic AI in the daily-driver path. Switch between Claude CLI and any Ollama-speaking endpoint in one line; ask questions about your codebase; review your diff with one model or a panel of them in parallel.
 
-## Ship: Track and release
+**Commands:** `ai` (`status`, `models`, `use`), `ask`, `review`
 
-Manage issues, review PRs, check CI status, generate changelogs, and cut releases. Everything you need to get code out the door.
+## Ship
 
-**Commands:** `issues`, `prs`, `checks`, `changelog`, `release`
+Branch, draft an AI-written PR body, preview, confirm, push. Then bump version, generate changelog, tag, push the tag.
 
-## Extend: Grow the tool
+**Commands:** `work` (`start`, `pr`, `status`), `release`, `changelog`
 
-Install community plugins, write your own, and set up shell completions.
+For GitHub-specific browsing of the resulting PR/checks/issues, install [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). Ships in the default plugin set.
 
-**Commands:** `plugins`, `completions`
+## Extend
+
+Plugins, configuration, command-tree introspection, environment diagnostics, shell completions. The mechanism layer.
+
+**Commands:** `plugins`, `config`, `introspect`, `completions`, `doctor`
+
+`fledge plugins install --defaults` installs the curated set of plugins that took over commands removed from core in v0.15:
+
+- [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) → `checks`, `issues`, `prs`
+- [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) → `deps`
+- [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) → `metrics`
+- [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) → `templates-search`, `templates-publish`
+- [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor) → `doctor-tools`
+
+Why these are plugins, not core: each one bakes an ecosystem assumption (GitHub-only, polyglot lockfile parsers, niche metrics) that not every fledge user needs. Plugins keep the binary small and let each capability evolve independently.
