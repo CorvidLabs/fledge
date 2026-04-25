@@ -13,7 +13,7 @@ spec: templates.spec.md
 
 ## Acceptance Criteria
 
-- `discover_templates()` finds all built-in templates (rust-cli, ts-bun)
+- `discover_templates()` finds all built-in templates (8 starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`)
 - Extra paths from config are searched for template directories
 - Remote repos from config are fetched and searched for templates
 - Templates are returned sorted alphabetically by name
@@ -35,5 +35,5 @@ spec: templates.spec.md
 ## Out of Scope
 
 - Template versioning or compatibility checking
-- Template creation or publishing (separate `create-template` and `publish` features)
+- Template creation, publishing, or remote search (handled by sibling `templates` subcommands `create`, `publish`, `search` — see their respective handlers in `main.rs` and the `create_template`, `publish`, and `search` library modules)
 - Template inheritance or composition

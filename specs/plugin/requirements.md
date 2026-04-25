@@ -10,8 +10,8 @@
 6. Resolve plugin executables by name for CLI dispatch
 7. Support cross-platform symlink creation (Unix symlinks, Windows symlinks)
 8. Set executable permissions on plugin binaries (Unix only)
-9. Scaffold a new plugin via `fledge pluginss create <name>` with plugin.toml, bin/, README, and .gitignore
-10. Validate plugin manifests via `fledge pluginss validate [path]` — check name, version, binary existence, command definitions
+9. Scaffold a new plugin via `fledge plugins create <name>` with plugin.toml, bin/, README, and .gitignore
+10. Validate plugin manifests via `fledge plugins validate [path]` — check name, version, binary existence, command definitions
 11. `publish` validates before pushing
 
 ## Non-Functional Requirements

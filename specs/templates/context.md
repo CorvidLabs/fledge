@@ -14,12 +14,12 @@ spec: templates.spec.md
 ## Files to Read First
 
 - `src/templates.rs` — discovery, rendering, manifest parsing, glob matching
-- `templates/` — built-in starter templates (rust-cli, ts-bun)
+- `templates/` — built-in starter templates (8 starters as of v0.15.2)
 - `specs/templates/templates.spec.md` — formal API and invariants
 
 ## Current Status
 
-- 2 built-in starter templates: rust-cli, ts-bun (others moved to CorvidLabs/fledge-templates)
+- 8 built-in starter templates embedded in the binary via `include_dir!`: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`. Additional community templates discoverable via `fledge templates search` (filters on the `fledge-template` GitHub topic).
 - Template discovery from built-in, local, and remote sources all working
 - Full rendering pipeline: glob matching, Tera rendering, .tera extension stripping, path variable rendering
 - Embedded template extraction with version-stamped caching

@@ -86,19 +86,18 @@ fledge templates init my-app --template ./path/to/template
 fledge templates list    # built-in + configured repos + local paths
 ```
 
-### Search GitHub (plugin)
-
-Remote search and publishing moved to [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) in v0.15. It ships in the default plugin set:
+### Search GitHub
 
 ```bash
-fledge plugins install --defaults
-fledge templates-search                  # browse everything
-fledge templates-search "react"          # filter by keyword
-fledge templates-search --limit 50
-fledge templates-search --author CorvidLabs
+fledge templates search                  # browse everything
+fledge templates search "react"          # filter by keyword
+fledge templates search --limit 50
+fledge templates search --author CorvidLabs
 ```
 
-Templates on GitHub use the `fledge-template` topic — that's what the plugin filters on.
+Templates on GitHub use the `fledge-template` topic — that's what `templates search` filters on. Add `--json` for an array of `{owner, name, description, stars, url, topics, trust_tier}`.
+
+(Through v0.15.1, this lived in `fledge-plugin-templates-remote` as `fledge templates-search`. It was re-absorbed into core in v0.15.2 as a proper `templates` subcommand.)
 
 ## Project Metadata
 
@@ -117,12 +116,11 @@ fledge templates create my-template
 # Validate before publishing
 fledge templates validate .
 
-# Publish (plugin)
-fledge plugins install --defaults
-fledge templates-publish --org MyOrg
+# Publish
+fledge templates publish --org MyOrg
 ```
 
-`templates-publish` (from `fledge-plugin-templates-remote`) wraps `gh repo create --push` and tags the new repo with the `fledge-template` topic so it shows up in `templates-search`.
+`templates publish` validates the directory through the same gate `templates validate` uses, then creates (or updates) the GitHub repo, tags it with the `fledge-template` topic so it shows up in `templates search`, and force-pushes the directory contents. `--private` for an unlisted repo, `--description <text>` to override the default, `--yes`/`-y` to skip the confirmation prompt.
 
 ### Validate Before You Ship
 

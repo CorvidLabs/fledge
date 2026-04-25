@@ -126,7 +126,7 @@ fledge ask --with-specs work,trust "how do these modules interact?"
 fledge work start user-auth              # 1. start a branch
 fledge run test                          # 2. code + test
 fledge lanes run ci                      # 3. run the full pipeline
-fledge review --ai-with-model ollama:gpt-oss:120b-cloud  # 4. AI review
+fledge review --with-model ollama:gpt-oss:120b-cloud  # 4. AI review
 fledge work pr --ai                      # 5. AI-drafted PR with preview + confirm
 fledge checks                            # 6. watch CI (plugin)
 ```

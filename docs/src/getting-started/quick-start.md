@@ -80,12 +80,17 @@ Lanes support parallel groups and inline commands. More on that in [Lanes & Pipe
 ## Project Health
 
 ```bash
-fledge doctor            # anything broken in your env?
-fledge metrics           # LOC by language
-fledge metrics --churn   # most-changed files
-fledge deps              # list deps
-fledge deps --outdated   # find stale ones
-fledge deps --audit      # security check
+fledge doctor            # anything broken in your env? (core; includes Toolchains)
+```
+
+After `fledge plugins install --defaults`:
+
+```bash
+fledge metrics           # LOC by language          (fledge-plugin-metrics)
+fledge metrics --churn   # most-changed files       (fledge-plugin-metrics)
+fledge deps              # list deps                (fledge-plugin-deps)
+fledge deps --outdated   # find stale ones          (fledge-plugin-deps)
+fledge deps --audit      # security check           (fledge-plugin-deps)
 ```
 
 ## Plugins
@@ -113,9 +118,9 @@ fledge work status                           # where are we?
 ## CI + Code Review
 
 ```bash
-fledge checks                    # CI status
-fledge review                    # AI code review
-fledge ask "how does X work?"    # ask about the codebase
+fledge checks                    # CI status (fledge-plugin-github)
+fledge review                    # AI code review (core)
+fledge ask "how does X work?"    # ask about the codebase (core)
 ```
 
 ## Changelog

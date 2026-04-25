@@ -155,11 +155,11 @@ pinned_ref = "v0.2.0"
 7. `plugin list` shows installed plugins with name, version, trust tier, source, and commands
 8. `plugin audit` shows trust tier, capabilities, lifecycle hooks, and warnings for each plugin
 9. `plugin search` uses GitHub topic search (same as template search)
-9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
-10. `--json` outputs structured data for all list/search operations
-11. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
-12. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
-13. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
+10. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
+11. `--json` outputs structured data for all list/search operations
+12. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
+13. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
+14. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
 
 ## Behavioral Examples
 
@@ -208,21 +208,21 @@ $ fledge plugins update fledge-deploy
     fledge plugins install someone/fledge-deploy@v1.3.0 --force
 
 # Scaffold a new plugin
-$ fledge pluginss create my-tool
+$ fledge plugins create my-tool
 ✅ Created plugin at ./my-tool
 
 # Validate a plugin
-$ fledge pluginss validate ./my-tool
+$ fledge plugins validate ./my-tool
 ✅ my-tool — valid
 
 # Validate with strict mode
-$ fledge pluginss validate --strict
+$ fledge plugins validate --strict
 my-tool
   warn: plugin.author is not set
 Validation failed
 
 # Publish runs validation first
-$ fledge pluginss publish
+$ fledge plugins publish
 ✅ my-tool — valid
 ➡️ Publishing plugin ./my-tool as owner/my-tool
 
@@ -244,7 +244,7 @@ Plugin Security Audit
   Summary: 2 plugin(s), 1 unverified, 1 with elevated capabilities
 
 # List shows trust tiers
-$ fledge plugin list
+$ fledge plugins list
 Installed plugins:
   fledge-deploy  v0.1.0  [official]  (CorvidLabs/fledge-plugin-deploy)
   fledge-stats   v0.2.0  [unverified]  (someone/fledge-stats)

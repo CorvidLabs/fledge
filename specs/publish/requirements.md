@@ -1,19 +1,18 @@
 # Publish — Requirements
 
+This module is a library — its requirements describe the helpers it exposes. The user-facing publish commands (`templates publish`, `lanes publish`, `plugins publish`) define their own validation and prompting in their respective specs.
+
 ## Functional Requirements
 
-1. Validate that the target directory contains a parseable template.toml
-2. Require a configured GitHub token
-3. Create a new GitHub repository (personal or org) via the REST API
-4. Set the `fledge-template` topic on the repository
-5. Set repository description from template.toml
-6. Push all template files to the repository
-7. Display the `fledge init` install command on success
-8. Support `--org` flag for publishing under an organization
-9. Support `--private` flag for private repositories
-10. Detect and handle existing repositories (prompt to update)
+1. Resolve the authenticated GitHub username from a token (`get_authenticated_user`)
+2. Check whether a `<owner>/<repo>` exists on GitHub (`check_repo_exists`) — false on 404, error on other non-2xx
+3. Create a new GitHub repository under the user or an organization with optional private flag and description (`create_github_repo`)
+4. Add a single topic to a repository's existing topic set, additively (`set_repo_topic`)
+5. Initialize git (if needed), commit working-tree contents, and force-push to `origin/main` using one-shot HTTP-Basic auth (`push_directory`) — token is never persisted in `.git/config`
+6. Surface clear error messages for the common API failures: 422 (name conflict), 403 (insufficient scope)
 
 ## Non-Functional Requirements
 
-1. Clear error messages guiding users to fix issues (missing token, invalid template)
-2. No interactive prompts except for the update confirmation (scriptable by default)
+1. Synchronous HTTP via `ureq` — no async runtime
+2. Token never reaches the process table or git config — passed via `http.extraheader` env injection only
+3. No prompts in this module — caller decides whether to confirm
