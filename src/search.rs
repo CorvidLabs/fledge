@@ -1,16 +1,5 @@
 use anyhow::Result;
-use console::style;
 use serde::{Deserialize, Serialize};
-
-use crate::trust::determine_trust_tier_from_owner;
-
-#[derive(Debug)]
-pub struct SearchOptions {
-    pub query: Option<String>,
-    pub author: Option<String>,
-    pub limit: usize,
-    pub json: bool,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
@@ -29,77 +18,6 @@ impl SearchResult {
     }
 }
 
-pub fn run(options: SearchOptions) -> Result<()> {
-    let config = crate::config::Config::load()?;
-    let token = config.github_token();
-
-    let sp = crate::spinner::Spinner::start("Searching GitHub for templates:");
-    let results = search_github_ex(
-        options.query.as_deref(),
-        options.author.as_deref(),
-        "fledge-template",
-        token.as_deref(),
-        options.limit,
-    );
-    sp.finish();
-    let results = results?;
-
-    if results.is_empty() {
-        println!("No templates found.");
-        return Ok(());
-    }
-
-    if options.json {
-        let entries: Vec<serde_json::Value> = results
-            .iter()
-            .map(|r| {
-                let tier = determine_trust_tier_from_owner(&r.owner);
-                serde_json::json!({
-                    "owner": r.owner,
-                    "name": r.name,
-                    "description": r.description,
-                    "stars": r.stars,
-                    "url": r.url,
-                    "topics": r.topics,
-                    "trust_tier": tier.label(),
-                })
-            })
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
-    } else {
-        println!("{}\n", style("Fledge templates on GitHub:").bold());
-        for r in &results {
-            let tier = determine_trust_tier_from_owner(&r.owner);
-            let stars = format_stars(r.stars);
-            let desc = if r.description.chars().count() > 60 {
-                let truncated: String = r.description.chars().take(57).collect();
-                format!("{truncated}...")
-            } else {
-                r.description.clone()
-            };
-            let topic_str = if r.topics.is_empty() {
-                String::new()
-            } else {
-                format!(" [{}]", r.topics.join(", "))
-            };
-            println!(
-                "  {} [{}] {} {}{}",
-                style(&r.full_name()).green(),
-                tier.styled_label(),
-                style(format!("({})", stars)).dim(),
-                style(&desc).dim(),
-                style(&topic_str).cyan(),
-            );
-        }
-        println!(
-            "\n{}",
-            style("Use: fledge init <name> -t <owner/repo>").dim()
-        );
-    }
-
-    Ok(())
-}
-
 pub fn build_search_query_ex(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String {
     let mut parts = Vec::new();
     if let Some(kw) = keyword {
@@ -110,50 +28,6 @@ pub fn build_search_query_ex(keyword: Option<&str>, author: Option<&str>, topic:
         parts.push(format!("user:{a}"));
     }
     parts.join(" ")
-}
-
-pub fn search_github_ex(
-    keyword: Option<&str>,
-    author: Option<&str>,
-    topic: &str,
-    token: Option<&str>,
-    limit: usize,
-) -> Result<Vec<SearchResult>> {
-    let query = build_search_query_ex(keyword, author, topic);
-    let per_page = limit.min(100);
-    let url = format!(
-        "https://api.github.com/search/repositories?q={}&sort=stars&order=desc&per_page={}",
-        urlencod(&query),
-        per_page,
-    );
-
-    let mut request = ureq::get(&url)
-        .header("Accept", "application/vnd.github.v3+json")
-        .header("User-Agent", "fledge-cli");
-
-    if let Some(t) = token {
-        request = request.header("Authorization", &format!("Bearer {}", t));
-    }
-
-    let mut response = request.call().map_err(|e| {
-        if let ureq::Error::StatusCode(403) = e {
-            anyhow::anyhow!(
-                "GitHub API rate limit exceeded. Set a token with: fledge config set github.token <your-token>"
-            )
-        } else {
-            anyhow::anyhow!("GitHub API request failed: {}", e)
-        }
-    })?;
-
-    let text = response
-        .body_mut()
-        .read_to_string()
-        .map_err(|e| anyhow::anyhow!("reading GitHub API response: {}", e))?;
-
-    let body: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| anyhow::anyhow!("parsing GitHub API response: {}", e))?;
-
-    parse_search_response(&body)
 }
 
 pub fn parse_search_response(body: &serde_json::Value) -> Result<Vec<SearchResult>> {
@@ -423,13 +297,5 @@ mod tests {
 
         let results = parse_search_response(&json).unwrap();
         assert_eq!(results[0].topics, vec!["fledge-template", "rust", "cli"]);
-    }
-
-    #[ignore]
-    #[test]
-    fn live_search_returns_results() {
-        let results = search_github_ex(None, None, "fledge-template", None, 5).unwrap();
-        // May be empty if no repos have the topic yet — just ensure no error
-        let _ = results;
     }
 }

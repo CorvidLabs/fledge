@@ -43,6 +43,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.15.0] - 2026-04-24
+
+**The tight-core release.** v0.15 keeps the load-bearing pillars — templates, lanes, plugins, spec-sync, AI (ask/review/multi-model), work, run, release — and removes everything else from the core binary. The signature is now: *one Rust binary, six pillars, spec-driven by default*. Anything ecosystem-specific or platform-specific (GitHub clients, language toolchain probes, lockfile parsers, vanity metrics) belongs in plugins where it can evolve independently and not bloat the binary for users who don't need it.
+
+### Added
+
+- **`fledge review --with-model <provider[:model]>`** — multi-model review panel (#255). Pass one or more `--with-model` refs (repeatable + comma-separated) and the review runs across all of them in parallel against the same diff and spec context, with cyan banner headers between slots and an `elapsed_seconds` per slot. Per-model errors are captured (not fatal). `--no-active` excludes the configured-default slot. JSON gains `reviews[]` array; legacy single-model `review`/`provider`/`model` fields preserved when panel size is 1. The first signature workflow that v0.14's `fledge ai` enables: switch providers in seconds, then turn around and use any of them — or all of them — to review your diff.
+
+### Removed
+
+The following commands and their modules left core. Some will return as plugins; some are gone for good. *No silent regressions* — running any removed command surfaces the standard `unrecognized subcommand` clap error.
+
+- **`fledge update`** — bidirectional template re-application. Deleted entirely, no plugin successor planned. The complexity-trap argument: re-applying an evolved template onto an evolved scaffold creates merge conflicts that look automatic but require human judgment every time. Manage drift through git, where it belongs.
+- **`fledge deps`** (~1411 LOC) — polyglot dependency health (outdated/audit/licenses across npm/cargo/pip/swift/kotlin/etc.). Lockfile parsers per ecosystem don't belong in the binary every fledge user installs. Future: `fledge-plugin-deps`.
+- **`fledge checks`, `fledge issues`, `fledge prs`** — GitHub-specific CI/issues/PR browsing. Bakes "all dev happens on GitHub Actions" platform assumption. PR *creation* via `fledge work pr` stays in core (with extension hooks for non-GitHub platforms in a future release). Future: `fledge-plugin-github`.
+- **`fledge metrics`** (~601 LOC) — LOC/churn/test-ratio scanner. Niche, overlapped by `tokei`/`scc`/GitHub Insights. Future: `fledge-plugin-metrics`.
+- **`fledge templates search` / `fledge templates publish`** — GitHub-specific template registry browsing/publishing. Local `init`/`create`/`validate`/`list` stay in core (the actual templates pillar). Future: `fledge-plugin-templates-remote` (likely default-install).
+- **`fledge templates update`** — same as the top-level `fledge update`, bidirectional re-apply.
+
+### Changed
+
+- **`fledge doctor`** stripped to a self-check: validates fledge config loads, checks git, probes the AI provider's reachability. Toolchain probes (rust/node/python/swift/kotlin/ruby/etc.) — previously ~250 LOC of `if-elif` over every ecosystem — are gone from core. The `Project Type` and `Toolchain`/`Dependencies` sections are no longer in the report. Future tool-specific probes will arrive as `fledge-plugin-doctor-<ecosystem>` plugins. Net: doctor went from 906 → ~480 LOC and stops noisy-checking ecosystems you don't use.
+- **Core surface: 21 → 14 commands.** The signature reads cleaner: scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`).
+- **`.gitignore`** widened to drop the entire `.claude/` directory (was just `.claude/worktrees/`).
+- **Release prep**: extracted `src/update.rs`'s template-meta utilities (`ProjectMeta`, `write_project_meta`, `compute_file_hash`) into a new `src/meta.rs` so `fledge templates init` keeps writing `.fledge/meta.toml`. The `update` command and its 700+ LOC of bidirectional-sync logic are gone; the meta-tracking surface (~150 LOC) survives as a library module.
+
+### Migration notes
+
+- Scripts that called `fledge deps`, `fledge metrics`, `fledge update`, `fledge checks`, `fledge issues`, `fledge prs`, `fledge templates search/update/publish` need to use the underlying tool directly until plugin replacements ship.
+- `fledge doctor --json` no longer emits `project_type` at the top level. Use `sections[*].name` to identify which check section a result belongs to.
+- The `spec_check` count drops from 35 to 29 — that's the deleted module specs.
+
+### Spec bumps
+
+- `review` v6 → v7 — multi-model panel
+- `doctor` v3 → v4 — stub-and-extend (toolchain probes removed)
+- New module spec: none (`meta` is library code, not a user-facing command)
+- Removed specs: `update`, `deps`, `metrics`, `checks`, `issues`, `prs`
+
 ## [v0.14.0] - 2026-04-24
 
 **The multi-model feedback release.** v0.13.0 made fledge speak any LLM. v0.14.0 makes that easy to *use*. `fledge ai status`/`models`/`use` gives you a one-line provider+model switcher with a live picker for Ollama (local or cloud), so trying the same `fledge review` or `fledge ask` across qwen3-coder, gpt-oss, deepseek, and kimi takes seconds, not env-var gymnastics. And `fledge work pr` turns that velocity into shipped work — auto-generates the body from your commits, shows you a preview with a yes/no confirm, and (with `--ai`) hands the diff to whichever model you just selected to draft a real `## Summary` + `## Test plan` for review.

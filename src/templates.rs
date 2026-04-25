@@ -239,10 +239,6 @@ fn extract_dir_recursive(dir: &Dir, target: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn load_templates_from_dir_pub(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
-    load_templates_from_dir(dir, templates)
-}
-
 fn load_templates_from_dir(dir: &Path, templates: &mut Vec<Template>) -> Result<()> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;

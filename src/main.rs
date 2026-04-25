@@ -7,22 +7,18 @@ use std::path::PathBuf;
 mod ai;
 mod ask;
 mod changelog;
-mod checks;
 mod config;
 mod create_template;
-mod deps;
 mod doctor;
 mod github;
 mod init;
 mod introspect;
-mod issues;
 mod lanes;
 mod llm;
-mod metrics;
+mod meta;
 mod plugin;
 mod prompts;
 mod protocol;
-mod prs;
 mod publish;
 mod release;
 mod remote;
@@ -33,7 +29,6 @@ mod spec;
 mod spinner;
 mod templates;
 mod trust;
-mod update;
 mod utils;
 mod validate;
 mod versioning;
@@ -102,15 +97,6 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// View CI/CD check status for a branch
-    Checks {
-        /// Branch to check (default: current branch)
-        #[arg(short, long)]
-        branch: Option<String>,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
-    },
     /// Generate shell completions
     Completions {
         /// Shell to generate completions for (auto-detects if omitted with --install)
@@ -125,21 +111,6 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    /// Check dependency health (outdated, audit, licenses)
-    Deps {
-        /// Check for outdated dependencies
-        #[arg(long)]
-        outdated: bool,
-        /// Run security audit via ecosystem tools
-        #[arg(long)]
-        audit: bool,
-        /// Show dependency licenses
-        #[arg(long)]
-        licenses: bool,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
     /// Diagnose project environment health
     Doctor {
         /// Output as JSON
@@ -152,43 +123,11 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// List and view GitHub issues
-    Issues {
-        #[command(subcommand)]
-        action: Option<IssuesSubcommand>,
-        /// Filter by state (open, closed, all)
-        #[arg(short, long, default_value = "open", global = true)]
-        state: String,
-        /// Maximum number of results
-        #[arg(short, long, default_value = "20", global = true)]
-        limit: usize,
-        /// Output results as JSON
-        #[arg(long, global = true)]
-        json: bool,
-        /// Filter by label
-        #[arg(long, global = true)]
-        label: Option<String>,
-    },
     /// Manage and run composable workflow pipelines
     #[command(alias = "lane")]
     Lanes {
         #[command(subcommand)]
         action: LaneSubcommand,
-    },
-    /// Project code metrics (LOC, churn, test ratio)
-    Metrics {
-        /// Show file churn from git history
-        #[arg(long)]
-        churn: bool,
-        /// Show test file detection and ratio
-        #[arg(long)]
-        tests: bool,
-        /// Maximum entries for churn output
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
     },
     /// Manage plugins (install, remove, list, search)
     #[command(alias = "plugin")]
@@ -196,20 +135,6 @@ enum Commands {
         #[command(subcommand)]
         action: PluginSubcommand,
         /// Output as JSON
-        #[arg(long, global = true)]
-        json: bool,
-    },
-    /// List and view GitHub pull requests
-    Prs {
-        #[command(subcommand)]
-        action: Option<PrsSubcommand>,
-        /// Filter by state (open, closed, all)
-        #[arg(short, long, default_value = "open", global = true)]
-        state: String,
-        /// Maximum number of results
-        #[arg(short, long, default_value = "20", global = true)]
-        limit: usize,
-        /// Output results as JSON
         #[arg(long, global = true)]
         json: bool,
     },
@@ -395,47 +320,6 @@ enum TemplatesSubcommand {
         #[arg(short, long)]
         yes: bool,
     },
-    /// Search for templates on GitHub
-    Search {
-        /// Keyword to filter results
-        query: Option<String>,
-        /// Filter by author/owner
-        #[arg(short, long)]
-        author: Option<String>,
-        /// Maximum number of results
-        #[arg(short, long, default_value = "20")]
-        limit: usize,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
-    },
-    /// Update project from its source template
-    Update {
-        /// Show what would change without writing anything
-        #[arg(long)]
-        dry_run: bool,
-        /// Force re-clone of cached remote templates
-        #[arg(long)]
-        refresh: bool,
-    },
-    /// Publish a template to GitHub
-    Publish {
-        /// Path to the template directory
-        #[arg(default_value = ".")]
-        path: PathBuf,
-        /// Publish under a GitHub organization
-        #[arg(long)]
-        org: Option<String>,
-        /// Create as a private repository
-        #[arg(long)]
-        private: bool,
-        /// Override the repository description
-        #[arg(long)]
-        description: Option<String>,
-        /// Skip all confirmation prompts
-        #[arg(short, long)]
-        yes: bool,
-    },
     /// Validate a template or directory of templates
     Validate {
         /// Path to a template or directory of templates
@@ -544,24 +428,6 @@ enum WorkSubcommand {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-    },
-}
-
-#[derive(clap::Subcommand)]
-enum IssuesSubcommand {
-    /// View a specific issue
-    View {
-        /// Issue number
-        number: u64,
-    },
-}
-
-#[derive(clap::Subcommand)]
-enum PrsSubcommand {
-    /// View a specific pull request
-    View {
-        /// PR number
-        number: u64,
     },
 }
 
@@ -897,41 +763,6 @@ fn run() -> Result<()> {
             };
             work::run(action)?;
         }
-        Commands::Issues {
-            action,
-            state,
-            limit,
-            json,
-            label,
-        } => {
-            let action = match action {
-                Some(IssuesSubcommand::View { number }) => {
-                    issues::IssuesAction::View { number, json }
-                }
-                None => issues::IssuesAction::List {
-                    state,
-                    limit,
-                    json,
-                    label,
-                },
-            };
-            issues::run(action)?;
-        }
-        Commands::Prs {
-            action,
-            state,
-            limit,
-            json,
-        } => {
-            let action = match action {
-                Some(PrsSubcommand::View { number }) => prs::PrsAction::View { number, json },
-                None => prs::PrsAction::List { state, limit, json },
-            };
-            prs::run(action)?;
-        }
-        Commands::Checks { branch, json } => {
-            checks::run(checks::ChecksOptions { branch, json })?;
-        }
         Commands::Run {
             task,
             init,
@@ -1076,32 +907,6 @@ fn run() -> Result<()> {
         Commands::Introspect { json } => {
             let cmd = <Cli as clap::CommandFactory>::command();
             introspect::run(introspect::IntrospectOptions { json }, cmd)?;
-        }
-        Commands::Metrics {
-            churn,
-            tests,
-            limit,
-            json,
-        } => {
-            metrics::run(metrics::MetricsOptions {
-                churn,
-                tests,
-                json,
-                limit,
-            })?;
-        }
-        Commands::Deps {
-            outdated,
-            audit,
-            licenses,
-            json,
-        } => {
-            deps::run(deps::DepsOptions {
-                outdated,
-                audit,
-                licenses,
-                json,
-            })?;
         }
         Commands::Plugins { action, json } => {
             let action = match action {
@@ -1297,37 +1102,6 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
                 render_patterns,
                 hooks,
                 prompts,
-                yes,
-            })?;
-        }
-        TemplatesSubcommand::Search {
-            query,
-            author,
-            limit,
-            json,
-        } => {
-            search::run(search::SearchOptions {
-                query,
-                author,
-                limit,
-                json,
-            })?;
-        }
-        TemplatesSubcommand::Update { dry_run, refresh } => {
-            update::run(update::UpdateOptions { dry_run, refresh })?;
-        }
-        TemplatesSubcommand::Publish {
-            path,
-            org,
-            private,
-            description,
-            yes,
-        } => {
-            publish::run(publish::PublishOptions {
-                path,
-                org,
-                private,
-                description,
                 yes,
             })?;
         }
