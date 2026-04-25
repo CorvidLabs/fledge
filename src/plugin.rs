@@ -1354,8 +1354,12 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
         );
     }
 
-    let status = Command::new(&bin_path)
-        .args(args)
+    let mut cmd = Command::new(&bin_path);
+    cmd.args(args);
+    if let Some(plugin_dir) = resolve_plugin_source_dir(&bin_path) {
+        cmd.env("FLEDGE_PLUGIN_DIR", &plugin_dir);
+    }
+    let status = cmd
         .status()
         .with_context(|| format!("running plugin '{name}'"))?;
 
@@ -1365,6 +1369,22 @@ fn run_plugin(name: &str, args: &[String]) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Compute the plugin's source directory from the resolved binary path.
+///
+/// `bin_path` is typically the symlink at `~/.config/fledge/plugins/bin/<cmd>`,
+/// which resolves to `~/.config/fledge/plugins/<plugin>/bin/<cmd>` (or
+/// similar). The plugin's source dir is two levels up from the resolved
+/// binary — that's the location where multi-file shell plugins keep their
+/// helpers, and what `FLEDGE_PLUGIN_DIR` should point to.
+///
+/// Returns `None` if the path can't be resolved (in which case we just don't
+/// set the env var — plugins that don't rely on it work as before).
+fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
+    let resolved = std::fs::canonicalize(bin_path).ok()?;
+    // <plugin_dir>/<bin_subdir>/<binary> — take parent twice.
+    resolved.parent()?.parent().map(|p| p.to_path_buf())
 }
 
 fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
@@ -1388,6 +1408,7 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
         make_executable(&hook_path)?;
         Command::new(&hook_path)
             .current_dir(plugin_dir)
+            .env("FLEDGE_PLUGIN_DIR", plugin_dir)
             .status()
             .with_context(|| format!("running {event} hook"))?
     } else {
@@ -1398,6 +1419,7 @@ fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
         Command::new(parts[0])
             .args(&parts[1..])
             .current_dir(plugin_dir)
+            .env("FLEDGE_PLUGIN_DIR", plugin_dir)
             .status()
             .with_context(|| format!("running {event} hook"))?
     };
@@ -1561,7 +1583,26 @@ metadata = false
     );
     fs::write(target.join("plugin.toml"), plugin_toml).context("writing plugin.toml")?;
 
-    let script = format!("#!/usr/bin/env bash\necho \"{name} plugin running with args: $@\"\n");
+    let script = format!(
+        r#"#!/usr/bin/env bash
+# fledge plugin entry point.
+#
+# fledge sets FLEDGE_PLUGIN_DIR to this plugin's source directory before
+# invoking your binary. Use it to reach sibling files in `bin/`, hooks,
+# fixtures, etc. Don't use `dirname "$0"` — the binary fledge invokes is
+# a symlink in a shared bin/, so $0 won't point to your repo.
+set -euo pipefail
+PLUGIN_DIR="${{FLEDGE_PLUGIN_DIR:?FLEDGE_PLUGIN_DIR not set — fledge >= 0.15.3 sets it automatically}}"
+
+echo "{name} plugin running with args: $@"
+echo "(plugin dir: $PLUGIN_DIR)"
+
+# To dispatch to sibling helpers in the same `bin/` (a common multi-subcommand
+# pattern), use:
+#
+#   exec "$PLUGIN_DIR/bin/{name}-${{1?missing subcommand}}" "${{@:2}}"
+"#
+    );
     let script_path = target.join("bin").join(name);
     fs::write(&script_path, script).context("writing bin script")?;
 
@@ -1879,6 +1920,52 @@ fn publish_plugin(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resolve_plugin_source_dir_walks_symlink_to_plugin_root() {
+        // Mirror the post-install layout:
+        //   <root>/plugins/my-plugin/bin/fledge-my-plugin     ← real binary
+        //   <root>/plugins/bin/fledge-my-plugin               ← shared symlink
+        //
+        // resolve_plugin_source_dir(<symlink>) should return
+        //   <root>/plugins/my-plugin
+        let tmp = tempfile::TempDir::new().unwrap();
+        let plugin_root = tmp.path().join("plugins").join("my-plugin");
+        let plugin_bin_dir = plugin_root.join("bin");
+        std::fs::create_dir_all(&plugin_bin_dir).unwrap();
+        let real_binary = plugin_bin_dir.join("fledge-my-plugin");
+        std::fs::write(&real_binary, "#!/bin/sh\nexit 0\n").unwrap();
+
+        let shared_bin_dir = tmp.path().join("plugins").join("bin");
+        std::fs::create_dir_all(&shared_bin_dir).unwrap();
+        let symlink = shared_bin_dir.join("fledge-my-plugin");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&real_binary, &symlink).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(&real_binary, &symlink).unwrap();
+
+        let resolved = resolve_plugin_source_dir(&symlink).expect("resolve should succeed");
+        // Canonicalize the expected path because TempDir may live under /tmp,
+        // which is itself a symlink to /private/tmp on macOS.
+        let expected = std::fs::canonicalize(&plugin_root).unwrap();
+        assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn resolve_plugin_source_dir_handles_non_symlink_path() {
+        // Direct PATH-resolved fledge-<name> binaries (not installed via
+        // `fledge plugins install`) still get a sensible plugin dir — the
+        // parent of the parent of the binary.
+        let tmp = tempfile::TempDir::new().unwrap();
+        let bin_dir = tmp.path().join("project").join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        let bin = bin_dir.join("fledge-direct");
+        std::fs::write(&bin, "").unwrap();
+
+        let resolved = resolve_plugin_source_dir(&bin).expect("should resolve");
+        let expected = std::fs::canonicalize(tmp.path().join("project")).unwrap();
+        assert_eq!(resolved, expected);
+    }
 
     #[test]
     fn default_plugins_are_well_formed() {

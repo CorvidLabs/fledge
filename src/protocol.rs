@@ -144,6 +144,7 @@ pub fn run_protocol_plugin(
     capabilities: &crate::plugin::PluginCapabilities,
 ) -> Result<()> {
     let mut child = Command::new(bin_path)
+        .env("FLEDGE_PLUGIN_DIR", plugin_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())

@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 11
+version: 12
 status: active
 files:
   - src/plugin.rs
@@ -120,6 +120,16 @@ Plugins are discovered via:
 ### Plugin Installation
 
 `fledge plugins install <repo>[@ref]` clones the repo to `~/.config/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+
+### Plugin Runtime Environment
+
+When fledge invokes a plugin command (or runs any of its lifecycle/build hooks, or spawns a fledge-v1 protocol plugin), it sets the following environment variables before exec:
+
+| Variable | Value | Why it exists |
+|----------|-------|---------------|
+| `FLEDGE_PLUGIN_DIR` | Absolute path to the plugin's source directory (the cloned repo, e.g. `~/.config/fledge/plugins/fledge-plugin-foo`) | The declared `[[commands]].binary` is symlinked into a shared `plugins/bin/` dir, so `dirname "$0"` in a shell plugin resolves to the shared dir, not the plugin's source. `FLEDGE_PLUGIN_DIR` lets a plugin reach sibling helpers, hooks, and fixtures regardless of how it was invoked. |
+
+Plugin authors writing multi-file shell plugins should reference siblings via `"$FLEDGE_PLUGIN_DIR/bin/<helper>"`, not `"$(dirname "$0")/<helper>"`. The `fledge plugins create` scaffold ships a comment + dispatcher example that uses `$FLEDGE_PLUGIN_DIR`.
 
 ### Version Pinning
 
@@ -278,6 +288,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12 | 2026-04-25 | Set `FLEDGE_PLUGIN_DIR` to the plugin's source directory before exec'ing a plugin binary, lifecycle hook, or fledge-v1 protocol plugin. Closes the dogfooding footgun where a multi-file shell plugin's `dirname "$0"` resolved to the shared `plugins/bin/` symlink dir instead of the plugin's source. The `fledge plugins create` scaffold now emits a starter binary that uses `$FLEDGE_PLUGIN_DIR`. (#266) |
 | 11 | 2026-04-25 | Trim `DEFAULT_PLUGINS` from 5 entries to 3. `fledge-plugin-templates-remote` was duplicating the in-tree `search.rs`/`publish.rs` helpers in shell — re-absorbed into core (`fledge templates search`/`publish`). `fledge-plugin-doctor` was 110 LOC of shell parallel to core doctor — re-absorbed as the informational `Toolchains` section. Default set is now `{github, deps, metrics}`. |
 | 10 | 2026-04-25 | Add `fledge plugins update --defaults` — symmetric with install. Updates only the installed plugins from `DEFAULT_PLUGINS`, leaving community plugins alone. Mutually exclusive with a positional plugin name. |
 | 9 | 2026-04-25 | Add `fledge plugins install --defaults` for one-command bulk install of the curated `DEFAULT_PLUGINS` set. Source positional becomes optional when --defaults is used. Per-plugin failures don't abort the bulk install. |
