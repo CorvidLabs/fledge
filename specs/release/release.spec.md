@@ -1,6 +1,6 @@
 ---
 module: release
-version: 1
+version: 2
 status: active
 files:
   - src/release.rs
@@ -17,7 +17,7 @@ depends_on:
 
 ## Purpose
 
-Provides a unified release workflow: version bumping across language ecosystems, changelog generation from conventional commits, git tagging, and optional push. Supports Rust, Node/Bun, Python, Ruby, Java (Gradle/Maven), Go, Swift, and any project with git tags.
+Provides a unified release workflow: version bumping across language ecosystems, changelog generation from conventional commits, git tagging, and optional push. Supports fledge plugins (`plugin.toml`), Rust, Node/Bun, Python, Ruby, Java (Gradle/Maven), Go, Swift, and any project with git tags.
 
 ## Public API
 
@@ -32,20 +32,23 @@ Provides a unified release workflow: version bumping across language ecosystems,
 
 | Type | Description |
 |------|-------------|
-| `ReleaseOptions` | Options: bump level, dry_run, no_tag, no_changelog, push, pre_lane, allow_dirty |
+| `ReleaseOptions` | Options: bump level, dry_run, no_tag, no_changelog, no_bump, push, pre_lane, allow_dirty |
 
 ## Invariants
 
 1. Preflight checks require a clean working tree (unless `--allow-dirty`) and a git repository
-2. Version detection is language-aware: reads from Cargo.toml, package.json, pyproject.toml, etc.
+2. Version detection prefers `plugin.toml`'s `[plugin].version` when present (canonical fledge identity), then falls back to language-specific manifests: Cargo.toml, package.json, pyproject.toml, etc.
 3. Languages without version files (Go, Swift, generic) use tag-only releases
 4. `--dry-run` never modifies any files or creates commits/tags
-5. Changelog entries are inserted before existing entries (newest first)
-6. The release commit message follows conventional commit format: `chore: release vX.Y.Z`
-7. Tags are annotated (`git tag -a`) with message `Release vX.Y.Z`; creating a tag that already exists is rejected with a clear error
-8. Custom version files can be specified in `[release]` section of `fledge.toml`
-9. All git commands use explicit `current_dir` for correctness in any working directory context
-10. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations
+5. `--no-bump` skips the version-file bump step entirely (tag-only release); useful when the canonical version lives in the GitHub Release tag itself
+6. Changelog entries are inserted before existing entries (newest first)
+7. The release commit message follows conventional commit format: `chore: release vX.Y.Z`
+8. Tags are annotated (`git tag -a`) with message `Release vX.Y.Z`; creating a tag that already exists is rejected with a clear error
+9. Custom version files can be specified in `[release].files` section of `fledge.toml`
+10. The plugin.toml bumper is scoped to the `[plugin]` table — a `version` key in another table (e.g. a `[[commands]]` row) is left untouched
+11. When a Rust plugin carries both `Cargo.toml` and `plugin.toml`, both are bumped in the same release commit so they stay in sync
+12. All git commands use explicit `current_dir` for correctness in any working directory context
+13. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations
 
 ## Behavioral Examples
 
@@ -125,4 +128,5 @@ Then version.txt is bumped alongside auto-detected files
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-25 | Recognize `plugin.toml` (`[plugin].version`) as a first-class fledge-ecosystem version source. Added `--no-bump` flag for tag-only releases. The plugin.toml bumper is section-scoped so other tables' `version` keys (e.g. on `[[commands]]`) aren't touched. Rust plugins with both `Cargo.toml` and `plugin.toml` get both bumped together. (#264) |
 | 1 | 2026-04-21 | Initial spec — full release workflow with multi-language support |

@@ -1677,6 +1677,11 @@ fn validate_plugin(path: &Path, strict: bool, json: bool) -> Result<()> {
 
     if manifest.plugin.version.is_empty() {
         report.errors.push("plugin.version is empty".to_string());
+    } else if crate::versioning::parse_version(&manifest.plugin.version).is_err() {
+        report.errors.push(format!(
+            "plugin.version is not valid semver: '{}' (expected major.minor.patch)",
+            manifest.plugin.version
+        ));
     }
 
     if manifest.plugin.description.is_none() {
