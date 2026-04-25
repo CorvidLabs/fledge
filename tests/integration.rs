@@ -646,7 +646,7 @@ fn cli_doctor_succeeds() {
     let output = run_fledge(&["doctor"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Toolchain") || stdout.contains("Git"));
+    assert!(stdout.contains("fledge") || stdout.contains("Git"));
 }
 
 #[test]
@@ -655,88 +655,9 @@ fn cli_doctor_json_valid() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed["project_type"].is_string());
     assert!(parsed["sections"].is_array());
     assert!(parsed["passed"].is_number());
     assert!(parsed["failed"].is_number());
-}
-
-#[test]
-fn cli_doctor_detects_rust_project() {
-    let output = run_fledge(&["doctor", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(parsed["project_type"], "rust");
-}
-
-// ──────────────────────────────────────────────────────────
-// Metrics command
-// ──────────────────────────────────────────────────────────
-
-#[test]
-fn cli_metrics_succeeds() {
-    let output = run_fledge(&["metrics"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Rust") || stdout.contains("Lines"));
-}
-
-#[test]
-fn cli_metrics_json_valid() {
-    let output = run_fledge(&["metrics", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed["summary"]["files"].is_number());
-    assert!(parsed["summary"]["lines"].is_number());
-    assert!(parsed["summary"]["code"].is_number());
-    assert!(parsed["languages"].is_array());
-}
-
-#[test]
-fn cli_metrics_churn_succeeds() {
-    let output = run_fledge(&["metrics", "--churn"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Commits") || stdout.contains("File") || stdout.contains("churn"));
-}
-
-#[test]
-fn cli_metrics_churn_json() {
-    let output = run_fledge(&["metrics", "--churn", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array());
-}
-
-#[test]
-fn cli_metrics_tests_succeeds() {
-    let output = run_fledge(&["metrics", "--tests"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Test files") || stdout.contains("Source files"));
-}
-
-#[test]
-fn cli_metrics_tests_json() {
-    let output = run_fledge(&["metrics", "--tests", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed["test_files"].is_number());
-    assert!(parsed["source_files"].is_number());
-    assert!(parsed["ratio"].is_number());
-}
-
-#[test]
-fn cli_metrics_churn_with_limit() {
-    let output = run_fledge(&["metrics", "--churn", "--limit", "5", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.as_array().unwrap().len() <= 5);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1227,7 +1148,7 @@ fn cli_help_flag_shows_usage() {
     assert!(stdout.contains("run"));
     assert!(stdout.contains("lanes"));
     assert!(stdout.contains("doctor"));
-    assert!(stdout.contains("metrics"));
+    assert!(stdout.contains("plugins"));
 }
 
 #[test]
@@ -1239,7 +1160,7 @@ fn cli_subcommand_help() {
         "config",
         "spec",
         "doctor",
-        "metrics",
+        "plugins",
         "changelog",
     ];
     for cmd in &subcommands {
@@ -1376,51 +1297,7 @@ fn cli_ask_no_question_fails() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Deps command
-// ──────────────────────────────────────────────────────────
-
-#[test]
-fn cli_deps_lists_rust_dependencies() {
-    let output = run_fledge(&["deps"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Dependencies"));
-    assert!(stdout.contains("clap"));
-    assert!(stdout.contains("serde"));
-}
-
-#[test]
-fn cli_deps_json_valid() {
-    let output = run_fledge(&["deps", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(parsed["ecosystem"], "rust");
-    assert!(parsed["dependencies"].is_array());
-    assert!(!parsed["dependencies"].as_array().unwrap().is_empty());
-}
-
-#[test]
-fn cli_deps_generic_project_fails() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["deps"]);
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("Could not detect"));
-}
-
-#[test]
-fn cli_deps_node_project_no_lock_fails() {
-    let tmp = TempDir::new().unwrap();
-    fs::write(tmp.path().join("package.json"), "{}").unwrap();
-    let output = run_fledge_in(tmp.path(), &["deps"]);
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("No lock file"));
-}
-
-// ──────────────────────────────────────────────────────────
-// E2E workflow: init → run → lane → doctor → metrics → deps
+// E2E workflow: init → run → lane → doctor
 // ──────────────────────────────────────────────────────────
 
 #[test]
@@ -1483,20 +1360,14 @@ fn e2e_rust_project_lifecycle() {
     let output = run_fledge_in(&project, &["doctor"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Toolchain"));
-
-    // Step 8: Metrics
-    let output = run_fledge_in(&project, &["metrics"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Rust") || stdout.contains("Lines"));
+    assert!(stdout.contains("fledge") || stdout.contains("Git"));
 
     // Step 9: Doctor JSON
     let output = run_fledge_in(&project, &["doctor", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(parsed["project_type"], "rust");
+    assert!(parsed["sections"].is_array());
 }
 
 #[test]
@@ -1532,10 +1403,6 @@ fn e2e_tsbun_project_lifecycle() {
 
     // Step 3: Doctor
     let output = run_fledge_in(&project, &["doctor"]);
-    assert!(output.status.success());
-
-    // Step 4: Metrics
-    let output = run_fledge_in(&project, &["metrics"]);
     assert!(output.status.success());
 }
 
@@ -2121,43 +1988,6 @@ fn cli_changelog_in_non_git_dir() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Metrics edge cases
-// ──────────────────────────────────────────────────────────
-
-#[test]
-fn cli_metrics_in_empty_dir() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["metrics"]);
-    // Should succeed with zero counts or fail gracefully
-    assert!(output.status.success());
-}
-
-#[test]
-fn cli_metrics_json_in_empty_dir() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["metrics", "--json"]);
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(parsed["summary"]["files"], 0);
-}
-
-#[test]
-fn cli_metrics_churn_in_non_git_dir() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["metrics", "--churn"]);
-    // Not a git repo — should handle gracefully
-    let _ = output.status;
-}
-
-#[test]
-fn cli_metrics_tests_in_empty_dir() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["metrics", "--tests"]);
-    assert!(output.status.success());
-}
-
-// ──────────────────────────────────────────────────────────
 // Doctor edge cases
 // ──────────────────────────────────────────────────────────
 
@@ -2167,7 +1997,7 @@ fn cli_doctor_in_empty_dir() {
     let output = run_fledge_in(tmp.path(), &["doctor"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("generic") || stdout.contains("Toolchain") || stdout.contains("Git"));
+    assert!(stdout.contains("fledge") || stdout.contains("Git"));
 }
 
 #[test]
@@ -2177,7 +2007,7 @@ fn cli_doctor_json_in_empty_dir() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(parsed["project_type"], "generic");
+    assert!(parsed["sections"].is_array());
 }
 
 // ──────────────────────────────────────────────────────────
@@ -2299,35 +2129,6 @@ fn cli_create_template_existing_dir_fails() {
 fn cli_unknown_subcommand_fails() {
     let output = run_fledge(&["definitely-not-a-command"]);
     // External subcommand dispatch — should fail if no matching plugin
-    assert!(!output.status.success());
-}
-
-// ──────────────────────────────────────────────────────────
-// Deps edge cases
-// ──────────────────────────────────────────────────────────
-
-#[test]
-fn cli_deps_go_project_without_gomod() {
-    let tmp = TempDir::new().unwrap();
-    // Only a main.go, no go.mod — should fail or detect nothing
-    fs::write(tmp.path().join("main.go"), "package main\n").unwrap();
-    let output = run_fledge_in(tmp.path(), &["deps"]);
-    assert!(!output.status.success());
-}
-
-#[test]
-fn cli_deps_python_project() {
-    let tmp = TempDir::new().unwrap();
-    fs::write(tmp.path().join("pyproject.toml"), "[tool]\n").unwrap();
-    let output = run_fledge_in(tmp.path(), &["deps"]);
-    // May fail without pip/lock files, but shouldn't panic
-    let _ = output.status;
-}
-
-#[test]
-fn cli_deps_json_empty_project_fails() {
-    let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["deps", "--json"]);
     assert!(!output.status.success());
 }
 
@@ -2541,11 +2342,8 @@ steps = [{ parallel = ["check", "build"] }, "test"]
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(parsed.as_array().unwrap().len() >= 3);
 
-    // 10. Doctor and metrics in this dir
+    // 10. Doctor in this dir
     let output = run_fledge_in(tmp.path(), &["doctor"]);
-    assert!(output.status.success());
-
-    let output = run_fledge_in(tmp.path(), &["metrics"]);
     assert!(output.status.success());
 }
 

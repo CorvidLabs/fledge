@@ -1,6 +1,6 @@
 ---
 module: publish
-version: 2
+version: 3
 status: active
 files:
   - src/publish.rs
@@ -8,14 +8,13 @@ files:
 db_tables: []
 depends_on:
   - config
-  - templates
 ---
 
 # Publish
 
 ## Purpose
 
-Publishes a local fledge template directory as a GitHub repository with the `fledge-template` discovery topic, making it discoverable via `fledge templates search`. Validates the content, creates or updates the GitHub repo, and pushes the files. Lanes and plugins have their own publish subcommands that reuse shared helpers from this module.
+Shared GitHub-publishing helpers used by `lanes publish` and `plugins publish`: authenticate to GitHub, create or check a repo, set topics, and push a directory. As of v0.15 this module is a *library* — the user-facing `templates publish` command moved out to `fledge-plugin-templates-remote`, so the publish module no longer exposes a `run`/`PublishOptions` entry point or `validate_template`. Other modules consume the lower-level helpers directly.
 
 ## Public API
 
@@ -23,113 +22,77 @@ Publishes a local fledge template directory as a GitHub repository with the `fle
 
 | Export | Description |
 |--------|-------------|
-| `PublishOptions` | Options struct for the publish command |
-| `run` | Entry point that validates, creates repo, and pushes template |
-| `validate_template` | Checks that directory contains a valid template.toml |
 | `get_authenticated_user` | Fetches the GitHub username for the configured token |
 | `check_repo_exists` | Checks whether a repo already exists on GitHub |
 | `create_github_repo` | Creates a new GitHub repository via the API |
-| `set_repo_topics` | Sets repository topics including `fledge-template` (delegates to `set_repo_topic`) |
 | `set_repo_topic` | Sets a single topic on a GitHub repository |
 | `push_directory` | Initializes git (if needed) and pushes directory contents to GitHub |
 | `run_git` | Runs a git command in a given directory |
 
-### Structs & Enums
+### Functions
 
-| Type | Description |
-|------|-------------|
-| `PublishOptions` | Command options: path to template, optional org, private flag, description override |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `get_authenticated_user` | `(token: &str) -> Result<String>` | Returns the authenticated GitHub login |
+| `check_repo_exists` | `(owner, repo, token: &str) -> Result<bool>` | True if repo exists; false on 404; bails on other errors |
+| `create_github_repo` | `(name, description, private, org, token: &str) -> Result<()>` | Creates a repo under the user or an organization |
+| `set_repo_topic` | `(owner, repo, topic, token: &str) -> Result<()>` | Adds a single topic to the existing topic set |
+| `push_directory` | `(path, owner, repo, token: &str) -> Result<()>` | Force-pushes the directory's tracked content to `origin/main` using token-based auth |
+| `run_git` | `(dir, args: &[&str]) -> Result<()>` | Runs git in the given directory; suppresses stdout/stderr |
 
 ## Invariants
 
-1. A valid `template.toml` must exist at the root of the template directory
-2. A GitHub token with `repo` scope must be configured via `fledge config set github.token`
-3. The `fledge-template` topic is always added to published repos
-4. If the repo already exists on GitHub, the user is prompted to confirm update
-5. Template name from `template.toml` is used as the repo name unless overridden
-6. Files matching template.toml `ignore` patterns are still pushed (they're part of the template)
+1. A GitHub token with `repo` scope must be passed to every helper that talks to the API; callers are responsible for resolving the token from config or env
+2. `create_github_repo` returns a clear error message for the common failure modes — 422 (name conflict / invalid name), 403 (insufficient scope) — so callers don't have to interpret raw HTTP codes
+3. `push_directory` uses an in-memory `http.extraheader` env-injection trick to avoid embedding the token in the persisted git remote; the remote is reset to a clean URL after the push
+4. `set_repo_topic` is additive — it merges the new topic into the existing topic set rather than replacing the whole list
+5. Caller modules (`lanes publish`, `plugins publish`, `fledge-plugin-templates-remote`) are responsible for the user-facing concerns: validating template/lane/plugin manifests, prompting for confirmation, formatting output
 
 ## Behavioral Examples
 
-### Scenario: Publish a new template
-```
-Given a directory with a valid template.toml
-And a GitHub token is configured
-When the user runs `fledge publish ./my-template`
-Then a new GitHub repo is created with the template name
-And the `fledge-template` topic is set
-And the repo description matches template.toml
-And all files are pushed
-And the user sees the install command
+### create_github_repo — under an organization
+```rust
+create_github_repo("my-template", "A new template", false, Some("CorvidLabs"), token)?;
+// POST https://api.github.com/orgs/CorvidLabs/repos
 ```
 
-### Scenario: Publish under an organization
-```
-Given a valid template directory
-And a GitHub token is configured
-When the user runs `fledge publish ./my-template --org CorvidLabs`
-Then the repo is created under the CorvidLabs organization
-```
-
-### Scenario: Publish with private visibility
-```
-Given a valid template directory
-When the user runs `fledge publish ./my-template --private`
-Then the repo is created as private
+### push_directory — token-based auth without persisting credentials
+```rust
+push_directory(&path, "CorvidLabs", "my-template", token)?;
+// `git init` if needed, `git add -A`, `git commit`, then a force-push
+// to https://github.com/CorvidLabs/my-template.git using a one-shot
+// `http.extraheader` injection so the token never lands in .git/config.
 ```
 
-### Scenario: Template already published (repo exists)
-```
-Given a valid template directory
-And a GitHub repo with the same name already exists
-When the user runs `fledge publish ./my-template`
-Then the user is prompted to confirm the update
-And if confirmed, files are pushed to the existing repo
-```
-
-### Scenario: No GitHub token configured
-```
-Given a valid template directory
-And no GitHub token is configured
-When the user runs `fledge publish`
-Then an error is shown guiding the user to `fledge config set github.token <token>`
-```
-
-### Scenario: Invalid template
-```
-Given a directory without template.toml
-When the user runs `fledge publish ./bad-dir`
-Then an error is shown: "No template.toml found"
+### set_repo_topic — additive
+```rust
+// Existing topics: ["rust", "cli"]
+set_repo_topic("CorvidLabs", "my-template", "fledge-template", token)?;
+// Resulting topics: ["rust", "cli", "fledge-template"]
 ```
 
 ## Error Cases
 
 | Error | Condition |
 |-------|-----------|
-| No template.toml | Target directory has no template.toml |
-| Invalid template.toml | template.toml cannot be parsed |
-| No GitHub token | `github.token` not set in config |
-| Repo creation failed | GitHub API returns error (permission, name conflict, etc.) |
-| Push failed | Git push fails (auth, network, etc.) |
-| Directory not found | Specified path does not exist |
+| 422 from create_github_repo | Repo name already exists or is invalid |
+| 403 from create_github_repo | Token lacks `repo` scope |
+| Git push failed | Auth issue, network, or branch protection |
+| run_git non-zero | The git command returned a non-zero exit |
 
 ## Dependencies
-
-### Consumes
 
 | Crate/Module | What is used |
 |-------------|-------------|
 | `ureq` | HTTP client for GitHub API |
 | `serde_json` | JSON construction and parsing for API calls |
-| `console` | `style` for colored output |
+| `base64` | Encode `x-access-token:<token>` for HTTP Basic auth |
 | `anyhow` | Error handling |
-| `dialoguer` | `Confirm` for update prompts |
-| `config` | `Config::load()`, `github_token()` for authentication |
-| `templates` | `TemplateManifest` for template validation |
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-25 | v0.15 tight-core: removed the `run` / `PublishOptions` / `validate_template` / `set_repo_topics` exports. The user-facing `templates publish` command now lives in `fledge-plugin-templates-remote`; this module is a library of shared helpers for the remaining in-core publish callers (`lanes publish`, `plugins publish`). |
 | 2 | 2026-04-22 | Updated exports for plugin/lane publish support; document newly-public helpers |
 | 1 | 2026-04-19 | Initial spec |

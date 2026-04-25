@@ -1,19 +1,7 @@
 use anyhow::{bail, Result};
 use std::process::Command;
 
-pub fn detect_repo() -> Result<(String, String)> {
-    let output = Command::new("git")
-        .args(["remote", "get-url", "origin"])
-        .output()?;
-
-    if !output.status.success() {
-        bail!("No git remote 'origin' found. Are you in a GitHub repository?");
-    }
-
-    let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    parse_repo_url(&url)
-}
-
+#[cfg(test)]
 fn parse_repo_url(url: &str) -> Result<(String, String)> {
     // SSH: git@github.com:owner/repo.git
     if let Some(rest) = url.strip_prefix("git@github.com:") {
@@ -106,34 +94,6 @@ pub fn github_api_get(
     serde_json::from_str(&text).map_err(|e| anyhow::anyhow!("parsing GitHub API response: {}", e))
 }
 
-pub fn format_relative_time(iso: &str) -> String {
-    let Ok(dt) = chrono::DateTime::parse_from_rfc3339(iso) else {
-        return iso.to_string();
-    };
-    let now = chrono::Utc::now();
-    let diff = now.signed_duration_since(dt);
-
-    let minutes = diff.num_minutes();
-    if minutes < 1 {
-        return "just now".to_string();
-    }
-    if minutes < 60 {
-        return format!("{}m ago", minutes);
-    }
-    let hours = diff.num_hours();
-    if hours < 24 {
-        return format!("{}h ago", hours);
-    }
-    let days = diff.num_days();
-    if days < 30 {
-        return format!("{}d ago", days);
-    }
-    if days < 365 {
-        return format!("{}mo ago", days / 30);
-    }
-    format!("{}y ago", days / 365)
-}
-
 pub fn ensure_claude_cli() -> Result<()> {
     if Command::new("claude")
         .arg("--version")
@@ -202,34 +162,5 @@ mod tests {
     #[test]
     fn parse_invalid_url_errors() {
         assert!(parse_repo_url("https://gitlab.com/user/repo").is_err());
-    }
-
-    #[test]
-    fn relative_time_minutes() {
-        let now = chrono::Utc::now();
-        let five_min_ago = now - chrono::Duration::minutes(5);
-        let iso = five_min_ago.to_rfc3339();
-        assert_eq!(format_relative_time(&iso), "5m ago");
-    }
-
-    #[test]
-    fn relative_time_hours() {
-        let now = chrono::Utc::now();
-        let three_h_ago = now - chrono::Duration::hours(3);
-        let iso = three_h_ago.to_rfc3339();
-        assert_eq!(format_relative_time(&iso), "3h ago");
-    }
-
-    #[test]
-    fn relative_time_days() {
-        let now = chrono::Utc::now();
-        let ten_d_ago = now - chrono::Duration::days(10);
-        let iso = ten_d_ago.to_rfc3339();
-        assert_eq!(format_relative_time(&iso), "10d ago");
-    }
-
-    #[test]
-    fn relative_time_invalid_fallback() {
-        assert_eq!(format_relative_time("not-a-date"), "not-a-date");
     }
 }

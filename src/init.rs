@@ -3,10 +3,10 @@ use console::style;
 use std::path::{Path, PathBuf};
 
 use crate::config::Config;
+use crate::meta;
 use crate::prompts;
 use crate::templates::{self, Template};
 use crate::trust;
-use crate::update;
 
 pub struct InitOptions {
     pub name: String,
@@ -50,9 +50,8 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
 
     if opts.template.is_none() && config.template_repos().is_empty() && available.len() <= 2 {
         println!(
-            "{} Only built-in starter templates found. Run {} to discover more, or add {} to your config.",
+            "{} Only built-in starter templates found. Add {} to your config or pass `-t <owner/repo>` to fetch a remote template.",
             style("tip:").yellow().bold(),
-            style("fledge search").cyan(),
             style("CorvidLabs/fledge-templates").cyan(),
         );
     }
@@ -110,7 +109,7 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
     generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
     // Write .fledge/meta.toml for future `fledge update`
-    update::write_project_meta(
+    meta::write_project_meta(
         &target_dir,
         &template.name,
         None,
@@ -249,7 +248,7 @@ fn run_remote(
     generate_fledge_toml_if_missing(&target_dir, &mut created_files)?;
 
     // Write .fledge/meta.toml for future `fledge update`
-    update::write_project_meta(
+    meta::write_project_meta(
         &target_dir,
         &template.name,
         Some(remote_ref),

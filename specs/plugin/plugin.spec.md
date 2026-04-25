@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 8
+version: 9
 status: active
 files:
   - src/plugin.rs
@@ -24,12 +24,11 @@ Plugin system for community extensions. Plugins are external executables that re
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point — install, list, remove, or run plugins |
-| `PluginOptions` | Options for the plugin subcommand |
-| `PluginEntry` | Installed plugin metadata: name, source, version, install date, commands |
-| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
-| `PluginCapabilities` | Declared plugin capabilities: exec, store, metadata |
 | `resolve_plugin_command` | Check if a command name matches an installed plugin |
 | `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
+| `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
+| `PluginOptions` | Options for the plugin subcommand |
+| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 
 ### Structs & Enums
 
@@ -156,6 +155,8 @@ pinned_ref = "v0.2.0"
 9. `plugin search` uses GitHub topic search (same as template search)
 9. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
 10. `--json` outputs structured data for all list/search operations
+11. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15: `fledge-plugin-{github,deps,metrics,templates-remote,doctor}` — the plugins that took over commands removed from core in the tight-core refactor
+12. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
 
 ## Behavioral Examples
 
@@ -274,6 +275,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 9 | 2026-04-25 | Add `fledge plugins install --defaults` for one-command bulk install of the curated `DEFAULT_PLUGINS` set. Source positional becomes optional when --defaults is used. Per-plugin failures don't abort the bulk install. |
 | 8 | 2026-04-23 | Add trust tiers (official/community/unverified) and `audit` subcommand; trust tier shown in list, install, and JSON output |
 | 7 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 6 | 2026-04-21 | Fix: add missing Update variant to exported functions table |

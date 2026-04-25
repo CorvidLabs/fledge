@@ -1,18 +1,18 @@
 # CLI Reference
 
-Every command, every flag. If it's in fledge, it's here.
+Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`, `templates-search`, `templates-publish`, `doctor-tools`) ship as separate repos — install them with `fledge plugins install --defaults`.
 
 **Jump to:**
-[Start](#start-scaffold-and-discover) |
-[Build](#build-configure-and-run) |
-[Develop](#develop-branch-and-spec) |
-[Review](#review-quality-and-insight) |
-[Ship](#ship-track-and-release) |
-[Extend](#extend-grow-the-tool)
+[Scaffold](#scaffold-templates) |
+[Run](#run-tasks-and-lanes) |
+[Spec](#spec-develop-with-spec-sync) |
+[AI](#ai-ask-and-review) |
+[Ship](#ship-branch-pr-release) |
+[Extend](#extend-plugins)
 
-## Start: Scaffold and discover
+## Scaffold: Templates
 
-All template commands live under `fledge templates` (alias: `fledge template`).
+All template commands live under `fledge templates` (alias: `fledge template`). Local-only — `templates-search` and `templates-publish` moved to [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) in v0.15.
 
 ### fledge templates init `<name>`
 
@@ -118,12 +118,12 @@ fledge templates validate ./templates --json
 
 ---
 
-### fledge templates search `[query]`
+### fledge templates-search `[query]` (plugin)
 
-Find templates on GitHub (looks for the `fledge-template` topic).
+Provided by [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). Find templates on GitHub (looks for the `fledge-template` topic).
 
 ```
-fledge templates search [query] [OPTIONS]
+fledge templates-search [query] [OPTIONS]
 ```
 
 **Options:**
@@ -131,46 +131,25 @@ fledge templates search [query] [OPTIONS]
 - `-l, --limit <N>` - Max results [default: `20`, max: `100`]
 - `--json` - JSON output
 
-**Output format:** Results show repo name, star count (abbreviated with "k" suffix for 1000+), and description (truncated to 60 characters). Topics are shown below each result.
-
 ---
 
-### fledge templates publish `[path]`
+### fledge templates-publish `[path]` (plugin)
 
-Push a template to GitHub as a new repo tagged with `fledge-template`.
+Provided by [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). Push a template to GitHub as a new repo tagged with `fledge-template`. Wraps `gh repo create --push`.
 
 ```
-fledge templates publish [path] [OPTIONS]
+fledge templates-publish [path] [OPTIONS]
 ```
 
 **Options:**
 - `--org <ORG>` - Publish under an org
 - `--private` - Private repo
-- `--description <DESC>` - Override repo description (falls back to description in `template.toml`)
-
-**Behavior:**
-
-- If the repo already exists on GitHub, prompts for confirmation before updating.
-- Auto-initializes git (`.git`) if the template directory doesn't have one.
-- Cleans up embedded tokens from the remote URL after push.
+- `--description <DESC>` - Override repo description
+- `-y, --yes` - Skip confirmation prompt
 
 ---
 
-### fledge templates update
-
-Re-apply the source template to an existing project. Handy when the template gets updated.
-
-```
-fledge templates update [OPTIONS]
-```
-
-**Options:**
-- `--dry-run` - Preview changes
-- `--refresh` - Force re-clone
-
----
-
-## Build: Configure and run
+## Run: Tasks and Lanes
 
 ### fledge run `[task]`
 
@@ -316,7 +295,7 @@ fledge config list
 
 ### fledge doctor
 
-Check your environment for issues (missing tools, bad config, etc). Run this before `fledge run` if something seems off.
+Check fledge's own health: config loads, git is available, AI provider resolves and is reachable. v0.15 stripped toolchain probes (rustc/node/python/swift/etc.) — those moved to [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor)'s `doctor-tools` command.
 
 ```
 fledge doctor [OPTIONS]
@@ -327,7 +306,19 @@ fledge doctor [OPTIONS]
 
 ---
 
-## Develop: Branch and spec
+### fledge doctor-tools (plugin)
+
+Provided by [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor). Probes installed dev toolchains and reports versions.
+
+```
+fledge doctor-tools [--json]
+```
+
+Probed groups: `rust` (rustc, cargo, cargo-clippy), `node` (node, npm, pnpm, bun, yarn), `python` (python3, uv, poetry), `go`, `ruby`, `swift`, `java` (java, gradle, mvn).
+
+---
+
+## Spec: Develop with spec-sync
 
 ### fledge work `<action>`
 
@@ -339,16 +330,30 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Subcommands:**
 
-- `start <name>` - Create a work branch
-- `pr` - Open a PR (`-t, --title`, `-b, --body`, `--draft`, `--base`)
-- `status` - Current branch + PR status
+- `start <name>` — Create a work branch
+- `pr` — Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
+- `status` — Current branch + PR status
 
 **Options for `work start`:**
 
-- `-t, --branch-type <TYPE>` - Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
-- `-i, --issue <NUMBER>` - Link to GitHub issue (prefixes branch name with issue number)
-- `--prefix <PREFIX>` - Override branch prefix entirely (e.g. `user/leif`)
-- `--base <BRANCH>` - Base branch [default: `main`]
+- `-t, --branch-type <TYPE>` — Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-i, --issue <NUMBER>` — Link to GitHub issue (prefixes branch name with issue number)
+- `--prefix <PREFIX>` — Override branch prefix entirely (e.g. `user/leif`)
+- `--base <BRANCH>` — Base branch [default: `main`]
+
+**Options for `work pr`:**
+
+- `-t, --title <TITLE>` — PR title (auto-generated from branch name if omitted)
+- `-b, --body <BODY>` — Literal body (always wins over `--ai` and the heuristic generator)
+- `--draft` — Create as a draft PR
+- `--base <BASE>` — Target base branch
+- `-y, --yes` — Skip the preview/confirmation prompt (agent-friendly)
+- `--ai` — Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
+- `--provider {claude,ollama}` — Override AI provider for `--ai`
+- `--model <MODEL>` — Override AI model for `--ai`
+- `--json` — Emit `{url, number, title, head, base, draft}`; suppresses the preview
+
+**Behavior:** `work pr` shows a styled preview block (title, head→base, draft tag, full body) before any push or `gh pr create` call, then prompts y/n. Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. `--yes` skips the prompt; `--json` skips it as well. Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging.
 
 The branch format is configurable via `[work]` in `fledge.toml`:
 
@@ -386,144 +391,168 @@ fledge spec <check|init|new> [OPTIONS]
 
 ---
 
-## Review: Quality and insight
+## AI: Ask and Review
+
+### fledge ai `<action>`
+
+Manage AI provider and model selection — the daily-driver way to switch between Claude and any Ollama-speaking endpoint.
+
+```
+fledge ai <status|models|use> [OPTIONS]
+```
+
+**Subcommands:**
+
+- `status [--json]` — Show active provider, model, and host with a `(from env / config / default)` source tag on each value
+- `models --provider {claude,ollama} [--search <q>] [--json]` — Live list of available models (Ollama hits `/api/tags`; Claude returns curated aliases)
+- `use [provider] [model]` — Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`
+
+```bash
+fledge ai status                                  # who's active and why
+fledge ai models --provider ollama --search cloud
+fledge ai use                                     # interactive picker
+fledge ai use ollama qwen3-coder:480b-cloud       # scriptable
+```
+
+---
 
 ### fledge review
 
-AI code review via Claude. Diffs your branch against the base and gives feedback.
+AI code review. Single-model by default; pass `--with-model` to run a multi-model panel in parallel against the same diff and spec context.
 
 ```
 fledge review [OPTIONS]
 ```
 
 **Options:**
-- `-b, --base <BRANCH>` - Base branch [default: auto-detect]
-- `-f, --file <FILE>` - Review a single file
-- `--json` - JSON output
+- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
+- `-f, --file <FILE>` — Review a single file
+- `-m, --model <MODEL>` — Override the active provider's model
+- `--provider {claude,ollama}` — Override the active provider
+- `-p, --prompt <TEXT>` — Append a custom focus prompt
+- `--format {summary,checklist,inline}` — Output format [default: summary]
+- `--with-specs <NAMES>` — Force-include specs (comma-separated, repeatable)
+- `--no-auto-specs` — Skip auto-detection of relevant specs
+- `--with-model <REF>` — Add another model to the review panel (repeatable, comma-separated). Format: `provider[:model]`
+- `--no-active` — Drop the active config from the panel; only run explicit `--with-model` entries
+- `--json` — JSON output (single-model: legacy fields + `reviews[]`; multi-model: `reviews[]` only)
 
 **Default branch detection:** When `--base` is not specified, fledge tries `git symbolic-ref refs/remotes/origin/HEAD`, then checks for `main` and `master` branches. Falls back to `main` if none exist.
+
+```bash
+fledge review                                                 # active model
+fledge review --with-model ollama:gpt-oss:120b-cloud          # active + 1 more
+fledge review --no-active --with-model claude:opus-4.7,ollama:qwen3-coder:480b-cloud
+                                                              # exactly two models, no active
+fledge review --json | jq '.reviews[].provider'
+```
 
 ---
 
 ### fledge ask `<question>`
 
-Ask about your codebase. Claude reads your code and answers.
+Ask about your codebase. Spec-aware by default — the active model gets a compact index of every spec injected into the prompt.
 
 ```
 fledge ask <question> [OPTIONS]
 ```
 
 **Options:**
-- `--json` - JSON output
+- `-m, --model <MODEL>` — Override active model
+- `--provider {claude,ollama}` — Override active provider
+- `--with-specs <NAMES>` — Include full spec + companions for these modules (comma-separated; pass `all` for everything)
+- `--no-spec-index` — Skip the spec-index injection (for off-topic questions)
+- `--json` — JSON output
 
 ```bash
 fledge ask "how does the template rendering work?"
-fledge ask "what tests cover the config module?"
+fledge ask --with-specs work,trust "how do these modules interact?"
+fledge ask --with-specs all "which modules touch GitHub?"
 ```
 
 ---
 
-### fledge metrics
+### fledge deps (plugin)
 
-Code stats: LOC by language, file churn, test ratio.
+Provided by [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps). Auto-detects ecosystem from lockfiles and shells out to the canonical tool.
 
 ```
-fledge metrics [OPTIONS]
+fledge deps [--outdated | --audit | --licenses] [--json]
 ```
 
-**Options:**
-- `--churn` - Most-changed files from git history
-- `--tests` - Test file detection and ratio
-- `-l, --limit <N>` - Max churn entries [default: `20`]
-- `--json` - JSON output
+| Lockfile | Ecosystem | Backing tool |
+|----------|-----------|--------------|
+| `Cargo.lock` | Rust | `cargo outdated` / `cargo audit` |
+| `bun.lockb` | Node (Bun) | `bun outdated` / `bun audit` |
+| `pnpm-lock.yaml` | Node (pnpm) | `pnpm outdated` / `pnpm audit` |
+| `package-lock.json` | Node (npm) | `npm outdated` / `npm audit` |
+| `yarn.lock` | Node (Yarn) | `yarn outdated` / `yarn npm audit` |
+| `poetry.lock` | Python (Poetry) | `poetry show --outdated` |
+| `uv.lock` | Python (uv) | `uv pip list --outdated` |
+
+---
+
+### fledge metrics (plugin)
+
+Provided by [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). Thin wrapper over `tokei` (LOC) and `git` (churn).
+
+```
+fledge metrics [--churn | --tests] [-l N] [--json]
+```
 
 ```bash
-fledge metrics
-fledge metrics --churn
-fledge metrics --tests
-fledge metrics --churn --tests --json
+fledge metrics                       # LOC summary by language (tokei)
+fledge metrics --churn -l 10         # top-10 most-changed files
+fledge metrics --tests --json        # {test_files, source_files, ratio}
 ```
 
 ---
 
-### fledge deps
+## Ship: Branch, PR, Release
 
-Dependency health checks.
+### fledge issues `[view <number>]` (plugin)
 
-```
-fledge deps [OPTIONS]
-```
-
-**Options:**
-- `--outdated` - Find stale dependencies
-- `--audit` - Security audit
-- `--licenses` - License scan
-- `--json` - JSON output
-
-**Works with:**
-
-| Ecosystem | Detected by | Outdated | Audit | Licenses |
-|-----------|------------|----------|-------|----------|
-| Rust | `Cargo.lock` | `cargo outdated` | `cargo audit` | `cargo license` |
-| Node.js | `package-lock.json` / `yarn.lock` | npm/yarn outdated | npm/yarn audit | `license-checker` |
-| Go | `go.sum` | `go list` | `govulncheck` | N/A |
-| Python | `requirements.txt` / `Pipfile.lock` / `poetry.lock` | pip outdated | `pip-audit` | N/A |
-| Ruby | `Gemfile.lock` | `bundle outdated` | `bundle audit` | N/A |
-
-```bash
-fledge deps
-fledge deps --outdated
-fledge deps --audit
-fledge deps --outdated --audit --licenses --json
-```
-
----
-
-## Ship: Track and release
-
-### fledge issues `[view <number>]`
-
-List and view GitHub issues.
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view GitHub issues.
 
 ```
-fledge issues [OPTIONS]
+fledge issues [list] [OPTIONS]
 fledge issues view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` - `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` - Max results [default: `20`]
-- `--label <LABEL>` - Filter by label
+- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>` — Max results [default: `20`]
+- `--label <LABEL>` — Filter by label
 - `--json`
 
 ---
 
-### fledge prs `[view <number>]`
+### fledge prs `[view <number>]` (plugin)
 
-List and view pull requests.
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only — `fledge work pr` creates them).
 
 ```
-fledge prs [OPTIONS]
+fledge prs [list] [OPTIONS]
 fledge prs view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` - `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` - Max results [default: `20`]
+- `-s, --state <STATE>` — `open`, `closed`, `merged`, `all` [default: `open`]
+- `-l, --limit <N>` — Max results [default: `20`]
 - `--json`
 
 ---
 
-### fledge checks
+### fledge checks (plugin)
 
-CI/CD status for a branch.
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). CI/CD status for a branch.
 
 ```
 fledge checks [OPTIONS]
 ```
 
 **Options:**
-- `-b, --branch <BRANCH>` - Branch to check [default: current]
+- `-b, --branch <BRANCH>` — Branch to check [default: current]
 - `--json`
 
 ---
@@ -582,7 +611,7 @@ fledge release patch --no-tag --no-changelog  # just bump version
 
 ---
 
-## Extend: Grow the tool
+## Extend: Plugins
 
 ### fledge plugins `<action>`
 
@@ -594,17 +623,27 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate> [
 
 **Subcommands:**
 
-- `install <source[@ref]>` - Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit.
-- `remove <name>` - Uninstall a plugin
-- `update [name]` - Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
-- `list` - Show installed plugins (includes pinned version info)
-- `search [query]` - Find plugins on GitHub (`--author`, `--limit`)
-- `run <name> [args...]` - Run a plugin command
-- `publish [path]` - Publish a plugin to GitHub (`--org`, `--private`, `--description`)
-- `create <name>` - Scaffold a new plugin (`--output`, `--description`, `--yes`)
-- `validate [path]` - Validate a plugin manifest (`--strict`, `--json`)
+- `install <source[@ref]> | --defaults` — Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit. **`--defaults`** installs the curated plugin set (`fledge-plugin-{github,deps,metrics,templates-remote,doctor}`) in one shot.
+- `remove <name>` — Uninstall a plugin
+- `update [name]` — Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
+- `list` — Show installed plugins (includes pinned version info)
+- `search [query]` — Find plugins on GitHub (`--author`, `--limit`)
+- `run <name> [args...]` — Run a plugin command
+- `publish [path]` — Publish a plugin to GitHub (`--org`, `--private`, `--description`)
+- `create <name>` — Scaffold a new plugin (`--output`, `--description`, `--yes`)
+- `validate [path]` — Validate a plugin manifest (`--strict`, `--json`)
 
 `--json` works with `list` and `search`.
+
+**Default plugins** (installed by `--defaults`):
+
+| Repo | Adds | Replaces (pre-v0.15) |
+|------|------|----------------------|
+| `CorvidLabs/fledge-plugin-github` | `checks`, `issues`, `prs` | the GitHub-specific browsing trio |
+| `CorvidLabs/fledge-plugin-deps` | `deps` | polyglot lockfile audits |
+| `CorvidLabs/fledge-plugin-metrics` | `metrics` | LOC/churn/test-ratio |
+| `CorvidLabs/fledge-plugin-templates-remote` | `templates-search`, `templates-publish` | GitHub template registry |
+| `CorvidLabs/fledge-plugin-doctor` | `doctor-tools` | toolchain probes |
 
 **Plugin format** (`plugin.toml`):
 

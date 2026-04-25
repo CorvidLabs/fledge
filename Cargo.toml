@@ -1,8 +1,8 @@
 [package]
 name = "fledge"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2021"
-authors = ["CorvidLabs <corvidlabs@proton.me>"]
+authors = ["0xLeif <leif.algo@pm.me>"]
 description = "Dev-lifecycle CLI — scaffolding, tasks, lanes, plugins, and more."
 readme = "README.md"
 license = "MIT"

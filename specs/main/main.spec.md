@@ -1,29 +1,25 @@
 ---
 module: main
-version: 5
+version: 6
 status: active
 files:
   - src/main.rs
 
 db_tables: []
 depends_on:
+  - ai
   - ask
   - changelog
-  - checks
   - config
   - create_template
-  - deps
   - doctor
   - github
   - init
   - introspect
-  - issues
   - lanes
   - llm
-  - metrics
   - plugin
   - prompts
-  - prs
   - publish
   - release
   - remote
@@ -33,7 +29,6 @@ depends_on:
   - spec
   - spinner
   - templates
-  - update
   - validate
   - versioning
   - watch

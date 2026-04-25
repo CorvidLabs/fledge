@@ -1,6 +1,12 @@
 # GitHub Integration
 
-fledge talks to GitHub for issues, PRs, CI status, and a branch-based dev workflow. All from the terminal.
+GitHub-specific browsing — `checks`, `issues`, `prs` — moved out of core in v0.15. They live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. **Branch and PR creation stays in core** via `fledge work`.
+
+```bash
+fledge plugins install --defaults
+# or just the github plugin:
+fledge plugins install CorvidLabs/fledge-plugin-github
+```
 
 ## Setup
 
@@ -20,7 +26,7 @@ If you have the GitHub CLI (`gh`) installed and authenticated, fledge uses it au
 
 The repo is auto-detected from your git remote.
 
-## Feature Branch Workflow
+## Feature Branch Workflow (core)
 
 ### Start a Branch
 
@@ -45,20 +51,28 @@ Branch names get sanitized automatically (spaces → hyphens, special chars remo
 
 ### Open a PR
 
+`fledge work pr` auto-generates the body from your commits, shows a preview, and asks you to confirm before pushing. With `--ai` it hands the diff to your configured LLM and gets a richer Markdown body with `## Summary` and `## Test plan` sections.
+
 ```bash
-fledge work pr                                    # auto-title from branch
-fledge work pr --title "Add dark mode" --body "Adds dark mode toggle to settings" # custom
+fledge work pr                                    # heuristic body, preview + confirm
+fledge work pr --ai                               # AI-drafted body, preview + confirm
+fledge work pr --title "Add dark mode" --body "..." # explicit overrides
+fledge work pr --yes --ai                         # skip the prompt (agent-friendly)
 fledge work pr --draft                            # draft PR
 fledge work pr --base develop                     # target branch
 ```
 
-### Check Status
+### Check Status (core)
 
 ```bash
-fledge work status    # current branch + PR status
+fledge work status    # current branch + PR status (uses gh under the hood)
 ```
 
-## Issues
+## Browsing GitHub (plugin)
+
+Once you have `fledge-plugin-github` installed:
+
+### Issues
 
 ```bash
 fledge issues                    # open issues
@@ -69,16 +83,16 @@ fledge issues --limit 50
 fledge issues --json
 ```
 
-## Pull Requests
+### Pull Requests
 
 ```bash
 fledge prs                       # open PRs
 fledge prs --state closed
-fledge prs view 75
+fledge prs view 256
 fledge prs --json
 ```
 
-## CI Status
+### CI Status
 
 ```bash
 fledge checks                    # current branch
@@ -86,32 +100,33 @@ fledge checks --branch main
 fledge checks --json
 ```
 
-## AI Code Review
-
-Uses Claude to review your changes:
+## AI Code Review (core)
 
 ```bash
-fledge review                    # all changes on current branch
+fledge review                    # single-model review (active config)
 fledge review --base develop     # diff against develop
 fledge review --file src/main.rs # just one file
+fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
+                                 # multi-model panel — same diff, parallel critiques
 ```
 
-## AI Q&A
+## AI Q&A (core)
 
-Ask questions about your codebase:
+Ask questions about your codebase. Specs are auto-injected as context.
 
 ```bash
 fledge ask "how does the template rendering work?"
 fledge ask "what tests cover the config module?"
+fledge ask --with-specs work,trust "how do these modules interact?"
 ```
 
 ## Typical Workflow
 
 ```bash
-fledge work start user-auth      # 1. start a work branch
-fledge run test                  # 2. code + test
-fledge lanes run ci              # 3. run the full pipeline
-fledge review                    # 4. AI review
-fledge work pr --title "Add user auth"  # 5. open PR
-fledge checks                    # 6. watch CI
+fledge work start user-auth              # 1. start a branch
+fledge run test                          # 2. code + test
+fledge lanes run ci                      # 3. run the full pipeline
+fledge review --ai-with-model ollama:gpt-oss:120b-cloud  # 4. AI review
+fledge work pr --ai                      # 5. AI-drafted PR with preview + confirm
+fledge checks                            # 6. watch CI (plugin)
 ```

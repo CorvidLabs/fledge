@@ -80,40 +80,31 @@ fledge templates init my-app --template ./path/to/template
 
 ## Finding Templates
 
-### Search GitHub
-
-Templates on GitHub use the `fledge-template` topic:
-
-```bash
-fledge templates search                  # browse everything
-fledge templates search "react"          # filter by keyword
-fledge templates search --limit 50
-fledge templates search --author CorvidLabs
-```
-
 ### List What You Have
 
 ```bash
 fledge templates list    # built-in + configured repos + local paths
 ```
 
-## Updating Projects
+### Search GitHub (plugin)
 
-When a template gets updated, you can re-apply it to an existing project:
+Remote search and publishing moved to [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) in v0.15. It ships in the default plugin set:
 
 ```bash
-fledge templates update              # re-apply source template
-fledge templates update --dry-run    # preview what would change
-fledge templates update --refresh    # force re-clone remote template
+fledge plugins install --defaults
+fledge templates-search                  # browse everything
+fledge templates-search "react"          # filter by keyword
+fledge templates-search --limit 50
+fledge templates-search --author CorvidLabs
 ```
 
-fledge tracks file hashes in `.fledge/meta.toml` to detect changes:
-- **New files** from the template are always added.
-- **User-modified files** are skipped with a warning (your changes are preserved).
-- **Unmodified files** are updated to the latest template version.
-- **Removed files** in the new template version trigger a warning.
+Templates on GitHub use the `fledge-template` topic — that's what the plugin filters on.
 
-Projects created with older fledge versions using `.fledge.toml` are automatically migrated to `.fledge/meta.toml` on the first update.
+## Project Metadata
+
+`fledge templates init` writes `.fledge/meta.toml` to your project root: template source, variable values used during scaffolding, and per-file SHA hashes. This metadata is informational — fledge no longer ships a built-in re-application command (the v0.14 `fledge update` was removed in v0.15 because bidirectional template sync is a known complexity trap; see the [v0.15 changelog](./changelog.md)).
+
+A community plugin can ingest the same `.fledge/meta.toml` if you want template-update tooling.
 
 ## Publishing Your Own
 
@@ -123,11 +114,15 @@ fledge templates create my-template
 
 # Edit template files and template.toml
 
-# Ship it
-fledge templates publish --org MyOrg
+# Validate before publishing
+fledge templates validate .
+
+# Publish (plugin)
+fledge plugins install --defaults
+fledge templates-publish --org MyOrg
 ```
 
-Add the `fledge-template` topic to your GitHub repo so it shows up in search results.
+`templates-publish` (from `fledge-plugin-templates-remote`) wraps `gh repo create --push` and tags the new repo with the `fledge-template` topic so it shows up in `templates-search`.
 
 ### Validate Before You Ship
 

@@ -5,15 +5,12 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
-use crate::run::{detect_node_runner, detect_project_type};
-
 pub struct DoctorOptions {
     pub json: bool,
 }
 
 #[derive(Debug, Serialize)]
 struct DoctorReport {
-    project_type: String,
     sections: Vec<Section>,
     passed: usize,
     failed: usize,
@@ -44,14 +41,8 @@ enum CheckStatus {
 
 pub fn run(opts: DoctorOptions) -> Result<()> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
-    let project_type = detect_project_type(&project_dir);
 
-    let sections = vec![
-        check_toolchain(project_type, &project_dir),
-        check_dependencies(project_type, &project_dir),
-        check_git(&project_dir),
-        check_ai(),
-    ];
+    let sections = vec![check_fledge_self(), check_git(&project_dir), check_ai()];
 
     let passed: usize = sections
         .iter()
@@ -66,7 +57,6 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
 
     if opts.json {
         let report = DoctorReport {
-            project_type: project_type.to_string(),
             sections,
             passed,
             failed,
@@ -239,270 +229,33 @@ fn extract_version(text: &str) -> Option<String> {
     })
 }
 
-fn check_toolchain(project_type: &str, dir: &Path) -> Section {
+/// Self-check: things only fledge knows about its own state. Replaces the
+/// pre-v0.15 toolchain probes (rust/node/python/swift/...) which are slated
+/// to move to dedicated `fledge-plugin-doctor-*` plugins. Keep this small —
+/// the test is "would removing this hide a real fledge problem?"
+fn check_fledge_self() -> Section {
     let mut checks = Vec::new();
 
-    match project_type {
-        "rust" => {
-            checks.push(check_tool(
-                "rustc",
-                &["--version"],
-                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
-            ));
-            checks.push(check_tool(
-                "cargo",
-                &["--version"],
-                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh",
-            ));
-            checks.push(check_tool(
-                "cargo-clippy",
-                &["--version"],
-                "rustup component add clippy",
-            ));
-            checks.push(check_tool(
-                "rustfmt",
-                &["--version"],
-                "rustup component add rustfmt",
-            ));
-        }
-        "node" => {
-            let runner = detect_node_runner(dir);
-            if runner == "bun" {
-                checks.push(check_tool("bun", &["--version"], "https://bun.sh/"));
-            } else {
-                checks.push(check_tool(
-                    "node",
-                    &["--version"],
-                    "https://nodejs.org/ or use nvm",
-                ));
-                let tool_check = match runner {
-                    "yarn" => check_tool("yarn", &["--version"], "npm install -g yarn"),
-                    "pnpm" => check_tool("pnpm", &["--version"], "npm install -g pnpm"),
-                    _ => check_tool(
-                        "npm",
-                        &["--version"],
-                        "npm is bundled with node — reinstall node",
-                    ),
-                };
-                checks.push(tool_check);
-            }
-        }
-        "go" => {
-            checks.push(check_tool("go", &["version"], "https://go.dev/dl/"));
-        }
-        "python" => {
-            let py3 = check_tool(
-                "python3",
-                &["--version"],
-                "https://www.python.org/downloads/",
-            );
-            let py = check_tool(
-                "python",
-                &["--version"],
-                "https://www.python.org/downloads/",
-            );
-            if py3.status == CheckStatus::Ok {
-                checks.push(py3);
-            } else if py.status == CheckStatus::Ok {
-                checks.push(py);
-            } else {
-                checks.push(py3);
-            }
-            checks.push(check_tool("pip", &["--version"], "python3 -m ensurepip"));
-        }
-        "ruby" => {
-            checks.push(check_tool(
-                "ruby",
-                &["--version"],
-                "https://www.ruby-lang.org/en/downloads/",
-            ));
-            checks.push(check_tool(
-                "gem",
-                &["--version"],
-                "gem is bundled with ruby — reinstall ruby",
-            ));
-            checks.push(check_tool("bundler", &["--version"], "gem install bundler"));
-        }
-        "java-gradle" => {
-            checks.push(check_tool("java", &["-version"], "https://adoptium.net/"));
-            checks.push(check_tool(
-                "gradle",
-                &["--version"],
-                "https://gradle.org/install/",
-            ));
-        }
-        "java-maven" => {
-            checks.push(check_tool("java", &["-version"], "https://adoptium.net/"));
-            checks.push(check_tool(
-                "mvn",
-                &["--version"],
-                "https://maven.apache.org/install.html",
-            ));
-        }
-        "swift" => {
-            checks.push(check_tool(
-                "swift",
-                &["--version"],
-                "https://www.swift.org/install/",
-            ));
-            let swiftlint = check_tool("swiftlint", &["version"], "brew install swiftlint");
-            if swiftlint.status == CheckStatus::Ok {
-                checks.push(swiftlint);
-            }
-        }
-        _ => {
-            // generic — just check git (handled in git section)
-        }
-    }
-
-    Section {
-        name: "Toolchain".to_string(),
-        checks,
-    }
-}
-
-fn check_dependencies(project_type: &str, dir: &Path) -> Section {
-    let mut checks = Vec::new();
-
-    match project_type {
-        "rust" => {
-            checks.push(check_path_exists(
-                dir,
-                "Cargo.lock",
-                "Cargo.lock found",
-                "run `cargo generate-lockfile`",
-            ));
-            checks.push(check_path_exists(
-                dir,
-                "target",
-                "target/ exists",
-                "run `cargo build`",
-            ));
-        }
-        "node" => {
-            let runner = detect_node_runner(dir);
-            let install_cmd = match runner {
-                "bun" => "bun install",
-                "yarn" => "yarn install",
-                "pnpm" => "pnpm install",
-                _ => "npm install",
-            };
-            checks.push(check_path_exists(
-                dir,
-                "node_modules",
-                "node_modules/ exists",
-                &format!("run `{install_cmd}`"),
-            ));
-            let (lock_file, lock_label) = match runner {
-                "bun" => {
-                    if dir.join("bun.lockb").exists() {
-                        ("bun.lockb", "bun.lockb found")
-                    } else {
-                        ("bun.lock", "bun.lock found")
-                    }
-                }
-                "yarn" => ("yarn.lock", "yarn.lock found"),
-                "pnpm" => ("pnpm-lock.yaml", "pnpm-lock.yaml found"),
-                _ => ("package-lock.json", "package-lock.json found"),
-            };
-            checks.push(check_path_exists(
-                dir,
-                lock_file,
-                lock_label,
-                &format!("run `{install_cmd}`"),
-            ));
-        }
-        "go" => {
-            checks.push(check_path_exists(
-                dir,
-                "go.sum",
-                "go.sum found",
-                "run `go mod tidy`",
-            ));
-        }
-        "python" => {
-            // Check for any common dependency file
-            let req = check_path_exists(
-                dir,
-                "requirements.txt",
-                "requirements.txt found",
-                "run `pip freeze > requirements.txt`",
-            );
-            let pipfile = check_path_exists(
-                dir,
-                "Pipfile.lock",
-                "Pipfile.lock found",
-                "run `pipenv install`",
-            );
-            let poetry = check_path_exists(
-                dir,
-                "poetry.lock",
-                "poetry.lock found",
-                "run `poetry install`",
-            );
-            if req.status == CheckStatus::Ok {
-                checks.push(req);
-            } else if pipfile.status == CheckStatus::Ok {
-                checks.push(pipfile);
-            } else if poetry.status == CheckStatus::Ok {
-                checks.push(poetry);
-            } else {
-                checks.push(req);
-            }
-        }
-        "ruby" => {
-            checks.push(check_path_exists(
-                dir,
-                "Gemfile.lock",
-                "Gemfile.lock found",
-                "run `bundle install`",
-            ));
-        }
-        "java-gradle" => {
-            // Check for gradle wrapper
-            checks.push(check_path_exists(
-                dir,
-                "gradlew",
-                "gradle wrapper found",
-                "run `gradle wrapper`",
-            ));
-        }
-        "java-maven" => {
-            // Check for maven wrapper or target
-            checks.push(check_path_exists(
-                dir,
-                "target",
-                "target/ exists",
-                "run `mvn compile`",
-            ));
-        }
-        _ => {}
-    }
-
-    Section {
-        name: "Dependencies".to_string(),
-        checks,
-    }
-}
-
-fn check_path_exists(dir: &Path, name: &str, ok_label: &str, fix: &str) -> CheckResult {
-    let path = dir.join(name);
-    if path.exists() {
-        CheckResult {
-            name: ok_label.to_string(),
+    match crate::config::Config::load() {
+        Ok(_) => checks.push(CheckResult {
+            name: "fledge config".to_string(),
             status: CheckStatus::Ok,
-            version: None,
-            detail: None,
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            detail: Some("loaded".to_string()),
             fix: None,
-        }
-    } else {
-        CheckResult {
-            name: name.to_string(),
-            status: CheckStatus::Missing,
+        }),
+        Err(e) => checks.push(CheckResult {
+            name: "fledge config".to_string(),
+            status: CheckStatus::Error,
             version: None,
-            detail: Some("not found".to_string()),
-            fix: Some(fix.to_string()),
-        }
+            detail: Some(format!("failed to load: {e}")),
+            fix: Some("fledge config get defaults.author  # validates the file parses".to_string()),
+        }),
+    }
+
+    Section {
+        name: "fledge".to_string(),
+        checks,
     }
 }
 
@@ -774,89 +527,10 @@ mod tests {
     }
 
     #[test]
-    fn check_path_exists_found() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Cargo.lock"), "").unwrap();
-        let result = check_path_exists(
-            dir.path(),
-            "Cargo.lock",
-            "Cargo.lock found",
-            "run cargo generate-lockfile",
-        );
-        assert_eq!(result.status, CheckStatus::Ok);
-    }
-
-    #[test]
-    fn check_path_exists_missing() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = check_path_exists(
-            dir.path(),
-            "Cargo.lock",
-            "Cargo.lock found",
-            "run cargo generate-lockfile",
-        );
-        assert_eq!(result.status, CheckStatus::Missing);
-        assert!(result.fix.is_some());
-    }
-
-    #[test]
-    fn toolchain_rust_checks() {
-        let dir = tempfile::tempdir().unwrap();
-        let section = check_toolchain("rust", dir.path());
-        assert_eq!(section.name, "Toolchain");
-        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.contains(&"rustc"));
-        assert!(names.contains(&"cargo"));
-    }
-
-    #[test]
-    fn toolchain_generic_empty() {
-        let dir = tempfile::tempdir().unwrap();
-        let section = check_toolchain("generic", dir.path());
-        assert!(section.checks.is_empty());
-    }
-
-    #[test]
-    fn toolchain_node_bun_project() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
-        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
-        let section = check_toolchain("node", dir.path());
-        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.contains(&"bun"));
-        assert!(!names.contains(&"npm"));
-        assert!(!names.contains(&"node"));
-    }
-
-    #[test]
-    fn dependencies_node_bun_project() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
-        std::fs::write(dir.path().join("bun.lockb"), "").unwrap();
-        let section = check_dependencies("node", dir.path());
-        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.contains("bun.lockb")));
-        assert!(!names.iter().any(|n| n.contains("package-lock")));
-    }
-
-    #[test]
-    fn dependencies_node_pnpm_project() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
-        std::fs::write(dir.path().join("pnpm-lock.yaml"), "").unwrap();
-        let section = check_dependencies("node", dir.path());
-        let names: Vec<&str> = section.checks.iter().map(|c| c.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.contains("pnpm-lock")));
-        assert!(!names.iter().any(|n| n.contains("package-lock")));
-    }
-
-    #[test]
-    fn dependencies_rust_checks() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
-        let section = check_dependencies("rust", dir.path());
-        assert_eq!(section.name, "Dependencies");
-        assert_eq!(section.checks.len(), 2);
+    fn fledge_self_loads_config() {
+        let section = check_fledge_self();
+        assert_eq!(section.name, "fledge");
+        assert!(!section.checks.is_empty());
     }
 
     #[test]
@@ -885,13 +559,12 @@ mod tests {
     #[test]
     fn section_serializes_to_json() {
         let report = DoctorReport {
-            project_type: "rust".to_string(),
             sections: vec![Section {
-                name: "Toolchain".to_string(),
+                name: "fledge".to_string(),
                 checks: vec![CheckResult {
-                    name: "rustc".to_string(),
+                    name: "fledge config".to_string(),
                     status: CheckStatus::Ok,
-                    version: Some("1.78.0".to_string()),
+                    version: Some("0.15.0".to_string()),
                     detail: None,
                     fix: None,
                 }],
@@ -900,7 +573,7 @@ mod tests {
             failed: 0,
         };
         let json = serde_json::to_string_pretty(&report).unwrap();
-        assert!(json.contains("\"rustc\""));
+        assert!(json.contains("\"fledge config\""));
         assert!(json.contains("\"ok\""));
     }
 }

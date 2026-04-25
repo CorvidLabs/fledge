@@ -2,19 +2,31 @@
 
 fledge is designed for humans *and* AI agents to use the same CLI. Human-facing docs (the rest of this book) cover *why* and *how-to*; this page covers what an agent specifically needs to know.
 
-The canonical short-form entrypoint for agents lives at `AGENTS.md` in the repository root. This page is its long-form companion — link or point agents to either.
+The canonical short-form entrypoint for agents lives at [AGENTS.md](https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md) in the repository root. This page is its long-form companion — point agents to either.
 
 ## Design principles
 
-fledge follows three rules that make it agent-usable:
+fledge follows four rules that make it agent-usable:
 
 1. **Structured output is first-class.** Most commands accept `--json`. Never require an agent to screen-scrape.
-2. **Non-interactive bypass exists.** Every command that prompts has a `--yes` or `--force` flag. Silence isn't success — it's a hung process.
+2. **Non-interactive bypass exists.** Every command that prompts has a `--yes` flag. Silence isn't success — it's a hung process.
 3. **Specs are machine-readable.** `fledge spec list --json` and `fledge spec show <name> --json` let agents discover the codebase's intent without filesystem spelunking.
+4. **The whole CLI introspects.** `fledge introspect --json` dumps the entire command tree (incl. plugin commands) — one call teaches an agent the surface.
+
+## First-time agent setup
+
+```bash
+export FLEDGE_NON_INTERACTIVE=1               # silence every prompt
+fledge plugins install --defaults             # github + deps + metrics + templates-remote + doctor
+fledge introspect --json                       # full command tree (incl. plugin commands)
+fledge spec list --json                        # semantic project map
+```
+
+After those four lines, every command and flag is discoverable as data.
 
 ## The agent-facing surface
 
-### Commands with `--json`
+### Core commands with `--json`
 
 | Command | Payload shape |
 |---------|---------------|
@@ -22,133 +34,81 @@ fledge follows three rules that make it agent-usable:
 | `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
 | `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
 | `fledge spec check --json` | `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}` |
+| `fledge ai status --json` | `{provider, model, host, *_source}` — what's active and the source of each value |
+| `fledge ai models --provider {claude,ollama} --json` | Live model list |
 | `fledge ask "..." --json` | `{question, answer, provider, model}` |
-| `fledge review --json` | `{base, file, diff_stats, spec_context, review, provider, model}` |
-| `fledge checks --json` | CI check status |
-| `fledge doctor --json` | Environment diagnostics |
-| `fledge deps --json` | Dependency report |
-| `fledge metrics --json` | LOC / churn / test ratio |
+| `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}`. With `--with-model`: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` |
+| `fledge doctor --json` | `{sections:[{name, checks:[...]}], passed, failed}` |
 | `fledge changelog --json` | Structured changelog |
-| `fledge validate-template --json` | Template validation report |
-| `fledge search <q> --json` | Search results |
 | `fledge plugins list --json` | Installed plugins |
-| `fledge issues --json` | GitHub issues |
-| `fledge lane run <name> --json` | Lane execution results |
+| `fledge lanes run <name> --json` | Lane execution results |
 | `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` |
-| `fledge work pr --json` | `{url, number, title, head, base, draft}` |
+| `fledge work pr --json` | `{url, number, title, head, base, draft}` (suppresses preview/confirm) |
 | `fledge work status --json` | `{branch, default, ahead, behind, pr}` |
+
+### Plugin commands with `--json` (after `plugins install --defaults`)
+
+| Command | Plugin |
+|---------|--------|
+| `fledge checks --json` | `fledge-plugin-github` — raw GitHub API `check-runs` response |
+| `fledge issues --json` / `issues view <n> --json` | `fledge-plugin-github` |
+| `fledge prs --json` / `prs view <n> --json` | `fledge-plugin-github` |
+| `fledge deps --json` | `fledge-plugin-deps` — ecosystem tool's native output |
+| `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` |
+| `fledge templates-search --json` | `fledge-plugin-templates-remote` |
+| `fledge doctor-tools --json` | `fledge-plugin-doctor` — `[{tool, group, status, version}, ...]` |
 
 ### Non-interactive mode (one switch)
 
 Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes: every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
 
-Commands covered: `fledge init`, `fledge templates publish`, `fledge templates create`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lane publish`.
+Commands covered: `fledge templates init`, `fledge templates create`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`, `fledge templates-publish` (plugin).
 
 ### AI-powered commands
 
-`fledge ask` and `fledge review` route through a provider abstraction. Two providers ship in core:
+`fledge ai`, `fledge ask`, and `fledge review` route through a provider abstraction. Two providers ship in core:
 
 | Provider | Transport | Auth | Use case |
 |----------|-----------|------|----------|
 | `claude` (default) | `claude` CLI shell-out | Whatever `claude` is already authenticated with | Best-in-class reasoning, paid |
 | `ollama` | HTTP to `<host>/api/generate` | Optional Bearer token | Local-only, offline, cloud alternatives, self-hosted |
 
-Select via `fledge config set ai.provider ollama`, `FLEDGE_AI_PROVIDER=ollama`, or `--provider ollama` per invocation. `fledge doctor` reports which is active and whether it's reachable.
-
-Ollama covers everything that speaks its API: the local daemon, Ollama Cloud / Turbo (host + API key), and self-hosted mirrors.
+Select via `fledge ai use <provider> [model]` (writes to config), `FLEDGE_AI_PROVIDER=ollama`, or `--provider ollama` per invocation. `fledge ai status` reports the active triplet and the source of each value.
 
 #### `fledge ask` is spec-aware
 
-Every `fledge ask` invocation automatically includes a compact index of every project spec in the prompt, so Claude knows what modules exist and can cite them. For deeper questions, use `--with-specs <name>` (comma-separated, repeatable, or `all`) to load the full spec *and* companions (`requirements.md`, `context.md`, `tasks.md`, `testing.md`) for named modules.
+By default, every `fledge ask` invocation prepends a compact one-line-per-module index of every spec into the prompt. Pass `--with-specs <names>` to include the *full* spec + companion files for one or more modules.
+
+#### `fledge review` is multi-model-capable
+
+Pass `--with-model <provider[:model]>` (repeatable, comma-separated) to run multiple models in parallel against the same diff and spec context. The JSON output's `reviews[]` array has one entry per slot. Per-slot failures don't abort the panel.
 
 ```bash
-# Default: compact index auto-included
-fledge ask "how does the work module build branch names?"
-
-# Full spec + companions for a module
-fledge ask --with-specs work "why does it sanitize names this way?"
-fledge ask --with-specs work,trust "how do these modules interact?"
-fledge ask --with-specs all "which modules touch GitHub?"
-
-# Skip the index (saves tokens for off-topic questions)
-fledge ask --no-spec-index "quick Rust syntax question"
+fledge review --json
+fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
+fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud --json
 ```
 
-The index adds a few hundred tokens per call; `--with-specs` can add more depending on spec size. Use `--no-spec-index` for questions that have nothing to do with the repo.
-
-#### `fledge review` is spec-aware via auto-detection
-
-`fledge review` inspects the diff's changed-file list, matches each path against every spec's frontmatter `files:` field and against the `specs/<name>/` prefix, and automatically includes the matched modules' full spec bundles as context. No flag needed — just run it.
+## Typical agent workflow
 
 ```bash
-# Default: auto-detect specs for modules in the diff
-fledge review
+# 1. Orient
+fledge introspect --json
+fledge spec list --json
 
-# Auto-detected + force-include additional specs
-fledge review --with-specs plugin,config
+# 2. Branch
+fledge work start fix-issue-42 --branch-type fix --issue 42 --json
 
-# Opt out of auto-detection (still honors --with-specs if passed)
-fledge review --no-auto-specs
+# 3. Code, test
+fledge run test
+fledge lanes run pre-commit
+
+# 4. Review (multi-model for high-confidence findings)
+fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
+
+# 5. Open PR with AI-drafted body
+fledge work pr --ai --yes --json
+
+# 6. Wait for CI
+fledge checks --json    # via fledge-plugin-github
 ```
-
-The review prompt is explicitly constrained: specs are context *only*, the review target is always the diff, Claude must not suggest changes to unchanged code or critique the specs. JSON output adds a `spec_context` array so agents can see which specs shaped the review.
-
-## Typical agent workflows
-
-### Orient to a new repo
-
-```bash
-fledge doctor --json                 # is the toolchain present?
-fledge spec list --json              # what modules exist, what's their status?
-fledge spec show <interesting> --json  # drill in
-cat specs/<name>/context.md          # design decisions (not yet in JSON)
-```
-
-### Do a task
-
-```bash
-fledge work start my-change -t feat  # branch created off main
-# ... edit files ...
-fledge lane run pre-commit           # fmt + lint + test + spec-check
-fledge work pr --title "..." --body "..."  # push + open PR
-```
-
-### Validate before reporting done
-
-```bash
-fledge lane run pre-commit           # project's required gate
-fledge spec check                    # no drift between code and specs
-fledge checks --json                 # CI status after push
-```
-
-## Reading specs programmatically
-
-Every module in `src/` has a matching spec under `specs/<module>/`. The `.spec.md` file holds the formal API, invariants, and change log. The companion files hold:
-
-| File | What's inside |
-|------|----------------|
-| `requirements.md` | User stories, acceptance criteria, constraints, out-of-scope |
-| `tasks.md` | What's done, what's gapped, review sign-offs |
-| `context.md` | Design decisions, files-to-read-first, current status |
-| `testing.md` | Unit/integration/manual test plan |
-
-`fledge spec show <name> --json` returns the frontmatter and section list, but not the body text. For body text, read the file directly.
-
-## Exit codes
-
-- `0` — success
-- Non-zero — some failure (validation, missing prereq, user-facing error). Always check.
-
-## What's not yet agent-friendly
-
-These are known gaps; PRs welcome. Each is tracked via the `agent-surface` label.
-
-- `fledge run`, `fledge init`, `fledge spec init/new`, `fledge release` have no `--json` today
-
-## Contributing agent-surface improvements
-
-1. Open an issue tagged `agent-surface` describing what you need.
-2. Update the relevant spec (`specs/<module>/<module>.spec.md`) — bump version, add the new flag to Public API and Behavioral Examples, add a Change Log entry.
-3. Implement. Run `fledge lane run pre-commit`. Open a PR via `fledge work pr`.
-
-The goal is that every fledge command, eventually, is equally usable by a human at a terminal and an agent scripting against it.
