@@ -3,9 +3,12 @@ use console::style;
 use std::fmt;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
+use std::thread;
+use std::time::Instant;
 
 use crate::config::Config;
-use crate::llm::{self, ProviderOverride};
+use crate::llm::{self, ProviderKind, ProviderOverride};
 use crate::spec;
 
 #[derive(Debug, Clone, Default)]
@@ -51,6 +54,55 @@ pub struct ReviewOptions {
     pub with_specs: Vec<String>,
     pub no_auto_specs: bool,
     pub provider: Option<String>,
+    pub with_model: Vec<String>,
+    pub no_active: bool,
+}
+
+/// One slot in a multi-model review panel. `model` is `None` when the user
+/// passes a bare provider name like `--with-model ollama`, in which case we
+/// fall back to the provider's active config selection.
+#[derive(Debug, Clone, PartialEq)]
+struct ModelRef {
+    provider: String,
+    model: Option<String>,
+}
+
+/// Parse a `provider[:model]` ref. Splits on the FIRST colon only so that
+/// model names with colons (`gpt-oss:120b-cloud`, `qwen3-coder:480b-cloud`)
+/// round-trip cleanly. The provider half is validated against
+/// `ProviderKind::parse` so typos like `--with-model claud:opus` fail at
+/// parse time, not after the spinner has been spinning for 30s.
+fn parse_model_ref(s: &str) -> Result<ModelRef> {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        bail!("empty --with-model entry");
+    }
+    let (provider_raw, model_raw) = match trimmed.split_once(':') {
+        Some((p, m)) => (p.trim(), m.trim()),
+        None => (trimmed, ""),
+    };
+    if provider_raw.is_empty() {
+        bail!("missing provider in '{trimmed}' (expected provider[:model])");
+    }
+    // Validate the provider against the known set; bubble up the parse error
+    // so the user gets the same message they'd get from `--provider`.
+    let provider = ProviderKind::parse(provider_raw)?.as_str().to_string();
+    let model = if model_raw.is_empty() {
+        None
+    } else {
+        Some(model_raw.to_string())
+    };
+    Ok(ModelRef { provider, model })
+}
+
+/// Result of one review in the panel. `outcome` is `Err` when the provider
+/// failed (timeout, HTTP error, etc.) — we capture instead of bailing so a
+/// single broken model doesn't poison the whole panel run.
+struct PanelResult {
+    provider_kind: String,
+    model_name: Option<String>,
+    elapsed_seconds: f64,
+    outcome: Result<String>,
 }
 
 pub fn run(options: ReviewOptions) -> Result<()> {
@@ -103,43 +155,191 @@ pub fn run(options: ReviewOptions) -> Result<()> {
     );
 
     let config = Config::load().context("loading config")?;
-    let provider = llm::build_provider(
-        &config,
-        &ProviderOverride {
+
+    // Build the panel: optionally the active config (one slot honoring
+    // --provider/--model overrides), then each --with-model entry. Order is
+    // preserved end-to-end so output matches what the user typed.
+    let mut overrides: Vec<ProviderOverride> = Vec::new();
+    if !options.no_active {
+        overrides.push(ProviderOverride {
             provider: options.provider.clone(),
             model: options.model.clone(),
-        },
-    )?;
+        });
+    }
+    for raw in &options.with_model {
+        for part in raw.split(',') {
+            let parsed = parse_model_ref(part)?;
+            overrides.push(ProviderOverride {
+                provider: Some(parsed.provider),
+                model: parsed.model,
+            });
+        }
+    }
+    if overrides.is_empty() {
+        bail!(
+            "Empty review panel — pass --with-model <provider[:model]> or omit --no-active so the active config is included."
+        );
+    }
 
-    let sp = crate::spinner::Spinner::start(&format!(
-        "Reviewing changes against {} [{}]:",
-        &base,
-        llm::describe(&*provider)
-    ));
-    // Finish spinner before surfacing provider errors so the terminal state
-    // is clean when `bail!` fires.
-    let answer = provider.invoke(&prompt);
+    // Build all providers up front so config errors fail fast and are
+    // attributed to the right slot, before we kick off any threads.
+    let providers: Vec<Box<dyn llm::LlmProvider>> = overrides
+        .iter()
+        .enumerate()
+        .map(|(i, ov)| {
+            llm::build_provider(&config, ov).with_context(|| format!("review panel slot {i}"))
+        })
+        .collect::<Result<_>>()?;
+
+    let panel_size = providers.len();
+    let panel_summary = providers
+        .iter()
+        .map(|p| llm::describe(&**p))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let spinner_msg = if panel_size == 1 {
+        format!("Reviewing changes against {} [{}]:", &base, panel_summary)
+    } else {
+        format!(
+            "Reviewing changes against {} across {} models [{}]:",
+            &base, panel_size, panel_summary
+        )
+    };
+    let sp = crate::spinner::Spinner::start(&spinner_msg);
+
+    let prompt_arc = Arc::new(prompt);
+    let mut handles = Vec::with_capacity(panel_size);
+    for (idx, provider) in providers.into_iter().enumerate() {
+        let prompt_clone = Arc::clone(&prompt_arc);
+        let handle = thread::spawn(move || {
+            let kind = provider.kind().as_str().to_string();
+            let model = provider.model_name().map(|s| s.to_string());
+            let start = Instant::now();
+            let outcome = provider.invoke(&prompt_clone);
+            let elapsed = start.elapsed().as_secs_f64();
+            (
+                idx,
+                PanelResult {
+                    provider_kind: kind,
+                    model_name: model,
+                    elapsed_seconds: elapsed,
+                    outcome,
+                },
+            )
+        });
+        handles.push(handle);
+    }
+    let mut indexed: Vec<(usize, PanelResult)> = handles
+        .into_iter()
+        .map(|h| h.join().expect("review thread panicked"))
+        .collect();
+    indexed.sort_by_key(|(i, _)| *i);
+    let results: Vec<PanelResult> = indexed.into_iter().map(|(_, r)| r).collect();
+
     sp.finish();
     println!();
-    let answer = answer?;
 
     if options.json {
         let spec_names = spec_context
             .as_ref()
             .map(|(names, _)| names.clone())
             .unwrap_or_default();
-        let response = serde_json::json!({
+        let reviews_json: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                let mut obj = serde_json::Map::new();
+                obj.insert("provider".into(), r.provider_kind.clone().into());
+                obj.insert(
+                    "model".into(),
+                    match &r.model_name {
+                        Some(m) => serde_json::Value::String(m.clone()),
+                        None => serde_json::Value::Null,
+                    },
+                );
+                obj.insert(
+                    "elapsed_seconds".into(),
+                    serde_json::Number::from_f64((r.elapsed_seconds * 100.0).round() / 100.0)
+                        .map(serde_json::Value::Number)
+                        .unwrap_or(serde_json::Value::Null),
+                );
+                match &r.outcome {
+                    Ok(answer) => {
+                        obj.insert("review".into(), answer.trim().to_string().into());
+                    }
+                    Err(e) => {
+                        obj.insert("error".into(), e.to_string().into());
+                    }
+                }
+                serde_json::Value::Object(obj)
+            })
+            .collect();
+        // Single-model invocations keep the legacy top-level `review` /
+        // `provider` / `model` fields so existing scripts don't break.
+        let mut response = serde_json::json!({
             "base": base,
             "file": options.file,
             "diff_stats": diff_stats,
             "spec_context": spec_names,
-            "review": answer.trim(),
-            "provider": provider.kind().as_str(),
-            "model": provider.model_name(),
+            "reviews": reviews_json,
         });
+        if results.len() == 1 {
+            let r = &results[0];
+            let obj = response.as_object_mut().expect("json object");
+            obj.insert("provider".into(), r.provider_kind.clone().into());
+            obj.insert(
+                "model".into(),
+                match &r.model_name {
+                    Some(m) => serde_json::Value::String(m.clone()),
+                    None => serde_json::Value::Null,
+                },
+            );
+            match &r.outcome {
+                Ok(answer) => {
+                    obj.insert("review".into(), answer.trim().to_string().into());
+                }
+                Err(e) => {
+                    obj.insert("error".into(), e.to_string().into());
+                }
+            }
+        }
         println!("{}", serde_json::to_string_pretty(&response)?);
+    } else if results.len() == 1 {
+        // Preserve the v0.14 single-model output shape exactly.
+        match &results[0].outcome {
+            Ok(answer) => println!("{answer}"),
+            Err(e) => bail!("{e}"),
+        }
     } else {
-        println!("{answer}");
+        for r in &results {
+            let label = match &r.model_name {
+                Some(m) => format!("{} ({})", r.provider_kind, m),
+                None => r.provider_kind.clone(),
+            };
+            let header = format!(" {} — {:.1}s ", label, r.elapsed_seconds);
+            // Box the header in a banner that scales with the label width
+            // so it stays visually distinct between dense markdown blocks.
+            let bar = "═".repeat(60);
+            println!();
+            println!("{}", style(&bar).cyan());
+            println!("{}", style(&header).bold().cyan());
+            println!("{}", style(&bar).cyan());
+            println!();
+            match &r.outcome {
+                Ok(answer) => println!("{}", answer.trim()),
+                Err(e) => println!("{} {}", style("error:").red().bold(), e),
+            }
+        }
+        let failures = results.iter().filter(|r| r.outcome.is_err()).count();
+        if failures > 0 {
+            println!();
+            println!(
+                "{} {}/{} models failed — see error blocks above. Successful reviews are unaffected.",
+                style("⚠️").yellow(),
+                failures,
+                results.len()
+            );
+        }
     }
 
     Ok(())
@@ -455,7 +655,74 @@ mod tests {
             with_specs: Vec::new(),
             no_auto_specs: false,
             provider: None,
+            with_model: Vec::new(),
+            no_active: false,
         }
+    }
+
+    #[test]
+    fn parse_model_ref_provider_only() {
+        let r = parse_model_ref("claude").unwrap();
+        assert_eq!(r.provider, "claude");
+        assert_eq!(r.model, None);
+    }
+
+    #[test]
+    fn parse_model_ref_provider_and_model() {
+        let r = parse_model_ref("claude:opus-4.7").unwrap();
+        assert_eq!(r.provider, "claude");
+        assert_eq!(r.model.as_deref(), Some("opus-4.7"));
+    }
+
+    #[test]
+    fn parse_model_ref_model_with_colons() {
+        // Ollama cloud model names contain colons — must round-trip cleanly.
+        let r = parse_model_ref("ollama:gpt-oss:120b-cloud").unwrap();
+        assert_eq!(r.provider, "ollama");
+        assert_eq!(r.model.as_deref(), Some("gpt-oss:120b-cloud"));
+    }
+
+    #[test]
+    fn parse_model_ref_qwen_three_segment() {
+        let r = parse_model_ref("ollama:qwen3-coder:480b-cloud").unwrap();
+        assert_eq!(r.provider, "ollama");
+        assert_eq!(r.model.as_deref(), Some("qwen3-coder:480b-cloud"));
+    }
+
+    #[test]
+    fn parse_model_ref_trims_whitespace() {
+        let r = parse_model_ref("  ollama  :  gpt-oss:120b-cloud  ").unwrap();
+        assert_eq!(r.provider, "ollama");
+        assert_eq!(r.model.as_deref(), Some("gpt-oss:120b-cloud"));
+    }
+
+    #[test]
+    fn parse_model_ref_empty_model_after_colon_means_active() {
+        // `ollama:` should mean "use ollama's active config", same as bare `ollama`.
+        let r = parse_model_ref("ollama:").unwrap();
+        assert_eq!(r.provider, "ollama");
+        assert_eq!(r.model, None);
+    }
+
+    #[test]
+    fn parse_model_ref_rejects_unknown_provider() {
+        let err = parse_model_ref("gpt:4").unwrap_err().to_string();
+        assert!(
+            err.to_lowercase().contains("provider") || err.contains("gpt"),
+            "expected provider-rejection error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn parse_model_ref_rejects_empty_input() {
+        assert!(parse_model_ref("").is_err());
+        assert!(parse_model_ref("   ").is_err());
+    }
+
+    #[test]
+    fn parse_model_ref_rejects_missing_provider() {
+        // ":opus" has no provider half — must error.
+        assert!(parse_model_ref(":opus").is_err());
     }
 
     #[test]
