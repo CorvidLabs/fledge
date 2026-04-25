@@ -420,10 +420,9 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
                                     )
                                     .unwrap();
                                     // Homebrew DSL uses `version "X.Y.Z"` with no `=`.
-                                    let homebrew_re = Regex::new(
-                                        r#"(?m)^(\s*version\s+")(\d+\.\d+\.\d+)(")"#,
-                                    )
-                                    .unwrap();
+                                    let homebrew_re =
+                                        Regex::new(r#"(?m)^(\s*version\s+")(\d+\.\d+\.\d+)(")"#)
+                                            .unwrap();
                                     let updated = if standard_re.is_match(&content) {
                                         Some(
                                             standard_re
@@ -436,15 +435,10 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
                                         // time. Reset to PLACEHOLDER so whoever cuts the
                                         // release notices and fills them in.
                                         let bumped_version = homebrew_re
-                                            .replace(
-                                                &content,
-                                                format!("${{1}}{new_str}${{3}}"),
-                                            )
+                                            .replace(&content, format!("${{1}}{new_str}${{3}}"))
                                             .into_owned();
-                                        let sha_re = Regex::new(
-                                            r#"sha256\s+"[0-9a-fA-F]{64}""#,
-                                        )
-                                        .unwrap();
+                                        let sha_re =
+                                            Regex::new(r#"sha256\s+"[0-9a-fA-F]{64}""#).unwrap();
                                         Some(
                                             sha_re
                                                 .replace_all(
