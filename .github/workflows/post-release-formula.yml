@@ -1,0 +1,133 @@
+name: Post-Release Formula Update
+
+# Runs after the Release workflow finishes uploading binaries + their .sha256
+# sidecars. Pulls the real shas, rewrites Formula/fledge.rb with the new
+# version + shas, and opens a PR. This is the only correct moment to bump the
+# formula — at `fledge release` time the new version's binaries don't exist
+# yet, so any pre-build sha would be a lie.
+#
+# Security note: every value derived from `github.event.workflow_run.*` (or
+# any other potentially attacker-controlled context) flows through an `env:`
+# block before reaching a shell. Direct `${{ … }}` interpolation inside
+# `run: |` is a code-injection sink and is intentionally avoided here.
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+jobs:
+  update-formula:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve release tag
+        id: tag
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          # HEAD_BRANCH is the tag name (e.g. "v0.15.2") for tag-triggered runs.
+          # Validate strictly so an attacker who pushed a malformed tag can't
+          # smuggle anything downstream. Allow only `v<digits>.<digits>.<digits>`
+          # with optional pre-release/build metadata.
+          if ! [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Refusing to run with non-semver tag '$HEAD_BRANCH'"
+            exit 1
+          fi
+          {
+            echo "tag=$HEAD_BRANCH"
+            echo "version=${HEAD_BRANCH#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Fetch sha256 sidecars from release
+        id: shas
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          fetch() {
+            gh release download "$TAG" -p "$1.sha256" -R "$REPO" -O - \
+              | awk '{print $1}'
+          }
+          # Validate each sha is exactly 64 hex chars before exporting — the
+          # sidecar files are attacker-influenceable (an attacker who
+          # compromises the release pipeline could replace them).
+          validate() {
+            local sha="$1"
+            if ! [[ "$sha" =~ ^[0-9a-fA-F]{64}$ ]]; then
+              echo "::error::Invalid sha256 from sidecar: '$sha'"
+              exit 1
+            fi
+            printf '%s' "$sha"
+          }
+          {
+            echo "macos_aarch64=$(validate "$(fetch fledge-macos-aarch64)")"
+            echo "macos_x86_64=$(validate "$(fetch fledge-macos-x86_64)")"
+            echo "linux_x86_64=$(validate "$(fetch fledge-linux-x86_64)")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite Formula/fledge.rb
+        env:
+          NEW_VERSION: ${{ steps.tag.outputs.version }}
+          MACOS_AARCH64: ${{ steps.shas.outputs.macos_aarch64 }}
+          MACOS_X86_64: ${{ steps.shas.outputs.macos_x86_64 }}
+          LINUX_X86_64: ${{ steps.shas.outputs.linux_x86_64 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re, sys, pathlib
+          p = pathlib.Path("Formula/fledge.rb")
+          src = p.read_text()
+          src = re.sub(
+              r'(?m)^(\s*version\s+")(\d+\.\d+\.\d+)(")',
+              rf'\g<1>{os.environ["NEW_VERSION"]}\g<3>',
+              src,
+              count=1,
+          )
+          shas = [
+              os.environ["MACOS_AARCH64"],
+              os.environ["MACOS_X86_64"],
+              os.environ["LINUX_X86_64"],
+          ]
+          parts = re.split(r'(sha256\s+"[0-9a-fA-F]{64}")', src)
+          if len(parts) - 1 != 6:
+              sys.exit(
+                  f"Expected 3 sha256 lines in Formula/fledge.rb, found {(len(parts) - 1) // 2}"
+              )
+          for i, sha in enumerate(shas):
+              parts[2 * i + 1] = f'sha256 "{sha}"'
+          p.write_text("".join(parts))
+          PY
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="formula/v$NEW_VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          if git diff --quiet -- Formula/fledge.rb; then
+            echo "Formula/fledge.rb already at v$NEW_VERSION — nothing to do."
+            exit 0
+          fi
+          git add Formula/fledge.rb
+          git commit -m "chore: update Homebrew formula to v$NEW_VERSION"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "chore: update Homebrew formula to v$NEW_VERSION" \
+            --body "Automated by post-release-formula.yml. Pulls the v$NEW_VERSION sha256 sidecars from the release and writes them into \`Formula/fledge.rb\` along with the version bump." \
+            --base main

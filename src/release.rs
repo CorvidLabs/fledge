@@ -415,43 +415,14 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
                                     bail!("Release file '{}' escapes project directory", file_name);
                                 }
                                 if let Ok(content) = std::fs::read_to_string(&path) {
-                                    let standard_re = Regex::new(
+                                    let re = Regex::new(
                                         r#"(?m)(version\s*[=:]\s*["']?)(\d+\.\d+\.\d+)"#,
                                     )
                                     .unwrap();
-                                    // Homebrew DSL uses `version "X.Y.Z"` with no `=`.
-                                    let homebrew_re =
-                                        Regex::new(r#"(?m)^(\s*version\s+")(\d+\.\d+\.\d+)(")"#)
-                                            .unwrap();
-                                    let updated = if standard_re.is_match(&content) {
-                                        Some(
-                                            standard_re
-                                                .replace(&content, format!("${{1}}{new_str}"))
-                                                .into_owned(),
-                                        )
-                                    } else if homebrew_re.is_match(&content) {
-                                        // Bumping a Homebrew formula invalidates its sha256s
-                                        // — the new version's binaries don't exist at bump
-                                        // time. Reset to PLACEHOLDER so whoever cuts the
-                                        // release notices and fills them in.
-                                        let bumped_version = homebrew_re
-                                            .replace(&content, format!("${{1}}{new_str}${{3}}"))
-                                            .into_owned();
-                                        let sha_re =
-                                            Regex::new(r#"sha256\s+"[0-9a-fA-F]{64}""#).unwrap();
-                                        Some(
-                                            sha_re
-                                                .replace_all(
-                                                    &bumped_version,
-                                                    "sha256 \"PLACEHOLDER\"",
-                                                )
-                                                .into_owned(),
-                                        )
-                                    } else {
-                                        None
-                                    };
-                                    if let Some(new_content) = updated {
-                                        std::fs::write(&path, new_content.as_bytes())?;
+                                    if re.is_match(&content) {
+                                        let updated =
+                                            re.replace(&content, format!("${{1}}{new_str}"));
+                                        std::fs::write(&path, updated.as_bytes())?;
                                         bumped.push(file_name.to_string());
                                     }
                                 }
@@ -977,35 +948,6 @@ edition = "2021"
         assert!(result.files_bumped.contains(&"flake.nix".to_string()));
         let content = fs::read_to_string(tmp.path().join("flake.nix")).unwrap();
         assert!(content.contains("version = \"0.2.0\""));
-    }
-
-    #[test]
-    fn bump_release_files_homebrew_formula() {
-        let tmp = TempDir::new().unwrap();
-        init_git_repo(tmp.path());
-        commit_file(
-            tmp.path(),
-            "Cargo.toml",
-            "[package]\nname = \"test\"\nversion = \"0.1.0\"\n",
-        );
-        fs::create_dir_all(tmp.path().join("Formula")).unwrap();
-        let formula = "class T < Formula\n  version \"0.1.0\"\n  sha256 \
-            \"3895500e0d49d32a5ff0ff027a594ef1fa98fc93731e7c5e612fd72760e1e394\"\nend\n";
-        commit_file(tmp.path(), "Formula/t.rb", formula);
-        commit_file(
-            tmp.path(),
-            "fledge.toml",
-            "[release]\nfiles = [\"Formula/t.rb\"]\n",
-        );
-        let new_ver = parse_version("0.2.0").unwrap();
-        let result = bump_version_files(tmp.path(), &new_ver).unwrap();
-        assert!(result.files_bumped.contains(&"Formula/t.rb".to_string()));
-        let content = fs::read_to_string(tmp.path().join("Formula/t.rb")).unwrap();
-        assert!(content.contains("version \"0.2.0\""));
-        // Real shas should be reset to PLACEHOLDER on bump — they'll be wrong
-        // for the new release until updated post-build.
-        assert!(content.contains("sha256 \"PLACEHOLDER\""));
-        assert!(!content.contains("3895500e0d49d32a"));
     }
 
     #[test]

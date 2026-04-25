@@ -2,6 +2,10 @@ class Fledge < Formula
   desc "Corvid-themed project scaffolding CLI — get your projects ready to fly"
   homepage "https://github.com/CorvidLabs/fledge"
   license "MIT"
+  # NOTE: This file is updated POST-release by .github/workflows/post-release-formula.yml
+  # — once release.yml uploads the binaries and their .sha256 sidecars, that
+  # workflow opens a PR bumping the version and shas together. Don't try to bump
+  # this manually during `fledge release` (the new shas don't exist at bump time).
   version "0.15.1"
 
   on_macos do
