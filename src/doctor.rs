@@ -20,6 +20,11 @@ struct DoctorReport {
 struct Section {
     name: String,
     checks: Vec<CheckResult>,
+    /// Sections like `toolchains` are informational — missing entries are not
+    /// project errors (a Python project doesn't fail because Swift is absent).
+    /// Informational sections are excluded from the passed/failed totals.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    informational: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,7 +36,7 @@ struct CheckResult {
     fix: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum CheckStatus {
     Ok,
@@ -42,15 +47,22 @@ enum CheckStatus {
 pub fn run(opts: DoctorOptions) -> Result<()> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
 
-    let sections = vec![check_fledge_self(), check_git(&project_dir), check_ai()];
+    let sections = vec![
+        check_fledge_self(),
+        check_git(&project_dir),
+        check_ai(),
+        check_toolchains(),
+    ];
 
     let passed: usize = sections
         .iter()
+        .filter(|s| !s.informational)
         .flat_map(|s| &s.checks)
         .filter(|c| c.status == CheckStatus::Ok)
         .count();
     let failed: usize = sections
         .iter()
+        .filter(|s| !s.informational)
         .flat_map(|s| &s.checks)
         .filter(|c| c.status != CheckStatus::Ok)
         .count();
@@ -82,6 +94,14 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
                     };
                     println!("    {} {}", style("✅").green().bold(), label);
                 }
+                CheckStatus::Missing if section.informational => {
+                    println!(
+                        "    {} {} {}",
+                        style("·").dim(),
+                        style(&check.name).dim(),
+                        style("(not installed)").dim(),
+                    );
+                }
                 CheckStatus::Missing => {
                     let detail = check.detail.as_deref().unwrap_or("not found");
                     println!(
@@ -96,12 +116,12 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
                 }
                 CheckStatus::Error => {
                     let detail = check.detail.as_deref().unwrap_or("error");
-                    println!(
-                        "    {} {} — {}",
-                        style("❌").red().bold(),
-                        check.name,
-                        detail
-                    );
+                    let symbol = if section.informational {
+                        style("·").dim()
+                    } else {
+                        style("❌").red().bold()
+                    };
+                    println!("    {} {} — {}", symbol, check.name, detail);
                     if let Some(fix) = &check.fix {
                         println!("      {} {}", style("➡️").dim(), style(fix).cyan());
                     }
@@ -229,10 +249,9 @@ fn extract_version(text: &str) -> Option<String> {
     })
 }
 
-/// Self-check: things only fledge knows about its own state. Replaces the
-/// pre-v0.15 toolchain probes (rust/node/python/swift/...) which are slated
-/// to move to dedicated `fledge-plugin-doctor-*` plugins. Keep this small —
-/// the test is "would removing this hide a real fledge problem?"
+/// Self-check: things only fledge knows about its own state. Keep this
+/// small — the test is "would removing this hide a real fledge problem?"
+/// (Toolchain probes live in `check_toolchains` as an informational section.)
 fn check_fledge_self() -> Section {
     let mut checks = Vec::new();
 
@@ -256,6 +275,7 @@ fn check_fledge_self() -> Section {
     Section {
         name: "fledge".to_string(),
         checks,
+        informational: false,
     }
 }
 
@@ -357,6 +377,7 @@ fn check_git(dir: &Path) -> Section {
     Section {
         name: "Git".to_string(),
         checks,
+        informational: false,
     }
 }
 
@@ -398,12 +419,13 @@ fn check_ai() -> Section {
             return Section {
                 name: "AI".to_string(),
                 checks,
+                informational: false,
             };
         }
     };
 
     let active_status = match active {
-        crate::llm::ProviderKind::Claude => claude.status.clone(),
+        crate::llm::ProviderKind::Claude => claude.status,
         crate::llm::ProviderKind::Ollama => {
             // Ollama can be a remote endpoint; the CLI check above doesn't tell
             // us whether the configured host responds. Probe `/api/tags`.
@@ -473,6 +495,64 @@ fn check_ai() -> Section {
     Section {
         name: "AI".to_string(),
         checks,
+        informational: false,
+    }
+}
+
+/// Toolchain probes — informational. Missing tools don't fail the report
+/// because not every project uses every language. Replaces the v0.15
+/// `fledge-plugin-doctor` shell-based probe set, re-absorbed into core.
+fn check_toolchains() -> Section {
+    let probes: &[(&str, &[&str])] = &[
+        // Rust
+        ("rustc", &["--version"]),
+        ("cargo", &["--version"]),
+        // Node.js ecosystem
+        ("node", &["--version"]),
+        ("npm", &["--version"]),
+        ("pnpm", &["--version"]),
+        ("bun", &["--version"]),
+        ("yarn", &["--version"]),
+        // Python
+        ("python3", &["--version"]),
+        ("uv", &["--version"]),
+        ("poetry", &["--version"]),
+        // Go
+        ("go", &["version"]),
+        // Ruby
+        ("ruby", &["--version"]),
+        // Swift
+        ("swift", &["--version"]),
+        // JVM
+        ("java", &["-version"]),
+        ("gradle", &["--version"]),
+        ("mvn", &["--version"]),
+    ];
+
+    let checks = probes
+        .iter()
+        .map(|(name, args)| {
+            let result = check_tool(name, args, "");
+            // Strip the fix hint and rewrite the missing detail to read as
+            // info, not failure — this section is environmental.
+            let detail = match result.status {
+                CheckStatus::Missing => Some("not installed".to_string()),
+                _ => result.detail,
+            };
+            CheckResult {
+                name: result.name,
+                status: result.status,
+                version: result.version,
+                detail,
+                fix: None,
+            }
+        })
+        .collect();
+
+    Section {
+        name: "Toolchains".to_string(),
+        checks,
+        informational: true,
     }
 }
 
@@ -568,6 +648,7 @@ mod tests {
                     detail: None,
                     fix: None,
                 }],
+                informational: false,
             }],
             passed: 1,
             failed: 0,

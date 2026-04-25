@@ -228,7 +228,7 @@ enum Commands {
         #[command(subcommand)]
         action: SpecSubcommand,
     },
-    /// Manage templates (init, create, validate, list)
+    /// Manage templates (init, create, validate, list, search, publish)
     #[command(alias = "template")]
     Templates {
         #[command(subcommand)]
@@ -334,6 +334,38 @@ enum TemplatesSubcommand {
     },
     /// List available templates
     List,
+    /// Search GitHub for community templates (fledge-template topic)
+    Search {
+        /// Keyword to filter results
+        query: Option<String>,
+        /// Filter by author/owner
+        #[arg(short, long)]
+        author: Option<String>,
+        /// Maximum number of results
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Publish a template directory to GitHub
+    Publish {
+        /// Path to the template directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// Publish under a GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Create as a private repository
+        #[arg(long)]
+        private: bool,
+        /// Override the repository description
+        #[arg(long)]
+        description: Option<String>,
+        /// Skip all confirmation prompts
+        #[arg(short, long)]
+        yes: bool,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -1125,6 +1157,23 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
         TemplatesSubcommand::List => {
             list_templates()?;
         }
+        TemplatesSubcommand::Search {
+            query,
+            author,
+            limit,
+            json,
+        } => {
+            search_templates(query.as_deref(), author.as_deref(), limit, json)?;
+        }
+        TemplatesSubcommand::Publish {
+            path,
+            org,
+            private,
+            description,
+            yes,
+        } => {
+            publish_template(&path, org.as_deref(), private, description.as_deref(), yes)?;
+        }
     }
     Ok(())
 }
@@ -1341,6 +1390,207 @@ fn list_templates() -> Result<()> {
             style(&t.description).dim()
         );
     }
+
+    Ok(())
+}
+
+fn search_templates(
+    query: Option<&str>,
+    author: Option<&str>,
+    limit: usize,
+    json: bool,
+) -> Result<()> {
+    use anyhow::Context as _;
+    let config = config::Config::load()?;
+    let token = config.github_token();
+    let q = search::build_search_query_ex(query, author, "fledge-template");
+    let per_page = limit.clamp(1, 100).to_string();
+
+    let sp = spinner::Spinner::start("Searching GitHub for community templates:");
+    let body = github::github_api_get(
+        "/search/repositories",
+        token.as_deref(),
+        &[("q", &q), ("sort", "stars"), ("per_page", &per_page)],
+    )
+    .context("searching GitHub for template repos")?;
+    sp.finish();
+
+    let mut results = search::parse_search_response(&body)?;
+    results.truncate(limit);
+
+    if results.is_empty() {
+        if json {
+            println!("[]");
+        } else {
+            println!(
+                "{} No community templates found{}.",
+                style("*").cyan().bold(),
+                query
+                    .map(|q| format!(" matching '{q}'"))
+                    .unwrap_or_default()
+            );
+        }
+        return Ok(());
+    }
+
+    if json {
+        let entries: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                let tier = trust::determine_trust_tier_from_owner(&r.owner);
+                serde_json::json!({
+                    "owner": r.owner,
+                    "name": r.name,
+                    "description": r.description,
+                    "stars": r.stars,
+                    "url": r.url,
+                    "topics": r.topics,
+                    "trust_tier": tier.label(),
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&entries)?);
+        return Ok(());
+    }
+
+    println!("{}\n", style("Community templates on GitHub:").bold());
+    let max_name = results
+        .iter()
+        .map(|r| r.full_name().len())
+        .max()
+        .unwrap_or(0);
+    for r in &results {
+        let tier = trust::determine_trust_tier_from_owner(&r.owner);
+        let stars = search::format_stars(r.stars);
+        let desc = if r.description.chars().count() > 60 {
+            let truncated: String = r.description.chars().take(57).collect();
+            format!("{truncated}...")
+        } else {
+            r.description.clone()
+        };
+        let topic_str = if r.topics.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}]", r.topics.join(", "))
+        };
+        println!(
+            "  {:<width$}  [{}]  {}  {}{}",
+            style(&r.full_name()).green(),
+            tier.styled_label(),
+            style(format!("(⭐ {})", stars)).dim(),
+            style(&desc).dim(),
+            style(&topic_str).cyan(),
+            width = max_name,
+        );
+    }
+    println!(
+        "\n{}",
+        style("Use with: fledge templates init --template <owner/repo>").dim()
+    );
+    Ok(())
+}
+
+fn publish_template(
+    path: &std::path::Path,
+    org: Option<&str>,
+    private: bool,
+    description: Option<&str>,
+    yes: bool,
+) -> Result<()> {
+    use anyhow::Context as _;
+    let yes = yes || utils::is_non_interactive();
+    let config = config::Config::load()?;
+    let token = config.github_token().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No GitHub token configured. Run: fledge config set github.token <your-token>"
+        )
+    })?;
+
+    let path = path
+        .canonicalize()
+        .with_context(|| format!("Directory not found: {}", path.display()))?;
+
+    // Validate the template before publishing — same gate `fledge templates validate` uses.
+    validate::run(validate::ValidateOptions {
+        path: path.clone(),
+        strict: false,
+        json: false,
+    })?;
+
+    let dir_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("fledge-template");
+    let repo_name = dir_name.to_string();
+    let desc = description.unwrap_or("A fledge template");
+
+    let owner = match org {
+        Some(o) => o.to_string(),
+        None => publish::get_authenticated_user(&token)?,
+    };
+
+    println!(
+        "{} Publishing template as {}/{}",
+        style("➡️").cyan().bold(),
+        style(&owner).green(),
+        style(&repo_name).green()
+    );
+
+    let sp = spinner::Spinner::start("Checking repository:");
+    let repo_exists = publish::check_repo_exists(&owner, &repo_name, &token)?;
+    sp.finish();
+
+    if repo_exists {
+        if !yes {
+            utils::require_interactive("yes")?;
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Repository {}/{} already exists. Push update?",
+                        owner, repo_name
+                    ))
+                    .default(false)
+                    .interact()?;
+            if !confirm {
+                println!("{} Cancelled.", style("*").cyan().bold());
+                return Ok(());
+            }
+        }
+    } else {
+        let sp = spinner::Spinner::start("Creating repository:");
+        publish::create_github_repo(&repo_name, desc, private, org, &token)?;
+        sp.finish();
+        println!(
+            "  {} Created repository {}/{}",
+            style("✅").green().bold(),
+            owner,
+            repo_name
+        );
+    }
+
+    let sp = spinner::Spinner::start("Setting repository topics:");
+    publish::set_repo_topic(&owner, &repo_name, "fledge-template", &token)?;
+    sp.finish();
+    println!(
+        "  {} Set {} topic",
+        style("✅").green().bold(),
+        style("fledge-template").cyan()
+    );
+
+    let sp = spinner::Spinner::start("Pushing template files:");
+    publish::push_directory(&path, &owner, &repo_name, &token)?;
+    sp.finish();
+    println!("  {} Pushed template files", style("✅").green().bold());
+
+    println!(
+        "\n{} Published! Use with:\n\n  {}",
+        style("✅").green().bold(),
+        style(format!(
+            "fledge templates init --template {}/{}",
+            owner, repo_name
+        ))
+        .cyan()
+    );
 
     Ok(())
 }

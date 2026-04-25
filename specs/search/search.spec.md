@@ -1,6 +1,6 @@
 ---
 module: search
-version: 2
+version: 3
 status: active
 files:
   - src/search.rs
@@ -13,9 +13,9 @@ depends_on: []
 
 ## Purpose
 
-Library helpers for GitHub topic-based discovery. As of v0.15 this module is *internal* — the user-facing `templates search` command moved out to `fledge-plugin-templates-remote`. The remaining helpers are still consumed by `lanes search` (lane discovery), `plugins search` (plugin discovery), and `github_api_get` (URL encoding).
+Library helpers for GitHub topic-based discovery. Consumed by `templates search` (template discovery), `lanes search` (lane discovery), `plugins search` (plugin discovery), and `github_api_get` (URL encoding).
 
-The split is intentional: discovering "GitHub repos tagged with topic X" is a generic mechanism, but each consumer (templates, lanes, plugins) wires it to a different topic and renders results differently. Keeping the mechanism here as a library and the user-facing surfaces in their respective callers means a future GitLab-search backend can swap this module out without touching the callers.
+The split is intentional: discovering "GitHub repos tagged with topic X" is a generic mechanism, but each consumer wires it to a different topic and renders results differently. Keeping the mechanism here as a library and the user-facing surfaces in their respective callers means a future GitLab-search backend can swap this module out without touching the callers.
 
 ## Public API
 
@@ -98,6 +98,7 @@ urlencod("topic:fledge-template")  // "topic%3Afledge-template"
 
 | Module | What is used |
 |--------|-------------|
+| `main` | `build_search_query_ex`, `parse_search_response`, `format_stars` for `fledge templates search` |
 | `lanes` | `build_search_query_ex`, `parse_search_response`, `format_stars` for `fledge lanes search` |
 | `plugin` | `build_search_query_ex` for `fledge plugins search` |
 | `github` | `urlencod` for `github_api_get` query parameters |
@@ -106,5 +107,6 @@ urlencod("topic:fledge-template")  // "topic%3Afledge-template"
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex` — the user-facing `templates search` command lives in `fledge-plugin-templates-remote` now. This module is a library of query/parse helpers consumed by `lanes`, `plugins`, and `github`. |
+| 3 | 2026-04-25 | `templates search` re-absorbed into core (`main.rs::search_templates`); the `fledge-plugin-templates-remote` plugin was redundant with the existing helpers and is dropped from `DEFAULT_PLUGINS`. Module remains a library of query/parse helpers consumed by `main`, `lanes`, `plugins`, and `github`. |
+| 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex` — the user-facing `templates search` command lived in `fledge-plugin-templates-remote` then. |
 | 1 | 2026-04-19 | Initial spec |
