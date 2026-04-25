@@ -1157,7 +1157,12 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
         TemplatesSubcommand::List => {
             list_templates()?;
         }
-        TemplatesSubcommand::Search { query, author, limit, json } => {
+        TemplatesSubcommand::Search {
+            query,
+            author,
+            limit,
+            json,
+        } => {
             search_templates(query.as_deref(), author.as_deref(), limit, json)?;
         }
         TemplatesSubcommand::Publish {
@@ -1420,7 +1425,9 @@ fn search_templates(
             println!(
                 "{} No community templates found{}.",
                 style("*").cyan().bold(),
-                query.map(|q| format!(" matching '{q}'")).unwrap_or_default()
+                query
+                    .map(|q| format!(" matching '{q}'"))
+                    .unwrap_or_default()
             );
         }
         return Ok(());
@@ -1447,7 +1454,11 @@ fn search_templates(
     }
 
     println!("{}\n", style("Community templates on GitHub:").bold());
-    let max_name = results.iter().map(|r| r.full_name().len()).max().unwrap_or(0);
+    let max_name = results
+        .iter()
+        .map(|r| r.full_name().len())
+        .max()
+        .unwrap_or(0);
     for r in &results {
         let tier = trust::determine_trust_tier_from_owner(&r.owner);
         let stars = search::format_stars(r.stars);
@@ -1532,13 +1543,14 @@ fn publish_template(
     if repo_exists {
         if !yes {
             utils::require_interactive("yes")?;
-            let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                .with_prompt(format!(
-                    "Repository {}/{} already exists. Push update?",
-                    owner, repo_name
-                ))
-                .default(false)
-                .interact()?;
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Repository {}/{} already exists. Push update?",
+                        owner, repo_name
+                    ))
+                    .default(false)
+                    .interact()?;
             if !confirm {
                 println!("{} Cancelled.", style("*").cyan().bold());
                 return Ok(());
@@ -1573,7 +1585,11 @@ fn publish_template(
     println!(
         "\n{} Published! Use with:\n\n  {}",
         style("✅").green().bold(),
-        style(format!("fledge templates init --template {}/{}", owner, repo_name)).cyan()
+        style(format!(
+            "fledge templates init --template {}/{}",
+            owner, repo_name
+        ))
+        .cyan()
     );
 
     Ok(())
