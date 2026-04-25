@@ -79,7 +79,7 @@ That's the whole core. **Anything else is a plugin.** See `fledge plugins instal
 
 ## Default Plugins
 
-The plugins that took over commands removed from core in v0.15. Install all five with one command:
+The curated plugin set — three plugins that extend fledge with GitHub, dependency-health, and metrics commands. Install them all with one line:
 
 ```bash
 fledge plugins install --defaults
@@ -99,7 +99,7 @@ Why split them out? Because not every fledge user is on GitHub or runs a polyglo
 
 `rust-cli` · `ts-bun` · `python-cli` · `go-cli` · `ts-node` · `static-site`
 
-Browse community templates with the remote-templates plugin: `fledge templates-search <keyword>`
+Browse community templates: `fledge templates search <keyword>`
 
 ## Examples
 

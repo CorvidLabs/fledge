@@ -12,9 +12,7 @@ Scaffold --> Run --> Spec --> AI --> Ship
 
 Get a project off the ground. Pick a template (built-in or remote), scaffold it, and you're writing code in under a minute.
 
-**Commands:** `templates init`, `templates create`, `templates validate`, `templates list`
-
-For remote template search and publishing — `templates-search`, `templates-publish` — install [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). It ships in the default plugin set (`fledge plugins install --defaults`).
+**Commands:** `templates init`, `templates create`, `templates validate`, `templates list`, `templates search`, `templates publish`
 
 ## Run
 
@@ -48,12 +46,12 @@ Plugins, configuration, command-tree introspection, environment diagnostics, she
 
 **Commands:** `plugins`, `config`, `introspect`, `completions`, `doctor`
 
-`fledge plugins install --defaults` installs the curated set of plugins that took over commands removed from core in v0.15:
+`fledge plugins install --defaults` installs the curated set:
 
 - [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) → `checks`, `issues`, `prs`
 - [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) → `deps`
-- [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) → `metrics`
-- [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) → `templates-search`, `templates-publish`
-- [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor) → `doctor-tools`
+- [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) → `metrics` (Rust binary linking `tokei` as a library)
 
 Why these are plugins, not core: each one bakes an ecosystem assumption (GitHub-only, polyglot lockfile parsers, niche metrics) that not every fledge user needs. Plugins keep the binary small and let each capability evolve independently.
+
+(Through v0.15.1, `--defaults` also installed `fledge-plugin-templates-remote` and `fledge-plugin-doctor`. Both were re-absorbed into core in v0.15.2: their commands now ship as `fledge templates search`/`publish` and the `Toolchains` section of `fledge doctor`.)

@@ -111,7 +111,7 @@ REVIEW=$(fledge review --json)
 
 ## Plugin: code metrics
 
-`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) — a thin wrapper over `tokei` and `git`. Install:
+`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). v0.15.2 rewrote the plugin in Rust — it now links `tokei` as a library (no separate `cargo install tokei` step) and emits stable plugin-owned JSON shapes. Install:
 
 ```bash
 fledge plugins install --defaults

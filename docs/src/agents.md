@@ -17,7 +17,7 @@ fledge follows four rules that make it agent-usable:
 
 ```bash
 export FLEDGE_NON_INTERACTIVE=1               # silence every prompt
-fledge plugins install --defaults             # github + deps + metrics + templates-remote + doctor
+fledge plugins install --defaults             # github + deps + metrics
 fledge introspect --json                       # full command tree (incl. plugin commands)
 fledge spec list --json                        # semantic project map
 ```
@@ -38,7 +38,8 @@ After those four lines, every command and flag is discoverable as data.
 | `fledge ai models --provider {claude,ollama} --json` | Live model list |
 | `fledge ask "..." --json` | `{question, answer, provider, model}` |
 | `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}`. With `--with-model`: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` |
-| `fledge doctor --json` | `{sections:[{name, checks:[...]}], passed, failed}` |
+| `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools render dimmed and aren't counted toward `failed`. |
+| `fledge templates search --json` | Array of `{owner, name, description, stars, url, topics, trust_tier}` — GitHub search for `fledge-template`-tagged repos |
 | `fledge changelog --json` | Structured changelog |
 | `fledge plugins list --json` | Installed plugins |
 | `fledge lanes run <name> --json` | Lane execution results |
@@ -54,15 +55,13 @@ After those four lines, every command and flag is discoverable as data.
 | `fledge issues --json` / `issues view <n> --json` | `fledge-plugin-github` |
 | `fledge prs --json` / `prs view <n> --json` | `fledge-plugin-github` |
 | `fledge deps --json` | `fledge-plugin-deps` — ecosystem tool's native output |
-| `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` |
-| `fledge templates-search --json` | `fledge-plugin-templates-remote` |
-| `fledge doctor-tools --json` | `fledge-plugin-doctor` — `[{tool, group, status, version}, ...]` |
+| `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` — LOC summary (tokei linked as a library), per-file churn, test/source ratio |
 
 ### Non-interactive mode (one switch)
 
 Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes: every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
 
-Commands covered: `fledge templates init`, `fledge templates create`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`, `fledge templates-publish` (plugin).
+Commands covered: `fledge templates init`, `fledge templates create`, `fledge templates publish`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`.
 
 ### AI-powered commands
 

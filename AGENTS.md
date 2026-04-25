@@ -25,7 +25,7 @@ After those four lines, every command and every flag is discoverable as data.
 2. **Always add `--json` when a command supports it** (see list below). Parse the JSON; do not screen-scrape pretty output.
 3. **Set `FLEDGE_NON_INTERACTIVE=1` once** in your shell, or pass `--non-interactive` (alias `--ni`) per invocation. Every command then treats confirmation prompts as `--yes`; prompts with no default bail with a clear error instead of blocking forever.
 4. **Check exit codes.** Non-zero means something failed, even if stdout looks fine.
-5. **Don't mutate without running `fledge lane run pre-commit` first** — it's the project-defined quality gate.
+5. **Don't mutate without running `fledge lanes run pre-commit` first** — it's the project-defined quality gate.
 
 ## Discover what fledge can do
 
@@ -58,10 +58,10 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge ask "..." --json` | `{question, answer, provider, model}` from the active LLM provider over the codebase | Answering a question about the code |
 | `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}` | Before opening a PR |
 | `fledge review --with-model <ref> --json` | Multi-model panel: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` | Comparing models on the same diff |
-| `fledge doctor --json` | `{sections:[{name, checks:[...]}], passed, failed}` — fledge self-check + AI provider + git | Debugging a broken setup |
+| `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools don't count toward `failed`. | Debugging a broken setup |
 | `fledge changelog --json` | Structured changelog from tags | Generating release notes |
 | `fledge plugins list --json` | Installed plugins with trust tier, capabilities | Auditing plugin state |
-| `fledge lane run <name> --json` | Lane execution results | Running the project's own CI pipeline |
+| `fledge lanes run <name> --json` | Lane execution results | Running the project's own CI pipeline |
 | `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
 | `fledge work pr --json` | `{url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
 | `fledge work status --json` | `{branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
@@ -99,7 +99,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 | `fledge plugins install` | Skip trust-tier and capability-grant prompts |
 | `fledge plugins publish` | Skip confirmations |
 | `fledge plugins create` | Skip scaffolding prompts |
-| `fledge lane publish` | Skip description prompt |
+| `fledge lanes publish` | Skip description prompt |
 | `fledge templates publish` | Skip the confirmation prompt |
 
 Prompts that have **no sensible default** (e.g. `fledge ai use` being asked to pick a provider when none was specified) fail fast with a clear error naming the flag to pass instead. No silent hangs.
@@ -191,9 +191,9 @@ fledge work pr --ai --provider ollama --model gpt-oss:120b-cloud --yes
 
 ### Before reporting a task done
 ```bash
-fledge lane run pre-commit                                 # fmt + lint + test + spec-check
+fledge lanes run pre-commit                                 # fmt + lint + test + spec-check
 # or the project-specific full lane:
-fledge lane run ci
+fledge lanes run ci
 ```
 
 ### Verify CI is green (requires `fledge-plugin-github`)
@@ -213,15 +213,15 @@ cat specs/<name>/testing.md      # test plan
 
 - `0` — success
 - `1` — user-facing error (bad input, missing file, validation failure, prompt required in non-TTY)
-- Non-zero exit also fires on `fledge spec check` errors, `fledge lane run` failures, and `fledge review` errors
+- Non-zero exit also fires on `fledge spec check` errors, `fledge lanes run` failures, and `fledge review` errors
 
 ## Project-specific quality gate
 
 This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 
-- `fledge lane run pre-commit` — fmt + lint + test + spec-check (required before opening a PR)
-- `fledge lane run ci` — full CI pipeline locally
-- `fledge lane run check` — quick parallel fmt+lint then test
+- `fledge lanes run pre-commit` — fmt + lint + test + spec-check (required before opening a PR)
+- `fledge lanes run ci` — full CI pipeline locally
+- `fledge lanes run check` — quick parallel fmt+lint then test
 - `fledge spec check` — always run if you touched `src/` or `specs/`
 
 ## When things go wrong
@@ -238,6 +238,6 @@ This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 If a command you want doesn't expose `--json`, or a workflow isn't automatable, the right fix is:
 1. Open an issue tagged `agent-surface`
 2. Update the corresponding spec (`specs/<module>/<module>.spec.md`) — bump the version, add the new flag to Public API + Behavioral Examples
-3. Implement + `fledge lane run pre-commit` + PR
+3. Implement + `fledge lanes run pre-commit` + PR
 
 The project explicitly welcomes agent-surface improvements.

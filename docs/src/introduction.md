@@ -23,13 +23,13 @@ Start a project, run your tasks, evolve specs and code together, get AI to ask +
 
 ## The plugin layer
 
-Five plugins took over commands removed from core in v0.15. One command installs them all:
+Three plugins extend fledge with commands that don't belong in every install. One command installs them all:
 
 ```bash
 fledge plugins install --defaults
 ```
 
-That gets you `checks`/`issues`/`prs` (GitHub), `deps`, `metrics`, `templates-search`/`templates-publish`, and `doctor-tools` back. See the [Plugins page](./plugins.md) for the full set.
+That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See the [Plugins page](./plugins.md) for the full set.
 
 ## Zero-config
 

@@ -71,11 +71,10 @@ Provide a consistent loading spinner for long-running operations (network calls,
 
 ```
 # Spinner appears during any network/git operation
-$ fledge checks
-  Fetching CI checks: ⠙        # animates through braille frames
-  ✅ lint          passed      12s
+$ fledge templates search rust
+  Searching GitHub for community templates: ⠙    # animates through braille frames
 
-$ fledge work push
+$ fledge work pr
   Pushing feat/spinner to origin: 🌎    # animates through globe frames
   ✅ Pushed to origin/feat/spinner
 ```

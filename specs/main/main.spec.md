@@ -51,7 +51,7 @@ No public exports — `main.rs` is the binary entry point.
 
 ```
 $ fledge --version
-fledge 0.8.0
+fledge 0.15.2
 
 $ fledge --help
 Dev-lifecycle CLI — get your projects ready to fly.

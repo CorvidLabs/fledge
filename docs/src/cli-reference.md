@@ -1,6 +1,6 @@
 # CLI Reference
 
-Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`, `templates-search`, `templates-publish`, `doctor-tools`) ship as separate repos — install them with `fledge plugins install --defaults`.
+Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`) ship as separate repos — install them with `fledge plugins install --defaults`.
 
 **Jump to:**
 [Scaffold](#scaffold-templates) |
@@ -12,7 +12,7 @@ Every command, every flag. If it's in fledge core, it's here. Plugin commands (`
 
 ## Scaffold: Templates
 
-All template commands live under `fledge templates` (alias: `fledge template`). Local-only — `templates-search` and `templates-publish` moved to [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote) in v0.15.
+All template commands live under `fledge templates` (alias: `fledge template`). Six subcommands: `init`, `create`, `validate`, `list`, `search`, `publish`. The latter two moved out to `fledge-plugin-templates-remote` in v0.15 and were re-absorbed into core in v0.15.2.
 
 ### fledge templates init `<name>`
 
@@ -118,12 +118,12 @@ fledge templates validate ./templates --json
 
 ---
 
-### fledge templates-search `[query]` (plugin)
+### fledge templates search `[query]`
 
-Provided by [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). Find templates on GitHub (looks for the `fledge-template` topic).
+Find templates on GitHub by searching for the `fledge-template` topic.
 
 ```
-fledge templates-search [query] [OPTIONS]
+fledge templates search [query] [OPTIONS]
 ```
 
 **Options:**
@@ -131,21 +131,23 @@ fledge templates-search [query] [OPTIONS]
 - `-l, --limit <N>` - Max results [default: `20`, max: `100`]
 - `--json` - JSON output
 
+**Output (`--json`):** array of `{owner, name, description, stars, url, topics, trust_tier}`.
+
 ---
 
-### fledge templates-publish `[path]` (plugin)
+### fledge templates publish `[path]`
 
-Provided by [`fledge-plugin-templates-remote`](https://github.com/CorvidLabs/fledge-plugin-templates-remote). Push a template to GitHub as a new repo tagged with `fledge-template`. Wraps `gh repo create --push`.
+Push a template directory to GitHub as a new repo tagged with the `fledge-template` topic. Validates the template via the same gate `fledge templates validate` uses, then creates the repo (or updates an existing one), sets the topic, and force-pushes the directory contents.
 
 ```
-fledge templates-publish [path] [OPTIONS]
+fledge templates publish [path] [OPTIONS]
 ```
 
 **Options:**
 - `--org <ORG>` - Publish under an org
 - `--private` - Private repo
 - `--description <DESC>` - Override repo description
-- `-y, --yes` - Skip confirmation prompt
+- `-y, --yes` - Skip confirmation prompt (also auto-promoted by `FLEDGE_NON_INTERACTIVE=1`)
 
 ---
 
@@ -295,7 +297,12 @@ fledge config list
 
 ### fledge doctor
 
-Check fledge's own health: config loads, git is available, AI provider resolves and is reachable. v0.15 stripped toolchain probes (rustc/node/python/swift/etc.) — those moved to [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor)'s `doctor-tools` command.
+Diagnose fledge's environment health. Reports four sections:
+
+- **`fledge`** — config loads cleanly
+- **`Git`** — git installed; repo initialized; remote configured; working tree clean
+- **`AI`** — Claude CLI present, Ollama reachable, the active provider's status
+- **`Toolchains`** *(informational)* — probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals — a Python project shouldn't fail because Swift is absent.
 
 ```
 fledge doctor [OPTIONS]
@@ -304,17 +311,7 @@ fledge doctor [OPTIONS]
 **Options:**
 - `--json` - JSON output
 
----
-
-### fledge doctor-tools (plugin)
-
-Provided by [`fledge-plugin-doctor`](https://github.com/CorvidLabs/fledge-plugin-doctor). Probes installed dev toolchains and reports versions.
-
-```
-fledge doctor-tools [--json]
-```
-
-Probed groups: `rust` (rustc, cargo, cargo-clippy), `node` (node, npm, pnpm, bun, yarn), `python` (python3, uv, poetry), `go`, `ruby`, `swift`, `java` (java, gradle, mvn).
+**Output (`--json`):** `{sections: [{name, checks: [{name, status, version, detail, fix}], informational}], passed, failed}`. Informational sections (e.g. `Toolchains`) appear in the JSON with `informational: true` and are excluded from the `passed`/`failed` totals.
 
 ---
 
@@ -623,7 +620,7 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate> [
 
 **Subcommands:**
 
-- `install <source[@ref]> | --defaults` — Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit. **`--defaults`** installs the curated plugin set (`fledge-plugin-{github,deps,metrics,templates-remote,doctor}`) in one shot.
+- `install <source[@ref]> | --defaults` — Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit. **`--defaults`** installs the curated plugin set (`fledge-plugin-{github,deps,metrics}`) in one shot.
 - `remove <name>` — Uninstall a plugin
 - `update [name]` — Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
 - `list` — Show installed plugins (includes pinned version info)
@@ -641,9 +638,9 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate> [
 |------|------|----------------------|
 | `CorvidLabs/fledge-plugin-github` | `checks`, `issues`, `prs` | the GitHub-specific browsing trio |
 | `CorvidLabs/fledge-plugin-deps` | `deps` | polyglot lockfile audits |
-| `CorvidLabs/fledge-plugin-metrics` | `metrics` | LOC/churn/test-ratio |
-| `CorvidLabs/fledge-plugin-templates-remote` | `templates-search`, `templates-publish` | GitHub template registry |
-| `CorvidLabs/fledge-plugin-doctor` | `doctor-tools` | toolchain probes |
+| `CorvidLabs/fledge-plugin-metrics` | `metrics` | LOC/churn/test-ratio (Rust binary linking `tokei` as a library; no separate `cargo install tokei` required) |
+
+(`fledge-plugin-templates-remote` and `fledge-plugin-doctor` were dropped from `--defaults` in v0.15.2 and re-absorbed into core: `fledge templates search`/`publish` and the `Toolchains` section of `fledge doctor`. The repos are archived.)
 
 **Plugin format** (`plugin.toml`):
 

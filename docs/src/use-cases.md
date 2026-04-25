@@ -23,7 +23,7 @@ Stop remembering which project uses `npm test` vs `cargo test` vs `go test`:
 
 ```bash
 fledge run test    # always works, regardless of language
-fledge lane ci     # same pipeline shape everywhere
+fledge lanes run ci     # same pipeline shape everywhere
 ```
 
 ### Quick code review before pushing
@@ -60,7 +60,7 @@ fledge lanes publish
 
 # In any project
 fledge lanes import your-org/company-lanes
-fledge lane ci
+fledge lanes run ci
 ```
 
 ### Pre-PR quality gates via plugins
@@ -75,7 +75,7 @@ fledge plugins install your-org/fledge-plugin-lint-config
 ### Dependency auditing across the stack
 
 ```bash
-fledge plugins install --defaults    # one-line install of fledge-plugin-deps + 4 others
+fledge plugins install --defaults    # one-line install of fledge-plugin-deps + 2 others
 fledge deps --outdated --audit       # Works for Rust, Node, Python — auto-detected from lockfiles
 ```
 

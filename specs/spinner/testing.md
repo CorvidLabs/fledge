@@ -16,15 +16,15 @@ spec: spinner.spec.md
 
 ### Integration Tests
 
-- Spinner is exercised implicitly by all commands that make network calls (checks, work, prs, issues, search, publish, review, ask, lanes, plugin, update)
+- Spinner is exercised implicitly by every command that makes a network or git call: `templates search`/`publish`, `lanes search`/`publish`/`import`, `plugins search`/`install`/`update`/`publish`, `work pr`/`status`, `review`, `ask`, `ai models` (Ollama). Plugin commands (`checks`, `prs`, `issues`, `deps`, `metrics`) also reuse the same spinner via the protocol.
 
 ### Manual Testing
 
 ```bash
 # Any network command shows a spinner
-fledge checks
-fledge prs
-fledge search rust
+fledge templates search rust
+fledge plugins search deploy
+fledge work pr
 
 # Spinner clears cleanly — no leftover text after command completes
 ```
