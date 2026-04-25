@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`fledge plugins install --defaults`** — one-command bulk install of fledge's curated plugin set. Pulls in the five plugins that took over commands removed from core: `fledge-plugin-github`, `fledge-plugin-deps`, `fledge-plugin-metrics`, `fledge-plugin-templates-remote`, `fledge-plugin-doctor`. Per-plugin failures don't abort the bulk install; the trailing summary lists each failure with its error. After a fresh `cargo install fledge`, this command gets you back to v0.14 feature parity in one line.
 - **`fledge review --with-model <provider[:model]>`** — multi-model review panel (#255). Pass one or more `--with-model` refs (repeatable + comma-separated) and the review runs across all of them in parallel against the same diff and spec context, with cyan banner headers between slots and an `elapsed_seconds` per slot. Per-model errors are captured (not fatal). `--no-active` excludes the configured-default slot. JSON gains `reviews[]` array; legacy single-model `review`/`provider`/`model` fields preserved when panel size is 1. The first signature workflow that v0.14's `fledge ai` enables: switch providers in seconds, then turn around and use any of them — or all of them — to review your diff.
 
 ### Removed

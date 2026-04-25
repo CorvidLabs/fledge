@@ -600,14 +600,17 @@ enum LaneSubcommand {
 enum PluginSubcommand {
     /// Install a plugin from GitHub
     Install {
-        /// GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version
-        source: String,
+        /// GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version. Omit when using --defaults.
+        source: Option<String>,
         /// Reinstall if already present
         #[arg(long)]
         force: bool,
         /// Skip all confirmation prompts (accept defaults)
         #[arg(short, long)]
         yes: bool,
+        /// Install fledge's curated set of default plugins (github, deps, metrics, templates-remote, doctor)
+        #[arg(long, conflicts_with = "source")]
+        defaults: bool,
     },
     /// Remove an installed plugin
     Remove {
@@ -910,9 +913,15 @@ fn run() -> Result<()> {
         }
         Commands::Plugins { action, json } => {
             let action = match action {
-                PluginSubcommand::Install { source, force, yes } => plugin::PluginAction::Install {
+                PluginSubcommand::Install {
+                    source,
+                    force,
+                    yes,
+                    defaults,
+                } => plugin::PluginAction::Install {
                     source,
                     force: force || yes,
+                    defaults,
                 },
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
                 PluginSubcommand::Update { name } => plugin::PluginAction::Update { name },

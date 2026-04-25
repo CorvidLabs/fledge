@@ -7,6 +7,21 @@ use std::process::Command;
 
 use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 
+/// The curated set of plugins fledge endorses as "the default install."
+///
+/// These are the plugins that took over commands removed from core in
+/// v0.15 (the tight-core refactor). Running `fledge plugins install --defaults`
+/// installs all of them so a fresh fledge install gets back to feature
+/// parity with v0.14 in one command. Each entry is a `<owner>/<repo>` ref
+/// understood by `parse_source_ref`.
+pub const DEFAULT_PLUGINS: &[&str] = &[
+    "CorvidLabs/fledge-plugin-github",
+    "CorvidLabs/fledge-plugin-deps",
+    "CorvidLabs/fledge-plugin-metrics",
+    "CorvidLabs/fledge-plugin-templates-remote",
+    "CorvidLabs/fledge-plugin-doctor",
+];
+
 #[derive(Debug, Deserialize)]
 struct PluginManifest {
     plugin: PluginMeta,
@@ -83,8 +98,10 @@ pub struct PluginOptions {
 
 pub enum PluginAction {
     Install {
-        source: String,
+        source: Option<String>,
         force: bool,
+        /// Install the curated set of default plugins (DEFAULT_PLUGINS)
+        defaults: bool,
     },
     Remove {
         name: String,
@@ -125,7 +142,11 @@ pub enum PluginAction {
 
 pub fn run(opts: PluginOptions) -> Result<()> {
     match opts.action {
-        PluginAction::Install { source, force } => install_plugin(&source, force),
+        PluginAction::Install {
+            source,
+            force,
+            defaults,
+        } => install_action(source.as_deref(), force, defaults),
         PluginAction::Remove { name } => remove_plugin(&name),
         PluginAction::Update { name } => update_plugins(name.as_deref()),
         PluginAction::List => list_plugins(opts.json),
@@ -412,6 +433,72 @@ fn validate_plugin_name(name: &str) -> Result<()> {
     {
         bail!("Invalid plugin source: repo name '{}' is not safe.", name);
     }
+    Ok(())
+}
+
+/// Top-level dispatcher for `fledge plugins install`. Splits the
+/// single-source path from the `--defaults` bulk-install path so each
+/// caller stays simple. Reports a per-plugin pass/fail count when
+/// installing the bundle so a single bad repo doesn't abort the rest.
+fn install_action(source: Option<&str>, force: bool, defaults: bool) -> Result<()> {
+    if defaults {
+        if source.is_some() {
+            bail!("--defaults installs the curated set; do not pass a source ref alongside it.");
+        }
+        return install_defaults(force);
+    }
+    let source = source.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Either pass a source ref (owner/repo[@ref]) or use --defaults to install the curated set."
+        )
+    })?;
+    install_plugin(source, force)
+}
+
+/// Install every entry in `DEFAULT_PLUGINS`. Failures are collected and
+/// reported at the end — one broken default doesn't block the rest, so
+/// users on slow networks or with one transient 403 still get the
+/// remaining plugins installed.
+fn install_defaults(force: bool) -> Result<()> {
+    println!(
+        "{} Installing {} default plugins...",
+        style("*").cyan().bold(),
+        DEFAULT_PLUGINS.len()
+    );
+
+    let mut installed: Vec<&str> = Vec::new();
+    let mut failed: Vec<(&str, String)> = Vec::new();
+
+    for source in DEFAULT_PLUGINS {
+        println!();
+        println!("  {} {}", style("→").dim(), style(source).cyan());
+        match install_plugin(source, force) {
+            Ok(()) => installed.push(source),
+            Err(e) => failed.push((source, e.to_string())),
+        }
+    }
+
+    println!();
+    println!(
+        "{} {} of {} default plugins installed.",
+        if failed.is_empty() {
+            style("✅").green().bold()
+        } else {
+            style("⚠️").yellow().bold()
+        },
+        installed.len(),
+        DEFAULT_PLUGINS.len()
+    );
+
+    if !failed.is_empty() {
+        println!();
+        println!("Failures:");
+        for (source, err) in &failed {
+            println!("  {} {} — {}", style("✗").red(), style(source).cyan(), err);
+        }
+        bail!("{} default plugin(s) failed to install.", failed.len());
+    }
+
     Ok(())
 }
 
@@ -1749,6 +1836,40 @@ fn publish_plugin(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_plugins_are_well_formed() {
+        // Every entry should parse via parse_source_ref so --defaults can't
+        // ship a bogus ref that fails at install time.
+        assert!(!DEFAULT_PLUGINS.is_empty());
+        for src in DEFAULT_PLUGINS {
+            let (owner_repo, _git_ref) = parse_source_ref(src);
+            assert!(
+                owner_repo.contains('/'),
+                "DEFAULT_PLUGINS entry '{src}' must be owner/repo"
+            );
+            // No accidental @ref pinning in the default list — defaults
+            // should track the latest stable, not be frozen on a tag.
+            assert!(
+                !src.contains('@'),
+                "DEFAULT_PLUGINS entry '{src}' should not pin a ref"
+            );
+        }
+    }
+
+    #[test]
+    fn install_action_rejects_source_with_defaults() {
+        let err = install_action(Some("someone/foo"), false, true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("--defaults"));
+    }
+
+    #[test]
+    fn install_action_requires_source_or_defaults() {
+        let err = install_action(None, false, false).unwrap_err().to_string();
+        assert!(err.contains("--defaults"));
+    }
 
     #[test]
     fn normalize_github_shorthand() {
