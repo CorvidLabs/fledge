@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.3] - 2026-04-25
+
+**Dogfooding-driven patch.** Two real bugs hit while shipping `fledge-plugin-github` v0.2.0 — both fixed in this release. Plus a sweep of the docs that had drifted past v0.15.2 and a per-spec test-file split.
+
+### Added
+
+- **`fledge release` recognizes `plugin.toml`** (#264, #265) — `[plugin].version` is now a first-class version source. Plugin authors no longer have to hand-bump `plugin.toml` and pass an explicit version: `fledge release minor` Just Works inside a plugin repo. The bumper is section-scoped (a `version` key inside `[[commands]]` or any other table is left alone). Rust plugins with both `Cargo.toml` and `plugin.toml` get both bumped together.
+- **`--no-bump` flag** for `fledge release` — tag-only release, useful when the canonical version lives outside the working tree (e.g. the GitHub Release tag itself).
+- **`fledge plugins validate`** now flags `plugin.version` strings that don't parse as semver. The existing empty-version error is unchanged.
+- **`FLEDGE_PLUGIN_DIR` environment variable** (#266, #267) — exported by fledge before exec'ing any plugin binary, lifecycle hook, or fledge-v1 protocol plugin. Set to the plugin's source directory (canonicalized, absolute). Multi-file shell plugins should reach sibling helpers via `"$FLEDGE_PLUGIN_DIR/bin/<helper>"` instead of `dirname "$0"` (which resolves to the shared `plugins/bin/` symlink dir, not the plugin's source). Closes a quiet contract that bit `fledge-plugin-github` v0.2.0 and that every multi-file shell plugin author would otherwise rediscover.
+- **`fledge plugins create` scaffold** updated — generated entry-point script now uses `${FLEDGE_PLUGIN_DIR:?...}` and ships a commented dispatcher example. New plugins get the right pattern by default.
+
+### Changed
+
+- **`tests/integration.rs` (2749 LOC monolith) split into nine per-spec files** matching the `specs/` layout: `tests/{templates,config,run,lanes,doctor,validate,spec,changelog,main}.rs`. Shared helpers extracted to `tests/common/mod.rs`. All 157 integration tests pass under their new file homes.
+- Two dummy `tests/*.test.ts` files (placeholder bun tests with no actual integration) deleted — fledge has no bun harness, the files served no purpose.
+
+### Fixed
+
+- **Documentation accuracy across the whole tree** (#263). Every reference to `templates-search` / `templates-publish` (hyphenated, plugin-attributed) updated to `templates search` / `publish` (core subcommands as of v0.15.2). Every "five plugins" claim corrected to "three". Every `doctor-tools` plugin reference removed (re-absorbed into core's `Toolchains` section). `fledge doctor --json` shape annotated with the new `informational: bool` per-section field. Per-spec drift fixed in `doctor`, `search`, `publish`, `templates`, `main`, `spinner`, `plugin`, `work`. Includes typo cleanup: `pluginss` (×6), duplicate-numbered invariant 9, and a stale `fledge --version → fledge 0.8.0` example.
+- **CHANGELOG itself** had been silently drifting (entries in semver-disorder, three tags missing entirely, `v` prefix inconsistent). Restored to strict descending order; backfilled v0.2.0, v0.2.1, v0.6.1; removed a stale `[Unreleased]` placeholder; normalized formatting.
+
+### Spec bumps
+
+- `release` v1 → v2 (plugin.toml support, `--no-bump`)
+- `plugin` v11 → v12 (`FLEDGE_PLUGIN_DIR` runtime contract; `plugin.version` semver validation)
+
 ## [v0.15.2] - 2026-04-25
 
 **Default-plugin slim-down + distribution sync.** Two of the v0.15 default plugins (`templates-remote`, `doctor`) were doing redundant work and are now back in core. `DEFAULT_PLUGINS` shrinks from 5 to 3. The Nix flake and Homebrew formula were six versions behind; both are now in sync and wired into the release flow so they stay that way.
