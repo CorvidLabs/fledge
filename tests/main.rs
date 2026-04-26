@@ -673,6 +673,44 @@ fn cli_plugin_update_help() {
     assert!(stdout.contains("Update installed plugins"));
 }
 
+#[test]
+fn cli_plugin_update_json_emits_envelope() {
+    // Isolate HOME to a tmpdir so we don't actually update the user's
+    // real plugins — and so the registry is empty and we get the
+    // "no plugins installed" envelope shape.
+    let tmp = tempfile::tempdir().unwrap();
+    let bin = cargo_bin();
+    let output = std::process::Command::new(&bin)
+        .args(["plugin", "update", "--json"])
+        .env("HOME", tmp.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "plugins update --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("update"));
+    assert!(parsed["results"].is_array());
+    assert!(parsed["summary"]["total"].is_u64());
+}
+
+#[test]
+fn cli_plugin_remove_json_error_path_returns_nonzero() {
+    // Errors still go to stderr (anyhow); --json should not turn an
+    // error into a success exit code. This guards against silent
+    // misclassification by agents that only check exit codes.
+    let output = run_fledge(&["plugin", "remove", "definitely-not-installed", "--json"]);
+    assert!(
+        !output.status.success(),
+        "remove of nonexistent plugin must exit nonzero even with --json"
+    );
+}
+
 // ──────────────────────────────────────────────────────────
 
 // MARK: - external / unknown subcommand

@@ -146,9 +146,11 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             source,
             force,
             defaults,
-        } => install_action(source.as_deref(), force, defaults),
-        PluginAction::Remove { name } => remove_plugin(&name),
-        PluginAction::Update { name, defaults } => update_plugins(name.as_deref(), defaults),
+        } => install_action(source.as_deref(), force, defaults, opts.json),
+        PluginAction::Remove { name } => remove_plugin(&name, opts.json),
+        PluginAction::Update { name, defaults } => {
+            update_plugins(name.as_deref(), defaults, opts.json)
+        }
         PluginAction::List => list_plugins(opts.json),
         PluginAction::Audit => audit_plugins(opts.json),
         PluginAction::Search {
@@ -440,96 +442,146 @@ fn validate_plugin_name(name: &str) -> Result<()> {
 /// single-source path from the `--defaults` bulk-install path so each
 /// caller stays simple. Reports a per-plugin pass/fail count when
 /// installing the bundle so a single bad repo doesn't abort the rest.
-fn install_action(source: Option<&str>, force: bool, defaults: bool) -> Result<()> {
+fn install_action(source: Option<&str>, force: bool, defaults: bool, json: bool) -> Result<()> {
     if defaults {
         if source.is_some() {
             bail!("--defaults installs the curated set; do not pass a source ref alongside it.");
         }
-        return install_defaults(force);
+        return install_defaults(force, json);
     }
     let source = source.ok_or_else(|| {
         anyhow::anyhow!(
             "Either pass a source ref (owner/repo[@ref]) or use --defaults to install the curated set."
         )
     })?;
-    install_plugin(source, force)
+    let report = install_plugin(source, force, json)?;
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "install",
+            "scope": "single",
+            "installed": [report],
+            "failed": [],
+            "summary": { "total": 1, "installed": 1, "failed": 0 },
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    }
+    Ok(())
 }
 
 /// Install every entry in `DEFAULT_PLUGINS`. Failures are collected and
 /// reported at the end — one broken default doesn't block the rest, so
 /// users on slow networks or with one transient 403 still get the
 /// remaining plugins installed.
-fn install_defaults(force: bool) -> Result<()> {
-    println!(
-        "{} Installing {} default plugins...",
-        style("*").cyan().bold(),
-        DEFAULT_PLUGINS.len()
-    );
+fn install_defaults(force: bool, json: bool) -> Result<()> {
+    if !json {
+        println!(
+            "{} Installing {} default plugins...",
+            style("*").cyan().bold(),
+            DEFAULT_PLUGINS.len()
+        );
+    }
 
-    let mut installed: Vec<&str> = Vec::new();
+    let mut installed: Vec<serde_json::Value> = Vec::new();
+    let mut installed_sources: Vec<&str> = Vec::new();
     let mut failed: Vec<(&str, String)> = Vec::new();
 
     for source in DEFAULT_PLUGINS {
-        println!();
-        println!("  {} {}", style("→").dim(), style(source).cyan());
-        match install_plugin(source, force) {
-            Ok(()) => installed.push(source),
+        if !json {
+            println!();
+            println!("  {} {}", style("→").dim(), style(source).cyan());
+        }
+        match install_plugin(source, force, json) {
+            Ok(report) => {
+                installed.push(report);
+                installed_sources.push(source);
+            }
             Err(e) => failed.push((source, e.to_string())),
         }
     }
 
-    println!();
-    println!(
-        "{} {} of {} default plugins installed.",
-        if failed.is_empty() {
-            style("✅").green().bold()
-        } else {
-            style("⚠️").yellow().bold()
-        },
-        installed.len(),
-        DEFAULT_PLUGINS.len()
-    );
+    if !json {
+        println!();
+        println!(
+            "{} {} of {} default plugins installed.",
+            if failed.is_empty() {
+                style("✅").green().bold()
+            } else {
+                style("⚠️").yellow().bold()
+            },
+            installed_sources.len(),
+            DEFAULT_PLUGINS.len()
+        );
+
+        if !failed.is_empty() {
+            println!();
+            println!("Failures:");
+            for (source, err) in &failed {
+                println!("  {} {} — {}", style("✗").red(), style(source).cyan(), err);
+            }
+        }
+    }
+
+    if json {
+        let failed_json: Vec<serde_json::Value> = failed
+            .iter()
+            .map(|(source, err)| serde_json::json!({ "source": source, "error": err }))
+            .collect();
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "install",
+            "scope": "defaults",
+            "installed": installed,
+            "failed": failed_json,
+            "summary": {
+                "total": DEFAULT_PLUGINS.len(),
+                "installed": installed_sources.len(),
+                "failed": failed.len(),
+            },
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    }
 
     if !failed.is_empty() {
-        println!();
-        println!("Failures:");
-        for (source, err) in &failed {
-            println!("  {} {} — {}", style("✗").red(), style(source).cyan(), err);
-        }
         bail!("{} default plugin(s) failed to install.", failed.len());
     }
 
     Ok(())
 }
 
-fn install_plugin(source: &str, force: bool) -> Result<()> {
-    let force = force || crate::utils::is_non_interactive();
+/// Install a single plugin. Returns a JSON-serializable report describing
+/// what was installed; the caller is responsible for printing the JSON
+/// envelope (so single-install and bulk-install share one shape).
+fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::Value> {
+    let force = force || crate::utils::is_non_interactive() || json;
     let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
     validate_plugin_name(&repo_name)?;
 
     let tier = determine_trust_tier(source);
-    println!(
-        "\n{} Installing plugin from: {} [{}]",
-        style("!").yellow().bold(),
-        style(&url).cyan(),
-        tier.styled_label()
-    );
-    if tier == TrustTier::Official {
+    if !json {
         println!(
-            "  {} This is an official CorvidLabs plugin.",
-            style("✓").green()
+            "\n{} Installing plugin from: {} [{}]",
+            style("!").yellow().bold(),
+            style(&url).cyan(),
+            tier.styled_label()
         );
-    } else {
-        println!(
-            "  {} Plugins can execute arbitrary code on your system.",
-            style("*").yellow()
-        );
-        println!(
-            "  {} Only install plugins from sources you trust.\n",
-            style("*").yellow()
-        );
+        if tier == TrustTier::Official {
+            println!(
+                "  {} This is an official CorvidLabs plugin.",
+                style("✓").green()
+            );
+        } else {
+            println!(
+                "  {} Plugins can execute arbitrary code on your system.",
+                style("*").yellow()
+            );
+            println!(
+                "  {} Only install plugins from sources you trust.\n",
+                style("*").yellow()
+            );
+        }
     }
 
     if !force {
@@ -569,11 +621,15 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
         fs::remove_dir_all(&plugin_dir).context("removing existing plugin")?;
     }
 
-    let clone_msg = match git_ref {
-        Some(r) => format!("Cloning {}@{}:", &url, r),
-        None => format!("Cloning {}:", &url),
+    let sp = if json {
+        None
+    } else {
+        let clone_msg = match git_ref {
+            Some(r) => format!("Cloning {}@{}:", &url, r),
+            None => format!("Cloning {}:", &url),
+        };
+        Some(crate::spinner::Spinner::start(&clone_msg))
     };
-    let sp = crate::spinner::Spinner::start(&clone_msg);
 
     let mut clone_args = vec!["clone"];
     if git_ref.is_none() {
@@ -591,7 +647,9 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
 
     let status = cmd.status().context("running git clone")?;
 
-    sp.finish();
+    if let Some(s) = sp {
+        s.finish();
+    }
 
     if !status.success() {
         bail!(
@@ -636,23 +694,25 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     let caps = &manifest.capabilities;
     let has_caps = caps.exec || caps.store || caps.metadata;
     if has_caps && manifest.plugin.protocol.is_some() {
-        println!("\n  {} Requested capabilities:", style("*").cyan().bold());
-        if caps.exec {
-            println!("    {} exec — run shell commands", style("•").yellow());
+        if !json {
+            println!("\n  {} Requested capabilities:", style("*").cyan().bold());
+            if caps.exec {
+                println!("    {} exec — run shell commands", style("•").yellow());
+            }
+            if caps.store {
+                println!(
+                    "    {} store — persist data between runs",
+                    style("•").yellow()
+                );
+            }
+            if caps.metadata {
+                println!(
+                    "    {} metadata — read project metadata and environment",
+                    style("•").yellow()
+                );
+            }
+            println!();
         }
-        if caps.store {
-            println!(
-                "    {} store — persist data between runs",
-                style("•").yellow()
-            );
-        }
-        if caps.metadata {
-            println!(
-                "    {} metadata — read project metadata and environment",
-                style("•").yellow()
-            );
-        }
-        println!();
         if force {
             eprintln!(
                 "  {} Capabilities auto-granted via --force",
@@ -700,40 +760,50 @@ fn install_plugin(source: &str, force: bool) -> Result<()> {
     };
 
     if let Some(idx) = existing {
-        registry.plugins[idx] = entry;
+        registry.plugins[idx] = entry.clone();
     } else {
-        registry.plugins.push(entry);
+        registry.plugins.push(entry.clone());
     }
     save_registry(&registry)?;
 
-    if let Some(ref pinned) = git_ref {
-        println!(
-            "{} Installed {} v{} (pinned to {})",
-            style("✅").green().bold(),
-            style(&manifest.plugin.name).green(),
-            manifest.plugin.version,
-            style(pinned).cyan()
-        );
-    } else {
-        println!(
-            "{} Installed {} v{}",
-            style("✅").green().bold(),
-            style(&manifest.plugin.name).green(),
-            manifest.plugin.version
-        );
-    }
-    if !command_names.is_empty() {
-        println!("  Commands: {}", style(command_names.join(", ")).cyan());
+    if !json {
+        if let Some(ref pinned) = git_ref {
+            println!(
+                "{} Installed {} v{} (pinned to {})",
+                style("✅").green().bold(),
+                style(&manifest.plugin.name).green(),
+                manifest.plugin.version,
+                style(pinned).cyan()
+            );
+        } else {
+            println!(
+                "{} Installed {} v{}",
+                style("✅").green().bold(),
+                style(&manifest.plugin.name).green(),
+                manifest.plugin.version
+            );
+        }
+        if !command_names.is_empty() {
+            println!("  Commands: {}", style(command_names.join(", ")).cyan());
+        }
     }
 
     if let Some(hook) = &manifest.hooks.post_install {
         run_hook(&plugin_dir, hook, "post_install")?;
     }
 
-    Ok(())
+    Ok(serde_json::json!({
+        "name": entry.name,
+        "source": entry.source,
+        "version": entry.version,
+        "tier": tier.label(),
+        "commands": entry.commands,
+        "pinned_ref": entry.pinned_ref,
+        "capabilities": entry.capabilities,
+    }))
 }
 
-fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
+fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> {
     if defaults && name.is_some() {
         bail!("--defaults updates the curated set; do not pass a plugin name alongside it.");
     }
@@ -758,19 +828,34 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
             .filter(|p| is_default(&p.source))
             .collect();
         if matched.is_empty() {
-            println!(
-                "{} No default plugins are installed. Run {} first.",
-                style("*").cyan().bold(),
-                style("fledge plugins install --defaults").cyan()
-            );
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "schema_version": 1,
+                        "action": "update",
+                        "scope": "defaults",
+                        "results": [],
+                        "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
+                    }))?
+                );
+            } else {
+                println!(
+                    "{} No default plugins are installed. Run {} first.",
+                    style("*").cyan().bold(),
+                    style("fledge plugins install --defaults").cyan()
+                );
+            }
             return Ok(());
         }
-        println!(
-            "{} Updating {} of {} default plugins...",
-            style("*").cyan().bold(),
-            matched.len(),
-            DEFAULT_PLUGINS.len()
-        );
+        if !json {
+            println!(
+                "{} Updating {} of {} default plugins...",
+                style("*").cyan().bold(),
+                matched.len(),
+                DEFAULT_PLUGINS.len()
+            );
+        }
         matched
     } else {
         match name {
@@ -784,7 +869,20 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
             }
             None => {
                 if registry.plugins.is_empty() {
-                    println!("{} No plugins installed.", style("*").cyan().bold());
+                    if json {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&serde_json::json!({
+                                "schema_version": 1,
+                                "action": "update",
+                                "scope": "all",
+                                "results": [],
+                                "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
+                            }))?
+                        );
+                    } else {
+                        println!("{} No plugins installed.", style("*").cyan().bold());
+                    }
                     return Ok(());
                 }
                 registry.plugins.iter().collect()
@@ -792,15 +890,27 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
         }
     };
 
+    // Collect results in JSON mode for a single structured output at the end.
+    // Each entry has `name`, `status` ("updated" | "skipped" | "failed"),
+    // and a free-form `detail` (e.g. version bumped to, or error reason).
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
     for entry in &targets {
         let plugin_dir = plugins_dir().join(&entry.name);
         if !plugin_dir.exists() {
-            println!(
-                "  {} {} — directory missing, reinstall with {}",
-                style("⚠️").yellow(),
-                style(&entry.name).yellow(),
-                style(format!("fledge plugin install {} --force", entry.source)).cyan()
-            );
+            if !json {
+                println!(
+                    "  {} {} — directory missing, reinstall with {}",
+                    style("⚠️").yellow(),
+                    style(&entry.name).yellow(),
+                    style(format!("fledge plugin install {} --force", entry.source)).cyan()
+                );
+            }
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "failed",
+                "detail": "directory missing — reinstall required",
+            }));
             continue;
         }
 
@@ -808,32 +918,56 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
             let latest = find_latest_tag(&plugin_dir);
             match latest {
                 Some(ref tag) if tag != pinned => {
-                    println!(
-                        "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
-                        style("*").cyan().bold(),
-                        style(&entry.name).cyan(),
-                        style(pinned).dim(),
-                        style(tag).green(),
-                        style(format!(
-                            "fledge plugin install {}@{} --force",
-                            entry.source, tag
-                        ))
-                        .cyan()
-                    );
+                    if !json {
+                        println!(
+                            "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
+                            style("*").cyan().bold(),
+                            style(&entry.name).cyan(),
+                            style(pinned).dim(),
+                            style(tag).green(),
+                            style(format!(
+                                "fledge plugin install {}@{} --force",
+                                entry.source, tag
+                            ))
+                            .cyan()
+                        );
+                    }
+                    results.push(serde_json::json!({
+                        "name": entry.name,
+                        "status": "skipped",
+                        "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
+                        "pinned_ref": pinned,
+                        "latest_tag": tag,
+                    }));
                 }
                 _ => {
-                    println!(
-                        "  {} {} — pinned to {}, already up to date.",
-                        style("✅").green().bold(),
-                        style(&entry.name).green(),
-                        style(pinned).dim()
-                    );
+                    if !json {
+                        println!(
+                            "  {} {} — pinned to {}, already up to date.",
+                            style("✅").green().bold(),
+                            style(&entry.name).green(),
+                            style(pinned).dim()
+                        );
+                    }
+                    results.push(serde_json::json!({
+                        "name": entry.name,
+                        "status": "skipped",
+                        "detail": format!("pinned to {pinned}, already up to date"),
+                        "pinned_ref": pinned,
+                    }));
                 }
             }
             continue;
         }
 
-        let sp = crate::spinner::Spinner::start(&format!("Updating {}:", &entry.name));
+        let sp = if json {
+            None
+        } else {
+            Some(crate::spinner::Spinner::start(&format!(
+                "Updating {}:",
+                &entry.name
+            )))
+        };
 
         let mut cmd = Command::new("git");
         cmd.args(["pull", "--ff-only"])
@@ -846,15 +980,24 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
             .status()
             .with_context(|| format!("updating {}", entry.name))?;
 
-        sp.finish();
+        if let Some(s) = sp {
+            s.finish();
+        }
 
         if !status.success() {
-            println!(
-                "  {} {} — git pull failed, try reinstalling with {}",
-                style("⚠️").yellow(),
-                style(&entry.name).yellow(),
-                style(format!("fledge plugin install {} --force", entry.source)).cyan()
-            );
+            if !json {
+                println!(
+                    "  {} {} — git pull failed, try reinstalling with {}",
+                    style("⚠️").yellow(),
+                    style(&entry.name).yellow(),
+                    style(format!("fledge plugin install {} --force", entry.source)).cyan()
+                );
+            }
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "failed",
+                "detail": "git pull failed — reinstall required",
+            }));
             continue;
         }
 
@@ -880,17 +1023,59 @@ fn update_plugins(name: Option<&str>, defaults: bool) -> Result<()> {
             let mut reg = load_registry()?;
             if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
                 e.version = manifest.plugin.version.clone();
-                e.commands = new_cmds;
+                e.commands = new_cmds.clone();
             }
             save_registry(&reg)?;
 
-            println!(
-                "  {} {} → v{}",
-                style("✅").green().bold(),
-                style(&entry.name).green(),
-                manifest.plugin.version
-            );
+            if !json {
+                println!(
+                    "  {} {} → v{}",
+                    style("✅").green().bold(),
+                    style(&entry.name).green(),
+                    manifest.plugin.version
+                );
+            }
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "updated",
+                "version": manifest.plugin.version,
+                "commands": new_cmds,
+            }));
+        } else {
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "updated",
+                "detail": "no plugin.toml — git pull only",
+            }));
         }
+    }
+
+    if json {
+        let total = results.len();
+        let count = |s: &str| results.iter().filter(|r| r["status"] == s).count();
+        let summary = serde_json::json!({
+            "total": total,
+            "updated": count("updated"),
+            "skipped": count("skipped"),
+            "failed": count("failed"),
+        });
+        let scope = if defaults {
+            "defaults"
+        } else if name.is_some() {
+            "single"
+        } else {
+            "all"
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": 1,
+                "action": "update",
+                "scope": scope,
+                "results": results,
+                "summary": summary,
+            }))?
+        );
     }
 
     Ok(())
@@ -921,7 +1106,7 @@ fn find_latest_tag(repo_dir: &Path) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-fn remove_plugin(name: &str) -> Result<()> {
+fn remove_plugin(name: &str, json: bool) -> Result<()> {
     let mut registry = load_registry()?;
     let idx = registry
         .plugins
@@ -971,14 +1156,31 @@ fn remove_plugin(name: &str) -> Result<()> {
     }
 
     let removed_name = entry.name.clone();
+    let removed_source = entry.source.clone();
+    let removed_version = entry.version.clone();
+    let removed_commands = entry.commands.clone();
     registry.plugins.remove(idx);
     save_registry(&registry)?;
 
-    println!(
-        "{} Removed {}",
-        style("✅").green().bold(),
-        style(&removed_name).green()
-    );
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "remove",
+            "removed": {
+                "name": removed_name,
+                "source": removed_source,
+                "version": removed_version,
+                "commands": removed_commands,
+            },
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "{} Removed {}",
+            style("✅").green().bold(),
+            style(&removed_name).green()
+        );
+    }
 
     Ok(())
 }
@@ -1989,7 +2191,7 @@ mod tests {
 
     #[test]
     fn install_action_rejects_source_with_defaults() {
-        let err = install_action(Some("someone/foo"), false, true)
+        let err = install_action(Some("someone/foo"), false, true, false)
             .unwrap_err()
             .to_string();
         assert!(err.contains("--defaults"));
@@ -1997,13 +2199,17 @@ mod tests {
 
     #[test]
     fn install_action_requires_source_or_defaults() {
-        let err = install_action(None, false, false).unwrap_err().to_string();
+        let err = install_action(None, false, false, false)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("--defaults"));
     }
 
     #[test]
     fn update_plugins_rejects_name_with_defaults() {
-        let err = update_plugins(Some("foo"), true).unwrap_err().to_string();
+        let err = update_plugins(Some("foo"), true, false)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("--defaults"));
     }
 
