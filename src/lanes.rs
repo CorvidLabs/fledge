@@ -877,11 +877,19 @@ fn init_lanes(json: bool) -> Result<()> {
     std::fs::write(&path, new_content).context("writing fledge.toml")?;
 
     if json {
+        let lanes_added: Vec<&str> = defaults
+            .lines()
+            .filter_map(|line| {
+                line.trim()
+                    .strip_prefix("[lanes.")
+                    .and_then(|s| s.strip_suffix(']'))
+            })
+            .collect();
         let output = serde_json::json!({
             "schema_version": 1,
             "action": "init",
             "project_type": project_type,
-            "lanes_added": ["ci", "check"],
+            "lanes_added": lanes_added,
             "file": "fledge.toml"
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
@@ -1606,7 +1614,7 @@ fn publish_lanes(
         );
     }
 
-    validate_lanes(&path, false, false)?;
+    validate_lanes(&path, false, json)?;
 
     let content = std::fs::read_to_string(&fledge_toml).context("reading fledge.toml")?;
     let parsed: FledgeFileWithLanes = toml::from_str(&content).context("parsing fledge.toml")?;

@@ -329,13 +329,29 @@ fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, Vec<&'static
 }
 
 fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    run_build_inner(plugin_dir, manifest, false)
+}
+
+fn run_build_quiet(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    run_build_inner(plugin_dir, manifest, true)
+}
+
+fn run_build_inner(plugin_dir: &Path, manifest: &PluginManifest, quiet: bool) -> Result<()> {
     if let Some(hook) = &manifest.hooks.build {
-        run_hook(plugin_dir, hook, "build")?;
+        if quiet {
+            run_hook_quiet(plugin_dir, hook, "build")?;
+        } else {
+            run_hook(plugin_dir, hook, "build")?;
+        }
         return Ok(());
     }
 
     if let Some((lang, cmd)) = detect_build_command(plugin_dir) {
-        let sp = crate::spinner::Spinner::start(&format!("Building ({lang}):"));
+        let sp = if quiet {
+            None
+        } else {
+            Some(crate::spinner::Spinner::start(&format!("Building ({lang}):")))
+        };
         let status = Command::new(cmd[0])
             .args(&cmd[1..])
             .current_dir(plugin_dir)
@@ -343,7 +359,9 @@ fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
             .stderr(std::process::Stdio::piped())
             .status()
             .with_context(|| format!("running {lang} build"))?;
-        sp.finish();
+        if let Some(s) = sp {
+            s.finish();
+        }
         if !status.success() {
             bail!("Build failed. Check your {lang} toolchain is installed.");
         }
@@ -570,6 +588,7 @@ fn install_defaults(force: bool, json: bool) -> Result<()> {
 /// what was installed; the caller is responsible for printing the JSON
 /// envelope (so single-install and bulk-install share one shape).
 fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::Value> {
+    let explicit_force = force;
     let force = force || crate::utils::is_non_interactive() || json;
     let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
@@ -730,16 +749,16 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
             }
             println!();
         }
-        if force {
+        if explicit_force {
             eprintln!(
                 "  {} Capabilities auto-granted via --force",
                 style("WARN").yellow()
             );
-        } else if !crate::utils::is_interactive() {
+        } else if !crate::utils::is_interactive() || json {
             fs::remove_dir_all(&plugin_dir).ok();
             bail!(
-                "Plugin capabilities require confirmation in non-interactive mode.\n  \
-                 Use --yes or --force to auto-grant capabilities."
+                "Plugin requests capabilities that require explicit consent.\n  \
+                 Use --force to auto-grant capabilities."
             );
         } else {
             let confirm =
@@ -754,7 +773,11 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
         }
     }
 
-    run_build(&plugin_dir, &manifest)?;
+    if json {
+        run_build_quiet(&plugin_dir, &manifest)?;
+    } else {
+        run_build(&plugin_dir, &manifest)?;
+    }
 
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
         fs::remove_dir_all(&plugin_dir).ok();
@@ -806,7 +829,11 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
     }
 
     if let Some(hook) = &manifest.hooks.post_install {
-        run_hook(&plugin_dir, hook, "post_install")?;
+        if json {
+            run_hook_quiet(&plugin_dir, hook, "post_install")?;
+        } else {
+            run_hook(&plugin_dir, hook, "post_install")?;
+        }
     }
 
     Ok(serde_json::json!({
@@ -1025,7 +1052,11 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
             let manifest: PluginManifest =
                 toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
-            run_build(&plugin_dir, &manifest)?;
+            if json {
+                run_build_quiet(&plugin_dir, &manifest)?;
+            } else {
+                run_build(&plugin_dir, &manifest)?;
+            }
 
             let bin_dir = plugin_bin_dir();
             for old_cmd in &entry.commands {
@@ -1165,7 +1196,11 @@ fn remove_plugin(name: &str, json: bool) -> Result<()> {
         .flatten();
 
     if let Some(ref hook) = post_remove_hook {
-        run_hook(&plugin_dir, hook, "post_remove")?;
+        if json {
+            run_hook_quiet(&plugin_dir, hook, "post_remove")?;
+        } else {
+            run_hook(&plugin_dir, hook, "post_remove")?;
+        }
     }
 
     if plugin_dir.exists() {
@@ -1607,11 +1642,21 @@ fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
 }
 
 fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
-    println!(
-        "  {} Running {} hook...",
-        style("▶️").cyan().bold(),
-        style(event).dim()
-    );
+    run_hook_inner(plugin_dir, hook, event, false)
+}
+
+fn run_hook_quiet(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
+    run_hook_inner(plugin_dir, hook, event, true)
+}
+
+fn run_hook_inner(plugin_dir: &Path, hook: &str, event: &str, quiet: bool) -> Result<()> {
+    if !quiet {
+        println!(
+            "  {} Running {} hook...",
+            style("▶️").cyan().bold(),
+            style(event).dim()
+        );
+    }
 
     let hook_path = plugin_dir.join(hook);
     let status = if hook_path.exists() {
@@ -2076,7 +2121,7 @@ fn publish_plugin(
         .with_context(|| format!("Directory not found: {}", path.display()))?;
 
     let manifest_path = path.join("plugin.toml");
-    validate_plugin(&path, false, false)?;
+    validate_plugin(&path, false, json)?;
 
     let content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
     let manifest: PluginManifest = toml::from_str(&content).context("Invalid plugin.toml")?;

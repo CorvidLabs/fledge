@@ -230,6 +230,7 @@ $ fledge lanes run ci --json
 | Version | Date | Changes |
 |---------|------|---------|
 | 10 | 2026-04-25 | Lock parallel-group + `fail_fast` semantics for 1.0: in-flight siblings always finish (no cancellation), `fail_fast` governs only the *next* step. Documents existing behavior — no code change |
+| 11 | 2026-04-25 | Extend `--json` coverage to `lane init`, `lane import`, `lane create`, and `lane publish`. All emit `{schema_version: 1, action, ...}` envelopes on stdout. Validation runs in JSON mode during publish so stdout stays clean. `lanes_added` in init is now derived from actual project-type defaults instead of hardcoded. |
 | 9 | 2026-04-23 | Add `--json` flag to `lane run` for structured JSON output |
 | 8 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 7 | 2026-04-21 | Imported lanes stored in `.fledge/lanes/` instead of appending to fledge.toml; lane loading merges both sources |

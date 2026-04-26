@@ -160,7 +160,7 @@ fn load_single_template(path: &Path, templates: &mut Vec<Template>) -> Result<()
     Ok(())
 }
 
-fn builtin_template_dir() -> PathBuf {
+pub(crate) fn builtin_template_dir() -> PathBuf {
     // When running from cargo, use the manifest dir; otherwise use exe-relative path
     let exe = std::env::current_exe().unwrap_or_default();
     let exe_dir = exe.parent().unwrap_or(Path::new("."));

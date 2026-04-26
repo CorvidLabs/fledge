@@ -138,7 +138,7 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
 
     // Post-create hooks (local templates are trusted); skip if required tools missing
     if !opts.no_install && reqs_ok {
-        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes)?;
+        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes, opts.json)?;
     }
 
     // JSON output
@@ -319,7 +319,7 @@ fn run_remote(
 
     // Remote templates require confirmation before running hooks; skip if required tools missing
     if !opts.no_install && reqs_ok {
-        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes)?;
+        run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes, opts.json)?;
     }
 
     // JSON output
@@ -385,7 +385,12 @@ fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_gi
     println!("  cd {} && get started!", style(name).cyan());
 }
 
-fn run_post_create_hooks(hooks: &[String], project_dir: &Path, auto_yes: bool) -> Result<()> {
+fn run_post_create_hooks(
+    hooks: &[String],
+    project_dir: &Path,
+    auto_yes: bool,
+    quiet: bool,
+) -> Result<()> {
     if hooks.is_empty() {
         return Ok(());
     }
@@ -423,10 +428,14 @@ fn run_post_create_hooks(hooks: &[String], project_dir: &Path, auto_yes: bool) -
         }
     }
 
-    println!("{} Running post-create hooks...", style("*").cyan().bold());
+    if !quiet {
+        println!("{} Running post-create hooks...", style("*").cyan().bold());
+    }
 
     for cmd in hooks {
-        println!("  {} {}", style("$").dim(), style(cmd).dim());
+        if !quiet {
+            println!("  {} {}", style("$").dim(), style(cmd).dim());
+        }
 
         if cmd.trim().is_empty() {
             bail!("Empty post-create hook command");
@@ -797,7 +806,7 @@ ignore = ["template.toml"]
         fs::create_dir(&dir).unwrap();
 
         let hooks = vec!["touch hook-ran.txt".to_string()];
-        run_post_create_hooks(&hooks, &dir, true).unwrap();
+        run_post_create_hooks(&hooks, &dir, true, false).unwrap();
 
         assert!(dir.join("hook-ran.txt").exists());
     }
@@ -805,7 +814,7 @@ ignore = ["template.toml"]
     #[test]
     fn run_post_create_hooks_empty_is_noop() {
         let tmp = TempDir::new().unwrap();
-        let result = run_post_create_hooks(&[], tmp.path(), true);
+        let result = run_post_create_hooks(&[], tmp.path(), true, false);
         assert!(result.is_ok());
     }
 
@@ -813,7 +822,7 @@ ignore = ["template.toml"]
     fn run_post_create_hooks_failing_command_errors() {
         let tmp = TempDir::new().unwrap();
         let hooks = vec!["false".to_string()];
-        let result = run_post_create_hooks(&hooks, tmp.path(), true);
+        let result = run_post_create_hooks(&hooks, tmp.path(), true, false);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -828,7 +837,7 @@ ignore = ["template.toml"]
         fs::create_dir(&dir).unwrap();
 
         let hooks = vec!["touch hook-ran.txt".to_string()];
-        run_post_create_hooks(&hooks, &dir, true).unwrap();
+        run_post_create_hooks(&hooks, &dir, true, false).unwrap();
 
         assert!(dir.join("hook-ran.txt").exists());
     }

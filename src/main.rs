@@ -1452,18 +1452,16 @@ fn list_templates(json: bool) -> Result<()> {
     }
 
     if json {
+        let builtin_dir = templates::builtin_template_dir();
         let entries: Vec<serde_json::Value> = available
             .iter()
             .map(|t| {
                 let source = if t.source.is_some() {
                     "remote"
-                } else if t
-                    .path
-                    .starts_with(std::env::current_dir().unwrap_or_default())
-                {
-                    "local"
-                } else {
+                } else if t.path == builtin_dir || t.path.starts_with(&builtin_dir) {
                     "builtin"
+                } else {
+                    "local"
                 };
                 serde_json::json!({
                     "name": t.name,
@@ -1612,7 +1610,7 @@ fn publish_template(
     validate::run(validate::ValidateOptions {
         path: path.clone(),
         strict: false,
-        json: false,
+        json,
     })?;
 
     let dir_name = path
