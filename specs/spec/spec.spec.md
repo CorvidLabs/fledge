@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 6
+version: 7
 status: active
 files:
   - src/spec.rs
@@ -73,7 +73,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 5. All files listed in frontmatter `files` must exist on disk
 6. All required sections from config must be present in the spec body
 7. Companion files (requirements.md, tasks.md, context.md, testing.md) are validated if present
-8. `spec list` returns sorted results by module name; `--json` emits an array (empty array when no specs)
+8. `spec list` returns sorted results by module name; `--json` emits `{schema_version: 1, action: "spec_list", specs: [...]}` (with `specs: []` when no specs are present)
 9. `spec show` errors if the spec is not found and suggests `fledge spec list`
 10. `spec list` and `spec show` are read-only — they never mutate the filesystem
 11. `collect_index` silently skips specs whose frontmatter is malformed or files are unreadable, so a single broken spec never breaks a caller like `fledge ask`
@@ -148,19 +148,23 @@ $ fledge spec list
 ### spec list --json — machine-readable summary
 ```
 $ fledge spec list --json
-[
-  {
-    "name": "trust",
-    "version": 1,
-    "status": "active",
-    "path": "specs/trust/trust.spec.md",
-    "files": ["src/trust.rs"],
-    "section_count": 7,
-    "required_sections": 7,
-    "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
-    "missing_companions": []
-  }
-]
+{
+  "schema_version": 1,
+  "action": "spec_list",
+  "specs": [
+    {
+      "name": "trust",
+      "version": 1,
+      "status": "active",
+      "path": "specs/trust/trust.spec.md",
+      "files": ["src/trust.rs"],
+      "section_count": 7,
+      "required_sections": 7,
+      "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
+      "missing_companions": []
+    }
+  ]
+}
 ```
 
 ### spec show — inspect one spec
@@ -189,14 +193,18 @@ trust v1 (active)
 ```
 $ fledge spec show trust --json
 {
-  "name": "trust",
-  "version": 1,
-  "status": "active",
-  "path": "specs/trust/trust.spec.md",
-  "files": ["src/trust.rs"],
-  "sections": ["Purpose", "Public API", "Invariants", ...],
-  "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
-  "missing_companions": []
+  "schema_version": 1,
+  "action": "spec_show",
+  "spec": {
+    "name": "trust",
+    "version": 1,
+    "status": "active",
+    "path": "specs/trust/trust.spec.md",
+    "files": ["src/trust.rs"],
+    "sections": ["Purpose", "Public API", "Invariants", ...],
+    "companions": ["requirements.md", "tasks.md", "context.md", "testing.md"],
+    "missing_companions": []
+  }
 }
 ```
 
@@ -222,6 +230,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-04-26 | Doc sync — behavioral examples for `spec list --json` and `spec show --json` updated to show the post-tier-D envelope shapes (previously displayed the bare-array / bare-detail forms shipped before envelope migration). Invariant 8 reworded to describe the envelope. No code change |
 | 6 | 2026-04-26 | Tier-D 1.0 envelope (continuation): all three `--json` paths now wrap output as `{schema_version: 1, action, ...}`. **`spec list --json` is breaking**: bare top-level array → `{schema_version: 1, action: "spec_list", specs: [...]}`. `spec check --json` adds `schema_version`/`action: "spec_check"` (existing fields preserved). `spec show --json` wraps the prior bare detail as `{schema_version: 1, action: "spec_show", spec: {...}}`. Tests updated to assert the envelope shape |
 | 5 | 2026-04-23 | Add `--json` to `spec check`. Payload: `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}`. Exit code still non-zero on errors or strict-with-warnings. |
 | 4 | 2026-04-23 | Add `specs_for_changed_files` for `review`'s spec auto-detection (matches frontmatter `files:` and `<specs_dir>/<name>/` directory prefix, respecting the configured `specs_dir`) |

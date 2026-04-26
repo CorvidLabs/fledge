@@ -1,6 +1,6 @@
 ---
 module: run
-version: 3
+version: 4
 status: active
 files:
   - src/run.rs
@@ -78,11 +78,15 @@ $ fledge run --init
 
 # List tasks as JSON
 $ fledge run --json
-{"auto_detected": false, "tasks": [...]}
+{"schema_version": 1, "action": "run_list", "auto_detected": false, "tasks": [...]}
+
+# Init fledge.toml as JSON
+$ fledge run --init --json
+{"schema_version": 1, "action": "run_init", "file": "fledge.toml", "project_type": "rust", "files_created": ["fledge.toml"]}
 
 # Run a task with JSON output
 $ fledge run test --json
-{"task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "..."}
+{"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "..."}
 
 # Override project type
 $ fledge run --lang node
@@ -110,6 +114,7 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-04-26 | Doc sync — behavioral examples updated to show the post-tier-D envelope shapes for `run --json`, `run <task> --json`, and `run --init --json`. No code change |
 | 3 | 2026-04-26 | Tier-D 1.0 envelope: all three `--json` paths now emit `{schema_version: 1, action, ...}`. `run --init --json` previously emitted prose ("✅ Created fledge.toml") — now `{action: "run_init", file, project_type, files_created}`, a real fix not just a wrapping. `run --list --json` adds `action: "run_list"` (was bare `{auto_detected, tasks}`). `run <task> --json` adds `action: "run_task"` (was bare `{task, command, ...}`). Three new integration tests guard each shape |
 | 2 | 2026-04-23 | Add `--json` flag (list + execute), `--lang` override, `detect_node_runner` |
 | 1 | 2026-04-19 | Initial spec |

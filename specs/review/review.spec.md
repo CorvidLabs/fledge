@@ -1,6 +1,6 @@
 ---
 module: review
-version: 8
+version: 9
 status: active
 files:
   - src/review.rs
@@ -114,11 +114,16 @@ $ fledge review --file src/github.rs
 ```
 $ fledge review --json
 {
+  "schema_version": 1,
+  "action": "review",
   "base": "main",
   "file": null,
   "diff_stats": "...",
   "spec_context": ["trust"],
-  "review": "..."
+  "reviews": [{"provider": "claude", "model": "opus-4.7", "elapsed_seconds": 5.2, "review": "..."}],
+  "review": "...",
+  "provider": "claude",
+  "model": "opus-4.7"
 }
 ```
 
@@ -169,6 +174,8 @@ $ fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-clo
 ```
 $ fledge review --with-model ollama:gpt-oss:120b-cloud --json
 {
+  "schema_version": 1,
+  "action": "review",
   "base": "main",
   "diff_stats": "...",
   "spec_context": ["work"],
@@ -178,6 +185,7 @@ $ fledge review --with-model ollama:gpt-oss:120b-cloud --json
   ]
 }
 ```
+*Note: top-level `provider`/`model`/`review` are only present when the panel has exactly one slot (single-model invocations). Multi-model invocations only have the `reviews` array.*
 
 ## Error Cases
 
@@ -207,6 +215,7 @@ $ fledge review --with-model ollama:gpt-oss:120b-cloud --json
 | Version | Date | Changes |
 |---------|------|---------|
 | 6 | 2026-04-23 | Provider abstraction: `--provider` flag, JSON gains `provider`/`model` fields, invocation routes through `llm::build_provider` instead of shelling out to `claude` directly. Works with Ollama (local or cloud) end-to-end. |
+| 9 | 2026-04-26 | Doc sync — `review --json` (single + panel) behavioral examples updated to show the post-tier-D envelope shape. Single-vs-panel field-presence rule explicitly documented. No code change |
 | 8 | 2026-04-26 | Tier-D 1.0 envelope: `review --json` adds `schema_version: 1` and `action: "review"` at the top level. Existing fields (`base`, `file`, `diff_stats`, `spec_context`, `reviews`, single-model `provider`/`model`/`review`) all preserved — purely additive. Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
 | 7 | 2026-04-24 | Multi-model panel: `--with-model <provider[:model]>` (repeatable + comma-separated) and `--no-active` add parallel review slots that share the same diff + spec context. Per-slot errors are captured (not fatal). JSON gains `reviews[]` array; legacy top-level `review`/`provider`/`model` preserved when panel size is 1. Text output gets cyan banner headers between slots when panel size ≥ 2. |
 | 5 | 2026-04-23 | Spec-aware review: auto-detect specs for diffed modules (honors `specs_dir` config), `--with-specs`, `--no-auto-specs`, `spec_context` field in JSON output, prompt constraints to keep review target on the diff only |
