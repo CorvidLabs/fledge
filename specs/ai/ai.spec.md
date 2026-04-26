@@ -1,6 +1,6 @@
 ---
 module: ai
-version: 1
+version: 2
 status: active
 files:
   - src/ai.rs
@@ -37,7 +37,7 @@ depends_on:
 | `AiAction` | `Status { json }`, `Models { provider, search, json }`, `Use { provider, model }` |
 | `Source` | Private — `Env` / `ConfigFile` / `Default` tag on resolved values for status reporting |
 | `StatusReport` | Serializable — `provider`, `provider_source`, `model`, `model_source`, `host`, `host_source` |
-| `ModelsReport` | Serializable — `provider` + `models: Vec<ModelEntry>` |
+| `ModelEntry`s for `ai models` | Serialized inline in the JSON envelope — see Invariants |
 | `ModelEntry` | Serializable — `name`, optional `family` / `parameter_size` / `quantization` / `size_bytes` / `remote_host` |
 | `OllamaTagsResponse` | Private — decodes `{ models: [...] }` from Ollama's `/api/tags` |
 
@@ -126,4 +126,5 @@ $ fledge ai use                           # interactive picker
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-04-26 | Tier-D 1.0 envelope: `ai status --json` and `ai models --json` now emit `{schema_version: 1, action: "ai_status"|"ai_models", ...}` envelopes. Previously emitted bare `StatusReport` / `ModelsReport` shapes that violated the AGENTS.md envelope contract. The dropped `ModelsReport` struct is unused; `ModelEntry` items are serialized inline under `models`. Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
 | 1 | 2026-04-24 | Initial spec — `fledge ai status` / `models` / `use`. Status reports the *source* of each resolved value so users can tell env from config from default. `ai use` is interactive by default with a live Ollama model picker and a non-interactive positional form (`fledge ai use <provider> [<model>]`) for agents. |

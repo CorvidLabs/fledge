@@ -73,7 +73,14 @@ pub fn run(opts: DoctorOptions) -> Result<()> {
             passed,
             failed,
         };
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "doctor",
+            "sections": report.sections,
+            "passed": report.passed,
+            "failed": report.failed,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 

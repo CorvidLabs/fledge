@@ -264,6 +264,8 @@ fn start(
 
     if json {
         let payload = serde_json::json!({
+            "schema_version": 1,
+            "action": "work_start",
             "branch": branch_name,
             "base": base_branch,
             "type": btype,
@@ -430,6 +432,8 @@ fn pr(
 
     if json {
         let payload = serde_json::json!({
+            "schema_version": 1,
+            "action": "work_pr",
             "url": pr_url,
             "number": pr_number,
             "title": pr_title,
@@ -504,6 +508,8 @@ fn status(json: bool) -> Result<()> {
             None => serde_json::Value::Null,
         };
         let payload = serde_json::json!({
+            "schema_version": 1,
+            "action": "work_status",
             "branch": branch,
             "default": default,
             "ahead": ahead,

@@ -93,15 +93,9 @@ struct TaskInfo {
     dir: Option<String>,
 }
 
-#[derive(Serialize)]
-struct TaskListOutput {
-    auto_detected: bool,
-    tasks: Vec<TaskInfo>,
-}
-
 pub fn run(opts: RunOptions) -> Result<()> {
     if opts.init {
-        return init_fledge_toml(opts.lang.as_deref());
+        return init_fledge_toml(opts.lang.as_deref(), opts.json);
     }
 
     let project_dir = std::env::current_dir().context("getting current directory")?;
@@ -190,11 +184,13 @@ fn list_tasks_json(tasks: &BTreeMap<String, TaskDef>, auto_detected: bool) -> Re
             dir: task.dir().map(|s| s.to_string()),
         })
         .collect();
-    let output = TaskListOutput {
-        auto_detected,
-        tasks: task_list,
-    };
-    println!("{}", serde_json::to_string_pretty(&output)?);
+    let envelope = serde_json::json!({
+        "schema_version": 1,
+        "action": "run_list",
+        "auto_detected": auto_detected,
+        "tasks": task_list,
+    });
+    println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
 
@@ -240,6 +236,8 @@ fn execute_task(
             .with_context(|| format!("running task '{name}'"))?;
 
         let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "run_task",
             "task": name,
             "command": cmd_str,
             "exit_code": output.status.code().unwrap_or(-1),
@@ -447,7 +445,7 @@ fn auto_detect_tasks(project_type: &str, dir: &Path) -> BTreeMap<String, TaskDef
     tasks
 }
 
-fn init_fledge_toml(lang_override: Option<&str>) -> Result<()> {
+fn init_fledge_toml(lang_override: Option<&str>, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let path = cwd.join("fledge.toml");
     if path.exists() {
@@ -477,6 +475,19 @@ fn init_fledge_toml(lang_override: Option<&str>) -> Result<()> {
     );
 
     std::fs::write(&path, content).context("writing fledge.toml")?;
+
+    if json {
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "run_init",
+            "file": "fledge.toml",
+            "project_type": project_type,
+            "files_created": ["fledge.toml"],
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        return Ok(());
+    }
+
     println!(
         "{} Created {}",
         style("✅").green().bold(),

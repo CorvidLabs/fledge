@@ -1,6 +1,6 @@
 ---
 module: work
-version: 8
+version: 9
 status: active
 files:
   - src/work.rs
@@ -304,3 +304,4 @@ $ fledge work status --json
 | 6 | 2026-04-23 | Add `--json` to `start`, `pr`, and `status`. `status` now also reports `behind`. Pretty output suppressed in JSON mode; errors still go to stderr. |
 | 7 | 2026-04-24 | `work pr` auto-generates the PR body from commits when `--body` is omitted, shows a styled preview, and prompts for confirmation before creating the PR. `--yes` / `-y` skips the prompt; non-interactive shells must pass `--yes` or `--json`. |
 | 8 | 2026-04-24 | `work pr --ai` generates a richer Markdown body via the configured LLM (`fledge ai use`-aware), with `--provider` / `--model` per-call overrides. Prompt includes commit log, diffstat, and truncated diff; spinner shown unless `--json`. |
+| 9 | 2026-04-26 | Tier-D 1.0 envelope: `work start --json`, `work pr --json`, `work status --json` now include `schema_version: 1` and `action: "work_start"|"work_pr"|"work_status"` at the top level. Field shapes otherwise unchanged. Closes the gap where tier C (#274) only migrated plugins/lanes/templates and missed the cross-cutting commands |
