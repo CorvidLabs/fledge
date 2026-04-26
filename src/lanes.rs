@@ -1350,30 +1350,11 @@ fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>> {
-    let mut output = Vec::with_capacity(input.len() * 3 / 4);
-    let mut buf: u32 = 0;
-    let mut bits: u32 = 0;
-
-    for c in input.chars() {
-        let val = match c {
-            'A'..='Z' => c as u32 - b'A' as u32,
-            'a'..='z' => c as u32 - b'a' as u32 + 26,
-            '0'..='9' => c as u32 - b'0' as u32 + 52,
-            '+' => 62,
-            '/' => 63,
-            '=' => break,
-            _ => continue,
-        };
-        buf = (buf << 6) | val;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            output.push((buf >> bits) as u8);
-            buf &= (1 << bits) - 1;
-        }
-    }
-
-    Ok(output)
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD
+        .decode(input)
+        .or_else(|_| base64::engine::general_purpose::STANDARD_NO_PAD.decode(input))
+        .context("invalid base64 input")
 }
 
 fn create_lane_repo(

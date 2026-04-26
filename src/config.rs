@@ -105,6 +105,10 @@ fn default_ollama_timeout_seconds() -> u64 {
 const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
 
 impl Config {
+    pub fn valid_keys_hint() -> &'static str {
+        VALID_KEYS_HINT
+    }
+
     pub fn load() -> Result<Self> {
         let path = Self::config_path();
         if path.exists() {

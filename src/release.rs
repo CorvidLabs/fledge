@@ -222,7 +222,7 @@ fn resolve_target_version(dir: &Path, bump: &str) -> Result<Version> {
     match bump {
         "major" | "minor" | "patch" => {
             let current = detect_current_version(dir)?;
-            Ok(apply_bump(&current, bump))
+            apply_bump(&current, bump)
         }
         _ => parse_version(bump),
     }
@@ -421,24 +421,27 @@ fn replace_versioned_toml_section(
     Some(joined)
 }
 
-fn apply_bump(current: &Version, bump: &str) -> Version {
+fn apply_bump(current: &Version, bump: &str) -> Result<Version> {
     match bump {
-        "major" => Version {
+        "major" => Ok(Version {
             major: current.major + 1,
             minor: 0,
             patch: 0,
-        },
-        "minor" => Version {
+        }),
+        "minor" => Ok(Version {
             major: current.major,
             minor: current.minor + 1,
             patch: 0,
-        },
-        "patch" => Version {
+        }),
+        "patch" => Ok(Version {
             major: current.major,
             minor: current.minor,
             patch: current.patch + 1,
-        },
-        _ => unreachable!(),
+        }),
+        other => bail!(
+            "Unknown bump level '{}'. Expected major, minor, or patch",
+            other
+        ),
     }
 }
 
@@ -911,30 +914,36 @@ mod tests {
     #[test]
     fn apply_bump_major() {
         let v = parse_version("1.2.3").unwrap();
-        let bumped = apply_bump(&v, "major");
+        let bumped = apply_bump(&v, "major").unwrap();
         assert_eq!(bumped.to_string(), "2.0.0");
     }
 
     #[test]
     fn apply_bump_minor() {
         let v = parse_version("1.2.3").unwrap();
-        let bumped = apply_bump(&v, "minor");
+        let bumped = apply_bump(&v, "minor").unwrap();
         assert_eq!(bumped.to_string(), "1.3.0");
     }
 
     #[test]
     fn apply_bump_patch() {
         let v = parse_version("1.2.3").unwrap();
-        let bumped = apply_bump(&v, "patch");
+        let bumped = apply_bump(&v, "patch").unwrap();
         assert_eq!(bumped.to_string(), "1.2.4");
     }
 
     #[test]
     fn apply_bump_from_zero() {
         let v = parse_version("0.0.0").unwrap();
-        assert_eq!(apply_bump(&v, "major").to_string(), "1.0.0");
-        assert_eq!(apply_bump(&v, "minor").to_string(), "0.1.0");
-        assert_eq!(apply_bump(&v, "patch").to_string(), "0.0.1");
+        assert_eq!(apply_bump(&v, "major").unwrap().to_string(), "1.0.0");
+        assert_eq!(apply_bump(&v, "minor").unwrap().to_string(), "0.1.0");
+        assert_eq!(apply_bump(&v, "patch").unwrap().to_string(), "0.0.1");
+    }
+
+    #[test]
+    fn apply_bump_invalid_level() {
+        let v = parse_version("1.2.3").unwrap();
+        assert!(apply_bump(&v, "mega").is_err());
     }
 
     #[test]
