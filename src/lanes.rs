@@ -200,7 +200,7 @@ pub fn run(action: LaneAction) -> Result<()> {
             validate_lane(&name, lane, &config.tasks)?;
 
             if dry_run {
-                dry_run_lane(&name, lane)
+                dry_run_lane(&name, lane, json)
             } else {
                 let project_dir = std::env::current_dir().context("getting current directory")?;
                 execute_lane(&name, lane, &config.tasks, &project_dir, json)
@@ -379,8 +379,61 @@ fn check_dep_cycle(
     Ok(())
 }
 
-fn dry_run_lane(lane_name: &str, lane: &LaneDef) -> Result<()> {
+fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Result<()> {
     let desc = lane.description.as_deref().unwrap_or("(no description)");
+
+    if json {
+        let steps: Vec<serde_json::Value> = lane
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(i, step)| match step {
+                Step::TaskRef(name) => serde_json::json!({
+                    "step": i + 1,
+                    "kind": "task",
+                    "name": name,
+                }),
+                Step::Inline { run: cmd } => serde_json::json!({
+                    "step": i + 1,
+                    "kind": "inline",
+                    "name": cmd,
+                }),
+                Step::Parallel { parallel } => {
+                    let items: Vec<serde_json::Value> = parallel
+                        .iter()
+                        .map(|item| match item {
+                            ParallelItem::TaskRef(name) => serde_json::json!({
+                                "kind": "task",
+                                "name": name,
+                            }),
+                            ParallelItem::Inline { run: cmd } => serde_json::json!({
+                                "kind": "inline",
+                                "name": cmd,
+                            }),
+                        })
+                        .collect();
+                    serde_json::json!({
+                        "step": i + 1,
+                        "kind": "parallel",
+                        "items": items,
+                    })
+                }
+            })
+            .collect();
+
+        let output = serde_json::json!({
+            "schema_version": 1,
+            "lane": lane_name,
+            "description": lane.description.as_deref().unwrap_or(""),
+            "total_steps": lane.steps.len(),
+            "fail_fast": lane.fail_fast,
+            "dry_run": true,
+            "steps": steps,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+        return Ok(());
+    }
+
     println!(
         "{} {} — {}",
         style("Lane:").bold(),

@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 14
+version: 15
 status: active
 files:
   - src/lanes.rs
@@ -188,9 +188,13 @@ $ fledge lanes publish
 ✅ . — valid (2 lanes)
 ➡️ Publishing 2 lanes as owner/my-lanes
 
-# Run a lane with JSON output
+# Run a lane with JSON output (each step record has step/name/success/duration_ms/error)
 $ fledge lanes run ci --json
-{"lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [...], "failures": []}
+{"schema_version": 1, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [{"step": 1, "name": "lint", "success": true, "duration_ms": 245, "error": null}, ...], "failures": []}
+
+# Dry-run with JSON (plan only — no duration_ms, includes dry_run: true)
+$ fledge lanes run ci --json --dry-run
+{"schema_version": 1, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "fail_fast": true, "dry_run": true, "steps": [{"step": 1, "kind": "task", "name": "lint"}, {"step": 2, "kind": "parallel", "items": [{"kind": "task", "name": "fmt"}]}, ...]}
 ```
 
 ## Error Cases
@@ -225,6 +229,7 @@ $ fledge lanes run ci --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 15 | 2026-04-26 | `lanes run --json --dry-run` now emits a `{schema_version: 1, lane, description, total_steps, fail_fast, dry_run: true, steps: [{step, kind, name, items?}]}` envelope. Previously it ignored `--json` and printed prose, breaking the contract that `--json` always means parseable stdout. Per-step `duration_ms` is omitted in dry-run mode (no execution). Behavioral example for the per-step shape on real runs (`steps: [{step, name, success, duration_ms, error}, ...]`) also documented |
 | 14 | 2026-04-26 | `lanes import --json` envelope tightened: `file` is now always the computed `.fledge/lanes/<safe_name>.toml` path (string, never null), and a new `written: bool` field signals whether the file was actually created (false when every lane was skipped). Previously `file: null` in the all-skipped case implied the path wasn't computable, but it's a pure function of source — null was misleading |
 | 13 | 2026-04-25 | Fix `lanes run --json` prose leak: fledge's own progress prints AND each spawned task's stdout/stderr were going to the agent's stdout, interleaving with the JSON envelope and breaking `--json | jq`. Threaded a `quiet` flag through `execute_task_with_deps` / `execute_inline` / `execute_parallel` / `execute_single_task` / `execute_task_recursive`. In JSON mode prose is suppressed and spawned commands' stdout/stderr are redirected to `/dev/null`. Trade-off: per-step output isn't captured into the JSON record (consumers needing it re-run without `--json`). New regression test `cli_lane_run_json_stdout_is_clean` guards the contract |
 | 12 | 2026-04-25 | **Breaking (tier C, #272):** `lanes list --json`, `lanes search --json`, `lanes run --json`, `lanes validate --json` migrated to `{schema_version: 1, <resource>: [...]}` (or flattened with `schema_version` at top for run/validate). `lanes` for list, `results` for search, run/validate get the field added to the existing object. Last-chance shape break before 1.0 |
