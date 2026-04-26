@@ -36,7 +36,7 @@ const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
 /// Compared case-insensitively (GitHub treats `0xLeif` and `0xleif` as the
 /// same user). Adding or removing a member is a code change and requires a
 /// PR — there is no runtime configuration of this list.
-const TEAM_MEMBERS: &[&str] = &["0xLeif"];
+const TEAM_MEMBERS: &[&str] = &["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"];
 
 fn is_team_member(owner: &str) -> bool {
     TEAM_MEMBERS.iter().any(|m| m.eq_ignore_ascii_case(owner))
@@ -256,5 +256,18 @@ mod tests {
         // Defensive: if a member's username were ever added to OFFICIAL_ORGS,
         // the official tier wins. Documents the precedence rule.
         assert_eq!(determine_trust_tier("CorvidLabs/repo"), TrustTier::Official);
+    }
+
+    #[test]
+    fn every_team_member_classifies_as_team() {
+        // Smoke test: catches typos in TEAM_MEMBERS by classifying each entry.
+        for member in TEAM_MEMBERS {
+            let source = format!("{member}/some-repo");
+            assert_eq!(
+                determine_trust_tier(&source),
+                TrustTier::Team,
+                "expected {source} to classify as Team"
+            );
+        }
     }
 }
