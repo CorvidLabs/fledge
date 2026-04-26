@@ -1149,6 +1149,17 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
         imported_lanes.push(lane_name.clone());
     }
 
+    let safe_name = format!(
+        "{}-{}{}",
+        owner.to_lowercase(),
+        repo.to_lowercase(),
+        subpath
+            .as_ref()
+            .map(|p| format!("-{}", p.replace('/', "-").to_lowercase()))
+            .unwrap_or_default()
+    );
+    let relative_file = format!(".fledge/lanes/{safe_name}.toml");
+
     if imported_lanes.is_empty() {
         if json {
             let result = serde_json::json!({
@@ -1158,7 +1169,8 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
                 "tier": tier.label(),
                 "imported": [],
                 "skipped": skipped,
-                "file": null,
+                "file": relative_file,
+                "written": false,
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
@@ -1175,16 +1187,6 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     let lanes_dir = cwd.join(".fledge").join("lanes");
     std::fs::create_dir_all(&lanes_dir).context("creating .fledge/lanes directory")?;
 
-    let safe_name = format!(
-        "{}-{}{}",
-        owner.to_lowercase(),
-        repo.to_lowercase(),
-        subpath
-            .as_ref()
-            .map(|p| format!("-{}", p.replace('/', "-").to_lowercase()))
-            .unwrap_or_default()
-    );
-    let relative_file = format!(".fledge/lanes/{safe_name}.toml");
     let import_path = lanes_dir.join(format!("{safe_name}.toml"));
     std::fs::write(&import_path, import_content.trim_start()).context("writing imported lanes")?;
 
@@ -1197,6 +1199,7 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
             "imported": imported_lanes,
             "skipped": skipped,
             "file": relative_file,
+            "written": true,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {

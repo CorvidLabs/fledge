@@ -1,6 +1,6 @@
 ---
 module: main
-version: 8
+version: 9
 status: active
 files:
   - src/main.rs
@@ -85,11 +85,13 @@ All modules are dependencies — main dispatches to every subcommand module. See
 5. The top-level `--non-interactive` flag (aliased `--ni`) is a clap `global = true` arg, available on every subcommand. When set, or when `FLEDGE_NON_INTERACTIVE` env var is truthy (`1`/`true`/`yes`/`y`/`on`), `utils::set_non_interactive(true)` is called before dispatch, so every prompt site in the dispatched command observes it
 6. `utils::init_non_interactive_from_env()` runs before `Cli::parse()` so the env var is honored even when users don't pass the flag
 7. Tier-B JSON coverage (#271): `templates list` and `templates publish` (handled inline in `main.rs`) honour `--json` and emit a `{schema_version: 1, ...}` envelope on stdout — matching the same envelope contract as `plugins`, `lanes`, `init`, and `create_template`. `templates list --json` returns `{schema_version: 1, templates: [{name, description, source: "builtin"|"local"|"remote", source_ref, path}, ...]}`. `templates publish --json` returns `{schema_version: 1, action: "publish", repo, template, topic, use_hint}` (or `{cancelled: true}` if the user declines an update prompt). Failure paths still exit non-zero in both cases
+8. **Empty-list semantics for `templates list`:** when no templates are configured, both modes succeed (exit 0). JSON mode emits `{schema_version: 1, templates: [], hint: "..."}` with the configuration hint as a string field; non-JSON mode prints a friendly "No templates configured" message followed by the same hint. Previously both modes errored with non-zero exit, which forced agents to special-case a list query into an error path
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 9 | 2026-04-26 | `templates list` empty case now exits 0 in both modes. JSON mode emits `{schema_version: 1, templates: [], hint}`; non-JSON prints "No templates configured" + hint. Previously both bailed with non-zero exit, breaking agents that call `templates list --json` defensively |
 | 8 | 2026-04-25 | **Breaking (tier C, #272):** `templates search --json` migrated from bare top-level array to `{schema_version: 1, results: [...]}`. Last-chance shape break before 1.0 |
 | 7 | 2026-04-25 | Tier-B `--json` envelopes for `templates list` and `templates publish` (handled inline in main.rs). Both emit `{schema_version: 1, ...}` matching the contract used by plugins/lanes/init/create_template. Failure paths still exit non-zero. Closes the gap where `templates list --json` previously errored with "unexpected argument" (#271) |
 | 5 | 2026-04-23 | Add `llm` to depends_on for the provider abstraction that powers `fledge ask` and `fledge review`. No new top-level command; dispatch changes are localized to the Ask/Review variants. |
