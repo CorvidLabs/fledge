@@ -185,4 +185,48 @@ steps = ["build", "test"]
     );
 }
 
+#[test]
+fn cli_lane_run_json_dry_run_emits_envelope() {
+    // Regression guard: `lanes run --json --dry-run` must emit a parseable
+    // JSON envelope, not prose. Pre-fix, the dry-run path ignored --json and
+    // printed human-readable text, breaking the contract that --json always
+    // means parseable stdout. Per-step shape: {step, kind, name, items?}.
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+build = "echo build"
+lint = "echo lint"
+fmt = "echo fmt"
+
+[lanes.ci]
+description = "CI"
+steps = ["build", { parallel = ["lint", "fmt"] }, { run = "echo done" }]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--json", "--dry-run"]);
+    assert!(
+        output.status.success(),
+        "lane run --json --dry-run failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        panic!("stdout is not JSON in dry-run mode (regression).\nerror: {e}\nstdout:\n{stdout}")
+    });
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["lane"].as_str(), Some("ci"));
+    assert_eq!(parsed["dry_run"].as_bool(), Some(true));
+    assert_eq!(parsed["total_steps"].as_u64(), Some(3));
+    let steps = parsed["steps"].as_array().expect("steps array");
+    assert_eq!(steps.len(), 3);
+    assert_eq!(steps[0]["kind"].as_str(), Some("task"));
+    assert_eq!(steps[0]["name"].as_str(), Some("build"));
+    assert_eq!(steps[1]["kind"].as_str(), Some("parallel"));
+    assert!(steps[1]["items"].is_array());
+    assert_eq!(steps[2]["kind"].as_str(), Some("inline"));
+    assert!(steps[0]["duration_ms"].is_null());
+}
+
 // ──────────────────────────────────────────────────────────
