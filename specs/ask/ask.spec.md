@@ -1,6 +1,6 @@
 ---
 module: ask
-version: 5
+version: 6
 status: active
 files:
   - src/ask.rs
@@ -94,8 +94,12 @@ $ fledge ask --no-spec-index "quick syntax question: how do I declare an async t
 ```
 $ fledge ask --json "what is the release workflow?"
 {
+  "schema_version": 1,
+  "action": "ask",
   "question": "what is the release workflow?",
-  "answer": "..."
+  "answer": "...",
+  "provider": "ollama",
+  "model": "llama3.3"
 }
 ```
 
@@ -125,6 +129,7 @@ error: Please provide a question. Usage: fledge ask <question>
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-04-26 | Doc sync — behavioral example updated to show the post-tier-D envelope shape with `schema_version`/`action`/`provider`/`model`. No code change |
 | 5 | 2026-04-26 | Tier-D 1.0 envelope: `ask --json` now wraps output as `{schema_version: 1, action: "ask", question, answer, provider, model}`. Previously emitted bare `{question, answer, provider, model}`. Closes a gap where tier C (#274) only migrated plugins/lanes/templates |
 | 4 | 2026-04-23 | Provider abstraction: Claude CLI is no longer hardcoded. New `--provider` and `--model` flags. JSON output gains `provider` and `model` fields. Runs through `llm::build_provider` with config / env / override precedence. |
 | 3 | 2026-04-23 | Default-on spec index in prompt; add `--with-specs` for full spec+companion bundles; add `--no-spec-index` escape hatch. Depends on `spec` module helpers. |

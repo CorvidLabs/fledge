@@ -50,16 +50,19 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | Command | What you get | Use when |
 |---------|-------------|----------|
 | `fledge introspect --json` | Full command tree: every subcommand, every flag, every arg | First contact with fledge |
-| `fledge spec list --json` | Array of spec summaries (module, version, status, sections, companions) | Orienting to a new codebase |
-| `fledge spec show <name> --json` | Single spec detail (frontmatter + section list + companion status) | Need structured view of one module |
-| `fledge spec check --json` | `{specs: [{name, version, status, errors, warnings, ...}], totals, strict}` | Spec-sync validation as data |
-| `fledge ai status --json` | `{provider, model, host, *_source}` — what's active and where each value came from | Verifying provider config before invoking the LLM |
-| `fledge ai models --provider {claude,ollama} --json` | Live model list (Ollama hits `/api/tags`; Claude returns curated aliases) | Picking a specific model |
-| `fledge ask "..." --json` | `{question, answer, provider, model}` from the active LLM provider over the codebase | Answering a question about the code |
-| `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}` | Before opening a PR |
-| `fledge review --with-model <ref> --json` | Multi-model panel: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` | Comparing models on the same diff |
-| `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools don't count toward `failed`. | Debugging a broken setup |
-| `fledge changelog --json` | Structured changelog from tags | Generating release notes |
+| `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
+| `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
+| `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |
+| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}` — what's active and where each value came from | Verifying provider config before invoking the LLM |
+| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}` (Ollama hits `/api/tags`; Claude returns curated aliases) | Picking a specific model |
+| `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` from the active LLM provider over the codebase | Answering a question about the code |
+| `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review, provider, model}` (top-level `review`/`provider`/`model` only when panel size is 1) | Before opening a PR |
+| `fledge review --with-model <ref> --json` | Multi-model panel: `{schema_version: 1, action: "review", base, ..., reviews: [{provider, model, elapsed_seconds, review|error}, ...]}` | Comparing models on the same diff |
+| `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [{name, checks: [...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools don't count toward `failed`. | Debugging a broken setup |
+| `fledge changelog --json` | `{schema_version: 1, action: "changelog", releases: [{tag, date, sections}]}` | Generating release notes |
+| `fledge run --list --json` | `{schema_version: 1, action: "run_list", auto_detected, tasks: [...]}` | Discovering tasks defined in `fledge.toml` (or auto-detected) |
+| `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` | Running a task and capturing its output |
+| `fledge run --init --json` | `{schema_version: 1, action: "run_init", file, project_type, files_created}` | Scaffolding a `fledge.toml` |
 | `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` | Auditing plugin state |
 | `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, has_lifecycle_hooks, ...}]}` | Capability/hook audit |
 | `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, stars, trust_tier, ...}]}` | GitHub search for `fledge-plugin`-tagged repos |
@@ -71,9 +74,9 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` | Listing available templates |
 | `fledge templates search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-template`-tagged repos |
 | `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
-| `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
-| `fledge work pr --json` | `{url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
-| `fledge work status --json` | `{branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
+| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
+| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
+| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
 
 ### Plugin commands (after `plugins install --defaults`)
 
@@ -85,9 +88,14 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, …) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
-Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `watch`, `release`, `ai use`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `release`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
 
-**Envelope contract.** Every `--json` output in the three pillars (plugins/lanes/templates) is shaped as `{schema_version: 1, <resource>: [...]}` or `{schema_version: 1, action: "<verb>", ...}` for mutating commands. Top-level `schema_version` is the version contract: new fields are additive within v1; field removal/retyping requires a new schema_version. **Always read `<resource>` (or named keys) — never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C of the 1.0 readiness work; pinning to fledge ≥ that release means you can rely on the envelope.
+**Envelope contract.** Every `--json` output across fledge is shaped as `{schema_version: 1, ...}`. Two patterns coexist:
+
+- Pillar list/query commands (`plugins list`, `lanes list/run/search`, `templates list/search`, etc.) use `{schema_version: 1, <resource>: [...]}` — the resource key (`plugins`, `lanes`, `results`, `templates`) acts as the discriminator.
+- Cross-cutting commands (`doctor`, `run`, `ai`, `ask`, `changelog`, `work`, `spec`, `review`) use `{schema_version: 1, action: "<verb>", ...}` — the `action` string discriminates between commands sharing similar shapes.
+
+Top-level `schema_version` is the version contract: new fields are additive within v1; field removal/retyping requires a new schema_version. **Always read `<resource>` (or `action` + named keys) — never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work; pinning to fledge ≥ 1.0 means you can rely on the envelope.
 
 ## Non-interactive mode (the one-switch answer)
 
