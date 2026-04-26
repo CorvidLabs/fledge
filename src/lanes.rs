@@ -294,7 +294,11 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
                 entry
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "lanes": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -450,9 +454,9 @@ fn execute_lane(
     for (i, step) in lane.steps.iter().enumerate() {
         let step_start = Instant::now();
         let result = match step {
-            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
-            Step::Inline { run: cmd } => execute_inline(cmd, project_dir),
-            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir),
+            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, false),
+            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, false),
+            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, false),
         };
         let elapsed = step_start.elapsed();
 
@@ -538,9 +542,9 @@ fn execute_lane_json(
         let step_desc = step_description(step);
         let step_start = Instant::now();
         let result = match step {
-            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
-            Step::Inline { run: cmd } => execute_inline(cmd, project_dir),
-            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir),
+            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, true),
+            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, true),
+            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, true),
         };
         let elapsed = step_start.elapsed();
         let success = result.is_ok();
@@ -566,6 +570,7 @@ fn execute_lane_json(
     let success = failures.is_empty();
 
     let output = serde_json::json!({
+        "schema_version": 1,
         "lane": lane_name,
         "description": lane.description.as_deref().unwrap_or(""),
         "total_steps": total_steps,
@@ -624,9 +629,10 @@ fn execute_task_with_deps(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
+    quiet: bool,
 ) -> Result<()> {
     let mut visited = HashSet::new();
-    execute_task_recursive(name, tasks, project_dir, &mut visited)
+    execute_task_recursive(name, tasks, project_dir, &mut visited, quiet)
 }
 
 fn execute_task_recursive(
@@ -634,6 +640,7 @@ fn execute_task_recursive(
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     visited: &mut HashSet<String>,
+    quiet: bool,
 ) -> Result<()> {
     if !visited.insert(name.to_string()) {
         bail!(
@@ -648,18 +655,20 @@ fn execute_task_recursive(
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found", name))?;
 
     for dep in task.deps() {
-        execute_task_recursive(dep, tasks, project_dir, visited)?;
+        execute_task_recursive(dep, tasks, project_dir, visited, quiet)?;
     }
 
-    execute_single_task(name, task, project_dir)
+    execute_single_task(name, task, project_dir, quiet)
 }
 
-fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path) -> Result<()> {
-    println!(
-        "  {} {}",
-        style("▶️").cyan().bold(),
-        style(format!("Running task: {name}")).bold()
-    );
+fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path, quiet: bool) -> Result<()> {
+    if !quiet {
+        println!(
+            "  {} {}",
+            style("▶️").cyan().bold(),
+            style(format!("Running task: {name}")).bold()
+        );
+    }
 
     let cmd_str = task.cmd();
     let work_dir = match task.dir() {
@@ -677,6 +686,16 @@ fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path) -> Result
         command.env(key, value);
     }
 
+    // In quiet (JSON) mode, redirect the spawned task's stdout/stderr to
+    // null so the agent's stdout stays a clean single JSON object.
+    // Trade-off: per-step output isn't captured into the JSON record. For
+    // 1.0 this is intentionally lossy — capturing output would require a
+    // larger refactor and consumers that need it can re-run without --json.
+    if quiet {
+        command.stdout(std::process::Stdio::null());
+        command.stderr(std::process::Stdio::null());
+    }
+
     let status = command
         .status()
         .with_context(|| format!("running task '{name}'"))?;
@@ -689,20 +708,26 @@ fn execute_single_task(name: &str, task: &TaskDef, project_dir: &Path) -> Result
     Ok(())
 }
 
-fn execute_inline(cmd: &str, project_dir: &Path) -> Result<()> {
-    println!(
-        "  {} {}",
-        style("▶️").cyan().bold(),
-        style(format!("Running: {cmd}")).bold()
-    );
+fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Result<()> {
+    if !quiet {
+        println!(
+            "  {} {}",
+            style("▶️").cyan().bold(),
+            style(format!("Running: {cmd}")).bold()
+        );
+    }
 
     let shell = if cfg!(windows) { "cmd" } else { "sh" };
     let flag = if cfg!(windows) { "/C" } else { "-c" };
 
-    let status = Command::new(shell)
-        .arg(flag)
-        .arg(cmd)
-        .current_dir(project_dir)
+    let mut command = Command::new(shell);
+    command.arg(flag).arg(cmd).current_dir(project_dir);
+    if quiet {
+        command.stdout(std::process::Stdio::null());
+        command.stderr(std::process::Stdio::null());
+    }
+
+    let status = command
         .status()
         .with_context(|| format!("running inline command: {cmd}"))?;
 
@@ -718,6 +743,7 @@ fn execute_parallel(
     items: &[ParallelItem],
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
+    quiet: bool,
 ) -> Result<()> {
     let names_display: Vec<String> = items
         .iter()
@@ -726,11 +752,13 @@ fn execute_parallel(
             ParallelItem::Inline { run: cmd } => cmd.clone(),
         })
         .collect();
-    println!(
-        "  {} {}",
-        style("▶️").cyan().bold(),
-        style(format!("Running parallel: {}", names_display.join(", "))).bold()
-    );
+    if !quiet {
+        println!(
+            "  {} {}",
+            style("▶️").cyan().bold(),
+            style(format!("Running parallel: {}", names_display.join(", "))).bold()
+        );
+    }
 
     let errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -741,8 +769,10 @@ fn execute_parallel(
             let errors = Arc::clone(&errors);
             let handle = s.spawn(move || {
                 let result = match item {
-                    ParallelItem::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir),
-                    ParallelItem::Inline { run: cmd } => execute_inline(cmd, project_dir),
+                    ParallelItem::TaskRef(name) => {
+                        execute_task_with_deps(name, tasks, project_dir, quiet)
+                    }
+                    ParallelItem::Inline { run: cmd } => execute_inline(cmd, project_dir, quiet),
                 };
                 if let Err(e) = result {
                     let label = match item {
@@ -924,7 +954,11 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
 
     if results.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "results": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
                 "{} No community lanes found{}.",
@@ -953,7 +987,11 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "results": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -1566,7 +1604,15 @@ fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()> {
 
 fn print_lane_report(report: &LaneValidationReport, strict: bool, json: bool) -> Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(report)?);
+        // Wrap with schema_version envelope (matches lanes list/run/search shape).
+        let mut value = serde_json::to_value(report)?;
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert(
+                "schema_version".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(1)),
+            );
+        }
+        println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         println!(
             "{} {} — valid ({} lanes)",

@@ -1,6 +1,6 @@
 ---
 module: validate
-version: 1
+version: 2
 status: active
 files:
   - src/validate.rs
@@ -41,7 +41,7 @@ Validates fledge template directories for correctness before publishing or use. 
 5. Render globs that match no files are warnings
 6. `template.toml` not in `files.ignore` is a warning
 7. In strict mode, warnings are promoted to errors (non-zero exit)
-8. JSON mode outputs an array of `ValidationReport` objects
+8. JSON mode outputs `{schema_version: 1, reports: [ValidationReport, ...]}` — never a bare top-level array. The `reports` array always exists (possibly empty) so consumers can `jq '.reports[]'` unconditionally
 9. GitHub Actions `${{ }}` expressions are not flagged as Tera variables
 10. `.tera` extension files are always validated regardless of render globs
 
@@ -74,7 +74,7 @@ Then exit code is non-zero
 ```
 Given any template directory
 When the user runs `fledge templates validate ./my-template --json`
-Then output is a JSON array of ValidationReport objects
+Then output is {schema_version: 1, reports: [ValidationReport, ...]}
 ```
 
 ### Scenario: Broken Tera syntax
@@ -123,3 +123,4 @@ Then a warning is shown: "uses undefined variable 'custom_var'"
 | Version | Date | Changes |
 |---------|------|---------|
 | 1 | 2026-04-20 | Initial spec |
+| 2 | 2026-04-25 | **Breaking (tier C, #272):** `templates validate --json` migrated from bare top-level array to `{schema_version: 1, reports: [...]}`. Last-chance shape break before 1.0 freezes the contract |

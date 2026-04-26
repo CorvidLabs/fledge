@@ -39,10 +39,18 @@ After those four lines, every command and flag is discoverable as data.
 | `fledge ask "..." --json` | `{question, answer, provider, model}` |
 | `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}`. With `--with-model`: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` |
 | `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools render dimmed and aren't counted toward `failed`. |
-| `fledge templates search --json` | Array of `{owner, name, description, stars, url, topics, trust_tier}` — GitHub search for `fledge-template`-tagged repos |
+| `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` |
+| `fledge templates search --json` | `{schema_version: 1, results: [{owner, name, description, stars, url, topics, trust_tier}]}` |
+| `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` |
 | `fledge changelog --json` | Structured changelog |
-| `fledge plugins list --json` | Installed plugins |
-| `fledge lanes run <name> --json` | Lane execution results |
+| `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` |
+| `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, ...}]}` |
+| `fledge plugins search --json` | `{schema_version: 1, results: [...]}` (same shape as templates search) |
+| `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` |
+| `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, steps, fail_fast, source?, trust_tier}]}` |
+| `fledge lanes search --json` | `{schema_version: 1, results: [...]}` (same shape as templates search) |
+| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps: [...], failures: [...]}` |
+| `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` |
 | `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` |
 | `fledge work pr --json` | `{url, number, title, head, base, draft}` (suppresses preview/confirm) |
 | `fledge work status --json` | `{branch, default, ahead, behind, pr}` |

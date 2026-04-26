@@ -126,7 +126,63 @@ steps = ["build"]
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_object() || parsed.is_array());
+    // Post-tier-C envelope: {schema_version: 1, lanes: [...]}
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["lanes"].is_array());
+}
+
+#[test]
+fn cli_lane_run_json_stdout_is_clean() {
+    // Regression guard: in JSON mode `lanes run --json` must emit only the
+    // envelope on stdout. Discovered during tier-C testing — fledge's own
+    // progress prose ("▶️ Running task: ...") and the spawned task's stdout
+    // ("BUILT") used to interleave with the JSON, making `--json | jq`
+    // unparseable. The fix threads a `quiet` flag into the executor chain.
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+build = "echo BUILT_OUTPUT"
+test = "echo TEST_OUTPUT"
+
+[lanes.ci]
+description = "CI"
+steps = ["build", "test"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--json"]);
+    assert!(
+        output.status.success(),
+        "lane run --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Stdout must parse as a single JSON value — no prose, no task output.
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        panic!(
+            "stdout is not a single JSON object — prose or task output leaked through.\n\
+             error: {e}\n\
+             stdout was:\n{stdout}"
+        )
+    });
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["lane"].as_str(), Some("ci"));
+    assert_eq!(parsed["success"].as_bool(), Some(true));
+    // Task output must NOT have leaked into stdout.
+    assert!(
+        !stdout.contains("BUILT_OUTPUT"),
+        "task stdout leaked into agent stdout in --json mode"
+    );
+    assert!(
+        !stdout.contains("TEST_OUTPUT"),
+        "task stdout leaked into agent stdout in --json mode"
+    );
+    // Fledge's own progress prose must NOT have leaked either.
+    assert!(
+        !stdout.contains("▶️"),
+        "fledge progress prose leaked into agent stdout in --json mode"
+    );
 }
 
 // ──────────────────────────────────────────────────────────

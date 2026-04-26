@@ -1496,7 +1496,11 @@ fn search_templates(
 
     if results.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "results": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
                 "{} No community templates found{}.",
@@ -1525,7 +1529,11 @@ fn search_templates(
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "results": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 

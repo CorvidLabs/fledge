@@ -1197,7 +1197,11 @@ fn list_plugins(json: bool) -> Result<()> {
 
     if registry.plugins.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "plugins": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
                 "{} No plugins installed. Use {} to find plugins.",
@@ -1225,7 +1229,11 @@ fn list_plugins(json: bool) -> Result<()> {
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "plugins": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -1269,7 +1277,11 @@ fn audit_plugins(json: bool) -> Result<()> {
 
     if registry.plugins.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "audit": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!("{} No plugins installed.", style("*").cyan().bold());
         }
@@ -1298,7 +1310,11 @@ fn audit_plugins(json: bool) -> Result<()> {
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "audit": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -1466,7 +1482,11 @@ fn search_plugins(
 
     if items.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "results": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
                 "{} No plugins found{}.",
@@ -1495,7 +1515,11 @@ fn search_plugins(
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "results": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -2016,7 +2040,18 @@ fn validate_plugin(path: &Path, strict: bool, json: bool) -> Result<()> {
 
 fn print_plugin_report(report: &PluginValidationReport, strict: bool, json: bool) -> Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(report)?);
+        // Wrap the report in an envelope so the top level carries
+        // schema_version (matches plugins list/audit/search shape).
+        // The full report is flattened so existing fields (path,
+        // plugin_name, errors, warnings) sit at the same level.
+        let mut value = serde_json::to_value(report)?;
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert(
+                "schema_version".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(1)),
+            );
+        }
+        println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         let name = if report.plugin_name.is_empty() {
             &report.path

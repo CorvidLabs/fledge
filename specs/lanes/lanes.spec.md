@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 11
+version: 13
 status: active
 files:
   - src/lanes.rs
@@ -225,6 +225,8 @@ $ fledge lanes run ci --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 13 | 2026-04-25 | Fix `lanes run --json` prose leak: fledge's own progress prints AND each spawned task's stdout/stderr were going to the agent's stdout, interleaving with the JSON envelope and breaking `--json | jq`. Threaded a `quiet` flag through `execute_task_with_deps` / `execute_inline` / `execute_parallel` / `execute_single_task` / `execute_task_recursive`. In JSON mode prose is suppressed and spawned commands' stdout/stderr are redirected to `/dev/null`. Trade-off: per-step output isn't captured into the JSON record (consumers needing it re-run without `--json`). New regression test `cli_lane_run_json_stdout_is_clean` guards the contract |
+| 12 | 2026-04-25 | **Breaking (tier C, #272):** `lanes list --json`, `lanes search --json`, `lanes run --json`, `lanes validate --json` migrated to `{schema_version: 1, <resource>: [...]}` (or flattened with `schema_version` at top for run/validate). `lanes` for list, `results` for search, run/validate get the field added to the existing object. Last-chance shape break before 1.0 |
 | 11 | 2026-04-25 | Tier B follow-up: `lanes init`, `import`, `publish`, and `create` honour `--json` and emit `{schema_version:1, action, ...}` envelopes. `init` reports `project_type/lanes_added/file`; `import` reports `source/imported/skipped/file`; `publish` reports `repo/lanes_published/topic/import_hint`; `create` reports `path/name/description/files_created`. Failure paths still exit non-zero — `--json` never silently turns failure into success |
 | 10 | 2026-04-25 | Lock parallel-group + `fail_fast` semantics for 1.0: in-flight siblings always finish (no cancellation), `fail_fast` governs only the *next* step. Documents existing behavior — no code change |
 | 9 | 2026-04-23 | Add `--json` flag to `lane run` for structured JSON output |
