@@ -1,6 +1,6 @@
 ---
 module: release
-version: 2
+version: 3
 status: active
 files:
   - src/release.rs
@@ -128,5 +128,6 @@ Then version.txt is bumped alongside auto-detected files
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-04-26 | Add `--json` flag. `release X.Y.Z --dry-run --json` emits `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}`. `release X.Y.Z --json` (real run) emits `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` and suppresses prose output. Helper functions (`generate_changelog_entry`, `create_release_commit`, `create_tag`, `push_release`) gained a `quiet` param threaded from `opts.json`. New integration tests `cli_release_dry_run_json_emits_envelope` and `cli_release_dry_run_json_no_bump_flag` |
 | 2 | 2026-04-25 | Recognize `plugin.toml` (`[plugin].version`) as a first-class fledge-ecosystem version source. Added `--no-bump` flag for tag-only releases. The plugin.toml bumper is section-scoped so other tables' `version` keys (e.g. on `[[commands]]`) aren't touched. Rust plugins with both `Cargo.toml` and `plugin.toml` get both bumped together. (#264) |
-| 1 | 2026-04-21 | Initial spec — full release workflow with multi-language support |
+| 1 | 2026-04-21 | Initial spec for the full release workflow with multi-language support |

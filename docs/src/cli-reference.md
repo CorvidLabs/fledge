@@ -579,22 +579,28 @@ fledge changelog --tag v0.7.0
 
 ### fledge release `<bump>`
 
-Cut a release, bump version, generate changelog, create a git tag, and optionally push.
+Cut a release. Bump version, generate changelog, create a git tag, and optionally push.
 
 ```
 fledge release <bump> [OPTIONS]
 ```
 
 **Arguments:**
-- `<bump>` - Version bump: `major`, `minor`, `patch`, or an explicit version (e.g. `1.0.0`)
+- `<bump>`: Version bump: `major`, `minor`, `patch`, or an explicit version (e.g. `1.0.0`)
 
 **Options:**
-- `--dry-run` - Show what would happen without making changes
-- `--no-tag` - Skip creating a git tag
-- `--no-changelog` - Skip changelog generation
-- `--push` - Push commit and tag to remote after release
-- `--pre-lane <NAME>` - Run a lane before releasing (e.g. `ci`)
-- `--allow-dirty` - Allow releasing with uncommitted changes
+- `--dry-run`: Show what would happen without making changes
+- `--no-tag`: Skip creating a git tag
+- `--no-changelog`: Skip changelog generation
+- `--no-bump`: Skip bumping any version files (tag-only release)
+- `--push`: Push commit and tag to remote after release
+- `--pre-lane <NAME>`: Run a lane before releasing (e.g. `ci`)
+- `--allow-dirty`: Allow releasing with uncommitted changes
+- `--json`: Emit a JSON envelope. Suppresses prose output
+
+**Output (`--json --dry-run`):** `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}`
+
+**Output (`--json` real run):** `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}`
 
 **Examples:**
 
@@ -602,7 +608,8 @@ fledge release <bump> [OPTIONS]
 fledge release patch                          # bump patch version
 fledge release minor --push                   # bump minor + push
 fledge release major --pre-lane ci            # run CI lane first, then bump major
-fledge release 2.0.0 --dry-run               # preview a specific version bump
+fledge release 2.0.0 --dry-run                # preview a specific version bump
+fledge release 2.0.0 --dry-run --json         # preview as JSON
 fledge release patch --no-tag --no-changelog  # just bump version
 ```
 
