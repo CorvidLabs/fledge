@@ -34,7 +34,7 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
     preflight_checks(&dir, opts.allow_dirty)?;
 
     if let Some(ref lane) = opts.pre_lane {
-        run_pre_lane(lane, opts.dry_run)?;
+        run_pre_lane(lane, opts.dry_run, opts.json)?;
     }
 
     let new_version = resolve_target_version(&dir, &opts.bump)?;
@@ -200,21 +200,25 @@ fn preflight_checks(dir: &Path, allow_dirty: bool) -> Result<()> {
     Ok(())
 }
 
-fn run_pre_lane(lane: &str, dry_run: bool) -> Result<()> {
-    println!(
-        "{} Running pre-release lane: {}",
-        style("🔄").bold(),
-        style(lane).cyan()
-    );
+fn run_pre_lane(lane: &str, dry_run: bool, json: bool) -> Result<()> {
+    if !json {
+        println!(
+            "{} Running pre-release lane: {}",
+            style("🔄").bold(),
+            style(lane).cyan()
+        );
+    }
 
     let action = crate::lanes::LaneAction::Run {
         name: lane.to_string(),
         dry_run,
-        json: false,
+        json,
     };
     crate::lanes::run(action)?;
 
-    println!("{} Pre-release lane passed", style("✅").green().bold());
+    if !json {
+        println!("{} Pre-release lane passed", style("✅").green().bold());
+    }
     Ok(())
 }
 
