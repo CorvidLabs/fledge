@@ -126,12 +126,14 @@ pub enum PluginAction {
         private: bool,
         description: Option<String>,
         yes: bool,
+        json: bool,
     },
     Create {
         name: String,
         output: PathBuf,
         description: Option<String>,
         yes: bool,
+        json: bool,
     },
     Validate {
         path: PathBuf,
@@ -165,13 +167,28 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             private,
             description,
             yes,
-        } => publish_plugin(&path, org.as_deref(), private, description.as_deref(), yes),
+            json,
+        } => publish_plugin(
+            &path,
+            org.as_deref(),
+            private,
+            description.as_deref(),
+            yes,
+            opts.json || json,
+        ),
         PluginAction::Create {
             name,
             output,
             description,
             yes,
-        } => create_plugin(&name, &output, description.as_deref(), yes),
+            json,
+        } => create_plugin(
+            &name,
+            &output,
+            description.as_deref(),
+            yes,
+            opts.json || json,
+        ),
         PluginAction::Validate { path, strict, json } => validate_plugin(&path, strict, json),
     }
 }
@@ -1740,8 +1757,14 @@ fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn create_plugin(name: &str, output: &Path, description: Option<&str>, yes: bool) -> Result<()> {
-    let yes = yes || crate::utils::is_non_interactive();
+fn create_plugin(
+    name: &str,
+    output: &Path,
+    description: Option<&str>,
+    yes: bool,
+    json: bool,
+) -> Result<()> {
+    let yes = yes || json || crate::utils::is_non_interactive();
     let target = output.join(name);
 
     if target.exists() {
@@ -1855,26 +1878,38 @@ See [fledge plugin docs](https://github.com/CorvidLabs/fledge) for the full plug
     )
     .context("writing .gitignore")?;
 
-    println!(
-        "\n{} Created plugin at {}",
-        style("✅").green().bold(),
-        style(target.display()).cyan()
-    );
-    println!(
-        "\n  {} Edit manifest in {}",
-        style("1.").dim(),
-        style("plugin.toml").green()
-    );
-    println!(
-        "  {} Validate with: {}",
-        style("2.").dim(),
-        style(format!("fledge plugins validate ./{name}")).cyan()
-    );
-    println!(
-        "  {} Publish with: {}",
-        style("3.").dim(),
-        style(format!("fledge plugins publish ./{name}")).cyan()
-    );
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "create",
+            "path": target.display().to_string(),
+            "name": name,
+            "description": desc,
+            "files_created": ["plugin.toml", format!("bin/{name}"), "README.md", ".gitignore"],
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "\n{} Created plugin at {}",
+            style("✅").green().bold(),
+            style(target.display()).cyan()
+        );
+        println!(
+            "\n  {} Edit manifest in {}",
+            style("1.").dim(),
+            style("plugin.toml").green()
+        );
+        println!(
+            "  {} Validate with: {}",
+            style("2.").dim(),
+            style(format!("fledge plugins validate ./{name}")).cyan()
+        );
+        println!(
+            "  {} Publish with: {}",
+            style("3.").dim(),
+            style(format!("fledge plugins publish ./{name}")).cyan()
+        );
+    }
 
     Ok(())
 }
@@ -2026,8 +2061,9 @@ fn publish_plugin(
     private: bool,
     description: Option<&str>,
     yes: bool,
+    json: bool,
 ) -> Result<()> {
-    let yes = yes || crate::utils::is_non_interactive();
+    let yes = yes || json || crate::utils::is_non_interactive();
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
         anyhow::anyhow!(
@@ -2055,17 +2091,25 @@ fn publish_plugin(
         None => crate::publish::get_authenticated_user(&token)?,
     };
 
-    println!(
-        "{} Publishing plugin {} as {}/{}",
-        style("➡️").cyan().bold(),
-        style(path.display()).dim(),
-        style(&owner).green(),
-        style(repo_name).green()
-    );
+    if !json {
+        println!(
+            "{} Publishing plugin {} as {}/{}",
+            style("➡️").cyan().bold(),
+            style(path.display()).dim(),
+            style(&owner).green(),
+            style(repo_name).green()
+        );
+    }
 
-    let sp = crate::spinner::Spinner::start("Checking repository:");
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Checking repository:"))
+    };
     let repo_exists = crate::publish::check_repo_exists(&owner, repo_name, &token)?;
-    sp.finish();
+    if let Some(s) = sp {
+        s.finish();
+    }
 
     if repo_exists {
         if !yes {
@@ -2080,41 +2124,83 @@ fn publish_plugin(
                     .interact()?;
 
             if !confirm {
-                println!("{} Cancelled.", style("*").cyan().bold());
+                if !json {
+                    println!("{} Cancelled.", style("*").cyan().bold());
+                }
                 return Ok(());
             }
         }
     } else {
-        let sp = crate::spinner::Spinner::start("Creating repository:");
+        let sp = if json {
+            None
+        } else {
+            Some(crate::spinner::Spinner::start("Creating repository:"))
+        };
         crate::publish::create_github_repo(repo_name, desc, private, org, &token)?;
-        sp.finish();
+        if let Some(s) = sp {
+            s.finish();
+        }
+        if !json {
+            println!(
+                "  {} Created repository {}/{}",
+                style("✅").green().bold(),
+                owner,
+                repo_name
+            );
+        }
+    }
+
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Setting repository topics:"))
+    };
+    crate::publish::set_repo_topic(&owner, repo_name, "fledge-plugin", &token)?;
+    if let Some(s) = sp {
+        s.finish();
+    }
+    if !json {
         println!(
-            "  {} Created repository {}/{}",
+            "  {} Set {} topic",
             style("✅").green().bold(),
-            owner,
-            repo_name
+            style("fledge-plugin").cyan()
         );
     }
 
-    let sp = crate::spinner::Spinner::start("Setting repository topics:");
-    crate::publish::set_repo_topic(&owner, repo_name, "fledge-plugin", &token)?;
-    sp.finish();
-    println!(
-        "  {} Set {} topic",
-        style("✅").green().bold(),
-        style("fledge-plugin").cyan()
-    );
-
-    let sp = crate::spinner::Spinner::start("Pushing plugin files:");
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Pushing plugin files:"))
+    };
     crate::publish::push_directory(&path, &owner, repo_name, &token)?;
-    sp.finish();
-    println!("  {} Pushed plugin files", style("✅").green().bold());
+    if let Some(s) = sp {
+        s.finish();
+    }
+    if !json {
+        println!("  {} Pushed plugin files", style("✅").green().bold());
+    }
 
-    println!(
-        "\n{} Published! Install with:\n\n  {}",
-        style("✅").green().bold(),
-        style(format!("fledge plugins install {}/{}", owner, repo_name)).cyan()
-    );
+    let visibility = if private { "private" } else { "public" };
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "publish",
+            "repo": {
+                "owner": owner,
+                "name": repo_name,
+                "url": format!("https://github.com/{}/{}", owner, repo_name),
+            },
+            "visibility": visibility,
+            "validated": true,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "\n{} Published! Install with:\n\n  {}",
+            style("✅").green().bold(),
+            style(format!("fledge plugins install {}/{}", owner, repo_name)).cyan()
+        );
+    }
 
     Ok(())
 }
@@ -2719,7 +2805,7 @@ version = "0.1.0"
     #[test]
     fn create_plugin_scaffolds_files() {
         let tmp = tempfile::TempDir::new().unwrap();
-        create_plugin("my-plugin", tmp.path(), Some("Test plugin"), true).unwrap();
+        create_plugin("my-plugin", tmp.path(), Some("Test plugin"), true, false).unwrap();
 
         let target = tmp.path().join("my-plugin");
         assert!(target.join("plugin.toml").exists());
@@ -2739,7 +2825,7 @@ version = "0.1.0"
     fn create_plugin_fails_if_exists() {
         let tmp = tempfile::TempDir::new().unwrap();
         fs::create_dir(tmp.path().join("existing")).unwrap();
-        let result = create_plugin("existing", tmp.path(), None, true);
+        let result = create_plugin("existing", tmp.path(), None, true, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("already exists"));
     }
@@ -2747,7 +2833,7 @@ version = "0.1.0"
     #[test]
     fn validate_valid_plugin() {
         let tmp = tempfile::TempDir::new().unwrap();
-        create_plugin("test-plugin", tmp.path(), Some("Test"), true).unwrap();
+        create_plugin("test-plugin", tmp.path(), Some("Test"), true, false).unwrap();
 
         let result = validate_plugin(&tmp.path().join("test-plugin"), false, false);
         assert!(result.is_ok());
@@ -2835,7 +2921,7 @@ build = "cargo build --release"
     #[test]
     fn validate_json_output() {
         let tmp = tempfile::TempDir::new().unwrap();
-        create_plugin("json-test", tmp.path(), Some("Test"), true).unwrap();
+        create_plugin("json-test", tmp.path(), Some("Test"), true, false).unwrap();
 
         let result = validate_plugin(&tmp.path().join("json-test"), false, true);
         assert!(result.is_ok());

@@ -19,10 +19,14 @@ pub struct InitOptions {
     pub refresh: bool,
     pub dry_run: bool,
     pub yes: bool,
+    pub json: bool,
 }
 
 pub fn run(mut opts: InitOptions) -> Result<()> {
     if crate::utils::is_non_interactive() {
+        opts.yes = true;
+    }
+    if opts.json {
         opts.yes = true;
     }
     crate::plugin::run_lifecycle_hook("pre_init").ok();
@@ -48,7 +52,11 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
         bail!("No templates found. Add templates to the templates/ directory.");
     }
 
-    if opts.template.is_none() && config.template_repos().is_empty() && available.len() <= 2 {
+    if !opts.json
+        && opts.template.is_none()
+        && config.template_repos().is_empty()
+        && available.len() <= 2
+    {
         println!(
             "{} Only built-in starter templates found. Add {} to your config or pass `-t <owner/repo>` to fetch a remote template.",
             style("tip:").yellow().bold(),
@@ -59,11 +67,13 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
     // Resolve which template to use
     let template = resolve_template(&available, opts.template.as_deref())?;
 
-    println!(
-        "{} Using template: {}",
-        style("*").cyan().bold(),
-        style(&template.name).green()
-    );
+    if !opts.json {
+        println!(
+            "{} Using template: {}",
+            style("*").cyan().bold(),
+            style(&template.name).green()
+        );
+    }
 
     check_template_version(&template.manifest)?;
     let reqs_ok = check_template_requirements(&template.manifest, opts.yes)?;
@@ -102,7 +112,9 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
         .with_context(|| format!("creating directory {}", target_dir.display()))?;
 
     // Render template
-    println!("{} Scaffolding project...", style("*").cyan().bold());
+    if !opts.json {
+        println!("{} Scaffolding project...", style("*").cyan().bold());
+    }
     let mut created_files = templates::render_template(template, &target_dir, &variables)?;
 
     // Generate fledge.toml if the template didn't include one
@@ -129,6 +141,43 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
         run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes)?;
     }
 
+    // JSON output
+    if opts.json {
+        let hooks_run: Vec<&str> = if !opts.no_install && reqs_ok {
+            template
+                .manifest
+                .hooks
+                .post_create
+                .iter()
+                .map(|s| s.as_str())
+                .collect()
+        } else {
+            vec![]
+        };
+        let files_list: Vec<String> = created_files
+            .iter()
+            .map(|f| f.display().to_string())
+            .collect();
+        let output = serde_json::json!({
+            "schema_version": 1,
+            "action": "init",
+            "project": {
+                "path": target_dir.display().to_string(),
+                "name": opts.name,
+            },
+            "template": {
+                "name": template.name,
+                "source": template.source,
+                "ref": null,
+            },
+            "variables_used": variables.into_json(),
+            "files_created": files_list,
+            "hooks_run": hooks_run,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+        return Ok(());
+    }
+
     // Print summary
     print_summary(&opts.name, &target_dir, &created_files, opts.no_git);
 
@@ -149,14 +198,16 @@ fn run_remote(
 
     let ref_display = git_ref.map(|r| format!("@{}", r)).unwrap_or_default();
 
-    println!(
-        "{} Fetching template from {}/{}{}{}...",
-        style("*").cyan().bold(),
-        owner,
-        repo,
-        subpath.map(|s| format!("/{}", s)).unwrap_or_default(),
-        ref_display
-    );
+    if !opts.json {
+        println!(
+            "{} Fetching template from {}/{}{}{}...",
+            style("*").cyan().bold(),
+            owner,
+            repo,
+            subpath.map(|s| format!("/{}", s)).unwrap_or_default(),
+            ref_display
+        );
+    }
 
     let template_dir = crate::remote::resolve_template_dir(owner, repo, subpath, token, git_ref)?;
 
@@ -191,21 +242,23 @@ fn run_remote(
     };
 
     let tier = trust::determine_trust_tier(remote_ref);
-    println!(
-        "{} Using template: {} [{}]",
-        style("*").cyan().bold(),
-        style(&template.name).green(),
-        tier.styled_label()
-    );
-    if tier != trust::TrustTier::Official {
+    if !opts.json {
         println!(
-            "  {} Templates can include arbitrary files and post-create hooks.",
-            style("*").yellow()
+            "{} Using template: {} [{}]",
+            style("*").cyan().bold(),
+            style(&template.name).green(),
+            tier.styled_label()
         );
-        println!(
-            "  {} Only use templates from sources you trust.\n",
-            style("*").yellow()
-        );
+        if tier != trust::TrustTier::Official {
+            println!(
+                "  {} Templates can include arbitrary files and post-create hooks.",
+                style("*").yellow()
+            );
+            println!(
+                "  {} Only use templates from sources you trust.\n",
+                style("*").yellow()
+            );
+        }
     }
 
     check_template_version(&template.manifest)?;
@@ -241,7 +294,9 @@ fn run_remote(
     std::fs::create_dir_all(&target_dir)
         .with_context(|| format!("creating directory {}", target_dir.display()))?;
 
-    println!("{} Scaffolding project...", style("*").cyan().bold());
+    if !opts.json {
+        println!("{} Scaffolding project...", style("*").cyan().bold());
+    }
     let mut created_files = templates::render_template(template, &target_dir, &variables)?;
 
     // Generate fledge.toml if the template didn't include one
@@ -265,6 +320,43 @@ fn run_remote(
     // Remote templates require confirmation before running hooks; skip if required tools missing
     if !opts.no_install && reqs_ok {
         run_post_create_hooks(&template.manifest.hooks.post_create, &target_dir, opts.yes)?;
+    }
+
+    // JSON output
+    if opts.json {
+        let hooks_run: Vec<&str> = if !opts.no_install && reqs_ok {
+            template
+                .manifest
+                .hooks
+                .post_create
+                .iter()
+                .map(|s| s.as_str())
+                .collect()
+        } else {
+            vec![]
+        };
+        let files_list: Vec<String> = created_files
+            .iter()
+            .map(|f| f.display().to_string())
+            .collect();
+        let output = serde_json::json!({
+            "schema_version": 1,
+            "action": "init",
+            "project": {
+                "path": target_dir.display().to_string(),
+                "name": opts.name,
+            },
+            "template": {
+                "name": template.name,
+                "source": template.source,
+                "ref": git_ref,
+            },
+            "variables_used": variables.into_json(),
+            "files_created": files_list,
+            "hooks_run": hooks_run,
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+        return Ok(());
     }
 
     print_summary(&opts.name, &target_dir, &created_files, opts.no_git);

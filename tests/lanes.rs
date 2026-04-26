@@ -130,3 +130,98 @@ steps = ["build"]
 }
 
 // ──────────────────────────────────────────────────────────
+// JSON envelope tests (issue #271 — tier B)
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_lane_init_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nname = \"test\"\n",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nbuild = \"echo build\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "init", "--json"]);
+    assert!(
+        output.status.success(),
+        "lane init --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("init"));
+    assert!(parsed["project_type"].is_string());
+    assert!(parsed["lanes_added"].is_array());
+}
+
+#[test]
+fn cli_lane_import_json_error_path_returns_nonzero() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nbuild = \"echo build\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(
+        tmp.path(),
+        &[
+            "lane",
+            "import",
+            "nonexistent/repo-does-not-exist",
+            "--json",
+        ],
+    );
+    assert!(
+        !output.status.success(),
+        "lane import of nonexistent repo must exit nonzero even with --json"
+    );
+}
+
+#[test]
+fn cli_lane_publish_json_error_path_returns_nonzero() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "publish", "--json"]);
+    assert!(
+        !output.status.success(),
+        "lane publish in empty dir must exit nonzero even with --json"
+    );
+}
+
+#[test]
+fn cli_lane_create_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(
+        tmp.path(),
+        &[
+            "lane",
+            "create",
+            "my-lanes",
+            "--output",
+            tmp.path().to_str().unwrap(),
+            "--yes",
+            "--json",
+        ],
+    );
+    assert!(
+        output.status.success(),
+        "lane create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert!(parsed["name"].is_string());
+    assert!(parsed["path"].is_string());
+    assert!(parsed["files_created"].is_array());
+}
+
+// ──────────────────────────────────────────────────────────

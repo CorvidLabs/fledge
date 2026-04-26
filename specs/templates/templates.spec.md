@@ -1,6 +1,6 @@
 ---
 module: templates
-version: 5
+version: 6
 status: active
 files:
   - src/templates.rs
@@ -70,6 +70,8 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 7. The list of created files returned by `render_template` is sorted alphabetically
 8. Directories without a `template.toml` are silently skipped during discovery
 9. Built-in template directory resolution checks exe-relative, then `CARGO_MANIFEST_DIR`, then falls back to `./templates`
+10. `templates list --json` emits `{schema_version: 1, templates: [{name, path, source: "builtin"|"local"|"remote"}, ...]}` on stdout
+11. `templates publish --json` emits `{schema_version: 1, action: "publish", repo: {owner, name, url}, visibility, validated: bool, templates_published: N}`
 
 ## Behavioral Examples
 

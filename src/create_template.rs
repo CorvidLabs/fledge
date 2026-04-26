@@ -11,6 +11,7 @@ pub struct CreateTemplateOptions {
     pub hooks: Option<bool>,
     pub prompts: Option<bool>,
     pub yes: bool,
+    pub json: bool,
 }
 
 struct TemplateAnswers {
@@ -23,6 +24,9 @@ struct TemplateAnswers {
 
 pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
     if crate::utils::is_non_interactive() {
+        options.yes = true;
+    }
+    if options.json {
         options.yes = true;
     }
     let target = options.output.join(&options.name);
@@ -42,6 +46,26 @@ pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
         gather_answers(&options)?
     };
     scaffold(&target, &answers)?;
+
+    if options.json {
+        let output = serde_json::json!({
+            "schema_version": 1,
+            "action": "create",
+            "path": target.display().to_string(),
+            "name": answers.name,
+            "description": answers.description,
+            "render_patterns": answers.render_globs,
+            "files_created": [
+                "template.toml",
+                "README.md",
+                "README.md.tera",
+                ".gitignore",
+                "src/",
+            ],
+        });
+        println!("{}", serde_json::to_string_pretty(&output)?);
+        return Ok(());
+    }
 
     println!(
         "\n{} Created template at {}",
@@ -380,6 +404,7 @@ mod tests {
             hooks: None,
             prompts: None,
             yes: false,
+            json: false,
         };
 
         let result = run(options);

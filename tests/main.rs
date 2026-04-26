@@ -711,6 +711,43 @@ fn cli_plugin_remove_json_error_path_returns_nonzero() {
     );
 }
 
+#[test]
+fn cli_plugin_create_json_emits_envelope() {
+    let tmp = tempfile::tempdir().unwrap();
+    let output = run_fledge(&[
+        "plugin",
+        "create",
+        "test-plugin",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "plugin create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert!(parsed["name"].is_string());
+    assert!(parsed["path"].is_string());
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_plugin_publish_json_error_path_returns_nonzero() {
+    let tmp = tempfile::tempdir().unwrap();
+    let output = run_fledge_in(tmp.path(), &["plugin", "publish", "--json"]);
+    assert!(
+        !output.status.success(),
+        "plugin publish in empty dir must exit nonzero even with --json"
+    );
+}
+
 // ──────────────────────────────────────────────────────────
 
 // MARK: - external / unknown subcommand

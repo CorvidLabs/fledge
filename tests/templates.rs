@@ -359,3 +359,116 @@ fn cli_create_template_existing_dir_fails() {
 }
 
 // ──────────────────────────────────────────────────────────
+// JSON envelope tests (issue #271 — tier B)
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_templates_list_json_emits_envelope() {
+    let output = run_fledge(&["templates", "list", "--json"]);
+    assert!(
+        output.status.success(),
+        "templates list --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["templates"].is_array());
+    let templates = parsed["templates"].as_array().unwrap();
+    assert!(
+        !templates.is_empty(),
+        "should list at least one builtin template"
+    );
+    let first = &templates[0];
+    assert!(first["name"].is_string());
+    assert!(first["source"].is_string());
+}
+
+#[test]
+fn cli_templates_init_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "templates",
+        "init",
+        "json-test-project",
+        "--template",
+        "rust-cli",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "templates init --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("init"));
+    assert!(parsed["project"]["name"].is_string());
+    assert!(parsed["template"]["name"].is_string());
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_templates_init_json_error_path_returns_nonzero() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "templates",
+        "init",
+        "test-project",
+        "--template",
+        "nonexistent-template-xyz",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--json",
+    ]);
+    assert!(
+        !output.status.success(),
+        "templates init of nonexistent template must exit nonzero even with --json"
+    );
+}
+
+#[test]
+fn cli_templates_create_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "templates",
+        "create",
+        "my-template",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "templates create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert!(parsed["name"].is_string());
+    assert!(parsed["path"].is_string());
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_templates_publish_json_error_path_returns_nonzero() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["templates", "publish", "--json"]);
+    assert!(
+        !output.status.success(),
+        "templates publish in empty dir must exit nonzero even with --json"
+    );
+}
+
+// ──────────────────────────────────────────────────────────

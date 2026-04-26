@@ -301,6 +301,9 @@ enum TemplatesSubcommand {
         /// Skip all confirmation prompts (accept defaults)
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Scaffold a new fledge template
     Create {
@@ -324,6 +327,9 @@ enum TemplatesSubcommand {
         /// Skip all interactive prompts (accept defaults)
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Validate a template or directory of templates
     Validate {
@@ -338,7 +344,11 @@ enum TemplatesSubcommand {
         json: bool,
     },
     /// List available templates
-    List,
+    List {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Search GitHub for community templates (fledge-template topic)
     Search {
         /// Keyword to filter results
@@ -370,6 +380,9 @@ enum TemplatesSubcommand {
         /// Skip all confirmation prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -565,7 +578,11 @@ enum LaneSubcommand {
         json: bool,
     },
     /// Add default lanes to fledge.toml
-    Init,
+    Init {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Search GitHub for community lanes
     Search {
         /// Keyword to filter results
@@ -584,6 +601,9 @@ enum LaneSubcommand {
         /// Skip all confirmation prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Publish lanes to GitHub
     Publish {
@@ -602,6 +622,9 @@ enum LaneSubcommand {
         /// Skip all confirmation prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Scaffold a new lane repo
     Create {
@@ -616,6 +639,9 @@ enum LaneSubcommand {
         /// Skip all interactive prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Validate lane definitions in fledge.toml
     Validate {
@@ -702,6 +728,9 @@ enum PluginSubcommand {
         /// Skip all confirmation prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Scaffold a new plugin
     Create {
@@ -716,6 +745,9 @@ enum PluginSubcommand {
         /// Skip all interactive prompts
         #[arg(short, long)]
         yes: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Validate a plugin manifest
     Validate {
@@ -880,7 +912,7 @@ fn run() -> Result<()> {
                     json,
                 },
                 LaneSubcommand::List { json } => lanes::LaneAction::List { json },
-                LaneSubcommand::Init => lanes::LaneAction::Init,
+                LaneSubcommand::Init { json } => lanes::LaneAction::Init { json },
                 LaneSubcommand::Search {
                     query,
                     author,
@@ -890,30 +922,36 @@ fn run() -> Result<()> {
                     author,
                     json,
                 },
-                LaneSubcommand::Import { source, yes } => lanes::LaneAction::Import { source, yes },
+                LaneSubcommand::Import { source, yes, json } => {
+                    lanes::LaneAction::Import { source, yes, json }
+                }
                 LaneSubcommand::Publish {
                     path,
                     org,
                     private,
                     description,
                     yes,
+                    json,
                 } => lanes::LaneAction::Publish {
                     path,
                     org,
                     private,
                     description,
                     yes,
+                    json,
                 },
                 LaneSubcommand::Create {
                     name,
                     output,
                     description,
                     yes,
+                    json,
                 } => lanes::LaneAction::Create {
                     name,
                     output,
                     description,
                     yes,
+                    json,
                 },
                 LaneSubcommand::Validate { path, strict, json } => {
                     lanes::LaneAction::Validate { path, strict, json }
@@ -985,23 +1023,27 @@ fn run() -> Result<()> {
                     private,
                     description,
                     yes,
+                    json,
                 } => plugin::PluginAction::Publish {
                     path,
                     org,
                     private,
                     description,
                     yes,
+                    json,
                 },
                 PluginSubcommand::Create {
                     name,
                     output,
                     description,
                     yes,
+                    json,
                 } => plugin::PluginAction::Create {
                     name,
                     output,
                     description,
                     yes,
+                    json,
                 },
                 PluginSubcommand::Validate { path, strict, json } => {
                     plugin::PluginAction::Validate { path, strict, json }
@@ -1125,6 +1167,7 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
             refresh,
             dry_run,
             yes,
+            json,
         } => {
             init::run(init::InitOptions {
                 name,
@@ -1137,6 +1180,7 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
                 refresh,
                 dry_run,
                 yes,
+                json,
             })?;
         }
         TemplatesSubcommand::Create {
@@ -1147,6 +1191,7 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
             hooks,
             prompts,
             yes,
+            json,
         } => {
             create_template::run(create_template::CreateTemplateOptions {
                 name,
@@ -1156,13 +1201,14 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
                 hooks,
                 prompts,
                 yes,
+                json,
             })?;
         }
         TemplatesSubcommand::Validate { path, strict, json } => {
             validate::run(validate::ValidateOptions { path, strict, json })?;
         }
-        TemplatesSubcommand::List => {
-            list_templates()?;
+        TemplatesSubcommand::List { json } => {
+            list_templates(json)?;
         }
         TemplatesSubcommand::Search {
             query,
@@ -1178,8 +1224,16 @@ fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
             private,
             description,
             yes,
+            json,
         } => {
-            publish_template(&path, org.as_deref(), private, description.as_deref(), yes)?;
+            publish_template(
+                &path,
+                org.as_deref(),
+                private,
+                description.as_deref(),
+                yes,
+                json,
+            )?;
         }
     }
     Ok(())
@@ -1375,7 +1429,7 @@ fn install_completions(shell: Option<Shell>) -> Result<()> {
     Ok(())
 }
 
-fn list_templates() -> Result<()> {
+fn list_templates(json: bool) -> Result<()> {
     let config = config::Config::load()?;
     let extra_paths = config.extra_template_paths();
     let token = config.github_token();
@@ -1386,7 +1440,44 @@ fn list_templates() -> Result<()> {
     )?;
 
     if available.is_empty() {
+        if json {
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "templates": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
+            return Ok(());
+        }
         anyhow::bail!("No templates found. Configure template sources via `fledge config add templates.repos <owner/repo>`, add templates to the templates/ directory, or set templates.paths via `fledge config add templates.paths <path>`.");
+    }
+
+    if json {
+        let entries: Vec<serde_json::Value> = available
+            .iter()
+            .map(|t| {
+                let source = if t.source.is_some() {
+                    "remote"
+                } else if t
+                    .path
+                    .starts_with(std::env::current_dir().unwrap_or_default())
+                {
+                    "local"
+                } else {
+                    "builtin"
+                };
+                serde_json::json!({
+                    "name": t.name,
+                    "path": t.path.display().to_string(),
+                    "source": source,
+                })
+            })
+            .collect();
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "templates": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+        return Ok(());
     }
 
     println!("{}", style("Available templates:").bold());
@@ -1503,6 +1594,7 @@ fn publish_template(
     private: bool,
     description: Option<&str>,
     yes: bool,
+    json: bool,
 ) -> Result<()> {
     use anyhow::Context as _;
     let yes = yes || utils::is_non_interactive();
@@ -1517,7 +1609,6 @@ fn publish_template(
         .canonicalize()
         .with_context(|| format!("Directory not found: {}", path.display()))?;
 
-    // Validate the template before publishing — same gate `fledge templates validate` uses.
     validate::run(validate::ValidateOptions {
         path: path.clone(),
         strict: false,
@@ -1536,19 +1627,21 @@ fn publish_template(
         None => publish::get_authenticated_user(&token)?,
     };
 
-    println!(
-        "{} Publishing template as {}/{}",
-        style("➡️").cyan().bold(),
-        style(&owner).green(),
-        style(&repo_name).green()
-    );
+    if !json {
+        println!(
+            "{} Publishing template as {}/{}",
+            style("➡️").cyan().bold(),
+            style(&owner).green(),
+            style(&repo_name).green()
+        );
+    }
 
     let sp = spinner::Spinner::start("Checking repository:");
     let repo_exists = publish::check_repo_exists(&owner, &repo_name, &token)?;
     sp.finish();
 
     if repo_exists {
-        if !yes {
+        if !yes && !json {
             utils::require_interactive("yes")?;
             let confirm =
                 dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
@@ -1567,37 +1660,58 @@ fn publish_template(
         let sp = spinner::Spinner::start("Creating repository:");
         publish::create_github_repo(&repo_name, desc, private, org, &token)?;
         sp.finish();
-        println!(
-            "  {} Created repository {}/{}",
-            style("✅").green().bold(),
-            owner,
-            repo_name
-        );
+        if !json {
+            println!(
+                "  {} Created repository {}/{}",
+                style("✅").green().bold(),
+                owner,
+                repo_name
+            );
+        }
     }
 
     let sp = spinner::Spinner::start("Setting repository topics:");
     publish::set_repo_topic(&owner, &repo_name, "fledge-template", &token)?;
     sp.finish();
-    println!(
-        "  {} Set {} topic",
-        style("✅").green().bold(),
-        style("fledge-template").cyan()
-    );
+    if !json {
+        println!(
+            "  {} Set {} topic",
+            style("✅").green().bold(),
+            style("fledge-template").cyan()
+        );
+    }
 
     let sp = spinner::Spinner::start("Pushing template files:");
     publish::push_directory(&path, &owner, &repo_name, &token)?;
     sp.finish();
-    println!("  {} Pushed template files", style("✅").green().bold());
 
-    println!(
-        "\n{} Published! Use with:\n\n  {}",
-        style("✅").green().bold(),
-        style(format!(
-            "fledge templates init --template {}/{}",
-            owner, repo_name
-        ))
-        .cyan()
-    );
+    if json {
+        let visibility = if private { "private" } else { "public" };
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "publish",
+            "repo": {
+                "owner": owner,
+                "name": repo_name,
+                "url": format!("https://github.com/{}/{}", owner, repo_name),
+            },
+            "visibility": visibility,
+            "validated": true,
+            "templates_published": 1,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!("  {} Pushed template files", style("✅").green().bold());
+        println!(
+            "\n{} Published! Use with:\n\n  {}",
+            style("✅").green().bold(),
+            style(format!(
+                "fledge templates init --template {}/{}",
+                owner, repo_name
+            ))
+            .cyan()
+        );
+    }
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 ---
 module: init
-version: 7
+version: 8
 status: active
 files:
   - src/init.rs
@@ -52,6 +52,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 4. Directory is created before template rendering begins
 5. `.fledge/meta.toml` is written after rendering, before git init, recording template source and file hashes for future `fledge update`
 6. If the template does not include a `fledge.toml`, one is generated from auto-detected project type defaults
+7. `templates init --json` emits `{schema_version: 1, action: "init", project: {path, name}, template: {name, source, ref?}, variables_used: {...}, files_created: [...], hooks_run: [...]}`. In JSON mode, interactive prompts are suppressed (yes=true) and progress messages are gated.
 
 ## Behavioral Examples
 

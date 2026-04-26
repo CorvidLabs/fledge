@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 10
+version: 11
 status: active
 files:
   - src/lanes.rs
@@ -107,6 +107,10 @@ steps = ["deps-audit", "license-check", "security-scan"]
 8. `--dry-run` prints the execution plan without running anything
 9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
+11. `lanes init --json` emits `{schema_version: 1, action: "init", project_type, lanes_added: [...], file: "fledge.toml"}`
+12. `lanes import --json` emits `{schema_version: 1, action: "import", source, imported: [...], skipped: [...], file: ".fledge/lanes/<owner>-<repo>.toml"}`. In JSON mode, interactive prompts are suppressed (yes=true).
+13. `lanes publish --json` emits `{schema_version: 1, action: "publish", repo: {owner, name, url}, visibility, lanes_published: N}`
+14. `lanes create --json` emits `{schema_version: 1, action: "create", path, name, description, files_created: [...]}`
 
 ## Behavioral Examples
 

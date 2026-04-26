@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 13
+version: 14
 status: active
 files:
   - src/plugin.rs
@@ -170,6 +170,8 @@ pinned_ref = "v0.2.0"
 12. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
 13. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
 14. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
+15. `plugins create --json` emits `{schema_version: 1, action: "create", path, name, description, files_created: [...]}`. In JSON mode, interactive prompts are suppressed (yes=true).
+16. `plugins publish --json` emits `{schema_version: 1, action: "publish", repo: {owner, name, url}, visibility, validated: bool}`. In JSON mode, interactive prompts are suppressed.
 
 ## Behavioral Examples
 
