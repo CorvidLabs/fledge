@@ -60,8 +60,17 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge review --with-model <ref> --json` | Multi-model panel: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` | Comparing models on the same diff |
 | `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools don't count toward `failed`. | Debugging a broken setup |
 | `fledge changelog --json` | Structured changelog from tags | Generating release notes |
-| `fledge plugins list --json` | Installed plugins with trust tier, capabilities | Auditing plugin state |
-| `fledge lanes run <name> --json` | Lane execution results | Running the project's own CI pipeline |
+| `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` | Auditing plugin state |
+| `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, has_lifecycle_hooks, ...}]}` | Capability/hook audit |
+| `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, stars, trust_tier, ...}]}` | GitHub search for `fledge-plugin`-tagged repos |
+| `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` | CI gate before publish |
+| `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, steps, fail_fast, source?, trust_tier}]}` | Discovering lanes available to run |
+| `fledge lanes search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-lane`-tagged repos |
+| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps: [...], failures: [...]}` | Running the project's own CI pipeline |
+| `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` | CI gate before publish |
+| `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` | Listing available templates |
+| `fledge templates search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-template`-tagged repos |
+| `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
 | `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
 | `fledge work pr --json` | `{url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
 | `fledge work status --json` | `{branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
@@ -76,7 +85,9 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, …) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
-Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `templates publish`, `templates create`, `watch`, `release`, `ai use`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+Commands **without** `--json` (pretty output only): `init`, `spec init`, `spec new`, `run`, `watch`, `release`, `ai use`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+
+**Envelope contract.** Every `--json` output in the three pillars (plugins/lanes/templates) is shaped as `{schema_version: 1, <resource>: [...]}` or `{schema_version: 1, action: "<verb>", ...}` for mutating commands. Top-level `schema_version` is the version contract: new fields are additive within v1; field removal/retyping requires a new schema_version. **Always read `<resource>` (or named keys) — never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C of the 1.0 readiness work; pinning to fledge ≥ that release means you can rely on the envelope.
 
 ## Non-interactive mode (the one-switch answer)
 

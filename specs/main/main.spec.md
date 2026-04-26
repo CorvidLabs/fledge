@@ -1,6 +1,6 @@
 ---
 module: main
-version: 7
+version: 8
 status: active
 files:
   - src/main.rs
@@ -90,6 +90,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 8 | 2026-04-25 | **Breaking (tier C, #272):** `templates search --json` migrated from bare top-level array to `{schema_version: 1, results: [...]}`. Last-chance shape break before 1.0 |
 | 7 | 2026-04-25 | Tier-B `--json` envelopes for `templates list` and `templates publish` (handled inline in main.rs). Both emit `{schema_version: 1, ...}` matching the contract used by plugins/lanes/init/create_template. Failure paths still exit non-zero. Closes the gap where `templates list --json` previously errored with "unexpected argument" (#271) |
 | 5 | 2026-04-23 | Add `llm` to depends_on for the provider abstraction that powers `fledge ask` and `fledge review`. No new top-level command; dispatch changes are localized to the Ask/Review variants. |
 | 4 | 2026-04-23 | Add `fledge introspect` command that dumps the clap command tree as JSON or a pretty listing. Closes the "how does an agent learn the command surface?" gap. |

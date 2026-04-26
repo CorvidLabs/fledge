@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Schema-versioned `--json` envelope** across every public-surface JSON output in plugins, lanes, and templates. Each output is now a JSON object with a top-level `schema_version: 1` field. Tier B (#271) added `--json` to commands that didn't have it; this entry tracks tier C (#272), the breaking migration for the ones that did.
+
+### Changed (BREAKING)
+
+- **`--json` outputs in plugins/lanes/templates wrapped in `schema_version` envelope** (#272). The following commands previously returned a top-level JSON array; they now return a JSON object with the array under a named key. **Update any `jq` paths in your scripts.**
+
+  | Command | Before | After |
+  |---|---|---|
+  | `fledge plugins list --json` | `[…]` | `{schema_version: 1, plugins: […]}` |
+  | `fledge plugins audit --json` | `[…]` | `{schema_version: 1, audit: […]}` |
+  | `fledge plugins search --json` | `[…]` | `{schema_version: 1, results: […]}` |
+  | `fledge plugins validate --json` | `{path, plugin_name, errors, warnings}` | adds `schema_version: 1` (additive) |
+  | `fledge lanes list --json` | `[…]` | `{schema_version: 1, lanes: […]}` |
+  | `fledge lanes search --json` | `[…]` | `{schema_version: 1, results: […]}` |
+  | `fledge lanes run --json` | `{lane, success, …}` | adds `schema_version: 1` (additive) |
+  | `fledge lanes validate --json` | `{path, lane_count, errors, warnings}` | adds `schema_version: 1` (additive) |
+  | `fledge templates search --json` | `[…]` | `{schema_version: 1, results: […]}` |
+  | `fledge templates validate --json` | `[{report}, …]` | `{schema_version: 1, reports: […]}` |
+
+  **Migration:** scripts using `jq '.[]'` against any of the above need to update to `jq '.<resource>[]'` — `.plugins[]`, `.audit[]`, `.results[]`, `.lanes[]`, `.reports[]`. The named key is fully discoverable from the command-to-resource mapping above.
+
+  **Why now.** `schema_version` cannot be added to a top-level array additively. Doing this in 0.x is the *last* time it's free; once 1.0 ships, the top-level shape is frozen and a future migration would require a major version bump. The matching `schema_version: 1` field on already-object outputs (validate / lane run) is purely additive — no script breakage there.
+
+  **Future evolution.** Within `schema_version: 1`, new fields are additive — consumers must ignore unknown keys. Removing or retyping a field bumps `schema_version` to `2`.
+
+### Spec bumps
+
+- `plugin` v14 → v15
+- `lanes` v11 → v12
+- `main` v7 → v8
+- `validate` v1 → v2
+
 ## [v0.15.3] - 2026-04-25
 
 **Dogfooding-driven patch.** Two real bugs hit while shipping `fledge-plugin-github` v0.2.0 — both fixed in this release. Plus a sweep of the docs that had drifted past v0.15.2 and a per-spec test-file split.

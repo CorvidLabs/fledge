@@ -294,7 +294,11 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
                 entry
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "lanes": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -566,6 +570,7 @@ fn execute_lane_json(
     let success = failures.is_empty();
 
     let output = serde_json::json!({
+        "schema_version": 1,
         "lane": lane_name,
         "description": lane.description.as_deref().unwrap_or(""),
         "total_steps": total_steps,
@@ -924,7 +929,11 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
 
     if results.is_empty() {
         if json {
-            println!("[]");
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "results": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
                 "{} No community lanes found{}.",
@@ -953,7 +962,11 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&entries)?);
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "results": entries,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
 
@@ -1566,7 +1579,15 @@ fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()> {
 
 fn print_lane_report(report: &LaneValidationReport, strict: bool, json: bool) -> Result<()> {
     if json {
-        println!("{}", serde_json::to_string_pretty(report)?);
+        // Wrap with schema_version envelope (matches lanes list/run/search shape).
+        let mut value = serde_json::to_value(report)?;
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert(
+                "schema_version".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(1)),
+            );
+        }
+        println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         println!(
             "{} {} — valid ({} lanes)",

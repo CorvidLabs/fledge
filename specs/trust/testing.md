@@ -55,9 +55,9 @@ fledge plugins list          # expect yellow [unverified]
 fledge plugins search deploy
 fledge search rust           # templates also show tier
 
-# JSON output uses lowercase labels
-fledge plugins list --json | jq '.[].trust_tier'
-# -> "official" / "unverified"
+# JSON output uses lowercase labels (post-tier-C envelope: .plugins[])
+fledge plugins list --json | jq '.plugins[].trust_tier'
+# -> "official" / "team" / "unverified"
 ```
 
 ### Regression Watch

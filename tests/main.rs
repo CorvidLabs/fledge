@@ -646,9 +646,10 @@ fn cli_plugin_list_json() {
     let output = run_fledge(&["plugin", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Should be valid JSON (empty array or object)
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array() || parsed.is_object());
+    // Post-tier-C envelope: {schema_version: 1, plugins: [...]}
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["plugins"].is_array());
 }
 
 #[test]
@@ -1094,12 +1095,13 @@ steps = [{ parallel = ["check", "build"] }, "test"]
     let output = run_fledge_in(tmp.path(), &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
-    // 9. Lane list JSON
+    // 9. Lane list JSON (post-tier-C envelope: {schema_version: 1, lanes: [...]})
     let output = run_fledge_in(tmp.path(), &["lane", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.as_array().unwrap().len() >= 3);
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["lanes"].as_array().unwrap().len() >= 3);
 
     // 10. Doctor in this dir
     let output = run_fledge_in(tmp.path(), &["doctor"]);
