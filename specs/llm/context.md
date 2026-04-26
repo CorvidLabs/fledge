@@ -31,7 +31,17 @@ The abstraction point is deliberately small — one trait method, two impls — 
 - `src/ask.rs` and `src/review.rs` — see how the trait plugs in
 - `src/doctor.rs` `check_ai` — reachability probe and active-provider display
 
+## 1.0 Provider Contract
+
+For the 1.0 release, the two in-tree provider implementations are pinned to the following transports:
+
+- **`ProviderKind::Claude`** — shells out to the `claude` CLI. Authentication, model selection, and rate-limiting are delegated entirely to that binary. Requires the `claude` CLI on `PATH` (verified by `doctor`).
+- **`ProviderKind::Ollama`** — HTTP against an Ollama-compatible endpoint (local daemon, Cloud / Turbo, self-hosted, OpenAI-compatible mirrors). Uses `/api/generate` for single-shot prompts.
+
+These are the *guaranteed* transports for `provider = "claude"` and `provider = "ollama"`. Adding a new transport for an existing kind (e.g. an Anthropic-API-direct path for Claude) would be a breaking change to user expectations and is out of scope for v1. Adding a *new* `ProviderKind` variant (e.g. `ProviderKind::Anthropic`, `ProviderKind::OpenAI`) is purely additive and may happen at any point in the 1.x line.
+
+This contract is what plugin authors, agents, and dotfile config can rely on — no silent transport swaps under an existing provider name.
+
 ## Open Questions
 
-- Should the `ClaudeProvider` eventually hit Anthropic's API directly instead of shelling out to `claude`? Would remove the external-process dependency but requires key management. No signal yet that it's needed.
 - Should Ollama's `/api/chat` (multi-turn) be used instead of `/api/generate` (single-prompt)? Our prompts are already single-shot, so `/api/generate` is the correct match. Keep.

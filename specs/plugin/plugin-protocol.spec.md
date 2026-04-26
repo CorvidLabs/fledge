@@ -1,6 +1,6 @@
 ---
 module: plugin-protocol
-version: 1
+version: 2
 status: active
 files:
   - src/protocol.rs
@@ -537,9 +537,23 @@ send "{\"type\":\"output\",\"text\":\"Deploying to $TARGET\\n\"}"
 ### Consumed By
 - `plugin` — run_plugin dispatches to protocol mode when declared
 
+## Compatibility Policy
+
+`fledge-v1` is the stable plugin contract that ships with fledge 1.0. To protect plugin authors from breakage, the following rules govern how the protocol may evolve within the `v1` major version:
+
+1. **Additive-only.** New outbound and inbound message `type` values may be added at any time. Plugins and fledge already ignore unknown `type` values per invariant 8 (forward-compatible).
+2. **No field removal.** A field present in any `v1` message — outbound or inbound — must continue to be emitted. Removing a field is a breaking change and requires a new protocol version (`fledge-v2`).
+3. **No field retyping.** A field's JSON type (string, number, bool, object, array) is locked once shipped. Widening a string into an object, or a single value into an array, is a breaking change.
+4. **New optional fields are allowed.** Both fledge and plugins must tolerate unknown fields on known message types — additive optional fields do not require a protocol bump.
+5. **New capabilities are additive.** Adding a new entry to `[capabilities]` (e.g. `network`, `secrets`) does not break existing plugins, which simply leave the new capability undeclared and continue to work.
+6. **Wire format frozen.** NDJSON over stdin/stdout, stderr never captured, `id` field for request/response correlation — these are part of the v1 contract and cannot change without a new protocol version.
+7. **Init message guaranteed.** The `init` message will always be the first message sent and will always include `protocol`, `args`, `project`, `plugin`, `fledge`, and `capabilities` fields. Sub-fields within those objects are additive-only.
+
+Any change that cannot be expressed under these rules requires a new `protocol = "fledge-v2"` declaration; `v1` plugins continue to run against `v1` semantics indefinitely.
+
 ## Future Considerations
 
-These are not part of v1 but are designed to be additive:
+These are not part of v1 but are designed to be additive under the policy above:
 
 - **Streaming output** (`output` with `stream: true`) — for long-running commands that emit output over time
 - **Plugin-to-plugin calls** (`invoke` type) — let plugins call other plugins through fledge
@@ -553,3 +567,4 @@ These are not part of v1 but are designed to be additive:
 |---------|------|---------|
 | 1 | 2026-04-22 | Initial spec — fledge-v1 protocol with prompt, confirm, select, progress, log, output, store/load, exec, metadata |
 | 1.1 | 2026-04-22 | Add capability manifest — exec, store, metadata capabilities with enforcement and install-time approval |
+| 2 | 2026-04-25 | Add Compatibility Policy — `fledge-v1` is additive-only within v1; field removal or retyping requires `fledge-v2`. Locks the 1.0 plugin contract |
