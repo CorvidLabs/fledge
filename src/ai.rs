@@ -93,7 +93,17 @@ fn status(json: bool) -> Result<()> {
     };
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "ai_status",
+            "provider": report.provider,
+            "provider_source": report.provider_source,
+            "model": report.model,
+            "model_source": report.model_source,
+            "host": report.host,
+            "host_source": report.host_source,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 
@@ -208,12 +218,6 @@ struct OllamaTagDetails {
 const CLAUDE_WELL_KNOWN_MODELS: &[&str] = &["opus-4.7", "opus-4.6", "sonnet-4.6", "haiku-4.5"];
 
 #[derive(Debug, Serialize)]
-struct ModelsReport {
-    provider: String,
-    models: Vec<ModelEntry>,
-}
-
-#[derive(Debug, Serialize)]
 struct ModelEntry {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -262,11 +266,13 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
     };
 
     if json {
-        let report = ModelsReport {
-            provider: kind.as_str().to_string(),
-            models: filtered,
-        };
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "ai_models",
+            "provider": kind.as_str(),
+            "models": filtered,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 

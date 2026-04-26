@@ -38,6 +38,8 @@ pub fn run(options: AskOptions) -> Result<()> {
 
     if options.json {
         let response = serde_json::json!({
+            "schema_version": 1,
+            "action": "ask",
             "question": options.question,
             "answer": answer.trim(),
             "provider": provider.kind().as_str(),

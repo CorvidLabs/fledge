@@ -70,7 +70,12 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
     };
 
     if opts.json {
-        println!("{}", serde_json::to_string_pretty(&releases)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "changelog",
+            "releases": releases,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 

@@ -18,12 +18,15 @@ fn cli_changelog_json_valid() {
     let output = run_fledge(&["changelog", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // When there are no tags, changelog prints a plain-text hint instead of JSON
-    if stdout.trim().is_empty() || !stdout.trim_start().starts_with('[') {
+    // When there are no tags, changelog prints a plain-text hint instead of JSON.
+    if stdout.trim().is_empty() || !stdout.trim_start().starts_with('{') {
         return;
     }
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array() || parsed.is_object());
+    // Tier-D envelope: {schema_version: 1, action: "changelog", releases: [...]}
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("changelog"));
+    assert!(parsed["releases"].is_array());
 }
 
 #[test]

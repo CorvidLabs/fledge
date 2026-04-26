@@ -182,6 +182,62 @@ fn cli_run_list_shows_tasks() {
 }
 
 #[test]
+fn cli_run_init_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "--init", "--json"]);
+    assert!(
+        output.status.success(),
+        "run --init --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+        panic!("run --init --json must emit JSON, got prose. error: {e}\nstdout:\n{stdout}")
+    });
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("run_init"));
+    assert_eq!(parsed["file"].as_str(), Some("fledge.toml"));
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_run_list_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nbuild = \"echo build\"\ntest = \"echo test\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "--list", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("run_list"));
+    assert!(parsed["tasks"].is_array());
+    assert_eq!(parsed["tasks"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn cli_run_task_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nhello = \"echo hi\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "hello", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("run_task"));
+    assert_eq!(parsed["task"].as_str(), Some("hello"));
+    assert_eq!(parsed["success"].as_bool(), Some(true));
+    assert_eq!(parsed["exit_code"].as_i64(), Some(0));
+}
+
+#[test]
 fn cli_run_unknown_task_fails() {
     let tmp = TempDir::new().unwrap();
     fs::write(

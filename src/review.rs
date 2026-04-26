@@ -277,6 +277,8 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         // Single-model invocations keep the legacy top-level `review` /
         // `provider` / `model` fields so existing scripts don't break.
         let mut response = serde_json::json!({
+            "schema_version": 1,
+            "action": "review",
             "base": base,
             "file": options.file,
             "diff_stats": diff_stats,

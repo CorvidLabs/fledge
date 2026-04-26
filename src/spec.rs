@@ -385,6 +385,8 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     if !specs_dir.exists() {
         if json {
             let payload = serde_json::json!({
+                "schema_version": 1,
+                "action": "spec_check",
                 "specs": [],
                 "totals": { "checked": 0, "errors": 0, "warnings": 0 },
                 "strict": strict,
@@ -429,6 +431,8 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     if results.is_empty() {
         if json {
             let payload = serde_json::json!({
+                "schema_version": 1,
+                "action": "spec_check",
                 "specs": [],
                 "totals": { "checked": 0, "errors": 0, "warnings": 0 },
                 "strict": strict,
@@ -482,6 +486,8 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
             })
             .collect();
         let payload = serde_json::json!({
+            "schema_version": 1,
+            "action": "spec_check",
             "specs": specs_payload,
             "totals": {
                 "checked": results.len(),
@@ -806,7 +812,12 @@ fn list_specs(root: &Path, json: bool) -> Result<()> {
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&summaries)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "spec_list",
+            "specs": summaries,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 
@@ -914,7 +925,12 @@ fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
     };
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&detail)?);
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "spec_show",
+            "spec": detail,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
 

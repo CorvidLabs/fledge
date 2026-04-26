@@ -18,6 +18,8 @@ fn cli_doctor_json_valid() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("doctor"));
     assert!(parsed["sections"].is_array());
     assert!(parsed["passed"].is_number());
     assert!(parsed["failed"].is_number());
