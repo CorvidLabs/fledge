@@ -1,6 +1,6 @@
 # GitHub Integration
 
-GitHub-specific browsing — `checks`, `issues`, `prs` — moved out of core in v0.15. They live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. **Branch and PR creation stays in core** via `fledge work`.
+GitHub-specific browsing, `checks`, `issues`, `prs`, moved out of core in v0.15. They live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. **Branch and PR creation stays in core** via `fledge work`.
 
 ```bash
 fledge plugins install --defaults
@@ -22,7 +22,7 @@ fledge config set github.token "ghp_..."
 
 Token priority: `FLEDGE_GITHUB_TOKEN` > `GITHUB_TOKEN` > config file > `gh auth token` (GitHub CLI).
 
-If you have the GitHub CLI (`gh`) installed and authenticated, fledge uses it automatically as a fallback — no extra config needed.
+If you have the GitHub CLI (`gh`) installed and authenticated, fledge uses it automatically as a fallback, no extra config needed.
 
 The repo is auto-detected from your git remote.
 
@@ -107,7 +107,7 @@ fledge review                    # single-model review (active config)
 fledge review --base develop     # diff against develop
 fledge review --file src/main.rs # just one file
 fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
-                                 # multi-model panel — same diff, parallel critiques
+                                 # multi-model panel, same diff, parallel critiques
 ```
 
 ## AI Q&A (core)

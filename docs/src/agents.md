@@ -1,25 +1,25 @@
-# Using fledge with AI Agents
+# Using fledge with AI agents
 
-fledge is designed for humans *and* AI agents to use the same CLI. Human-facing docs (the rest of this book) cover *why* and *how-to*; this page covers what an agent specifically needs to know.
+fledge is designed for humans *and* AI agents to use the same CLI. Human-facing docs (the rest of this book) cover *why* and *how-to*. This page covers what an agent specifically needs to know.
 
-The canonical short-form entrypoint for agents lives at [AGENTS.md](https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md) in the repository root. This page is its long-form companion — point agents to either.
+The canonical short-form entrypoint for agents lives at [AGENTS.md](https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md) in the repository root. This page is its long-form companion. Point agents to either.
 
 ## Design principles
 
 fledge follows four rules that make it agent-usable:
 
 1. **Structured output is first-class.** Most commands accept `--json`. Never require an agent to screen-scrape.
-2. **Non-interactive bypass exists.** Every command that prompts has a `--yes` flag. Silence isn't success — it's a hung process.
+2. **Non-interactive bypass exists.** Every command that prompts has a `--yes` flag. Silence isn't success, it's a hung process.
 3. **Specs are machine-readable.** `fledge spec list --json` and `fledge spec show <name> --json` let agents discover the codebase's intent without filesystem spelunking.
-4. **The whole CLI introspects.** `fledge introspect --json` dumps the entire command tree (incl. plugin commands) — one call teaches an agent the surface.
+4. **The whole CLI introspects.** `fledge introspect --json` dumps the entire command tree (incl. plugin commands). One call teaches an agent the surface.
 
 ## First-time agent setup
 
 ```bash
 export FLEDGE_NON_INTERACTIVE=1               # silence every prompt
 fledge plugins install --defaults             # github + deps + metrics
-fledge introspect --json                       # full command tree (incl. plugin commands)
-fledge spec list --json                        # semantic project map
+fledge introspect --json                      # full command tree (incl. plugin commands)
+fledge spec list --json                       # semantic project map
 ```
 
 After those four lines, every command and flag is discoverable as data.
@@ -28,46 +28,53 @@ After those four lines, every command and flag is discoverable as data.
 
 ### Core commands with `--json`
 
+Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
+
+- Pillar list/query commands use `{schema_version: 1, <resource>: [...]}`.
+- Cross-cutting commands use `{schema_version: 1, action: "<verb>", ...}`.
+
 | Command | Payload shape |
 |---------|---------------|
-| `fledge introspect --json` | Full command tree: `{name, about, aliases, args, subcommands}` recursively |
-| `fledge spec list --json` | Array of `{name, version, status, path, files, section_count, required_sections, companions, missing_companions}` |
-| `fledge spec show <name> --json` | `{name, version, status, path, files, sections, companions, missing_companions}` |
-| `fledge spec check --json` | `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}` |
-| `fledge ai status --json` | `{provider, model, host, *_source}` — what's active and the source of each value |
-| `fledge ai models --provider {claude,ollama} --json` | Live model list |
-| `fledge ask "..." --json` | `{question, answer, provider, model}` |
-| `fledge review --json` | Single-model: `{base, file, diff_stats, spec_context, review, provider, model, reviews:[...]}`. With `--with-model`: `reviews:[{provider, model, elapsed_seconds, review|error}, ...]` |
-| `fledge doctor --json` | `{sections:[{name, checks:[...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools render dimmed and aren't counted toward `failed`. |
-| `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` |
-| `fledge templates search --json` | `{schema_version: 1, results: [{owner, name, description, stars, url, topics, trust_tier}]}` |
-| `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` |
-| `fledge changelog --json` | Structured changelog |
-| `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` |
-| `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, ...}]}` |
-| `fledge plugins search --json` | `{schema_version: 1, results: [...]}` (same shape as templates search) |
+| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args, subcommands}` recursively |
+| `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [...]}` |
+| `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {...}}` |
+| `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs, totals, strict}` |
+| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}`. What's active and the source of each value |
+| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}` |
+| `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` |
+| `fledge review --json` | `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review?, provider?, model?}`. Top-level `review`/`provider`/`model` only when panel size is 1 |
+| `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [...], passed, failed}`. Four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational, missing tools render dimmed and aren't counted toward `failed` |
+| `fledge changelog --json` | `{schema_version: 1, action: "changelog", releases: [{tag, date, sections}]}` |
+| `fledge run --list --json` | `{schema_version: 1, action: "run_list", auto_detected, tasks: [...]}` |
+| `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` |
+| `fledge templates list --json` | `{schema_version: 1, templates: [...]}` |
+| `fledge templates search --json` | `{schema_version: 1, results: [...]}` |
+| `fledge templates validate --json` | `{schema_version: 1, reports: [...]}` |
+| `fledge plugins list --json` | `{schema_version: 1, plugins: [...]}` |
+| `fledge plugins audit --json` | `{schema_version: 1, audit: [...]}` |
+| `fledge plugins search --json` | `{schema_version: 1, results: [...]}` |
 | `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` |
-| `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, steps, fail_fast, source?, trust_tier}]}` |
-| `fledge lanes search --json` | `{schema_version: 1, results: [...]}` (same shape as templates search) |
-| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps: [...], failures: [...]}` |
+| `fledge lanes list --json` | `{schema_version: 1, lanes: [...]}` |
+| `fledge lanes search --json` | `{schema_version: 1, results: [...]}` |
+| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps, failures}` |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` |
-| `fledge work start <name> --json` | `{branch, base, type, prefix, issue}` |
-| `fledge work pr --json` | `{url, number, title, head, base, draft}` (suppresses preview/confirm) |
-| `fledge work status --json` | `{branch, default, ahead, behind, pr}` |
+| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` |
+| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}` |
+| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}` |
 
 ### Plugin commands with `--json` (after `plugins install --defaults`)
 
 | Command | Plugin |
 |---------|--------|
-| `fledge checks --json` | `fledge-plugin-github` — raw GitHub API `check-runs` response |
+| `fledge checks --json` | `fledge-plugin-github`. Raw GitHub API `check-runs` response |
 | `fledge issues --json` / `issues view <n> --json` | `fledge-plugin-github` |
 | `fledge prs --json` / `prs view <n> --json` | `fledge-plugin-github` |
-| `fledge deps --json` | `fledge-plugin-deps` — ecosystem tool's native output |
-| `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` — LOC summary (tokei linked as a library), per-file churn, test/source ratio |
+| `fledge deps --json` | `fledge-plugin-deps`. Ecosystem tool's native output |
+| `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics`. LOC summary (tokei linked as a library), per-file churn, test/source ratio |
 
 ### Non-interactive mode (one switch)
 
-Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes: every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
+Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes. Every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
 
 Commands covered: `fledge templates init`, `fledge templates create`, `fledge templates publish`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`.
 

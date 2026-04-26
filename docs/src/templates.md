@@ -95,13 +95,13 @@ fledge templates search --limit 50
 fledge templates search --author CorvidLabs
 ```
 
-Templates on GitHub use the `fledge-template` topic — that's what `templates search` filters on. Add `--json` for an array of `{owner, name, description, stars, url, topics, trust_tier}`.
+Templates on GitHub use the `fledge-template` topic, that's what `templates search` filters on. Add `--json` for an array of `{owner, name, description, stars, url, topics, trust_tier}`.
 
 (Through v0.15.1, this lived in `fledge-plugin-templates-remote` as `fledge templates-search`. It was re-absorbed into core in v0.15.2 as a proper `templates` subcommand.)
 
 ## Project Metadata
 
-`fledge templates init` writes `.fledge/meta.toml` to your project root: template source, variable values used during scaffolding, and per-file SHA hashes. This metadata is informational — fledge no longer ships a built-in re-application command (the v0.14 `fledge update` was removed in v0.15 because bidirectional template sync is a known complexity trap; see the [v0.15 changelog](./changelog.md)).
+`fledge templates init` writes `.fledge/meta.toml` to your project root: template source, variable values used during scaffolding, and per-file SHA hashes. This metadata is informational, fledge no longer ships a built-in re-application command (the v0.14 `fledge update` was removed in v0.15 because bidirectional template sync is a known complexity trap; see the [v0.15 changelog](./changelog.md)).
 
 A community plugin can ingest the same `.fledge/meta.toml` if you want template-update tooling.
 

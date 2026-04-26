@@ -29,7 +29,7 @@ fledge review --json                # machine-readable output
 
 ### Multi-model review (v0.15+)
 
-Pass `--with-model <provider[:model]>` to add another slot to the panel. All slots run in parallel against the same diff and spec context. Per-slot failures don't abort the panel — you still get reviews from the models that succeeded.
+Pass `--with-model <provider[:model]>` to add another slot to the panel. All slots run in parallel against the same diff and spec context. Per-slot failures don't abort the panel, you still get reviews from the models that succeeded.
 
 ```bash
 # Active config + two cloud models
@@ -46,10 +46,10 @@ The text output prints cyan banner headers between model slots and includes per-
 
 ### What it reviews
 
-- **Bugs and logic errors** — off-by-ones, null handling, race conditions
-- **Security issues** — injection, auth bypasses, secret exposure
-- **Performance** — unnecessary allocations, N+1 queries, blocking calls
-- **Clarity** — confusing naming, missing context, overly complex code
+- **Bugs and logic errors**: off-by-ones, null handling, race conditions
+- **Security issues**: injection, auth bypasses, secret exposure
+- **Performance**: unnecessary allocations, N+1 queries, blocking calls
+- **Clarity**: confusing naming, missing context, overly complex code
 
 ### How it works
 
@@ -62,9 +62,9 @@ The prompt is explicitly constrained: the model reviews *only the diff*, treats 
 
 ### Tips
 
-- Review early and often — smaller diffs get better reviews
+- Review early and often, smaller diffs get better reviews
 - Use `--file` to focus on the module you're least confident about
-- Multi-model is most useful for high-stakes diffs — the models often disagree, and the disagreement is the signal
+- Multi-model is most useful for high-stakes diffs. The models often disagree, and the disagreement is the signal
 - Pipe `--json` output into other tools for automated quality gates
 - Combine with lanes for pre-PR automation:
 
@@ -90,7 +90,7 @@ fledge ask --no-spec-index "quick Rust syntax question"
 
 ### Spec-awareness
 
-By default `fledge ask` injects a compact one-line-per-module index of every spec into the prompt. The model can cite specific specs in its answer even when you didn't mention them. Pass `--with-specs <names>` to include the *full* spec + companion files (requirements, context, tasks, testing) for one or more modules — useful for *why* questions where the design rationale matters.
+By default `fledge ask` injects a compact one-line-per-module index of every spec into the prompt. The model can cite specific specs in its answer even when you didn't mention them. Pass `--with-specs <names>` to include the *full* spec + companion files (requirements, context, tasks, testing) for one or more modules, useful for *why* questions where the design rationale matters.
 
 ### Good questions to ask
 
@@ -111,7 +111,7 @@ REVIEW=$(fledge review --json)
 
 ## Plugin: code metrics
 
-`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). v0.15.2 rewrote the plugin in Rust — it now links `tokei` as a library (no separate `cargo install tokei` step) and emits stable plugin-owned JSON shapes. Install:
+`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). v0.15.2 rewrote the plugin in Rust, it now links `tokei` as a library (no separate `cargo install tokei` step) and emits stable plugin-owned JSON shapes. Install:
 
 ```bash
 fledge plugins install --defaults
@@ -122,7 +122,7 @@ fledge metrics --tests           # test/source ratio
 
 ## Plugin: dependency health
 
-`fledge deps` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) — auto-detects the ecosystem from lockfiles and shells out to the canonical tool. Install:
+`fledge deps` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps), auto-detects the ecosystem from lockfiles and shells out to the canonical tool. Install:
 
 ```bash
 fledge plugins install --defaults

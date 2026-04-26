@@ -190,7 +190,7 @@ Each entry registers a subcommand.
 
 ### [capabilities]
 
-Capabilities declare what protocol features the plugin uses. All default to `false` — plugins must opt in.
+Capabilities declare what protocol features the plugin uses. All default to `false`. Plugins must opt in.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -215,7 +215,7 @@ Plugins without a `[capabilities]` section work fine but cannot use exec, store,
 
 ### [hooks]
 
-Hooks fire in response to fledge lifecycle events. All fields are optional — plugins only participate in events they declare.
+Hooks fire in response to fledge lifecycle events. All fields are optional, plugins only participate in events they declare.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -283,7 +283,7 @@ The token is resolved in order:
 3. `github.token` in `~/.config/fledge/config.toml`
 4. `gh auth token` (GitHub CLI fallback)
 
-If you have the GitHub CLI (`gh`) installed and authenticated, fledge will use it automatically — no extra config needed.
+If you have the GitHub CLI (`gh`) installed and authenticated, fledge will use it automatically. No extra config needed.
 
 ```bash
 # Set via config
@@ -296,17 +296,17 @@ export GITHUB_TOKEN=ghp_your_token_here
 gh auth login
 ```
 
-The token is injected via git's `http.extraheader` mechanism — it is never embedded in remote URLs or persisted to disk.
+The token is injected via git's `http.extraheader` mechanism. It is never embedded in remote URLs or persisted to disk.
 
 ## Security Model
 
 Plugins run arbitrary code. Fledge has several safeguards:
 
-- **Install confirmation** — before cloning, fledge warns that plugins can execute arbitrary code and asks for confirmation. Pass `--force` to skip (CI/scripts).
-- **Plugin name validation** — repo names are checked for path traversal (`..`, `/`, `\`, leading `.`)
-- **Command name validation** — command names that become symlinks (`fledge-<name>`) are validated to reject `/`, `\`, `.` prefix, `-` prefix, and null bytes
-- **Binary path traversal** — plugin binaries cannot reference paths outside the plugin directory (both sides are canonicalized to defeat symlink bypass)
-- **Hook execution** — hooks run as direct processes, not via a shell. This prevents shell injection but means pipes, redirects, and shell expansions won't work in hook commands. Use a wrapper script if you need shell features.
+- **Install confirmation**: before cloning, fledge warns that plugins can execute arbitrary code and asks for confirmation. Pass `--force` to skip (CI/scripts).
+- **Plugin name validation**: repo names are checked for path traversal (`..`, `/`, `\`, leading `.`)
+- **Command name validation**: command names that become symlinks (`fledge-<name>`) are validated to reject `/`, `\`, `.` prefix, `-` prefix, and null bytes
+- **Binary path traversal**: plugin binaries cannot reference paths outside the plugin directory (both sides are canonicalized to defeat symlink bypass)
+- **Hook execution**: hooks run as direct processes, not via a shell. This prevents shell injection but means pipes, redirects, and shell expansions won't work in hook commands. Use a wrapper script if you need shell features.
 
 ### CI / Non-Interactive Usage
 

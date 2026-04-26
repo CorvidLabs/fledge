@@ -1,6 +1,6 @@
 # CLI Reference
 
-Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`) ship as separate repos — install them with `fledge plugins install --defaults`.
+Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`) ship as separate repos, install them with `fledge plugins install --defaults`.
 
 **Jump to:**
 [Scaffold](#scaffold-templates) |
@@ -283,9 +283,9 @@ fledge config <get|set|unset|add|remove|list|path|init>
 | `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
 
 **Valid keys:**
-- `defaults.author`, `defaults.github_org`, `defaults.license`
+- `defaults.author`: `defaults.github_org`, `defaults.license`
 - `github.token`
-- `templates.paths`, `templates.repos`
+- `templates.paths`: `templates.repos`
 
 ```bash
 fledge config set defaults.author "Leif"
@@ -299,10 +299,10 @@ fledge config list
 
 Diagnose fledge's environment health. Reports four sections:
 
-- **`fledge`** — config loads cleanly
-- **`Git`** — git installed; repo initialized; remote configured; working tree clean
-- **`AI`** — Claude CLI present, Ollama reachable, the active provider's status
-- **`Toolchains`** *(informational)* — probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals — a Python project shouldn't fail because Swift is absent.
+- **`fledge`**: config loads cleanly
+- **`Git`**: git installed; repo initialized; remote configured; working tree clean
+- **`AI`**: Claude CLI present, Ollama reachable, the active provider's status
+- **`Toolchains`** *(informational)*: probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals. A Python project shouldn't fail because Swift is absent.
 
 ```
 fledge doctor [OPTIONS]
@@ -327,28 +327,28 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Subcommands:**
 
-- `start <name>` — Create a work branch
-- `pr` — Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
-- `status` — Current branch + PR status
+- `start <name>`: Create a work branch
+- `pr`: Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
+- `status`: Current branch + PR status
 
 **Options for `work start`:**
 
-- `-t, --branch-type <TYPE>` — Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
-- `-i, --issue <NUMBER>` — Link to GitHub issue (prefixes branch name with issue number)
-- `--prefix <PREFIX>` — Override branch prefix entirely (e.g. `user/leif`)
-- `--base <BRANCH>` — Base branch [default: `main`]
+- `-t, --branch-type <TYPE>`: Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-i, --issue <NUMBER>`: Link to GitHub issue (prefixes branch name with issue number)
+- `--prefix <PREFIX>`: Override branch prefix entirely (e.g. `user/leif`)
+- `--base <BRANCH>`: Base branch [default: `main`]
 
 **Options for `work pr`:**
 
-- `-t, --title <TITLE>` — PR title (auto-generated from branch name if omitted)
-- `-b, --body <BODY>` — Literal body (always wins over `--ai` and the heuristic generator)
-- `--draft` — Create as a draft PR
-- `--base <BASE>` — Target base branch
-- `-y, --yes` — Skip the preview/confirmation prompt (agent-friendly)
-- `--ai` — Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
-- `--provider {claude,ollama}` — Override AI provider for `--ai`
-- `--model <MODEL>` — Override AI model for `--ai`
-- `--json` — Emit `{url, number, title, head, base, draft}`; suppresses the preview
+- `-t, --title <TITLE>`: PR title (auto-generated from branch name if omitted)
+- `-b, --body <BODY>`: Literal body (always wins over `--ai` and the heuristic generator)
+- `--draft`: Create as a draft PR
+- `--base <BASE>`: Target base branch
+- `-y, --yes`: Skip the preview/confirmation prompt (agent-friendly)
+- `--ai`: Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
+- `--provider {claude,ollama}`: Override AI provider for `--ai`
+- `--model <MODEL>`: Override AI model for `--ai`
+- `--json`: Emit `{url, number, title, head, base, draft}`; suppresses the preview
 
 **Behavior:** `work pr` shows a styled preview block (title, head→base, draft tag, full body) before any push or `gh pr create` call, then prompts y/n. Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. `--yes` skips the prompt; `--json` skips it as well. Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging.
 
@@ -392,7 +392,7 @@ fledge spec <check|init|new> [OPTIONS]
 
 ### fledge ai `<action>`
 
-Manage AI provider and model selection — the daily-driver way to switch between Claude and any Ollama-speaking endpoint.
+Manage AI provider and model selection, the daily-driver way to switch between Claude and any Ollama-speaking endpoint.
 
 ```
 fledge ai <status|models|use> [OPTIONS]
@@ -400,9 +400,9 @@ fledge ai <status|models|use> [OPTIONS]
 
 **Subcommands:**
 
-- `status [--json]` — Show active provider, model, and host with a `(from env / config / default)` source tag on each value
-- `models --provider {claude,ollama} [--search <q>] [--json]` — Live list of available models (Ollama hits `/api/tags`; Claude returns curated aliases)
-- `use [provider] [model]` — Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`
+- `status [--json]`: Show active provider, model, and host with a `(from env / config / default)` source tag on each value
+- `models --provider {claude,ollama} [--search <q>] [--json]`: Live list of available models (Ollama hits `/api/tags`; Claude returns curated aliases)
+- `use [provider] [model]`: Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`
 
 ```bash
 fledge ai status                                  # who's active and why
@@ -422,17 +422,17 @@ fledge review [OPTIONS]
 ```
 
 **Options:**
-- `-b, --base <BRANCH>` — Base branch [default: auto-detect]
-- `-f, --file <FILE>` — Review a single file
-- `-m, --model <MODEL>` — Override the active provider's model
-- `--provider {claude,ollama}` — Override the active provider
-- `-p, --prompt <TEXT>` — Append a custom focus prompt
-- `--format {summary,checklist,inline}` — Output format [default: summary]
-- `--with-specs <NAMES>` — Force-include specs (comma-separated, repeatable)
-- `--no-auto-specs` — Skip auto-detection of relevant specs
-- `--with-model <REF>` — Add another model to the review panel (repeatable, comma-separated). Format: `provider[:model]`
-- `--no-active` — Drop the active config from the panel; only run explicit `--with-model` entries
-- `--json` — JSON output (single-model: legacy fields + `reviews[]`; multi-model: `reviews[]` only)
+- `-b, --base <BRANCH>`: Base branch [default: auto-detect]
+- `-f, --file <FILE>`: Review a single file
+- `-m, --model <MODEL>`: Override the active provider's model
+- `--provider {claude,ollama}`: Override the active provider
+- `-p, --prompt <TEXT>`: Append a custom focus prompt
+- `--format {summary,checklist,inline}`: Output format [default: summary]
+- `--with-specs <NAMES>`: Force-include specs (comma-separated, repeatable)
+- `--no-auto-specs`: Skip auto-detection of relevant specs
+- `--with-model <REF>`: Add another model to the review panel (repeatable, comma-separated). Format: `provider[:model]`
+- `--no-active`: Drop the active config from the panel; only run explicit `--with-model` entries
+- `--json`: JSON output (single-model: legacy fields + `reviews[]`; multi-model: `reviews[]` only)
 
 **Default branch detection:** When `--base` is not specified, fledge tries `git symbolic-ref refs/remotes/origin/HEAD`, then checks for `main` and `master` branches. Falls back to `main` if none exist.
 
@@ -448,18 +448,18 @@ fledge review --json | jq '.reviews[].provider'
 
 ### fledge ask `<question>`
 
-Ask about your codebase. Spec-aware by default — the active model gets a compact index of every spec injected into the prompt.
+Ask about your codebase. Spec-aware by default, the active model gets a compact index of every spec injected into the prompt.
 
 ```
 fledge ask <question> [OPTIONS]
 ```
 
 **Options:**
-- `-m, --model <MODEL>` — Override active model
-- `--provider {claude,ollama}` — Override active provider
-- `--with-specs <NAMES>` — Include full spec + companions for these modules (comma-separated; pass `all` for everything)
-- `--no-spec-index` — Skip the spec-index injection (for off-topic questions)
-- `--json` — JSON output
+- `-m, --model <MODEL>`: Override active model
+- `--provider {claude,ollama}`: Override active provider
+- `--with-specs <NAMES>`: Include full spec + companions for these modules (comma-separated; pass `all` for everything)
+- `--no-spec-index`: Skip the spec-index injection (for off-topic questions)
+- `--json`: JSON output
 
 ```bash
 fledge ask "how does the template rendering work?"
@@ -517,16 +517,16 @@ fledge issues view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` — `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>` — Max results [default: `20`]
-- `--label <LABEL>` — Filter by label
+- `-s, --state <STATE>`: `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>`: Max results [default: `20`]
+- `--label <LABEL>`: Filter by label
 - `--json`
 
 ---
 
 ### fledge prs `[view <number>]` (plugin)
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only — `fledge work pr` creates them).
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only, `fledge work pr` creates them).
 
 ```
 fledge prs [list] [OPTIONS]
@@ -534,8 +534,8 @@ fledge prs view <number> [OPTIONS]
 ```
 
 **Options:**
-- `-s, --state <STATE>` — `open`, `closed`, `merged`, `all` [default: `open`]
-- `-l, --limit <N>` — Max results [default: `20`]
+- `-s, --state <STATE>`: `open`, `closed`, `merged`, `all` [default: `open`]
+- `-l, --limit <N>`: Max results [default: `20`]
 - `--json`
 
 ---
@@ -549,7 +549,7 @@ fledge checks [OPTIONS]
 ```
 
 **Options:**
-- `-b, --branch <BRANCH>` — Branch to check [default: current]
+- `-b, --branch <BRANCH>`: Branch to check [default: current]
 - `--json`
 
 ---
@@ -579,7 +579,7 @@ fledge changelog --tag v0.7.0
 
 ### fledge release `<bump>`
 
-Cut a release — bump version, generate changelog, create a git tag, and optionally push.
+Cut a release, bump version, generate changelog, create a git tag, and optionally push.
 
 ```
 fledge release <bump> [OPTIONS]
@@ -620,15 +620,15 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate> [
 
 **Subcommands:**
 
-- `install <source[@ref]> | --defaults` — Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit. **`--defaults`** installs the curated plugin set (`fledge-plugin-{github,deps,metrics}`) in one shot.
-- `remove <name>` — Uninstall a plugin
-- `update [name]` — Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
-- `list` — Show installed plugins (includes pinned version info)
-- `search [query]` — Find plugins on GitHub (`--author`, `--limit`)
-- `run <name> [args...]` — Run a plugin command
-- `publish [path]` — Publish a plugin to GitHub (`--org`, `--private`, `--description`)
-- `create <name>` — Scaffold a new plugin (`--output`, `--description`, `--yes`)
-- `validate [path]` — Validate a plugin manifest (`--strict`, `--json`)
+- `install <source[@ref]> | --defaults`: Install from GitHub (`owner/repo[@tag]` or URL). `--force` to reinstall. Use `@ref` to pin to a tag, branch, or commit. **`--defaults`** installs the curated plugin set (`fledge-plugin-{github,deps,metrics}`) in one shot.
+- `remove <name>`: Uninstall a plugin
+- `update [name]`: Update plugins. Unpinned plugins get `git pull`; pinned plugins check for newer tags.
+- `list`: Show installed plugins (includes pinned version info)
+- `search [query]`: Find plugins on GitHub (`--author`, `--limit`)
+- `run <name> [args...]`: Run a plugin command
+- `publish [path]`: Publish a plugin to GitHub (`--org`, `--private`, `--description`)
+- `create <name>`: Scaffold a new plugin (`--output`, `--description`, `--yes`)
+- `validate [path]`: Validate a plugin manifest (`--strict`, `--json`)
 
 `--json` works with `list` and `search`.
 
