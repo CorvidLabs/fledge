@@ -1443,6 +1443,7 @@ fn list_templates(json: bool) -> Result<()> {
         if json {
             let result = serde_json::json!({
                 "schema_version": 1,
+                "action": "list",
                 "templates": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1472,6 +1473,7 @@ fn list_templates(json: bool) -> Result<()> {
             .collect();
         let result = serde_json::json!({
             "schema_version": 1,
+            "action": "list",
             "templates": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1634,9 +1636,15 @@ fn publish_template(
         );
     }
 
-    let sp = spinner::Spinner::start("Checking repository:");
+    let sp = if !json {
+        Some(spinner::Spinner::start("Checking repository:"))
+    } else {
+        None
+    };
     let repo_exists = publish::check_repo_exists(&owner, &repo_name, &token)?;
-    sp.finish();
+    if let Some(sp) = sp {
+        sp.finish();
+    }
 
     if repo_exists {
         if !yes && !json {

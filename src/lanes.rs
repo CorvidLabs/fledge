@@ -1112,6 +1112,12 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
         imported_lanes.push(lane_name.clone());
     }
 
+    let import_warnings: Vec<&str> = if tier != crate::trust::TrustTier::Official {
+        vec!["unverified source — lanes can execute arbitrary commands on your system"]
+    } else {
+        vec![]
+    };
+
     if imported_lanes.is_empty() {
         if json {
             let output = serde_json::json!({
@@ -1120,7 +1126,8 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
                 "source": display_source,
                 "imported": [],
                 "skipped": skipped,
-                "file": null
+                "file": null,
+                "warnings": import_warnings,
             });
             println!("{}", serde_json::to_string_pretty(&output)?);
         } else {
@@ -1158,7 +1165,8 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
             "source": display_source,
             "imported": imported_lanes,
             "skipped": skipped,
-            "file": import_file
+            "file": import_file,
+            "warnings": import_warnings,
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {

@@ -836,6 +836,11 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
         }
     }
 
+    let warnings: Vec<&str> = if tier != TrustTier::Official {
+        vec!["unverified source — plugins can execute arbitrary code on your system"]
+    } else {
+        vec![]
+    };
     Ok(serde_json::json!({
         "name": entry.name,
         "source": entry.source,
@@ -844,6 +849,7 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
         "commands": entry.commands,
         "pinned_ref": entry.pinned_ref,
         "capabilities": entry.capabilities,
+        "warnings": warnings,
     }))
 }
 

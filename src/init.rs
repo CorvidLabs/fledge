@@ -168,7 +168,6 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
             "template": {
                 "name": template.name,
                 "source": template.source,
-                "ref": null,
             },
             "variables_used": variables.into_json(),
             "files_created": files_list,
@@ -339,6 +338,11 @@ fn run_remote(
             .iter()
             .map(|f| f.display().to_string())
             .collect();
+        let init_warnings: Vec<&str> = if tier != trust::TrustTier::Official {
+            vec!["unverified source — templates can include arbitrary files and post-create hooks"]
+        } else {
+            vec![]
+        };
         let output = serde_json::json!({
             "schema_version": 1,
             "action": "init",
@@ -354,6 +358,7 @@ fn run_remote(
             "variables_used": variables.into_json(),
             "files_created": files_list,
             "hooks_run": hooks_run,
+            "warnings": init_warnings,
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
         return Ok(());
