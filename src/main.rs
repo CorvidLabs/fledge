@@ -1429,9 +1429,7 @@ fn list_templates(json: bool) -> Result<()> {
         token.as_deref(),
     )?;
 
-    if available.is_empty() {
-        anyhow::bail!("No templates found. Configure template sources via `fledge config add templates.repos <owner/repo>`, add templates to the templates/ directory, or set templates.paths via `fledge config add templates.paths <path>`.");
-    }
+    let hint = "Configure template sources via `fledge config add templates.repos <owner/repo>`, add templates to the templates/ directory, or set templates.paths via `fledge config add templates.paths <path>`.";
 
     if json {
         let entries: Vec<serde_json::Value> = available
@@ -1451,11 +1449,20 @@ fn list_templates(json: bool) -> Result<()> {
                 })
             })
             .collect();
-        let result = serde_json::json!({
+        let mut result = serde_json::json!({
             "schema_version": 1,
             "templates": entries,
         });
+        if available.is_empty() {
+            result["hint"] = serde_json::Value::String(hint.to_string());
+        }
         println!("{}", serde_json::to_string_pretty(&result)?);
+    } else if available.is_empty() {
+        println!(
+            "{} No templates configured.\n\n  {}",
+            style("*").cyan().bold(),
+            style(hint).dim()
+        );
     } else {
         println!("{}", style("Available templates:").bold());
         for t in &available {
