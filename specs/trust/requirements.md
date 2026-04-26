@@ -10,7 +10,7 @@ spec: trust.spec.md
 ## Acceptance Criteria
 
 - `determine_trust_tier` classifies `CorvidLabs/*` sources as Official
-- `determine_trust_tier` classifies sources owned by a CorvidLabs team member (e.g. `0xLeif/*`) as Team
+- `determine_trust_tier` classifies sources owned by a human member of the CorvidLabs org (e.g. `0xLeif/*`) as Team
 - `determine_trust_tier` classifies all other sources as Unverified
 - Supports HTTPS URLs, SSH URLs, and `owner/repo` shorthand
 - `parse_source_ref` splits `source@ref` without false-splitting on credential `@` signs

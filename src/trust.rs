@@ -29,9 +29,13 @@ impl TrustTier {
 
 const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
 
-/// GitHub usernames whose personal repos classify as `Team`. Compared
-/// case-insensitively (GitHub treats `0xLeif` and `0xleif` as the same user).
-/// Adding a new member is a code change and requires a PR.
+/// GitHub usernames of human members of the CorvidLabs org. Their *personal*
+/// repos (e.g. `0xLeif/fledge-plugin-foo`) classify as `Team` — sources from
+/// the CorvidLabs org itself classify as `Official` via `OFFICIAL_ORGS` above.
+///
+/// Compared case-insensitively (GitHub treats `0xLeif` and `0xleif` as the
+/// same user). Adding or removing a member is a code change and requires a
+/// PR — there is no runtime configuration of this list.
 const TEAM_MEMBERS: &[&str] = &["0xLeif"];
 
 fn is_team_member(owner: &str) -> bool {

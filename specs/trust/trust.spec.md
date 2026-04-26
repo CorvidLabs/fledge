@@ -47,7 +47,7 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 ## Invariants
 
 1. `CorvidLabs` and `corvidlabs` are the only official orgs
-2. `TEAM_MEMBERS` is a hardcoded list of GitHub usernames whose personal repos classify as `Team`. The current list is `["0xLeif"]`. Membership is compared case-insensitively (`0xLeif` and `0xleif` both match)
+2. `TEAM_MEMBERS` is a hardcoded list of GitHub usernames belonging to **human members of the CorvidLabs org**; their *personal* repos classify as `Team` (sources from the org itself classify as `Official`). The current list is `["0xLeif"]`. Membership is compared case-insensitively (`0xLeif` and `0xleif` both match)
 3. Official tier takes precedence over Team — if an owner appears in both lists (defensive, should not happen), the source classifies as `Official`
 4. `determine_trust_tier` supports HTTPS URLs, SSH URLs, and `owner/repo` shorthand
 5. `parse_source_ref` does not split on `@` in credential URLs (e.g., `https://user:token@github.com/...`)
