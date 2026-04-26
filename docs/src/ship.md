@@ -33,7 +33,7 @@ The preview reads:
 
 ```
 ────────────────────────────────────────────────────────────
-Title: feat: work pr — auto body + preview + confirm
+Title: feat: work pr, auto body + preview + confirm
 Branch:  0xleif/feat/pr-preview-and-body → main
 
   ## Summary
@@ -46,7 +46,7 @@ Branch:  0xleif/feat/pr-preview-and-body → main
 ? Create this pull request? (Y/n)
 ```
 
-Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects — nothing is pushed.
+Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. Nothing is pushed.
 
 ## GitHub browsing (plugin)
 
@@ -81,7 +81,7 @@ fledge changelog --json
 
 ## Releases with `fledge release`
 
-Cut a release — bump the version, generate changelog, create an annotated git tag, and optionally push. Pure git, no GitHub-specific calls (the GitHub Releases UI object is created separately, e.g. via `gh release create`).
+Cut a release, bump the version, generate changelog, create an annotated git tag, and optionally push. Pure git, no GitHub-specific calls (the GitHub Releases UI object is created separately, e.g. via `gh release create`).
 
 ```bash
 fledge release patch                          # bump patch version
@@ -93,12 +93,12 @@ fledge release minor --allow-dirty            # release even with uncommitted ch
 ```
 
 **Options:**
-- `--dry-run` — Preview without making changes
-- `--no-tag` — Skip git tag
-- `--no-changelog` — Skip changelog generation
-- `--push` — Push commit and tag to remote
-- `--pre-lane <name>` — Run a lane before releasing (e.g. `ci`)
-- `--allow-dirty` — Allow uncommitted changes
+- `--dry-run`: Preview without making changes
+- `--no-tag`: Skip git tag
+- `--no-changelog`: Skip changelog generation
+- `--push`: Push commit and tag to remote
+- `--pre-lane <name>`: Run a lane before releasing (e.g. `ci`)
+- `--allow-dirty`: Allow uncommitted changes
 
 ## Typical flow
 

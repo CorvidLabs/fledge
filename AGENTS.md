@@ -1,47 +1,47 @@
-# AGENTS.md — fledge for AI agents
+# AGENTS.md
 
-This doc is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc.) using the `fledge` CLI alongside a human. Humans get `README.md` and `docs/`; agents get this one page.
+This page is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc.) using `fledge` alongside a human. Humans get `README.md` and `docs/`. Agents get this one page.
 
 ## What fledge is, in one paragraph
 
-`fledge` is a single-binary dev-lifecycle CLI (Rust). **Six pillars: scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`).** Anything else — GitHub-specific browsing, polyglot dep audits, code metrics, toolchain probes — is a plugin. Run `fledge plugins install --defaults` once to get the curated plugin set; you'll get back to feature parity with pre-v0.15 fledge.
+`fledge` is a single-binary dev-lifecycle CLI written in Rust. Six pillars: scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`). Anything else (GitHub-specific browsing, polyglot dep audits, code metrics, toolchain probes) is a plugin. Run `fledge plugins install --defaults` once for the curated set.
 
-If you are about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr create`, check first whether fledge has a wrapper — it usually does, and the wrapper often has `--json` and guardrails you want.
+If you're about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr create`, check first whether fledge has a wrapper. It usually does, and the wrapper has `--json` and guardrails.
 
-## First-time setup for an agent
+## First-time setup
 
 ```bash
 export FLEDGE_NON_INTERACTIVE=1               # silence every prompt
 fledge plugins install --defaults             # curated plugin set: github, deps, metrics
-fledge introspect --json                       # dump the full command tree (incl. plugin commands)
-fledge spec list --json                        # orient to the codebase via specs
+fledge introspect --json                      # full command tree (incl. plugin commands)
+fledge spec list --json                       # orient to the codebase via specs
 ```
 
-After those four lines, every command and every flag is discoverable as data.
+After those four lines every command and every flag is discoverable as data.
 
 ## Golden rules
 
-1. **Prefer fledge subcommands over raw tools** when wrapped. E.g. use `fledge work start` instead of `git checkout -b`, `fledge run test` instead of guessing `cargo test` vs `npm test`.
-2. **Always add `--json` when a command supports it** (see list below). Parse the JSON; do not screen-scrape pretty output.
-3. **Set `FLEDGE_NON_INTERACTIVE=1` once** in your shell, or pass `--non-interactive` (alias `--ni`) per invocation. Every command then treats confirmation prompts as `--yes`; prompts with no default bail with a clear error instead of blocking forever.
-4. **Check exit codes.** Non-zero means something failed, even if stdout looks fine.
-5. **Don't mutate without running `fledge lanes run pre-commit` first** — it's the project-defined quality gate.
+1. **Prefer fledge subcommands over raw tools** when wrapped. Use `fledge work start` instead of `git checkout -b`, `fledge run test` instead of guessing `cargo test` vs `npm test`.
+2. **Always add `--json` when a command supports it** (see list below). Parse the JSON. Do not screen-scrape pretty output.
+3. **Set `FLEDGE_NON_INTERACTIVE=1` once** in your shell, or pass `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts then behave as `--yes`. Prompts with no default bail with a clear error instead of blocking forever.
+4. **Check exit codes.** Non-zero means failed, even if stdout looks fine.
+5. **Run `fledge lanes run pre-commit` before mutating shared state.** It's the project-defined quality gate.
 
 ## Discover what fledge can do
 
 ```bash
-fledge introspect --json             # full command tree — every subcommand, every flag
+fledge introspect --json             # full command tree, every subcommand and flag
 fledge introspect                    # same, human-readable indented listing
 fledge --help                        # top-level command list (human text)
 fledge <cmd> --help                  # per-command flags
-fledge spec list --json              # all specs as a JSON array
+fledge spec list --json              # all specs as JSON
 fledge spec show <name> --json       # one spec's structure as JSON
 fledge plugins list --json           # what extensions are active
 ```
 
-`fledge introspect --json` is the right starting point for an agent that has never seen fledge before — it reveals the entire CLI surface (including plugin-installed commands) in one call.
+`fledge introspect --json` is the right starting point for an agent that has never seen fledge. It reveals the entire CLI surface (including plugin-installed commands) in one call.
 
-Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for *why* a module exists. When you need context beyond what the code shows, read the spec — particularly `specs/<name>/context.md` (design decisions) and `specs/<name>/requirements.md` (user stories).
+Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for *why* a module exists. When you need context beyond what the code shows, read the spec. Particularly `specs/<name>/context.md` (design decisions) and `specs/<name>/requirements.md` (user stories).
 
 ## Machine-readable surface (`--json`)
 
@@ -53,12 +53,12 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |
-| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}` — what's active and where each value came from | Verifying provider config before invoking the LLM |
-| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}` (Ollama hits `/api/tags`; Claude returns curated aliases) | Picking a specific model |
-| `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` from the active LLM provider over the codebase | Answering a question about the code |
-| `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review, provider, model}` (top-level `review`/`provider`/`model` only when panel size is 1) | Before opening a PR |
+| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}`. What's active and where each value came from | Verifying provider config before invoking the LLM |
+| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}`. Ollama hits `/api/tags`, Claude returns curated aliases | Picking a specific model |
+| `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` from the active LLM | Answering a question about the code |
+| `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review, provider, model}`. Top-level `review`/`provider`/`model` only when panel size is 1 | Before opening a PR |
 | `fledge review --with-model <ref> --json` | Multi-model panel: `{schema_version: 1, action: "review", base, ..., reviews: [{provider, model, elapsed_seconds, review|error}, ...]}` | Comparing models on the same diff |
-| `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [{name, checks: [...], informational}], passed, failed}` — four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational; missing tools don't count toward `failed`. | Debugging a broken setup |
+| `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [{name, checks: [...], informational}], passed, failed}`. Four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational, missing tools don't count toward `failed` | Debugging a broken setup |
 | `fledge changelog --json` | `{schema_version: 1, action: "changelog", releases: [{tag, date, sections}]}` | Generating release notes |
 | `fledge run --list --json` | `{schema_version: 1, action: "run_list", auto_detected, tasks: [...]}` | Discovering tasks defined in `fledge.toml` (or auto-detected) |
 | `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` | Running a task and capturing its output |
@@ -74,30 +74,30 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` | Listing available templates |
 | `fledge templates search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-template`-tagged repos |
 | `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
-| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` — branch name the agent just created | Branch scripting |
-| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}` — PR URL to report back | After agent finishes a task |
-| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}` — current state of the branch | Pre-action sanity check |
+| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. Branch name the agent just created | Branch scripting |
+| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}`. PR URL to report back | After agent finishes a task |
+| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}`. Current state of the branch | Pre-action sanity check |
 
 ### Plugin commands (after `plugins install --defaults`)
 
 | Command | Plugin | What you get |
 |---------|--------|-------------|
 | `fledge checks --json` | `fledge-plugin-github` | Raw GitHub API response of CI check-runs for a branch |
-| `fledge issues --json` / `fledge issues view <n> --json` | `fledge-plugin-github` | GitHub issues — list or one |
-| `fledge prs --json` / `fledge prs view <n> --json` | `fledge-plugin-github` | GitHub PRs — list or one |
-| `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, …) |
+| `fledge issues --json` / `fledge issues view <n> --json` | `fledge-plugin-github` | GitHub issues, list or one |
+| `fledge prs --json` / `fledge prs view <n> --json` | `fledge-plugin-github` | GitHub PRs, list or one |
+| `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, ...) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
-Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `release`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR — it's an accepted pattern.
+Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `release`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR. It's an accepted pattern.
 
-**Envelope contract.** Every `--json` output across fledge is shaped as `{schema_version: 1, ...}`. Two patterns coexist:
+**Envelope contract.** Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 
-- Pillar list/query commands (`plugins list`, `lanes list/run/search`, `templates list/search`, etc.) use `{schema_version: 1, <resource>: [...]}` — the resource key (`plugins`, `lanes`, `results`, `templates`) acts as the discriminator.
-- Cross-cutting commands (`doctor`, `run`, `ai`, `ask`, `changelog`, `work`, `spec`, `review`) use `{schema_version: 1, action: "<verb>", ...}` — the `action` string discriminates between commands sharing similar shapes.
+- Pillar list/query commands (`plugins list`, `lanes list/run/search`, `templates list/search`) use `{schema_version: 1, <resource>: [...]}`. The resource key (`plugins`, `lanes`, `results`, `templates`) acts as the discriminator.
+- Cross-cutting commands (`doctor`, `run`, `ai`, `ask`, `changelog`, `work`, `spec`, `review`) use `{schema_version: 1, action: "<verb>", ...}`. The `action` string discriminates between commands sharing similar shapes.
 
-Top-level `schema_version` is the version contract: new fields are additive within v1; field removal/retyping requires a new schema_version. **Always read `<resource>` (or `action` + named keys) — never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work; pinning to fledge ≥ 1.0 means you can rely on the envelope.
+Top-level `schema_version` is the version contract. New fields are additive within v1, field removal/retyping requires a new schema_version. **Always read `<resource>` (or `action` + named keys). Never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work. Pinning to fledge ≥ 1.0 means you can rely on the envelope.
 
-## Non-interactive mode (the one-switch answer)
+## Non-interactive mode
 
 Set this once at the top of your shell session and forget about it:
 
@@ -113,7 +113,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 |---------|--------|
 | `fledge templates init` | Skip template-variable prompts (uses detected defaults) |
 | `fledge templates create` | Skip name/description/type prompts |
-| `fledge ai use` | Errors with a clear "pass provider+model" message — no hang |
+| `fledge ai use` | Errors with a clear "pass provider+model" message. No hang |
 | `fledge work pr` | Skip the preview/confirm prompt (treat as --yes) |
 | `fledge plugins install` | Skip trust-tier and capability-grant prompts |
 | `fledge plugins publish` | Skip confirmations |
@@ -121,21 +121,21 @@ When non-interactive mode is active, every command that would otherwise prompt b
 | `fledge lanes publish` | Skip description prompt |
 | `fledge templates publish` | Skip the confirmation prompt |
 
-Prompts that have **no sensible default** (e.g. `fledge ai use` being asked to pick a provider when none was specified) fail fast with a clear error naming the flag to pass instead. No silent hangs.
+Prompts with no sensible default (`fledge ai use` being asked to pick a provider when none was specified) fail fast with a clear error naming the flag to pass instead. No silent hangs.
 
-You can still pass `--yes`/`--force` per command if you prefer — they and `FLEDGE_NON_INTERACTIVE` compose.
+You can still pass `--yes`/`--force` per command if you prefer. They and `FLEDGE_NON_INTERACTIVE` compose.
 
 ## AI commands
 
 `fledge ai`, `fledge ask`, and `fledge review` go through a provider abstraction. Two providers ship in core:
 
-- **Claude** (default) — shells out to the `claude` CLI, which must be installed and authenticated on the host.
-- **Ollama** — HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key.
+- **Claude** (default). Shells out to the `claude` CLI, which must be installed and authenticated on the host.
+- **Ollama**. HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key.
 
-### Picking a provider — three ways
+### Picking a provider, three ways
 
 ```bash
-# 1. fledge ai use (writes to ~/.config/fledge/config.toml — persists)
+# 1. fledge ai use (writes to ~/.config/fledge/config.toml, persists)
 fledge ai use ollama qwen3-coder:480b-cloud
 fledge ai use claude opus-4.7
 fledge ai status                           # show the active triplet + source of each value
@@ -156,7 +156,7 @@ Precedence: CLI flag > env var > config > default (`claude`).
 
 ### `fledge ask` is spec-aware by default
 
-**Every `fledge ask` invocation automatically prepends a compact index of all specs** (one line per module: name, version, status, files, first-paragraph purpose). The model can then cite specific specs in its answer even when the user didn't mention them.
+Every `fledge ask` invocation automatically prepends a compact index of all specs (one line per module: name, version, status, files, first-paragraph purpose). The model can then cite specific specs in its answer even when the user didn't mention them.
 
 ```bash
 fledge ask "how does work build branch names?" --json
@@ -165,7 +165,7 @@ fledge ask --with-specs all "which modules touch GitHub?"
 fledge ask --no-spec-index "quick Rust syntax question"
 ```
 
-### `fledge review` — single or multi-model
+### `fledge review`, single or multi-model
 
 `fledge review` auto-detects which modules a diff touches (via each spec's frontmatter `files:` and any edits under `specs/<name>/`) and includes their full spec + companion files as context.
 
@@ -177,7 +177,7 @@ fledge review --with-specs plugin --json
 fledge review --no-auto-specs --json
 fledge review --model opus --format checklist --json
 
-# Multi-model panel — same diff, parallel critiques
+# Multi-model panel: same diff, parallel critiques
 fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
 fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud --json
 ```
@@ -230,33 +230,33 @@ cat specs/<name>/testing.md      # test plan
 
 ## Exit codes
 
-- `0` — success
-- `1` — user-facing error (bad input, missing file, validation failure, prompt required in non-TTY)
+- `0` success
+- `1` user-facing error (bad input, missing file, validation failure, prompt required in non-TTY)
 - Non-zero exit also fires on `fledge spec check` errors, `fledge lanes run` failures, and `fledge review` errors
 
 ## Project-specific quality gate
 
 This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 
-- `fledge lanes run pre-commit` — fmt + lint + test + spec-check (required before opening a PR)
-- `fledge lanes run ci` — full CI pipeline locally
-- `fledge lanes run check` — quick parallel fmt+lint then test
-- `fledge spec check` — always run if you touched `src/` or `specs/`
+- `fledge lanes run pre-commit`. fmt + lint + test + spec-check (required before opening a PR)
+- `fledge lanes run ci`. Full CI pipeline locally
+- `fledge lanes run check`. Quick parallel fmt+lint then test
+- `fledge spec check`. Always run if you touched `src/` or `specs/`
 
 ## When things go wrong
 
 - **A command hung**: you probably skipped `--yes` or `--force`. Cancel, re-run with the bypass flag (or set `FLEDGE_NON_INTERACTIVE=1` once).
 - **`fledge ask` / `review` errored with auth**: the host's `claude` CLI isn't set up, or your Ollama config is wrong. Run `fledge ai status` to see what fledge thinks is active, then `fledge doctor` to verify the provider is reachable.
-- **`fledge spec check` fails**: read the error — almost always a missing section, missing source file, or unknown status. Don't "fix" it by editing the validator.
+- **`fledge spec check` fails**: read the error. Almost always a missing section, missing source file, or unknown status. Don't "fix" it by editing the validator.
 - **`fledge work pr` fails on push**: you're probably not on a remote-tracking branch. Re-run after `git push -u origin HEAD` or debug with `fledge work status`.
-- **`fledge checks` (or any command) says "unrecognized subcommand"**: the corresponding plugin isn't installed. Run `fledge plugins install --defaults` to get the curated set in one shot.
-- **A multi-model `fledge review` panel had one slot fail**: that slot's `error` field has the cause; the other slots' reviews are still valid. `--with-model` is fault-tolerant by design.
+- **`fledge checks` (or any command) says "unrecognized subcommand"**: the corresponding plugin isn't installed. Run `fledge plugins install --defaults` for the curated set.
+- **A multi-model `fledge review` panel had one slot fail**: that slot's `error` field has the cause, the other slots' reviews are still valid. `--with-model` is fault-tolerant by design.
 
 ## Extending fledge for better agent support
 
 If a command you want doesn't expose `--json`, or a workflow isn't automatable, the right fix is:
 1. Open an issue tagged `agent-surface`
-2. Update the corresponding spec (`specs/<module>/<module>.spec.md`) — bump the version, add the new flag to Public API + Behavioral Examples
-3. Implement + `fledge lanes run pre-commit` + PR
+2. Update the corresponding spec (`specs/<module>/<module>.spec.md`). Bump the version, add the new flag to Public API + Behavioral Examples
+3. Implement, run `fledge lanes run pre-commit`, open the PR
 
 The project explicitly welcomes agent-surface improvements.

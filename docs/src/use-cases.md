@@ -34,7 +34,7 @@ Get a second opinion on your changes without waiting for a human reviewer:
 fledge review                                           # review with active model
 fledge review --file src/auth.rs                        # focus on one file
 fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
-                                                        # multi-model panel — parallel critiques
+                                                        # multi-model panel, parallel critiques
 ```
 
 ### Branch workflow without remembering git incantations
@@ -76,7 +76,7 @@ fledge plugins install your-org/fledge-plugin-lint-config
 
 ```bash
 fledge plugins install --defaults    # one-line install of fledge-plugin-deps + 2 others
-fledge deps --outdated --audit       # Works for Rust, Node, Python — auto-detected from lockfiles
+fledge deps --outdated --audit       # Works for Rust, Node, Python, auto-detected from lockfiles
 ```
 
 ## For AI Agents
@@ -89,7 +89,7 @@ AI agents benefit from fledge's structured output and consistent interface. Ever
 fledge introspect --json         # full command tree (incl. plugin commands)
 fledge lanes list --json         # what pipelines exist
 fledge plugins list --json       # what extensions are installed
-fledge spec list --json          # spec index — semantic project map
+fledge spec list --json          # spec index, semantic project map
 fledge ai status --json          # what model is active and where each value came from
 
 # After fledge plugins install --defaults:
@@ -101,13 +101,13 @@ fledge checks --json             # CI status as data
 ### Autonomous code-review-and-fix loops
 
 An AI agent can:
-1. `fledge work start fix-issue-42 --issue 42` — create a branch linked to an issue
+1. `fledge work start fix-issue-42 --issue 42`, create a branch linked to an issue
 2. Make changes
-3. `fledge lanes run ci` — run the full pipeline
+3. `fledge lanes run ci`, run the full pipeline
 4. `fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json`
-   — multi-model review for higher-confidence findings
+  , multi-model review for higher-confidence findings
 5. Fix issues that multiple models agree on
-6. `fledge work pr --ai --yes` — AI-drafted PR with no prompt needed
+6. `fledge work pr --ai --yes`, AI-drafted PR with no prompt needed
 
 ### Plugin protocol for agent tooling
 
@@ -119,11 +119,11 @@ The fledge-v1 plugin protocol is designed for programmatic interaction. Plugins 
 {"type": "metadata", "id": "3"}
 ```
 
-Agents get project context, run commands, and persist state — all through a structured protocol instead of shell scraping.
+Agents get project context, run commands, and persist state, all through a structured protocol instead of shell scraping.
 
 ## Plugin Ideas
 
-These are plugins we think would be valuable. Community contributions welcome — see [Building a Plugin](./plugins.md#building-a-plugin) to get started.
+These are plugins we think would be valuable. Community contributions welcome, see [Building a Plugin](./plugins.md#building-a-plugin) to get started.
 
 ### Developer Experience
 
@@ -133,7 +133,7 @@ These are plugins we think would be valuable. Community contributions welcome �
 | `fledge-plugin-docker` | Build, push, compose up/down integrated with lanes | `exec`, `metadata` |
 | `fledge-plugin-notify` | Send Slack/Discord/webhook notifications on lane completion or failure | `exec`, `store` |
 | `fledge-plugin-bench` | Run benchmarks, track history, flag regressions | `exec`, `store`, `metadata` |
-| `fledge-plugin-db` | Database migration workflow — up, down, status, seed | `exec`, `store` |
+| `fledge-plugin-db` | Database migration workflow, up, down, status, seed | `exec`, `store` |
 | `fledge-plugin-todo` | Extract TODOs/FIXMEs from source, track them, warn on stale ones | `metadata` |
 
 ### Quality & Security
@@ -278,7 +278,7 @@ fledge context
 fledge context --json
 ```
 
-This gives any AI agent — Claude Code, Cursor, Copilot — instant project understanding without scanning every file.
+This gives any AI agent, Claude Code, Cursor, Copilot, instant project understanding without scanning every file.
 
 ## Combining Plugins with Lanes
 
@@ -293,7 +293,7 @@ steps = [
   { run = "fledge coverage --min 80" },
   { run = "fledge secrets --scan" },
   { run = "fledge deploy --target staging" },
-  { run = "fledge notify 'Staging deploy complete — ready for review'" },
+  { run = "fledge notify 'Staging deploy complete, ready for review'" },
 ]
 
 [lanes.audit]

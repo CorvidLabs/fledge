@@ -118,7 +118,7 @@ steps = ["lint", "test", "security-check", "license-check"]
 Every step prints its elapsed time, and the lane summary shows total time:
 
 ```
-▶️ Lane: ci — Full CI pipeline
+▶️ Lane: ci, Full CI pipeline
   ▶️ Running parallel: fmt, lint
   ✔ Step 1 done (245ms)
   ▶️ Running task: test
@@ -263,7 +263,7 @@ fledge lanes publish ./my-lanes      # push to GitHub (validates first)
 
 1. Create a repo with a `fledge.toml` containing your lanes and tasks (or use `fledge lanes create`)
 2. Validate with `fledge lanes validate` (publish does this automatically)
-3. Publish with `fledge lanes publish` — sets the `fledge-lane` topic automatically
+3. Publish with `fledge lanes publish` (sets the `fledge-lane` topic automatically)
 4. Others can find it with `fledge lanes search` and import it
 
 ### Importing Lanes
@@ -282,10 +282,10 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 ## Related
 
-- [Configuration](./configuration.md) — global config, GitHub tokens
-- [Plugins](./plugins.md) — extend fledge with community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
-- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
+- [Configuration](./configuration.md), global config, GitHub tokens
+- [Plugins](./plugins.md), extend fledge with community commands, use plugins in lanes
+- [CLI Reference](./cli-reference.md), full `fledge lanes` subcommand reference
+- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes), official community lane collection
 
 ## Tips
 
