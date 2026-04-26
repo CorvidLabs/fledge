@@ -1412,7 +1412,9 @@ edition = "2021"
 
         let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.2.0").unwrap();
-        let result = with_cwd(&tmp_path, || generate_changelog_entry(&tmp_path, &version, false));
+        let result = with_cwd(&tmp_path, || {
+            generate_changelog_entry(&tmp_path, &version, false)
+        });
 
         assert!(result.is_ok());
         let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
