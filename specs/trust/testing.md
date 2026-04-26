@@ -13,6 +13,12 @@ Located in `src/trust.rs` under `#[cfg(test)] mod tests`:
 - `official_ssh_url` — `git@github.com:CorvidLabs/repo.git` classifies as `Official`
 - `official_with_ref` — `CorvidLabs/repo@v1.0.0` classifies as `Official` (ref stripped before classification)
 - `official_case_insensitive` — lowercase `corvidlabs/repo` classifies as `Official`
+- `team_member_shorthand` — `0xLeif/repo` classifies as `Team`
+- `team_member_case_insensitive` — `0xleif/repo` classifies as `Team` (GitHub usernames compare case-insensitively)
+- `team_member_full_url` — `https://github.com/0xLeif/repo` classifies as `Team`
+- `team_member_with_ref` — `0xLeif/repo@v0.1.0` classifies as `Team` (ref stripped before classification)
+- `owner_based_team` — `determine_trust_tier_from_owner("0xLeif")` and `"0xleif"` both return `Team`
+- `official_takes_precedence_over_team` — defensive precedence rule: if an owner ever appears in both `OFFICIAL_ORGS` and `TEAM_MEMBERS`, Official wins
 - `unverified_third_party` — `someuser/repo` classifies as `Unverified`
 - `unverified_full_url` — `https://github.com/someuser/repo` classifies as `Unverified`
 - `owner_based_official` — `determine_trust_tier_from_owner("CorvidLabs")` returns `Official`
@@ -21,7 +27,7 @@ Located in `src/trust.rs` under `#[cfg(test)] mod tests`:
 - `parse_source_ref_without_tag` — leaves `someone/repo` unsplit, ref `None`
 - `parse_source_ref_full_url_with_tag` — splits `https://github.com/…/repo.git@v2.0.0` correctly
 - `parse_source_ref_credential_url_no_split` — credential URL `https://user:token@github.com/…` does NOT split on credential `@`
-- `labels` — `label()` returns `"official"`, `"community"`, `"unverified"`
+- `labels` — `label()` returns `"official"`, `"team"`, `"unverified"`
 
 ### Integration Tests
 

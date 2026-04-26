@@ -2,14 +2,29 @@ use anyhow::Result;
 use clap::{Arg, Command};
 use serde::Serialize;
 
+/// Current schema version of `fledge introspect --json` output. Bumped only on
+/// breaking changes to the JSON shape; additive fields do not require a bump.
+pub const INTROSPECT_SCHEMA_VERSION: u32 = 1;
+
 pub struct IntrospectOptions {
     pub json: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct IntrospectOutput {
+    schema_version: u32,
+    #[serde(flatten)]
+    root: CommandNode,
 }
 
 pub fn run(opts: IntrospectOptions, cmd: Command) -> Result<()> {
     let tree = build_tree(&cmd);
     if opts.json {
-        println!("{}", serde_json::to_string_pretty(&tree)?);
+        let output = IntrospectOutput {
+            schema_version: INTROSPECT_SCHEMA_VERSION,
+            root: tree,
+        };
+        println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         render_pretty(&tree, 0);
     }

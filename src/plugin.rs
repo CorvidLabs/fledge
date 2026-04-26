@@ -2699,7 +2699,7 @@ build = "cargo build --release"
     #[test]
     fn trust_tier_label_strings() {
         assert_eq!(TrustTier::Official.label(), "official");
-        assert_eq!(TrustTier::Community.label(), "community");
+        assert_eq!(TrustTier::Team.label(), "team");
         assert_eq!(TrustTier::Unverified.label(), "unverified");
     }
 }

@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 9
+version: 10
 status: active
 files:
   - src/lanes.rs
@@ -100,9 +100,9 @@ steps = ["deps-audit", "license-check", "security-scan"]
 1. Lanes are loaded from `fledge.toml` and merged with any `.fledge/lanes/*.toml` files; `fledge.toml` definitions take precedence
 2. Each step in a lane is either a task reference (string), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`) — parallel groups accept both task references and inline commands
 3. Task references must resolve to tasks defined in `[tasks]` — unknown references produce an error before execution
-4. Parallel groups spawn threads and collect results; if any thread fails and `fail_fast` is true, remaining steps are skipped. If a thread panics, it is treated as a failure.
+4. Parallel groups spawn one thread per item via `std::thread::scope` and **wait for every sibling to finish** before reporting the group's result. There is no in-flight cancellation: a failure inside a parallel group does not interrupt its siblings, even when `fail_fast = true`. The `fail_fast` flag governs only what happens **after** the group completes — whether the lane proceeds to the next step or stops with the failure list. A thread panic is treated as a failure with the panic message captured.
 5. Steps execute sequentially by default; only `{ parallel = [...] }` groups run concurrently
-6. `fail_fast` defaults to `true` — first failure stops the lane
+6. `fail_fast` defaults to `true` — when a step (sequential or parallel-group) reports failure, the lane stops before running the next step. With `fail_fast = false`, the lane runs every step regardless and reports the full failure list at the end
 7. `--init` appends language-aware default lanes to an existing `fledge.toml`
 8. `--dry-run` prints the execution plan without running anything
 9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself
@@ -170,21 +170,21 @@ $ fledge lanes import CorvidLabs/fledge-lanes
 $ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 # Scaffold a lane repo
-$ fledge laness create my-lanes
+$ fledge lanes create my-lanes
 ✅ Created lane repo at ./my-lanes
 
 # Validate lanes
-$ fledge laness validate
+$ fledge lanes validate
 ✅ . — valid (3 lanes)
 
 # Validate with strict mode
-$ fledge laness validate --strict
+$ fledge lanes validate --strict
 .
   warn: Lane 'deploy' has no description
 Validation failed
 
 # Publish runs validation first
-$ fledge laness publish
+$ fledge lanes publish
 ✅ . — valid (2 lanes)
 ➡️ Publishing 2 lanes as owner/my-lanes
 
@@ -225,6 +225,7 @@ $ fledge lanes run ci --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-04-25 | Lock parallel-group + `fail_fast` semantics for 1.0: in-flight siblings always finish (no cancellation), `fail_fast` governs only the *next* step. Documents existing behavior — no code change |
 | 9 | 2026-04-23 | Add `--json` flag to `lane run` for structured JSON output |
 | 8 | 2026-04-22 | Add `create` and `validate` subcommands; `publish` now validates before pushing |
 | 7 | 2026-04-21 | Imported lanes stored in `.fledge/lanes/` instead of appending to fledge.toml; lane loading merges both sources |

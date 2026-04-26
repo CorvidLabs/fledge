@@ -1255,6 +1255,22 @@ fn cli_introspect_json_produces_valid_tree() {
 }
 
 #[test]
+fn cli_introspect_json_has_schema_version_at_top_level() {
+    let output = run_fledge(&["introspect", "--json"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    // schema_version sits alongside name/about/args/subcommands (additive,
+    // not nested) — old consumers reading those keys keep working.
+    assert_eq!(
+        parsed["schema_version"].as_u64(),
+        Some(1),
+        "expected schema_version: 1 at top level, got: {parsed}"
+    );
+    assert_eq!(parsed["name"].as_str(), Some("fledge"));
+    assert!(parsed["subcommands"].is_array());
+}
+
+#[test]
 fn cli_introspect_json_includes_core_commands() {
     let output = run_fledge(&["introspect", "--json"]);
     let stdout = String::from_utf8(output.stdout).unwrap();
