@@ -711,6 +711,173 @@ fn cli_plugin_remove_json_error_path_returns_nonzero() {
     );
 }
 
+// MARK: - tier B: --json envelopes for plugins create, lanes init/create,
+// and templates list. (publish/import paths require GitHub network and live
+// state — out of scope for the cheap-to-run integration suite.)
+
+#[test]
+fn cli_plugin_create_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "plugin",
+        "create",
+        "json-test-plug",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "plugin create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert_eq!(parsed["name"].as_str(), Some("json-test-plug"));
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_lanes_create_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "lane",
+        "create",
+        "json-test-lanes",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "lane create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert_eq!(parsed["name"].as_str(), Some("json-test-lanes"));
+}
+
+#[test]
+fn cli_lanes_init_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\ntest = \"echo test\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "init", "--json"]);
+    assert!(
+        output.status.success(),
+        "lane init --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("init"));
+    assert_eq!(parsed["file"].as_str(), Some("fledge.toml"));
+    assert!(parsed["lanes_added"].is_array());
+}
+
+#[test]
+fn cli_lanes_init_json_error_path_returns_nonzero() {
+    // No fledge.toml — lane init must exit nonzero even with --json.
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge_in(tmp.path(), &["lane", "init", "--json"]);
+    assert!(
+        !output.status.success(),
+        "lane init in dir without fledge.toml must exit nonzero even with --json"
+    );
+}
+
+#[test]
+fn cli_templates_list_json_emits_envelope() {
+    let output = run_fledge(&["templates", "list", "--json"]);
+    assert!(
+        output.status.success(),
+        "templates list --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["templates"].is_array());
+    let templates = parsed["templates"].as_array().unwrap();
+    assert!(!templates.is_empty(), "expected built-in templates");
+    // Built-in templates have source: "builtin"
+    assert!(templates.iter().any(|t| t["source"] == "builtin"));
+}
+
+#[test]
+fn cli_templates_create_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "templates",
+        "create",
+        "json-test-tpl",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "templates create --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("create"));
+    assert_eq!(parsed["name"].as_str(), Some("json-test-tpl"));
+    assert!(parsed["files_created"].is_array());
+}
+
+#[test]
+fn cli_templates_init_json_emits_envelope() {
+    let tmp = TempDir::new().unwrap();
+    let output = run_fledge(&[
+        "templates",
+        "init",
+        "json-test-init",
+        "--template",
+        "rust-cli",
+        "--output",
+        tmp.path().to_str().unwrap(),
+        "--no-git",
+        "--no-install",
+        "--yes",
+        "--json",
+    ]);
+    assert!(
+        output.status.success(),
+        "templates init --json failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("init"));
+    assert_eq!(parsed["project"]["name"].as_str(), Some("json-test-init"));
+    assert_eq!(parsed["template"]["name"].as_str(), Some("rust-cli"));
+    assert_eq!(parsed["git_initialized"].as_bool(), Some(false));
+    assert!(parsed["files_created"].is_array());
+    assert!(!parsed["files_created"].as_array().unwrap().is_empty());
+}
+
 // ──────────────────────────────────────────────────────────
 
 // MARK: - external / unknown subcommand
