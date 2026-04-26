@@ -287,25 +287,12 @@ fn run_message_loop(
             }
             OutboundMessage::Store { key, value } => {
                 if !capabilities.store {
-                    let msg = format!(
-                        "  {} [{}] store blocked — capability not granted (key: {})",
-                        style("WARN").yellow(),
-                        style(plugin_name).dim(),
-                        key,
-                    );
-                    eprintln!("{msg}");
-                    handle_log(plugin_name, "error", "store capability not granted");
                     continue;
                 }
                 handle_store(plugin_dir, &key, &value)?;
             }
             OutboundMessage::Load { id, key } => {
                 if !capabilities.store {
-                    eprintln!(
-                        "  {} [{}] load blocked — capability not granted",
-                        style("WARN").yellow(),
-                        style(plugin_name).dim()
-                    );
                     send_response(child, &id, serde_json::Value::Null)?;
                     continue;
                 }

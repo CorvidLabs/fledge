@@ -1,6 +1,6 @@
 ---
 module: config
-version: 8
+version: 9
 status: active
 files:
   - src/config.rs
@@ -33,6 +33,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `save` | Serializes config to TOML and writes to disk, creating parent directories if needed |
 | `get` | Returns a config value by dotted key (e.g. `defaults.author`), or `None` if unset/unknown. List keys return newline-separated values |
 | `is_valid_key` | Returns whether a dotted key is recognized (scalar or list) |
+| `valid_keys_hint` | Returns a static string listing all valid config keys for use in error messages |
 | `set` | Sets a scalar config value by dotted key; errors on list keys or unknown keys |
 | `unset` | Removes a scalar config value or clears a list config value by dotted key; errors on unknown key |
 | `add_to_list` | Appends a value to a list config key (templates.paths, templates.repos); deduplicates; errors on scalar or unknown keys |
@@ -71,6 +72,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `Config::save` | `(&self) -> Result<()>` | Serialize config to TOML and write to disk, creating parent dirs if needed |
 | `Config::get` | `(&self, key: &str) -> Option<String>` | Get a config value by dotted key. List keys return newline-separated values |
 | `Config::is_valid_key` | `(key: &str) -> bool` | Check whether a dotted key is recognized |
+| `Config::valid_keys_hint` | `() -> &'static str` | Returns a static hint string listing all valid config keys |
 | `Config::set` | `(&mut self, key: &str, value: &str) -> Result<()>` | Set a scalar config value, errors on list or unknown keys |
 | `Config::unset` | `(&mut self, key: &str) -> Result<()>` | Remove a scalar value or clear a list by dotted key, errors on unknown key |
 | `Config::add_to_list` | `(&mut self, key: &str, value: &str) -> Result<()>` | Add a value to a list key with deduplication, errors on scalar or unknown keys |
@@ -211,3 +213,4 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | 2026-04-22 | CorvidAgent | v6: github_token() now falls back to `gh auth token` CLI when no env var or config is set |
 | 2026-04-23 | CorvidAgent | v7: add `[ai]` section — `ai.provider` (scalar, `claude`/`ollama` only), `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`. Defaults preserve pre-v0.13 Claude-only behavior. `add_to_list`/`remove_from_list` now route through `is_valid_key` so new scalar keys get the right error message. |
 | 2026-04-24 | CorvidAgent | v8: add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default. |
+| 2026-04-26 | CorvidAgent | v9: document `valid_keys_hint()` — returns a static string listing all valid config keys, used by `handle_config` in main.rs for error messages |

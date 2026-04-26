@@ -1240,8 +1240,9 @@ fn handle_config(action: ConfigAction) -> Result<()> {
             let config = config::Config::load()?;
             if !config::Config::is_valid_key(&key) {
                 anyhow::bail!(
-                    "Unknown config key '{}'. Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos",
-                    key
+                    "Unknown config key '{}'. {}",
+                    key,
+                    config::Config::valid_keys_hint()
                 );
             }
             match config.get(&key) {
