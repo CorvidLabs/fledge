@@ -69,10 +69,12 @@ fn cli_spec_list_json_valid() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_array(), "expected JSON array, got {parsed}");
-    let arr = parsed.as_array().unwrap();
-    assert!(!arr.is_empty(), "fledge project should have specs");
-    let first = &arr[0];
+    // Tier-D envelope: {schema_version: 1, action: "spec_list", specs: [...]}
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("spec_list"));
+    let specs = parsed["specs"].as_array().expect("specs array");
+    assert!(!specs.is_empty(), "fledge project should have specs");
+    let first = &specs[0];
     for field in [
         "name",
         "version",
@@ -102,8 +104,8 @@ fn cli_spec_list_json_empty_dir() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
-    assert!(parsed.is_array());
-    assert!(parsed.as_array().unwrap().is_empty());
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert!(parsed["specs"].as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -121,11 +123,15 @@ fn cli_spec_show_json_valid() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_object());
-    assert_eq!(parsed["name"].as_str(), Some("spec"));
-    assert!(parsed["sections"].is_array());
-    assert!(parsed["companions"].is_array());
-    assert!(parsed["missing_companions"].is_array());
+    // Tier-D envelope: {schema_version: 1, action: "spec_show", spec: {...}}
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("spec_show"));
+    let spec = &parsed["spec"];
+    assert!(spec.is_object());
+    assert_eq!(spec["name"].as_str(), Some("spec"));
+    assert!(spec["sections"].is_array());
+    assert!(spec["companions"].is_array());
+    assert!(spec["missing_companions"].is_array());
 }
 
 #[test]
@@ -142,7 +148,9 @@ fn cli_spec_check_json_valid() {
     // May pass or fail on the repo's specs; either way stdout must be JSON
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert!(parsed.is_object());
+    // Tier-D envelope
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("spec_check"));
     assert!(parsed["specs"].is_array());
     assert!(parsed["totals"].is_object());
     assert!(parsed["totals"]["checked"].is_number());
