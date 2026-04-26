@@ -105,7 +105,7 @@ Plugins are classified by their source into trust tiers:
 | Tier | Criteria | Display |
 |------|----------|---------|
 | Official | Source org is `CorvidLabs` (case-insensitive) | Green bold `[official]` |
-| Community | Reserved for future known community orgs | Cyan `[community]` |
+| Team | Source owner is a CorvidLabs member (`TEAM_MEMBERS` allowlist in `src/trust.rs`) | Cyan `[team]` |
 | Unverified | All other sources | Yellow `[unverified]` |
 
 Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins with elevated capabilities (exec, metadata) get an extra warning in `plugin audit`.

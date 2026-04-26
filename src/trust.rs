@@ -3,10 +3,9 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-#[allow(dead_code)]
 pub enum TrustTier {
     Official,
-    Community,
+    Team,
     Unverified,
 }
 
@@ -14,7 +13,7 @@ impl TrustTier {
     pub fn label(&self) -> &'static str {
         match self {
             TrustTier::Official => "official",
-            TrustTier::Community => "community",
+            TrustTier::Team => "team",
             TrustTier::Unverified => "unverified",
         }
     }
@@ -22,13 +21,22 @@ impl TrustTier {
     pub fn styled_label(&self) -> console::StyledObject<&'static str> {
         match self {
             TrustTier::Official => style("official").green().bold(),
-            TrustTier::Community => style("community").cyan(),
+            TrustTier::Team => style("team").cyan(),
             TrustTier::Unverified => style("unverified").yellow(),
         }
     }
 }
 
 const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
+
+/// GitHub usernames whose personal repos classify as `Team`. Compared
+/// case-insensitively (GitHub treats `0xLeif` and `0xleif` as the same user).
+/// Adding a new member is a code change and requires a PR.
+const TEAM_MEMBERS: &[&str] = &["0xLeif"];
+
+fn is_team_member(owner: &str) -> bool {
+    TEAM_MEMBERS.iter().any(|m| m.eq_ignore_ascii_case(owner))
+}
 
 pub fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
     if source.starts_with("git@") {
@@ -71,6 +79,9 @@ pub fn determine_trust_tier(source: &str) -> TrustTier {
         if OFFICIAL_ORGS.contains(&org) {
             return TrustTier::Official;
         }
+        if is_team_member(org) {
+            return TrustTier::Team;
+        }
     }
 
     TrustTier::Unverified
@@ -79,6 +90,8 @@ pub fn determine_trust_tier(source: &str) -> TrustTier {
 pub fn determine_trust_tier_from_owner(owner: &str) -> TrustTier {
     if OFFICIAL_ORGS.contains(&owner) {
         TrustTier::Official
+    } else if is_team_member(owner) {
+        TrustTier::Team
     } else {
         TrustTier::Unverified
     }
@@ -192,7 +205,52 @@ mod tests {
     #[test]
     fn labels() {
         assert_eq!(TrustTier::Official.label(), "official");
-        assert_eq!(TrustTier::Community.label(), "community");
+        assert_eq!(TrustTier::Team.label(), "team");
         assert_eq!(TrustTier::Unverified.label(), "unverified");
+    }
+
+    #[test]
+    fn team_member_shorthand() {
+        assert_eq!(
+            determine_trust_tier("0xLeif/fledge-plugin-thing"),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn team_member_case_insensitive() {
+        assert_eq!(
+            determine_trust_tier("0xleif/fledge-plugin-thing"),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn team_member_full_url() {
+        assert_eq!(
+            determine_trust_tier("https://github.com/0xLeif/fledge-plugin-thing"),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn team_member_with_ref() {
+        assert_eq!(
+            determine_trust_tier("0xLeif/fledge-plugin-thing@v0.1.0"),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn owner_based_team() {
+        assert_eq!(determine_trust_tier_from_owner("0xLeif"), TrustTier::Team);
+        assert_eq!(determine_trust_tier_from_owner("0xleif"), TrustTier::Team);
+    }
+
+    #[test]
+    fn official_takes_precedence_over_team() {
+        // Defensive: if a member's username were ever added to OFFICIAL_ORGS,
+        // the official tier wins. Documents the precedence rule.
+        assert_eq!(determine_trust_tier("CorvidLabs/repo"), TrustTier::Official);
     }
 }
