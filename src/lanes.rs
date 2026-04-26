@@ -107,7 +107,9 @@ pub enum LaneAction {
     List {
         json: bool,
     },
-    Init,
+    Init {
+        json: bool,
+    },
     Search {
         query: Option<String>,
         author: Option<String>,
@@ -116,6 +118,7 @@ pub enum LaneAction {
     Import {
         source: String,
         yes: bool,
+        json: bool,
     },
     Publish {
         path: PathBuf,
@@ -123,12 +126,14 @@ pub enum LaneAction {
         private: bool,
         description: Option<String>,
         yes: bool,
+        json: bool,
     },
     Create {
         name: String,
         output: PathBuf,
         description: Option<String>,
         yes: bool,
+        json: bool,
     },
     Validate {
         path: PathBuf,
@@ -144,21 +149,30 @@ pub fn run(action: LaneAction) -> Result<()> {
             author,
             json,
         } => search_lanes(query.as_deref(), author.as_deref(), json),
-        LaneAction::Import { source, yes } => import_lanes(&source, yes),
-        LaneAction::Init => init_lanes(),
+        LaneAction::Import { source, yes, json } => import_lanes(&source, yes, json),
+        LaneAction::Init { json } => init_lanes(json),
         LaneAction::Publish {
             path,
             org,
             private,
             description,
             yes,
-        } => publish_lanes(&path, org.as_deref(), private, description.as_deref(), yes),
+            json,
+        } => publish_lanes(
+            &path,
+            org.as_deref(),
+            private,
+            description.as_deref(),
+            yes,
+            json,
+        ),
         LaneAction::Create {
             name,
             output,
             description,
             yes,
-        } => create_lane_repo(&name, &output, description.as_deref(), yes),
+            json,
+        } => create_lane_repo(&name, &output, description.as_deref(), yes, json),
         LaneAction::Validate { path, strict, json } => validate_lanes(&path, strict, json),
         LaneAction::List { json } => {
             let config = load_lane_config()?;
@@ -839,7 +853,7 @@ steps = ["build", "test"]
     }
 }
 
-fn init_lanes() -> Result<()> {
+fn init_lanes(json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let path = cwd.join("fledge.toml");
 
@@ -860,14 +874,32 @@ fn init_lanes() -> Result<()> {
     let defaults = lane_defaults(project_type);
 
     let new_content = format!("{}{}", content.trim_end(), defaults);
-    std::fs::write(&path, new_content).context("writing fledge.toml")?;
+    std::fs::write(&path, &new_content).context("writing fledge.toml")?;
 
-    println!(
-        "{} Added default lanes to {}",
-        style("✅").green().bold(),
-        style("fledge.toml").cyan()
-    );
-    println!("  Run {} to see them.", style("fledge lane").cyan());
+    // Parse the just-written defaults so we can report which lane names landed.
+    // This is a best-effort parse — if it fails, we still succeed but emit an
+    // empty `lanes_added` list rather than crashing the json path.
+    let lanes_added: Vec<String> = toml::from_str::<FledgeFileWithLanes>(&new_content)
+        .map(|cfg| cfg.lanes.keys().cloned().collect())
+        .unwrap_or_default();
+
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "init",
+            "file": "fledge.toml",
+            "project_type": project_type,
+            "lanes_added": lanes_added,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "{} Added default lanes to {}",
+            style("✅").green().bold(),
+            style("fledge.toml").cyan()
+        );
+        println!("  Run {} to see them.", style("fledge lane").cyan());
+    }
     Ok(())
 }
 
@@ -963,7 +995,7 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
     Ok(())
 }
 
-fn import_lanes(source: &str, _yes: bool) -> Result<()> {
+fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join("fledge.toml");
 
@@ -994,24 +1026,33 @@ fn import_lanes(source: &str, _yes: bool) -> Result<()> {
     );
 
     let tier = determine_trust_tier(&display_source);
-    println!(
-        "\n{} Importing lanes from: {} [{}]",
-        style("!").yellow().bold(),
-        style(&display_source).cyan(),
-        tier.styled_label()
-    );
-    if tier != crate::trust::TrustTier::Official {
+    if !json {
         println!(
-            "  {} Lanes can execute arbitrary commands on your system.",
-            style("*").yellow()
+            "\n{} Importing lanes from: {} [{}]",
+            style("!").yellow().bold(),
+            style(&display_source).cyan(),
+            tier.styled_label()
         );
-        println!(
-            "  {} Only import lanes from sources you trust.\n",
-            style("*").yellow()
-        );
+        if tier != crate::trust::TrustTier::Official {
+            println!(
+                "  {} Lanes can execute arbitrary commands on your system.",
+                style("*").yellow()
+            );
+            println!(
+                "  {} Only import lanes from sources you trust.\n",
+                style("*").yellow()
+            );
+        }
     }
 
-    let sp = crate::spinner::Spinner::start(&format!("Fetching lanes from {}:", display_source,));
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Fetching lanes from {}:",
+            display_source,
+        )))
+    };
 
     let ref_param = git_ref.as_deref().unwrap_or("HEAD");
     let remote_path = match &subpath {
@@ -1025,7 +1066,9 @@ fn import_lanes(source: &str, _yes: bool) -> Result<()> {
     )
     .context(format!("fetching {remote_path} from remote repo"))?;
 
-    sp.finish();
+    if let Some(s) = sp {
+        s.finish();
+    }
 
     let content_b64 = body
         .get("content")
@@ -1069,12 +1112,25 @@ fn import_lanes(source: &str, _yes: bool) -> Result<()> {
     }
 
     if imported_lanes.is_empty() {
-        println!(
-            "{} All lanes from {} already exist locally ({})",
-            style("*").cyan().bold(),
-            display_source,
-            skipped.join(", ")
-        );
+        if json {
+            let result = serde_json::json!({
+                "schema_version": 1,
+                "action": "import",
+                "source": display_source,
+                "tier": tier.label(),
+                "imported": [],
+                "skipped": skipped,
+                "file": null,
+            });
+            println!("{}", serde_json::to_string_pretty(&result)?);
+        } else {
+            println!(
+                "{} All lanes from {} already exist locally ({})",
+                style("*").cyan().bold(),
+                display_source,
+                skipped.join(", ")
+            );
+        }
         return Ok(());
     }
 
@@ -1090,29 +1146,43 @@ fn import_lanes(source: &str, _yes: bool) -> Result<()> {
             .map(|p| format!("-{}", p.replace('/', "-").to_lowercase()))
             .unwrap_or_default()
     );
+    let relative_file = format!(".fledge/lanes/{safe_name}.toml");
     let import_path = lanes_dir.join(format!("{safe_name}.toml"));
     std::fs::write(&import_path, import_content.trim_start()).context("writing imported lanes")?;
 
-    println!(
-        "{} Imported {} lane(s) from {}",
-        style("✅").green().bold(),
-        imported_lanes.len(),
-        display_source
-    );
-    for name in &imported_lanes {
-        println!("  {} {}", style("+").green(), style(name).cyan());
-    }
-    println!(
-        "  {} Saved to {}",
-        style("→").dim(),
-        style(format!(".fledge/lanes/{safe_name}.toml")).cyan()
-    );
-    if !skipped.is_empty() {
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "import",
+            "source": display_source,
+            "tier": tier.label(),
+            "imported": imported_lanes,
+            "skipped": skipped,
+            "file": relative_file,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
         println!(
-            "  {} Skipped (already exist): {}",
-            style("*").dim(),
-            skipped.join(", ")
+            "{} Imported {} lane(s) from {}",
+            style("✅").green().bold(),
+            imported_lanes.len(),
+            display_source
         );
+        for name in &imported_lanes {
+            println!("  {} {}", style("+").green(), style(name).cyan());
+        }
+        println!(
+            "  {} Saved to {}",
+            style("→").dim(),
+            style(&relative_file).cyan()
+        );
+        if !skipped.is_empty() {
+            println!(
+                "  {} Skipped (already exist): {}",
+                style("*").dim(),
+                skipped.join(", ")
+            );
+        }
     }
 
     Ok(())
@@ -1212,7 +1282,14 @@ fn base64_decode(input: &str) -> Result<Vec<u8>> {
     Ok(output)
 }
 
-fn create_lane_repo(name: &str, output: &Path, description: Option<&str>, yes: bool) -> Result<()> {
+fn create_lane_repo(
+    name: &str,
+    output: &Path,
+    description: Option<&str>,
+    yes: bool,
+    json: bool,
+) -> Result<()> {
+    let yes = yes || crate::utils::is_non_interactive() || json;
     let target = output.join(name);
 
     if target.exists() {
@@ -1293,26 +1370,44 @@ See [fledge docs](https://github.com/CorvidLabs/fledge) for lane syntax.
     std::fs::write(target.join(".gitignore"), "# OS\n.DS_Store\nThumbs.db\n")
         .context("writing .gitignore")?;
 
-    println!(
-        "\n{} Created lane repo at {}",
-        style("✅").green().bold(),
-        style(target.display()).cyan()
-    );
-    println!(
-        "\n  {} Edit lanes in {}",
-        style("1.").dim(),
-        style("fledge.toml").green()
-    );
-    println!(
-        "  {} Validate with: {}",
-        style("2.").dim(),
-        style(format!("fledge lanes validate ./{name}")).cyan()
-    );
-    println!(
-        "  {} Publish with: {}",
-        style("3.").dim(),
-        style(format!("fledge lanes publish ./{name}")).cyan()
-    );
+    let files_created = vec![
+        "fledge.toml".to_string(),
+        "README.md".to_string(),
+        ".gitignore".to_string(),
+    ];
+
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "create",
+            "path": target.display().to_string(),
+            "name": name,
+            "description": desc,
+            "files_created": files_created,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "\n{} Created lane repo at {}",
+            style("✅").green().bold(),
+            style(target.display()).cyan()
+        );
+        println!(
+            "\n  {} Edit lanes in {}",
+            style("1.").dim(),
+            style("fledge.toml").green()
+        );
+        println!(
+            "  {} Validate with: {}",
+            style("2.").dim(),
+            style(format!("fledge lanes validate ./{name}")).cyan()
+        );
+        println!(
+            "  {} Publish with: {}",
+            style("3.").dim(),
+            style(format!("fledge lanes publish ./{name}")).cyan()
+        );
+    }
 
     Ok(())
 }
@@ -1504,8 +1599,9 @@ fn publish_lanes(
     private: bool,
     description: Option<&str>,
     yes: bool,
+    json: bool,
 ) -> Result<()> {
-    let yes = yes || crate::utils::is_non_interactive();
+    let yes = yes || crate::utils::is_non_interactive() || json;
     let config = crate::config::Config::load()?;
     let token = config.github_token().ok_or_else(|| {
         anyhow::anyhow!(
@@ -1542,20 +1638,29 @@ fn publish_lanes(
         None => crate::publish::get_authenticated_user(&token)?,
     };
 
-    let lane_names: Vec<&str> = parsed.lanes.keys().map(|s| s.as_str()).collect();
-    println!(
-        "{} Publishing {} lanes as {}/{}",
-        style("➡️").cyan().bold(),
-        style(lane_names.len()).green(),
-        style(&owner).green(),
-        style(&repo_name).green()
-    );
-    println!("  Lanes: {}", style(lane_names.join(", ")).dim());
+    let lane_names: Vec<String> = parsed.lanes.keys().cloned().collect();
+    if !json {
+        println!(
+            "{} Publishing {} lanes as {}/{}",
+            style("➡️").cyan().bold(),
+            style(lane_names.len()).green(),
+            style(&owner).green(),
+            style(&repo_name).green()
+        );
+        println!("  Lanes: {}", style(lane_names.join(", ")).dim());
+    }
 
-    let sp = crate::spinner::Spinner::start("Checking repository:");
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Checking repository:"))
+    };
     let repo_exists = crate::publish::check_repo_exists(&owner, &repo_name, &token)?;
-    sp.finish();
+    if let Some(s) = sp {
+        s.finish();
+    }
 
+    let mut created_repo = false;
     if repo_exists {
         if !yes {
             crate::utils::require_interactive("yes")?;
@@ -1569,41 +1674,97 @@ fn publish_lanes(
                     .interact()?;
 
             if !confirm {
-                println!("{} Cancelled.", style("*").cyan().bold());
+                if json {
+                    let result = serde_json::json!({
+                        "schema_version": 1,
+                        "action": "publish",
+                        "cancelled": true,
+                        "repo": {
+                            "owner": owner,
+                            "name": repo_name,
+                            "url": format!("https://github.com/{owner}/{repo_name}"),
+                            "exists": true,
+                        },
+                    });
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                } else {
+                    println!("{} Cancelled.", style("*").cyan().bold());
+                }
                 return Ok(());
             }
         }
     } else {
-        let sp = crate::spinner::Spinner::start("Creating repository:");
+        let sp = if json {
+            None
+        } else {
+            Some(crate::spinner::Spinner::start("Creating repository:"))
+        };
         crate::publish::create_github_repo(&repo_name, desc, private, org, &token)?;
-        sp.finish();
+        if let Some(s) = sp {
+            s.finish();
+        }
+        created_repo = true;
+        if !json {
+            println!(
+                "  {} Created repository {}/{}",
+                style("✅").green().bold(),
+                owner,
+                repo_name
+            );
+        }
+    }
+
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Setting repository topics:"))
+    };
+    crate::publish::set_repo_topic(&owner, &repo_name, "fledge-lane", &token)?;
+    if let Some(s) = sp {
+        s.finish();
+    }
+    if !json {
         println!(
-            "  {} Created repository {}/{}",
+            "  {} Set {} topic",
             style("✅").green().bold(),
-            owner,
-            repo_name
+            style("fledge-lane").cyan()
         );
     }
 
-    let sp = crate::spinner::Spinner::start("Setting repository topics:");
-    crate::publish::set_repo_topic(&owner, &repo_name, "fledge-lane", &token)?;
-    sp.finish();
-    println!(
-        "  {} Set {} topic",
-        style("✅").green().bold(),
-        style("fledge-lane").cyan()
-    );
-
-    let sp = crate::spinner::Spinner::start("Pushing lane files:");
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Pushing lane files:"))
+    };
     crate::publish::push_directory(&path, &owner, &repo_name, &token)?;
-    sp.finish();
-    println!("  {} Pushed lane files", style("✅").green().bold());
+    if let Some(s) = sp {
+        s.finish();
+    }
 
-    println!(
-        "\n{} Published! Import with:\n\n  {}",
-        style("✅").green().bold(),
-        style(format!("fledge lanes import {}/{}", owner, repo_name)).cyan()
-    );
+    if json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "publish",
+            "repo": {
+                "owner": owner,
+                "name": repo_name,
+                "url": format!("https://github.com/{owner}/{repo_name}"),
+                "created": created_repo,
+                "private": private,
+            },
+            "lanes_published": lane_names,
+            "topic": "fledge-lane",
+            "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!("  {} Pushed lane files", style("✅").green().bold());
+        println!(
+            "\n{} Published! Import with:\n\n  {}",
+            style("✅").green().bold(),
+            style(format!("fledge lanes import {}/{}", owner, repo_name)).cyan()
+        );
+    }
 
     Ok(())
 }
@@ -2416,7 +2577,7 @@ steps = ["test"]
     #[test]
     fn create_lane_repo_scaffolds_files() {
         let tmp = tempfile::TempDir::new().unwrap();
-        create_lane_repo("my-lanes", tmp.path(), Some("Test lanes"), true).unwrap();
+        create_lane_repo("my-lanes", tmp.path(), Some("Test lanes"), true, false).unwrap();
 
         let target = tmp.path().join("my-lanes");
         assert!(target.join("fledge.toml").exists());
@@ -2433,7 +2594,7 @@ steps = ["test"]
     fn create_lane_repo_fails_if_exists() {
         let tmp = tempfile::TempDir::new().unwrap();
         std::fs::create_dir(tmp.path().join("existing")).unwrap();
-        let result = create_lane_repo("existing", tmp.path(), None, true);
+        let result = create_lane_repo("existing", tmp.path(), None, true, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("already exists"));
     }

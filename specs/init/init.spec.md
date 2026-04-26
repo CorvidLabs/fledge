@@ -1,6 +1,6 @@
 ---
 module: init
-version: 7
+version: 8
 status: active
 files:
   - src/init.rs
@@ -31,7 +31,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Type | Description |
 |------|-------------|
-| `InitOptions` | Options for project creation: name, template, output, author, org, no_git, no_install, refresh, dry_run, yes |
+| `InitOptions` | Options for project creation: name, template, output, author, org, no_git, no_install, refresh, dry_run, yes, json |
 
 ### Traits
 
@@ -52,6 +52,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 4. Directory is created before template rendering begins
 5. `.fledge/meta.toml` is written after rendering, before git init, recording template source and file hashes for future `fledge update`
 6. If the template does not include a `fledge.toml`, one is generated from auto-detected project type defaults
+7. `--json` emits a single `{schema_version: 1, action: "init", project, template, variables_used, files_created, git_initialized, hooks_run}` envelope on stdout. Prose progress (template selection, scaffolding, summary) is suppressed; warnings stay on stderr. JSON mode implies non-interactive (`yes = true`) so prompts can't deadlock an agent. Failure paths still exit non-zero — `--json` never silently turns failure into success
 
 ## Behavioral Examples
 
@@ -140,3 +141,4 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 | 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |
 | 2026-04-19 | CorvidAgent | v5: init now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |
 | 2026-04-21 | CorvidAgent | v7: add author/org fields to InitOptions, document plugin pre_init hook and versioning check |
+| 2026-04-25 | 0xLeif | v8: `--json` emits structured envelope (schema_version: 1) for `templates init`; prose suppressed, JSON mode implies non-interactive, failure paths still exit non-zero |

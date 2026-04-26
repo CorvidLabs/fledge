@@ -11,6 +11,7 @@ pub struct CreateTemplateOptions {
     pub hooks: Option<bool>,
     pub prompts: Option<bool>,
     pub yes: bool,
+    pub json: bool,
 }
 
 struct TemplateAnswers {
@@ -22,7 +23,7 @@ struct TemplateAnswers {
 }
 
 pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
-    if crate::utils::is_non_interactive() {
+    if crate::utils::is_non_interactive() || options.json {
         options.yes = true;
     }
     let target = options.output.join(&options.name);
@@ -43,25 +44,45 @@ pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
     };
     scaffold(&target, &answers)?;
 
-    println!(
-        "\n{} Created template at {}",
-        style("✅").green().bold(),
-        style(target.display()).cyan()
-    );
-    println!(
-        "\n  {} Edit files in {}/",
-        style("1.").dim(),
-        style(&answers.name).green()
-    );
-    println!(
-        "  {} Add .tera extension to files that need variable substitution",
-        style("2.").dim()
-    );
-    println!(
-        "  {} Test locally with: {}",
-        style("3.").dim(),
-        style(format!("fledge init my-project -t ./{}", answers.name)).cyan()
-    );
+    if options.json {
+        let result = serde_json::json!({
+            "schema_version": 1,
+            "action": "create",
+            "path": target.display().to_string(),
+            "name": answers.name,
+            "description": answers.description,
+            "render_patterns": answers.render_globs,
+            "include_hooks": answers.include_hooks,
+            "include_prompts": answers.include_prompts,
+            "files_created": [
+                "template.toml",
+                "README.md",
+                "README.md.tera",
+                ".gitignore",
+            ],
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "\n{} Created template at {}",
+            style("✅").green().bold(),
+            style(target.display()).cyan()
+        );
+        println!(
+            "\n  {} Edit files in {}/",
+            style("1.").dim(),
+            style(&answers.name).green()
+        );
+        println!(
+            "  {} Add .tera extension to files that need variable substitution",
+            style("2.").dim()
+        );
+        println!(
+            "  {} Test locally with: {}",
+            style("3.").dim(),
+            style(format!("fledge init my-project -t ./{}", answers.name)).cyan()
+        );
+    }
 
     Ok(())
 }
@@ -380,6 +401,7 @@ mod tests {
             hooks: None,
             prompts: None,
             yes: false,
+            json: false,
         };
 
         let result = run(options);

@@ -1,6 +1,6 @@
 ---
 module: create_template
-version: 1
+version: 2
 status: active
 files:
   - src/create_template.rs
@@ -53,6 +53,7 @@ Scaffolds a new fledge template project with a valid `template.toml` manifest, e
 7. Custom prompts section is only included when user opts in
 8. Scaffolded template includes example `.tera` file demonstrating variable substitution
 9. Scaffolded template includes author-facing README with testing instructions
+10. `--json` emits a single `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` envelope on stdout. Prose suppressed; JSON mode implies non-interactive (`yes = true`)
 
 ## Behavioral Examples
 
@@ -109,3 +110,4 @@ Scaffolds a new fledge template project with a valid `template.toml` manifest, e
 | Date | Author | Change |
 |------|--------|--------|
 | 2026-04-19 | CorvidAgent | Initial spec |
+| 2026-04-25 | 0xLeif | v2: `--json` emits structured envelope (schema_version: 1) for `templates create`; prose suppressed, JSON mode implies non-interactive |

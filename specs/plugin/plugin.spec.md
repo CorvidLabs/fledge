@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 12
+version: 14
 status: active
 files:
   - src/plugin.rs
@@ -166,7 +166,7 @@ pinned_ref = "v0.2.0"
 8. `plugin audit` shows trust tier, capabilities, lifecycle hooks, and warnings for each plugin
 9. `plugin search` uses GitHub topic search (same as template search)
 10. Plugin commands appear in `fledge --help` via a "Plugin Commands" section when plugins are installed
-11. `--json` outputs structured data for all list/search operations
+11. `--json` (the global flag at the `plugins` parent command) outputs structured data for **every** plugin subcommand: `list`, `audit`, `search`, `install`, `install --defaults`, `remove`, `update`, `update --defaults`, `create`, `publish`, `validate`. Output is a JSON object on stdout with `schema_version: 1` plus an `action` field describing the operation. Prose, spinners, and capability prompts are suppressed in JSON mode (warnings still go to stderr). Errors continue to surface via stderr with non-zero exit code — JSON mode never silently turns a failure into a success exit code. Mutating-command shape: `{schema_version, action, scope?, installed?|removed?|results?, summary?}`. Scaffold/publish shape: `{schema_version, action, path|repo, name|owner, files_created?|topic?, ...}`
 12. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
 13. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
 14. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
@@ -288,6 +288,8 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14 | 2026-04-25 | Tier B follow-up: `plugins create` and `plugins publish` honour `--json` and emit a `{schema_version:1, action, ...}` envelope. `create` reports `path/name/description/files_created`; `publish` reports `repo/template/topic/install_hint` plus a `cancelled: true` shape on user-declined update prompts. Invariant 11 widened to enumerate `create` and `publish`. |
+| 13 | 2026-04-25 | `--json` now actually emits structured output for `install`, `install --defaults`, `remove`, and `update` (previously the global flag was accepted but silently ignored — agents passing `--json` got ANSI-coloured prose back, a 1.0 footgun caught by the multi-model readiness review). All four emit a `{schema_version: 1, action, ...}` envelope on stdout; warnings stay on stderr; failure paths still exit non-zero so agents can't misclassify them. Invariant 11 rewritten to enumerate the full coverage. |
 | 12 | 2026-04-25 | Set `FLEDGE_PLUGIN_DIR` to the plugin's source directory before exec'ing a plugin binary, lifecycle hook, or fledge-v1 protocol plugin. Closes the dogfooding footgun where a multi-file shell plugin's `dirname "$0"` resolved to the shared `plugins/bin/` symlink dir instead of the plugin's source. The `fledge plugins create` scaffold now emits a starter binary that uses `$FLEDGE_PLUGIN_DIR`. (#266) |
 | 11 | 2026-04-25 | Trim `DEFAULT_PLUGINS` from 5 entries to 3. `fledge-plugin-templates-remote` was duplicating the in-tree `search.rs`/`publish.rs` helpers in shell — re-absorbed into core (`fledge templates search`/`publish`). `fledge-plugin-doctor` was 110 LOC of shell parallel to core doctor — re-absorbed as the informational `Toolchains` section. Default set is now `{github, deps, metrics}`. |
 | 10 | 2026-04-25 | Add `fledge plugins update --defaults` — symmetric with install. Updates only the installed plugins from `DEFAULT_PLUGINS`, leaving community plugins alone. Mutually exclusive with a positional plugin name. |
