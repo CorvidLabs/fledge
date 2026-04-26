@@ -138,7 +138,7 @@ enum Commands {
         #[arg(long, global = true)]
         json: bool,
     },
-    /// Cut a release — bump version, changelog, tag, and optionally push
+    /// Cut a release: bump version, changelog, tag, and optionally push.
     Release {
         /// Version bump: major, minor, patch, or explicit version (e.g. "1.0.0")
         bump: String,
@@ -151,7 +151,7 @@ enum Commands {
         /// Skip changelog generation
         #[arg(long)]
         no_changelog: bool,
-        /// Skip bumping any version files. Tag-only release — useful when the
+        /// Skip bumping any version files. Tag-only release, useful when the
         /// canonical version lives outside the tree (e.g. the GitHub Release
         /// tag itself is the source of truth).
         #[arg(long)]
@@ -165,6 +165,9 @@ enum Commands {
         /// Allow releasing with uncommitted changes
         #[arg(long)]
         allow_dirty: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// AI-powered code review of current changes
     Review {
@@ -1050,6 +1053,7 @@ fn run() -> Result<()> {
             push,
             pre_lane,
             allow_dirty,
+            json,
         } => {
             release::run(release::ReleaseOptions {
                 bump,
@@ -1060,6 +1064,7 @@ fn run() -> Result<()> {
                 push,
                 pre_lane,
                 allow_dirty,
+                json,
             })?;
         }
         Commands::Ai { action } => {

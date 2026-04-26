@@ -12,13 +12,14 @@ pub struct ReleaseOptions {
     pub dry_run: bool,
     pub no_tag: bool,
     pub no_changelog: bool,
-    /// Skip bumping any version files. Tag-only release — useful for repos
+    /// Skip bumping any version files. Tag-only release, useful for repos
     /// whose version source-of-truth lives outside the working tree (e.g. a
     /// GitHub Release whose tag is the canonical version).
     pub no_bump: bool,
     pub push: bool,
     pub pre_lane: Option<String>,
     pub allow_dirty: bool,
+    pub json: bool,
 }
 
 struct BumpResult {
@@ -39,6 +40,29 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
     let new_version = resolve_target_version(&dir, &opts.bump)?;
 
     if opts.dry_run {
+        let files_to_bump = if opts.no_bump {
+            Vec::new()
+        } else {
+            detect_version_files(&dir)
+        };
+
+        if opts.json {
+            let envelope = serde_json::json!({
+                "schema_version": 1,
+                "action": "release",
+                "dry_run": true,
+                "version": new_version.to_string(),
+                "no_bump": opts.no_bump,
+                "files_to_bump": files_to_bump,
+                "will_changelog": !opts.no_changelog,
+                "will_tag": !opts.no_tag,
+                "will_push": opts.push,
+                "tag": format!("v{}", new_version),
+            });
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            return Ok(());
+        }
+
         println!(
             "{} Would release v{} (dry run)",
             style("*").cyan().bold(),
@@ -46,14 +70,11 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
         );
         if opts.no_bump {
             println!("  Tag-only release (--no-bump)");
+        } else if files_to_bump.is_empty() {
+            println!("  Tag-only release (no version files detected)");
         } else {
-            let files = detect_version_files(&dir);
-            if files.is_empty() {
-                println!("  Tag-only release (no version files detected)");
-            } else {
-                for f in &files {
-                    println!("  Would bump: {}", style(f).cyan());
-                }
+            for f in &files_to_bump {
+                println!("  Would bump: {}", style(f).cyan());
             }
         }
         if !opts.no_changelog {
@@ -82,33 +103,60 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
         bump_version_files(&dir, &new_version)?
     };
 
-    println!(
-        "{} {} → {}",
-        style("📦").bold(),
-        style(&result.old).dim(),
-        style(&result.new).green().bold()
-    );
+    if !opts.json {
+        println!(
+            "{} {} → {}",
+            style("📦").bold(),
+            style(&result.old).dim(),
+            style(&result.new).green().bold()
+        );
 
-    for f in &result.files_bumped {
-        println!("  Bumped {}", style(f).cyan());
+        for f in &result.files_bumped {
+            println!("  Bumped {}", style(f).cyan());
+        }
+
+        if result.files_bumped.is_empty() {
+            println!("  Tag-only release (no version files found)");
+        }
     }
 
-    if result.files_bumped.is_empty() {
-        println!("  Tag-only release (no version files found)");
-    }
-
+    let mut changelog_updated = false;
     if !opts.no_changelog {
-        generate_changelog_entry(&dir, &new_version)?;
+        changelog_updated = generate_changelog_entry(&dir, &new_version, opts.json)?;
     }
 
-    create_release_commit(&dir, &new_version, &result.files_bumped, !opts.no_changelog)?;
+    create_release_commit(
+        &dir,
+        &new_version,
+        &result.files_bumped,
+        !opts.no_changelog,
+        opts.json,
+    )?;
 
     if !opts.no_tag {
-        create_tag(&dir, &new_version)?;
+        create_tag(&dir, &new_version, opts.json)?;
     }
 
     if opts.push {
-        push_release(&dir, &new_version, !opts.no_tag)?;
+        push_release(&dir, &new_version, !opts.no_tag, opts.json)?;
+    }
+
+    if opts.json {
+        let envelope = serde_json::json!({
+            "schema_version": 1,
+            "action": "release",
+            "dry_run": false,
+            "version": new_version.to_string(),
+            "old_version": result.old.to_string(),
+            "files_bumped": result.files_bumped,
+            "changelog_updated": changelog_updated,
+            "commit_created": true,
+            "tag_created": !opts.no_tag,
+            "tag": format!("v{}", new_version),
+            "pushed": opts.push,
+        });
+        println!("{}", serde_json::to_string_pretty(&envelope)?);
+        return Ok(());
     }
 
     println!(
@@ -561,7 +609,7 @@ fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
     })
 }
 
-fn generate_changelog_entry(dir: &Path, version: &Version) -> Result<()> {
+fn generate_changelog_entry(dir: &Path, version: &Version, quiet: bool) -> Result<bool> {
     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
     let tag_name = format!("v{version}");
 
@@ -592,11 +640,13 @@ fn generate_changelog_entry(dir: &Path, version: &Version) -> Result<()> {
         .collect();
 
     if commits.is_empty() {
-        println!(
-            "  {} No commits since last tag — skipping changelog",
-            style("*").cyan().bold()
-        );
-        return Ok(());
+        if !quiet {
+            println!(
+                "  {} No commits since last tag, skipping changelog",
+                style("*").cyan().bold()
+            );
+        }
+        return Ok(false);
     }
 
     let mut sections: std::collections::BTreeMap<&str, Vec<(&str, &str)>> =
@@ -638,8 +688,10 @@ fn generate_changelog_entry(dir: &Path, version: &Version) -> Result<()> {
         std::fs::write(&changelog_path, content)?;
     }
 
-    println!("  Updated {}", style("CHANGELOG.md").cyan());
-    Ok(())
+    if !quiet {
+        println!("  Updated {}", style("CHANGELOG.md").cyan());
+    }
+    Ok(true)
 }
 
 fn classify_for_changelog(msg: &str) -> &'static str {
@@ -689,6 +741,7 @@ fn create_release_commit(
     version: &Version,
     bumped_files: &[String],
     has_changelog: bool,
+    quiet: bool,
 ) -> Result<()> {
     let mut files_to_add: Vec<String> = bumped_files.to_vec();
     if has_changelog && dir.join("CHANGELOG.md").exists() {
@@ -728,11 +781,13 @@ fn create_release_commit(
         );
     }
 
-    println!("  Created commit: {}", style(&msg).dim());
+    if !quiet {
+        println!("  Created commit: {}", style(&msg).dim());
+    }
     Ok(())
 }
 
-fn create_tag(dir: &Path, version: &Version) -> Result<()> {
+fn create_tag(dir: &Path, version: &Version, quiet: bool) -> Result<()> {
     let tag = format!("v{version}");
 
     let check = Command::new("git")
@@ -761,11 +816,13 @@ fn create_tag(dir: &Path, version: &Version) -> Result<()> {
         );
     }
 
-    println!("  Created tag: {}", style(&tag).cyan());
+    if !quiet {
+        println!("  Created tag: {}", style(&tag).cyan());
+    }
     Ok(())
 }
 
-fn push_release(dir: &Path, version: &Version, has_tag: bool) -> Result<()> {
+fn push_release(dir: &Path, version: &Version, has_tag: bool, quiet: bool) -> Result<()> {
     let output = Command::new("git")
         .args(["push"])
         .current_dir(dir)
@@ -795,7 +852,9 @@ fn push_release(dir: &Path, version: &Version, has_tag: bool) -> Result<()> {
         }
     }
 
-    println!("  Pushed to remote");
+    if !quiet {
+        println!("  Pushed to remote");
+    }
     Ok(())
 }
 
@@ -1231,6 +1290,7 @@ edition = "2021"
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
+                json: false,
             })
         });
 
@@ -1268,6 +1328,7 @@ edition = "2021"
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
+                json: false,
             })
         });
 
@@ -1311,6 +1372,7 @@ edition = "2021"
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
+                json: false,
             })
         });
 
@@ -1350,7 +1412,9 @@ edition = "2021"
 
         let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.2.0").unwrap();
-        let result = with_cwd(&tmp_path, || generate_changelog_entry(&tmp_path, &version));
+        let result = with_cwd(&tmp_path, || {
+            generate_changelog_entry(&tmp_path, &version, false)
+        });
 
         assert!(result.is_ok());
         let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
@@ -1388,7 +1452,7 @@ edition = "2021"
         let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.1.1").unwrap();
         with_cwd(&tmp_path, || {
-            generate_changelog_entry(&tmp_path, &version).unwrap();
+            generate_changelog_entry(&tmp_path, &version, false).unwrap();
         });
 
         let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
@@ -1520,7 +1584,7 @@ end
             .unwrap();
 
         let version = parse_version("1.0.0").unwrap();
-        let result = create_tag(tmp.path(), &version);
+        let result = create_tag(tmp.path(), &version, false);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(
@@ -1595,7 +1659,7 @@ end
         let tmp_path = tmp.path().to_path_buf();
         let version = parse_version("0.1.0").unwrap();
         with_cwd(&tmp_path, || {
-            generate_changelog_entry(&tmp_path, &version).unwrap();
+            generate_changelog_entry(&tmp_path, &version, false).unwrap();
         });
 
         let changelog = fs::read_to_string(tmp_path.join("CHANGELOG.md")).unwrap();
@@ -1632,6 +1696,7 @@ end
                 push: false,
                 pre_lane: None,
                 allow_dirty: false,
+                json: false,
             })
         });
 

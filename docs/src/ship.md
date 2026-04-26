@@ -81,13 +81,14 @@ fledge changelog --json
 
 ## Releases with `fledge release`
 
-Cut a release, bump the version, generate changelog, create an annotated git tag, and optionally push. Pure git, no GitHub-specific calls (the GitHub Releases UI object is created separately, e.g. via `gh release create`).
+Cut a release. Bump the version, generate changelog, create an annotated git tag, and optionally push. Pure git, no GitHub-specific calls (the GitHub Releases UI object is created separately, e.g. via `gh release create`).
 
 ```bash
 fledge release patch                          # bump patch version
 fledge release minor --push                   # bump minor + push to remote
 fledge release major --pre-lane ci            # run CI lane first, then bump major
 fledge release 2.0.0 --dry-run                # preview a specific version bump
+fledge release 2.0.0 --dry-run --json         # preview as JSON envelope
 fledge release patch --no-tag --no-changelog  # just bump version, skip extras
 fledge release minor --allow-dirty            # release even with uncommitted changes
 ```
@@ -96,9 +97,11 @@ fledge release minor --allow-dirty            # release even with uncommitted ch
 - `--dry-run`: Preview without making changes
 - `--no-tag`: Skip git tag
 - `--no-changelog`: Skip changelog generation
+- `--no-bump`: Skip bumping any version files (tag-only)
 - `--push`: Push commit and tag to remote
 - `--pre-lane <name>`: Run a lane before releasing (e.g. `ci`)
 - `--allow-dirty`: Allow uncommitted changes
+- `--json`: Emit a JSON envelope. Suppresses prose output
 
 ## Typical flow
 
