@@ -63,6 +63,9 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge run --list --json` | `{schema_version: 1, action: "run_list", auto_detected, tasks: [...]}` | Discovering tasks defined in `fledge.toml` (or auto-detected) |
 | `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` | Running a task and capturing its output |
 | `fledge run --init --json` | `{schema_version: 1, action: "run_init", file, project_type, files_created}` | Scaffolding a `fledge.toml` |
+| `fledge release --dry-run --json` | `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}` | Preview what a release would do |
+| `fledge release --json` | `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` | After a real release completes |
+| `fledge lanes run <name> --dry-run --json` | `{schema_version: 1, lane, description, total_steps, fail_fast, dry_run: true, steps: [{step, kind, name}]}` | Preview lane steps without executing |
 | `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` | Auditing plugin state |
 | `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, has_lifecycle_hooks, ...}]}` | Capability/hook audit |
 | `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, stars, trust_tier, ...}]}` | GitHub search for `fledge-plugin`-tagged repos |
@@ -88,7 +91,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, ...) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
-Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `release`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR. It's an accepted pattern.
+Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR. It's an accepted pattern.
 
 **Envelope contract.** Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 
@@ -96,6 +99,8 @@ Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `wa
 - Cross-cutting commands (`doctor`, `run`, `ai`, `ask`, `changelog`, `work`, `spec`, `review`) use `{schema_version: 1, action: "<verb>", ...}`. The `action` string discriminates between commands sharing similar shapes.
 
 Top-level `schema_version` is the version contract. New fields are additive within v1, field removal/retyping requires a new schema_version. **Always read `<resource>` (or `action` + named keys). Never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work. Pinning to fledge ≥ 1.0 means you can rely on the envelope.
+
+**Error output.** Errors are always plain text on stderr, even when `--json` is active. JSON appears only on stdout for successful operations. Check the exit code first; if non-zero, read stderr for the human-readable error message. Do not attempt to parse stderr as JSON.
 
 ## Non-interactive mode
 
