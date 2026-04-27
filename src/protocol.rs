@@ -4,7 +4,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
@@ -570,6 +570,7 @@ const MAX_STORE_KEY_SIZE: usize = 256;
 const MAX_STORE_VALUE_SIZE: usize = 64 * 1024; // 64 KB per value
 const MAX_STORE_TOTAL_SIZE: usize = 1024 * 1024; // 1 MB total
 const MAX_STORE_KEY_COUNT: usize = 256;
+const MAX_EXEC_OUTPUT_SIZE: usize = 10 * 1024 * 1024; // 10 MB per stream
 
 fn handle_store(plugin_dir: &Path, key: &str, value: &str) -> Result<()> {
     if key.is_empty() {
@@ -958,11 +959,15 @@ fn wait_with_timeout(child: &mut Child, timeout: Duration) -> Result<std::proces
             Ok(Some(_)) => {
                 let mut stdout = Vec::new();
                 let mut stderr = Vec::new();
-                if let Some(mut out) = child.stdout.take() {
-                    std::io::Read::read_to_end(&mut out, &mut stdout).ok();
+                if let Some(out) = child.stdout.take() {
+                    out.take(MAX_EXEC_OUTPUT_SIZE as u64)
+                        .read_to_end(&mut stdout)
+                        .ok();
                 }
-                if let Some(mut err) = child.stderr.take() {
-                    std::io::Read::read_to_end(&mut err, &mut stderr).ok();
+                if let Some(err) = child.stderr.take() {
+                    err.take(MAX_EXEC_OUTPUT_SIZE as u64)
+                        .read_to_end(&mut stderr)
+                        .ok();
                 }
                 let status = child
                     .wait()
@@ -1969,5 +1974,23 @@ metadata = false
         assert!(!caps.exec);
         assert!(!caps.store);
         assert!(!caps.metadata);
+    }
+
+    #[test]
+    fn exec_output_cap_is_10mb() {
+        assert_eq!(MAX_EXEC_OUTPUT_SIZE, 10 * 1024 * 1024);
+    }
+
+    #[test]
+    fn bounded_read_truncates_at_limit() {
+        use std::io::Cursor;
+        let data = vec![0xABu8; MAX_EXEC_OUTPUT_SIZE + 1024];
+        let reader = Cursor::new(data);
+        let mut buf = Vec::new();
+        reader
+            .take(MAX_EXEC_OUTPUT_SIZE as u64)
+            .read_to_end(&mut buf)
+            .unwrap();
+        assert_eq!(buf.len(), MAX_EXEC_OUTPUT_SIZE);
     }
 }

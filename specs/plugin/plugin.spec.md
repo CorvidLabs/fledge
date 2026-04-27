@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 16
+version: 17
 status: active
 files:
   - src/plugin.rs
@@ -29,7 +29,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
-| `PluginEntry` | Installed plugin record (name, source, version, installed date, commands, pinned_ref) |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 
 ### Structs & Enums
@@ -38,7 +37,7 @@ Plugin system for community extensions. Plugins are external executables that re
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
-| `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
+| `PluginEntry` | (private) Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
@@ -96,7 +95,9 @@ Plugins can register hooks for lifecycle events beyond install/remove:
 | `post_work_start` | After `fledge work start` creates a branch | Set up git hooks, configure branch-specific env |
 | `pre_pr` | Before `fledge work pr` pushes and creates PR | Run lint, format, security scans before PR creation |
 
-Lifecycle hooks are called across all installed plugins. Hooks are optional — plugins only participate in events they declare.
+Lifecycle hooks are called across all installed plugins. Hooks are optional — plugins only participate in events they declare. **Protocol plugins** (those declaring `protocol = "fledge-v1"`) must have the `exec` capability granted to run lifecycle hooks; without it, hooks are silently skipped. Non-protocol plugins (no capability model) run hooks unconditionally.
+
+During `fledge plugins install`, hooks are displayed alongside capabilities in the approval prompt so users see exactly what shell commands will execute before granting permission.
 
 ### Trust Tiers
 
@@ -170,6 +171,8 @@ pinned_ref = "v0.2.0"
 12. `fledge plugins install --defaults` (mutually exclusive with a positional source ref) installs every entry in the const `DEFAULT_PLUGINS` array. As of v0.15.2: `fledge-plugin-{github,deps,metrics}`. The earlier set also included `templates-remote` (re-absorbed into core `templates search`/`publish`) and `doctor` (re-absorbed into core `doctor` as the informational `Toolchains` section)
 13. The `--defaults` install loop reports per-plugin success/failure and continues on error so a single bad repo doesn't block the rest. Exits non-zero if any plugin failed; the trailing summary lists each failure with its error message
 14. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
+15. Protocol plugins without `exec` capability cannot run lifecycle hooks — `run_lifecycle_hook` skips them silently. Non-protocol plugins (no capability entry in the registry) are unaffected
+16. `plugin install` displays lifecycle hooks (with their shell commands) in the approval prompt alongside capabilities. Hooks-only plugins (no protocol capabilities) still require user approval before install completes
 
 ## Behavioral Examples
 
@@ -288,6 +291,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 17 | 2026-04-27 | Security: protocol plugins now require `exec` capability to run lifecycle hooks (previously hooks bypassed the capability gate). Install prompt displays hooks alongside capabilities for user approval. Invariants 15-16 added |
 | 16 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `plugins install --json` (single + defaults) renames the per-plugin `tier` field to `trust_tier` to match every other plugin envelope (`list`, `audit`, `search`). (b) `plugins publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `plugin`, `topic`, `install_hint`); `cancelled` is `true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` already covers it). Consumers can now read the same keys regardless of cancel/success. Last-chance shape break before tagging 1.0 |
 | 15 | 2026-04-25 | **Breaking (tier C, #272):** `plugins list/audit/search/validate --json` outputs migrated from bare top-level arrays to `{schema_version: 1, <resource>: [...]}` envelopes (`plugins`, `audit`, `results`, and validate report flattened with schema_version). Last-chance shape break before 1.0 freezes the contract. AGENTS.md and integration tests updated in lockstep |
 | 14 | 2026-04-25 | Tier B follow-up: `plugins create` and `plugins publish` honour `--json` and emit a `{schema_version:1, action, ...}` envelope. `create` reports `path/name/description/files_created`; `publish` reports `repo/template/topic/install_hint` plus a `cancelled: true` shape on user-declined update prompts. Invariant 11 widened to enumerate `create` and `publish`. |

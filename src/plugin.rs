@@ -69,6 +69,40 @@ struct PluginHooks {
     pre_pr: Option<String>,
 }
 
+impl PluginHooks {
+    fn has_any(&self) -> bool {
+        self.build.is_some()
+            || self.post_install.is_some()
+            || self.post_remove.is_some()
+            || self.pre_init.is_some()
+            || self.post_work_start.is_some()
+            || self.pre_pr.is_some()
+    }
+
+    fn iter_defined(&self) -> Vec<(&str, &str)> {
+        let mut hooks = Vec::new();
+        if let Some(ref c) = self.pre_pr {
+            hooks.push(("pre_pr", c.as_str()));
+        }
+        if let Some(ref c) = self.build {
+            hooks.push(("build", c.as_str()));
+        }
+        if let Some(ref c) = self.post_install {
+            hooks.push(("post_install", c.as_str()));
+        }
+        if let Some(ref c) = self.post_remove {
+            hooks.push(("post_remove", c.as_str()));
+        }
+        if let Some(ref c) = self.pre_init {
+            hooks.push(("pre_init", c.as_str()));
+        }
+        if let Some(ref c) = self.post_work_start {
+            hooks.push(("post_work_start", c.as_str()));
+        }
+        hooks
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct PluginsRegistry {
     #[serde(default)]
@@ -76,7 +110,7 @@ struct PluginsRegistry {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PluginEntry {
+struct PluginEntry {
     name: String,
     source: String,
     version: String,
@@ -196,6 +230,13 @@ pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
 pub fn run_lifecycle_hook(event: &str) -> Result<()> {
     let registry = load_registry()?;
     for entry in &registry.plugins {
+        // Protocol plugins need exec capability to run hooks
+        if let Some(ref caps) = entry.capabilities {
+            if !caps.exec {
+                continue;
+            }
+        }
+
         let plugin_dir = plugins_dir().join(&entry.name);
         let manifest_path = plugin_dir.join("plugin.toml");
         if !manifest_path.exists() {
@@ -700,46 +741,69 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
 
     let caps = &manifest.capabilities;
     let has_caps = caps.exec || caps.store || caps.metadata;
-    if has_caps && manifest.plugin.protocol.is_some() {
+    let needs_cap_prompt = has_caps && manifest.plugin.protocol.is_some();
+    let has_hooks = manifest.hooks.has_any();
+
+    if needs_cap_prompt || has_hooks {
         if !json {
-            println!("\n  {} Requested capabilities:", style("*").cyan().bold());
-            if caps.exec {
-                println!("    {} exec — run shell commands", style("•").yellow());
+            if needs_cap_prompt {
+                println!("\n  {} Requested capabilities:", style("*").cyan().bold());
+                if caps.exec {
+                    println!("    {} exec — run shell commands", style("•").yellow());
+                }
+                if caps.store {
+                    println!(
+                        "    {} store — persist data between runs",
+                        style("•").yellow()
+                    );
+                }
+                if caps.metadata {
+                    println!(
+                        "    {} metadata — read project metadata and environment",
+                        style("•").yellow()
+                    );
+                }
             }
-            if caps.store {
-                println!(
-                    "    {} store — persist data between runs",
-                    style("•").yellow()
-                );
-            }
-            if caps.metadata {
-                println!(
-                    "    {} metadata — read project metadata and environment",
-                    style("•").yellow()
-                );
+            if has_hooks {
+                println!("\n  {} Lifecycle hooks:", style("*").cyan().bold());
+                for (name, cmd) in manifest.hooks.iter_defined() {
+                    println!(
+                        "    {} {} — {}",
+                        style("•").yellow(),
+                        name,
+                        style(cmd).dim()
+                    );
+                }
             }
             println!();
         }
         if force {
             eprintln!(
-                "  {} Capabilities auto-granted via --force",
+                "  {} Permissions auto-granted via --force",
                 style("WARN").yellow()
             );
         } else if !crate::utils::is_interactive() {
             fs::remove_dir_all(&plugin_dir).ok();
             bail!(
-                "Plugin capabilities require confirmation in non-interactive mode.\n  \
-                 Use --yes or --force to auto-grant capabilities."
+                "Plugin permissions require confirmation in non-interactive mode.\n  \
+                 Use --yes or --force to auto-grant."
             );
         } else {
+            let prompt_msg = if needs_cap_prompt && has_hooks {
+                "Grant capabilities and approve hooks?"
+            } else if needs_cap_prompt {
+                "Grant these capabilities?"
+            } else {
+                "Approve these hooks?"
+            };
             let confirm =
                 dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt("Grant these capabilities?")
+                    .with_prompt(prompt_msg)
                     .default(true)
                     .interact()?;
             if !confirm {
                 fs::remove_dir_all(&plugin_dir).ok();
-                bail!("Plugin installation cancelled — capabilities not granted.");
+                bail!("Plugin installation cancelled.");
             }
         }
     }
@@ -3053,5 +3117,99 @@ build = "cargo build --release"
         assert_eq!(TrustTier::Official.label(), "official");
         assert_eq!(TrustTier::Team.label(), "team");
         assert_eq!(TrustTier::Unverified.label(), "unverified");
+    }
+
+    #[test]
+    fn hooks_has_any_detects_build() {
+        let hooks = PluginHooks {
+            build: Some("cargo build".into()),
+            ..Default::default()
+        };
+        assert!(hooks.has_any());
+    }
+
+    #[test]
+    fn hooks_has_any_detects_lifecycle() {
+        let hooks = PluginHooks {
+            pre_pr: Some("./check.sh".into()),
+            ..Default::default()
+        };
+        assert!(hooks.has_any());
+    }
+
+    #[test]
+    fn hooks_has_any_false_when_empty() {
+        let hooks = PluginHooks::default();
+        assert!(!hooks.has_any());
+    }
+
+    #[test]
+    fn hooks_iter_defined_returns_all_set_hooks() {
+        let hooks = PluginHooks {
+            build: Some("make".into()),
+            pre_pr: Some("lint".into()),
+            post_install: Some("setup.sh".into()),
+            ..Default::default()
+        };
+        let items = hooks.iter_defined();
+        assert_eq!(items.len(), 3);
+        assert!(items.contains(&("build", "make")));
+        assert!(items.contains(&("pre_pr", "lint")));
+        assert!(items.contains(&("post_install", "setup.sh")));
+    }
+
+    #[test]
+    fn hooks_iter_defined_empty_when_none() {
+        let hooks = PluginHooks::default();
+        assert!(hooks.iter_defined().is_empty());
+    }
+
+    #[test]
+    fn parse_manifest_with_hooks() {
+        let toml_str = r#"
+[plugin]
+name = "test-hooks"
+version = "1.0.0"
+
+[hooks]
+build = "cargo build --release"
+post_install = "scripts/setup.sh"
+pre_pr = "./lint.sh"
+"#;
+        let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
+        assert!(manifest.hooks.has_any());
+        assert_eq!(
+            manifest.hooks.build.as_deref(),
+            Some("cargo build --release")
+        );
+        assert_eq!(
+            manifest.hooks.post_install.as_deref(),
+            Some("scripts/setup.sh")
+        );
+        assert_eq!(manifest.hooks.pre_pr.as_deref(), Some("./lint.sh"));
+        assert!(manifest.hooks.post_work_start.is_none());
+    }
+
+    #[test]
+    fn parse_manifest_hooks_and_capabilities_together() {
+        let toml_str = r#"
+[plugin]
+name = "full-plugin"
+version = "2.0.0"
+protocol = "fledge-v1"
+
+[hooks]
+build = "make"
+pre_init = "./init-check.sh"
+
+[capabilities]
+exec = true
+store = false
+"#;
+        let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
+        assert!(manifest.hooks.has_any());
+        assert!(manifest.capabilities.exec);
+        assert!(!manifest.capabilities.store);
+        assert_eq!(manifest.hooks.iter_defined().len(), 2);
     }
 }
