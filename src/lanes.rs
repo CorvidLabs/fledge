@@ -1835,8 +1835,12 @@ fn publish_lanes(
                             "owner": owner,
                             "name": repo_name,
                             "url": format!("https://github.com/{owner}/{repo_name}"),
-                            "exists": true,
+                            "created": false,
+                            "private": private,
                         },
+                        "lanes_published": lane_names,
+                        "topic": "fledge-lane",
+                        "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
                     });
                     println!("{}", serde_json::to_string_pretty(&result)?);
                 } else {
@@ -1897,6 +1901,7 @@ fn publish_lanes(
         let result = serde_json::json!({
             "schema_version": 1,
             "action": "publish",
+            "cancelled": false,
             "repo": {
                 "owner": owner,
                 "name": repo_name,

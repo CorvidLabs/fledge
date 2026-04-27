@@ -49,14 +49,14 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 
 | Command | What you get | Use when |
 |---------|-------------|----------|
-| `fledge introspect --json` | Full command tree: every subcommand, every flag, every arg | First contact with fledge |
+| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args: [...], subcommands: [...]}`. Each subcommand recursively has the same shape; each arg has `name, long?, short?, aliases, help, required, takes_value, value_name, global?` | First contact with fledge |
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |
-| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}`. What's active and where each value came from | Verifying provider config before invoking the LLM |
+| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, provider_source, model, model_source, host, host_source}`. All six keys always present. `provider_source` is `"env" \| "config" \| "default"`. `model`/`host` and their `*_source` may be `null` (e.g. Claude has no host) | Verifying provider config before invoking the LLM |
 | `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}`. Ollama hits `/api/tags`, Claude returns curated aliases | Picking a specific model |
 | `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` from the active LLM | Answering a question about the code |
-| `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review, provider, model}`. Top-level `review`/`provider`/`model` only when panel size is 1 | Before opening a PR |
+| `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review \| error, provider, model}`. Top-level `provider`/`model` always present when panel size is 1; `review` (success) or `error` (slot failed) is the discriminator. Per-slot `reviews[]` items follow the same `review \| error` pattern | Before opening a PR |
 | `fledge review --with-model <ref> --json` | Multi-model panel: `{schema_version: 1, action: "review", base, ..., reviews: [{provider, model, elapsed_seconds, review|error}, ...]}` | Comparing models on the same diff |
 | `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [{name, checks: [...], informational}], passed, failed}`. Four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational, missing tools don't count toward `failed` | Debugging a broken setup |
 | `fledge changelog --json` | `{schema_version: 1, action: "changelog", releases: [{tag, date, sections}]}` | Generating release notes |
@@ -66,21 +66,30 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge release --dry-run --json` | `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}` | Preview what a release would do |
 | `fledge release --json` | `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` | After a real release completes |
 | `fledge lanes run <name> --dry-run --json` | `{schema_version: 1, lane, description, total_steps, fail_fast, dry_run: true, steps: [{step, kind, name}]}` | Preview lane steps without executing |
-| `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, trust_tier, ...}]}` | Auditing plugin state |
-| `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, has_lifecycle_hooks, ...}]}` | Capability/hook audit |
-| `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, stars, trust_tier, ...}]}` | GitHub search for `fledge-plugin`-tagged repos |
+| `fledge plugins list --json` | `{schema_version: 1, plugins: [{name, version, source, installed, commands, pinned_ref, trust_tier}]}` | Auditing plugin state |
+| `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, source, trust_tier, capabilities: {exec, store, metadata}, commands, has_lifecycle_hooks}]}` | Capability/hook audit |
+| `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, description, stars, url, trust_tier}]}` | GitHub search for `fledge-plugin`-tagged repos |
 | `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` | CI gate before publish |
+| `fledge plugins install <src> --json` | `{schema_version: 1, action: "install", scope: "single" \| "defaults", installed: [{name, source, version, trust_tier, commands, pinned_ref, capabilities}], failed: [{source, error}], summary: {total, installed, failed}}` | Programmatic install / bulk default install |
+| `fledge plugins update [name] --json` | `{schema_version: 1, action: "update", scope: "single" \| "all" \| "defaults", results: [{name, status: "updated" \| "skipped" \| "failed", version?, commands?, pinned_ref?, latest_tag?, detail?}], summary: {total, updated, skipped, failed}}`. Conditional fields depend on `status` | Bulk update |
+| `fledge plugins remove <name> --json` | `{schema_version: 1, action: "remove", removed: {name, source, version, commands}}` | Programmatic uninstall |
+| `fledge plugins publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, plugin: {name, version, description}, topic, install_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines | Publishing a plugin repo |
+| `fledge plugins create --json` | `{schema_version: 1, action: "create", path, name, description, files_created}` | Scaffolding a new plugin |
 | `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, step_count, fail_fast, source?, trust_tier}]}`. `step_count` is an integer; full step detail lives in `lanes run --dry-run --json` | Discovering lanes available to run |
-| `fledge lanes search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-lane`-tagged repos |
-| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps: [...], failures: [...]}` | Running the project's own CI pipeline |
+| `fledge lanes search --json` | `{schema_version: 1, results: [{owner, name, description, stars, url, topics, trust_tier}]}` | GitHub search for `fledge-lane`-tagged repos |
+| `fledge lanes run <name> --json` | `{schema_version: 1, lane, description, total_steps, success, duration_ms, fail_fast, steps: [{step, name, success, duration_ms, error}], failures: [...]}` | Running the project's own CI pipeline |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` | CI gate before publish |
+| `fledge lanes init --json` | `{schema_version: 1, action: "init", file, project_type, lanes_added}` | Adding default lanes to fledge.toml |
+| `fledge lanes import <src> --json` | `{schema_version: 1, action: "import", source, trust_tier, imported, skipped, file, written}`. `file` is always the computed `.fledge/lanes/<safe>.toml` path; `written: false` when every lane was skipped | Importing community lanes |
+| `fledge lanes publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, lanes_published, topic, import_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines | Publishing a lane repo |
+| `fledge lanes create --json` | `{schema_version: 1, action: "create", path, name, description, files_created}` | Scaffolding a new lane repo |
 | `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` | Listing available templates |
-| `fledge templates search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-template`-tagged repos |
+| `fledge templates search --json` | `{schema_version: 1, results: [{owner, name, description, stars, url, topics, trust_tier}]}` | GitHub search for `fledge-template`-tagged repos |
 | `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
 | `fledge templates init <template> --json` | `{schema_version: 1, action: "init", project: {name, path}, template: {name, source, version}, variables_used, files_created, git_initialized, hooks_run}` | Scaffolding a new project |
 | `fledge templates create --json` | `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` | Creating a new template skeleton |
 | `fledge templates publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines a confirmation | Publishing a template repo |
-| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. Branch name the agent just created | Branch scripting |
+| `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. `issue` is `null` when no `--issue` flag was passed; all other fields always present | Branch scripting |
 | `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}`. PR URL to report back | After agent finishes a task |
 | `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}`. Current state of the branch | Pre-action sanity check |
 
