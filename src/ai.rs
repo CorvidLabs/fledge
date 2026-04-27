@@ -174,13 +174,14 @@ fn resolve_ollama_model(config: &Config) -> (String, Source) {
 
 fn resolve_ollama_host(config: &Config) -> (String, Source) {
     if let Ok(v) = std::env::var("OLLAMA_HOST") {
-        return (v, Source::Env);
+        return (crate::llm::normalize_ollama_host(&v), Source::Env);
     }
+    let normalized = crate::llm::normalize_ollama_host(&config.ai.ollama.host);
     let default_host = "http://localhost:11434";
-    if config.ai.ollama.host == default_host {
+    if normalized == default_host {
         (default_host.to_string(), Source::Default)
     } else {
-        (config.ai.ollama.host.clone(), Source::ConfigFile)
+        (normalized, Source::ConfigFile)
     }
 }
 
@@ -333,7 +334,9 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
 }
 
 fn list_ollama_models(config: &Config) -> Result<Vec<ModelEntry>> {
-    let host = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+    let host = crate::llm::normalize_ollama_host(
+        &std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone()),
+    );
     let url = format!("{}/api/tags", host.trim_end_matches('/'));
 
     let agent: ureq::Agent = ureq::Agent::config_builder()

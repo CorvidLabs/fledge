@@ -436,8 +436,9 @@ fn check_ai() -> Section {
         crate::llm::ProviderKind::Ollama => {
             // Ollama can be a remote endpoint; the CLI check above doesn't tell
             // us whether the configured host responds. Probe `/api/tags`.
-            let host =
+            let raw =
                 std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            let host = crate::llm::normalize_ollama_host(&raw);
             if probe_ollama_host(&host) {
                 CheckStatus::Ok
             } else if ollama.status == CheckStatus::Ok {
@@ -454,8 +455,9 @@ fn check_ai() -> Section {
             Some("claude is the active provider and is reachable".to_string())
         }
         (crate::llm::ProviderKind::Ollama, CheckStatus::Ok) => {
-            let host =
+            let raw =
                 std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            let host = crate::llm::normalize_ollama_host(&raw);
             let model =
                 std::env::var("FLEDGE_AI_MODEL").unwrap_or_else(|_| config.ai.ollama.model.clone());
             Some(format!(
@@ -463,8 +465,9 @@ fn check_ai() -> Section {
             ))
         }
         (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => {
-            let host =
+            let raw =
                 std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            let host = crate::llm::normalize_ollama_host(&raw);
             Some(format!(
                 "ollama CLI installed but endpoint {host} is not responding"
             ))
