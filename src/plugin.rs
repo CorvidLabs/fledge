@@ -110,7 +110,7 @@ struct PluginsRegistry {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct PluginEntry {
+pub struct PluginEntry {
     name: String,
     source: String,
     version: String,
