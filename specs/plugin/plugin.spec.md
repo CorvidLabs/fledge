@@ -29,7 +29,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
-| `PluginEntry` | Installed plugin record (name, source, version, installed date, commands, pinned_ref) |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 
 ### Structs & Enums
@@ -38,7 +37,7 @@ Plugin system for community extensions. Plugins are external executables that re
 |------|-------------|
 | `PluginOptions` | CLI options: `action`, `json` |
 | `PluginAction` | Enum: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
-| `PluginEntry` | Installed plugin record: name, source, version, installed date, commands, pinned_ref |
+| `PluginEntry` | (private) Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
 
