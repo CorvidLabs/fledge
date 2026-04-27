@@ -29,6 +29,16 @@ impl ProviderKind {
     }
 }
 
+/// Ensure a host string has a scheme; prepend `http://` when missing.
+pub fn normalize_ollama_host(host: &str) -> String {
+    let h = host.trim().trim_end_matches('/');
+    if h.starts_with("http://") || h.starts_with("https://") {
+        h.to_string()
+    } else {
+        format!("http://{h}")
+    }
+}
+
 /// An invokable LLM.
 pub trait LlmProvider: Send + Sync {
     /// Send a prompt, return the model's response as plain text.
@@ -223,8 +233,9 @@ pub fn build_provider(
                 .or_else(|| config.ai.claude.model.clone()),
         })),
         ProviderKind::Ollama => {
-            let host =
-                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
+            let host = normalize_ollama_host(
+                &std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone()),
+            );
             let api_key = std::env::var("OLLAMA_API_KEY")
                 .ok()
                 .or_else(|| config.ai.ollama.api_key.clone());
