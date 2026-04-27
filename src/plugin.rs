@@ -81,6 +81,9 @@ impl PluginHooks {
 
     fn iter_defined(&self) -> Vec<(&str, &str)> {
         let mut hooks = Vec::new();
+        if let Some(ref c) = self.pre_pr {
+            hooks.push(("pre_pr", c.as_str()));
+        }
         if let Some(ref c) = self.build {
             hooks.push(("build", c.as_str()));
         }
@@ -95,9 +98,6 @@ impl PluginHooks {
         }
         if let Some(ref c) = self.post_work_start {
             hooks.push(("post_work_start", c.as_str()));
-        }
-        if let Some(ref c) = self.pre_pr {
-            hooks.push(("pre_pr", c.as_str()));
         }
         hooks
     }
