@@ -1310,43 +1310,77 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 style("*").cyan().bold(),
                 style(path.display()).dim()
             );
-            print_config_entry("defaults.author", &config.defaults.author);
-            print_config_entry("defaults.github_org", &config.defaults.github_org);
-            print_config_entry("defaults.license", &config.defaults.license);
-            print_config_entry(
+
+            println!("  {}", style("Defaults").bold().underlined());
+            print_config_described(
+                "defaults.author",
+                &config.defaults.author,
+                "Author name for new projects",
+            );
+            print_config_described(
+                "defaults.github_org",
+                &config.defaults.github_org,
+                "GitHub org for new projects",
+            );
+            print_config_described(
+                "defaults.license",
+                &config.defaults.license,
+                "Default license (e.g. MIT, Apache-2.0)",
+            );
+            println!();
+
+            println!("  {}", style("GitHub").bold().underlined());
+            print_config_described(
                 "github.token",
                 &config.github.token.as_ref().map(|_| "***".to_string()),
+                "API token for GitHub operations",
             );
-            if config.templates.paths.is_empty() {
-                println!(
-                    "  {:<24} {}",
-                    style("templates.paths").cyan(),
-                    style("(none)").dim()
-                );
-            } else {
-                for (i, p) in config.templates.paths.iter().enumerate() {
-                    if i == 0 {
-                        println!("  {:<24} {}", style("templates.paths").cyan(), p);
-                    } else {
-                        println!("  {:<24} {}", "", p);
-                    }
-                }
-            }
-            if config.templates.repos.is_empty() {
-                println!(
-                    "  {:<24} {}",
-                    style("templates.repos").cyan(),
-                    style("(none)").dim()
-                );
-            } else {
-                for (i, r) in config.templates.repos.iter().enumerate() {
-                    if i == 0 {
-                        println!("  {:<24} {}", style("templates.repos").cyan(), r);
-                    } else {
-                        println!("  {:<24} {}", "", r);
-                    }
-                }
-            }
+            println!();
+
+            println!("  {}", style("Templates").bold().underlined());
+            print_config_list_described(
+                "templates.paths",
+                &config.templates.paths,
+                "Local dirs with project templates",
+            );
+            print_config_list_described(
+                "templates.repos",
+                &config.templates.repos,
+                "GitHub repos with templates (owner/repo)",
+            );
+            println!();
+
+            println!("  {}", style("AI").bold().underlined());
+            print_config_described(
+                "ai.provider",
+                &config.ai.provider,
+                "LLM backend: claude or ollama",
+            );
+            print_config_described(
+                "ai.claude.model",
+                &config.ai.claude.model,
+                "Claude model name",
+            );
+            print_config_value_described(
+                "ai.ollama.host",
+                &config.ai.ollama.host,
+                "Ollama API endpoint URL",
+            );
+            print_config_described(
+                "ai.ollama.api_key",
+                &config.ai.ollama.api_key.as_ref().map(|_| "***".to_string()),
+                "Ollama Cloud API key",
+            );
+            print_config_value_described(
+                "ai.ollama.model",
+                &config.ai.ollama.model,
+                "Ollama model name",
+            );
+            print_config_value_described(
+                "ai.ollama.timeout_seconds",
+                &config.ai.ollama.timeout_seconds.to_string(),
+                "Request timeout in seconds",
+            );
         }
         ConfigAction::Path => {
             println!("{}", config::Config::config_path().display());
@@ -1358,10 +1392,53 @@ fn handle_config(action: ConfigAction) -> Result<()> {
     Ok(())
 }
 
-fn print_config_entry(key: &str, value: &Option<impl std::fmt::Display>) {
+fn print_config_described(key: &str, value: &Option<impl std::fmt::Display>, desc: &str) {
     match value {
-        Some(v) => println!("  {:<24} {}", style(key).cyan(), v),
-        None => println!("  {:<24} {}", style(key).cyan(), style("(not set)").dim()),
+        Some(v) => println!(
+            "  {:<28} {:<24} {}",
+            style(key).cyan(),
+            v,
+            style(desc).dim()
+        ),
+        None => println!(
+            "  {:<28} {:<24} {}",
+            style(key).cyan(),
+            style("(not set)"),
+            style(desc).dim()
+        ),
+    }
+}
+
+fn print_config_value_described(key: &str, value: &impl std::fmt::Display, desc: &str) {
+    println!(
+        "  {:<28} {:<24} {}",
+        style(key).cyan(),
+        value,
+        style(desc).dim()
+    );
+}
+
+fn print_config_list_described(key: &str, values: &[String], desc: &str) {
+    if values.is_empty() {
+        println!(
+            "  {:<28} {:<24} {}",
+            style(key).cyan(),
+            style("(none)"),
+            style(desc).dim()
+        );
+    } else {
+        for (i, v) in values.iter().enumerate() {
+            if i == 0 {
+                println!(
+                    "  {:<28} {:<24} {}",
+                    style(key).cyan(),
+                    v,
+                    style(desc).dim()
+                );
+            } else {
+                println!("  {:<28} {}", "", v);
+            }
+        }
     }
 }
 
