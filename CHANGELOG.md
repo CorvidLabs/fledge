@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.16.0] - 2026-04-26
+
+### Chores
+
+- lock 1.0 contracts (introspect schema, plugin protocol, lanes, llm, trust) (#270) (1360fc3)
+- update Homebrew formula to v0.15.3 (#269) (f4d95b3)
+
+### Documentation
+
+- close AGENTS.md envelope coverage gaps (#286) (24ef2fe)
+- sync README/AGENTS/docs to current state, drop em-dashes (#280) (1d7ac1c)
+- sync AGENTS.md + spec behavioral examples to envelope shape (#279) (52805a5)
+
+### Features
+
+- add --json flag (#281) (e30a6a3)
+- tier-D schema_version envelope on cross-cutting --json paths (#278) (0291aa8)
+- wrap --json outputs in schema_version envelope (tier C, BREAKING) (#274) (71f237a)
+- --json coverage across plugins, lanes, templates (tier A + B) (#273) (296064f)
+
+### Fixes
+
+- finalize envelope shapes before tagging (#285) (d5be3da)
+- silence pre-release lane on --json (single-envelope contract) (#284) (0dce714)
+- propagate --json to pre-release lane, document release JSON shapes (#283) (4c5b0bb)
+- address 1.0 readiness blockers from multi-model review (#282) (6b1234b)
+- honor --json on dry-run path (1.0 contract) (#277) (b781561)
+- tighten lanes import + templates list envelopes (#271 followups) (#276) (3d9799d)
+
 ## [Unreleased]
 
 ### Added
