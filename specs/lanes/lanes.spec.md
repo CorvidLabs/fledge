@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 15
+version: 16
 status: active
 files:
   - src/lanes.rs
@@ -26,6 +26,7 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point — dispatches lane actions |
+| `run_for_pre_release` | Silent lane gate for `release --json --pre-lane`; runs steps with subprocess output suppressed and emits no envelope. Failure bails to stderr |
 | `LaneAction` | Enum: `Run`, `List`, `Init`, `Search`, `Import`, `Publish`, `Create`, `Validate` |
 | `LaneDef` | Lane definition: description, steps, and fail_fast flag |
 
@@ -43,6 +44,7 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(LaneAction) -> Result<()>` | Main entry — dispatch to init/list/execute/search/import |
+| `run_for_pre_release` | `(&str, bool) -> Result<()>` | Run a lane silently as a pre-release gate. No stdout output; subprocess stdout/stderr suppressed. Used by `release --json --pre-lane` to keep the release envelope the only thing on stdout |
 
 ## Config Format
 
@@ -229,6 +231,7 @@ $ fledge lanes run ci --json --dry-run
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 16 | 2026-04-26 | Add `run_for_pre_release(name, dry_run)` — a silent lane executor used by `release --json --pre-lane <name>` so the release JSON envelope is the only thing on stdout. Subprocess stdout/stderr is redirected to null; failure bails with a plain stderr error and non-zero exit. Pretty-print release path is unchanged and still goes through `LaneAction::Run` |
 | 15 | 2026-04-26 | `lanes run --json --dry-run` now emits a `{schema_version: 1, lane, description, total_steps, fail_fast, dry_run: true, steps: [{step, kind, name, items?}]}` envelope. Previously it ignored `--json` and printed prose, breaking the contract that `--json` always means parseable stdout. Per-step `duration_ms` is omitted in dry-run mode (no execution). Behavioral example for the per-step shape on real runs (`steps: [{step, name, success, duration_ms, error}, ...]`) also documented |
 | 14 | 2026-04-26 | `lanes import --json` envelope tightened: `file` is now always the computed `.fledge/lanes/<safe_name>.toml` path (string, never null), and a new `written: bool` field signals whether the file was actually created (false when every lane was skipped). Previously `file: null` in the all-skipped case implied the path wasn't computable, but it's a pure function of source — null was misleading |
 | 13 | 2026-04-25 | Fix `lanes run --json` prose leak: fledge's own progress prints AND each spawned task's stdout/stderr were going to the agent's stdout, interleaving with the JSON envelope and breaking `--json | jq`. Threaded a `quiet` flag through `execute_task_with_deps` / `execute_inline` / `execute_parallel` / `execute_single_task` / `execute_task_recursive`. In JSON mode prose is suppressed and spawned commands' stdout/stderr are redirected to `/dev/null`. Trade-off: per-step output isn't captured into the JSON record (consumers needing it re-run without `--json`). New regression test `cli_lane_run_json_stdout_is_clean` guards the contract |

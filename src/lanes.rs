@@ -209,6 +209,34 @@ pub fn run(action: LaneAction) -> Result<()> {
     }
 }
 
+/// Run a lane as a pre-release gate without emitting anything to stdout.
+/// The release command's own JSON envelope is the only thing the agent
+/// consumer parses; the lane runs silently and bails on failure.
+pub fn run_for_pre_release(name: &str, dry_run: bool) -> Result<()> {
+    let config = load_lane_config()?;
+    let lane = config.lanes.get(name).ok_or_else(|| {
+        let available: Vec<&str> = config.lanes.keys().map(|s| s.as_str()).collect();
+        anyhow::anyhow!(
+            "Unknown lane '{}'. Available lanes: {}",
+            name,
+            available.join(", ")
+        )
+    })?;
+
+    if lane.steps.is_empty() {
+        bail!("Lane '{}' has no steps defined", name);
+    }
+
+    validate_lane(name, lane, &config.tasks)?;
+
+    if dry_run {
+        return Ok(());
+    }
+
+    let project_dir = std::env::current_dir().context("getting current directory")?;
+    execute_lane_silent(name, lane, &config.tasks, &project_dir)
+}
+
 fn load_lane_config() -> Result<FledgeFileWithLanes> {
     let project_dir = std::env::current_dir().context("getting current directory")?;
     let config_path = project_dir.join("fledge.toml");
@@ -637,6 +665,47 @@ fn execute_lane_json(
     println!("{}", serde_json::to_string_pretty(&output)?);
 
     if !success {
+        bail!(
+            "Lane '{}' completed with {} failure(s)",
+            lane_name,
+            failures.len()
+        );
+    }
+
+    Ok(())
+}
+
+fn execute_lane_silent(
+    lane_name: &str,
+    lane: &LaneDef,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_dir: &Path,
+) -> Result<()> {
+    let mut failures: Vec<String> = Vec::new();
+
+    for (i, step) in lane.steps.iter().enumerate() {
+        let result = match step {
+            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, true),
+            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, true),
+            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, true),
+        };
+
+        if let Err(e) = result {
+            let step_desc = step_description(step);
+            if lane.fail_fast {
+                bail!(
+                    "Lane '{}' failed at step {} ({}): {}",
+                    lane_name,
+                    i + 1,
+                    step_desc,
+                    e
+                );
+            }
+            failures.push(step_desc);
+        }
+    }
+
+    if !failures.is_empty() {
         bail!(
             "Lane '{}' completed with {} failure(s)",
             lane_name,

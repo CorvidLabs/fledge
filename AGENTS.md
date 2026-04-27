@@ -77,6 +77,9 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates list --json` | `{schema_version: 1, templates: [{name, description, source, source_ref, path}]}` | Listing available templates |
 | `fledge templates search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-template`-tagged repos |
 | `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
+| `fledge templates init <template> --json` | `{schema_version: 1, action: "init", project: {name, path}, template: {name, source, version}, variables_used, files_created, git_initialized, hooks_run}` | Scaffolding a new project |
+| `fledge templates create --json` | `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` | Creating a new template skeleton |
+| `fledge templates publish --json` | `{schema_version: 1, action: "publish", repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}` | Publishing a template repo |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. Branch name the agent just created | Branch scripting |
 | `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}`. PR URL to report back | After agent finishes a task |
 | `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}`. Current state of the branch | Pre-action sanity check |
@@ -100,7 +103,7 @@ Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `wa
 
 Top-level `schema_version` is the version contract. New fields are additive within v1, field removal/retyping requires a new schema_version. **Always read `<resource>` (or `action` + named keys). Never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work. Pinning to fledge ≥ 1.0 means you can rely on the envelope.
 
-**Error output.** Errors are always plain text on stderr, even when `--json` is active. JSON appears only on stdout for successful operations. Check the exit code first; if non-zero, read stderr for the human-readable error message. Do not attempt to parse stderr as JSON.
+**Error output.** Errors always go to stderr as plain text, even when `--json` is active. Check the exit code first — non-zero means failure and stderr carries the human-readable error. Do not parse stderr as JSON. Stdout may still contain a partial or final envelope before some failures (e.g. `lanes run --json` emits the lane envelope with `success: false` then bails), so don't treat "stdout has JSON" as a success signal — the exit code is the contract.
 
 ## Non-interactive mode
 

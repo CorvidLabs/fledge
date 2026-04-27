@@ -201,24 +201,26 @@ fn preflight_checks(dir: &Path, allow_dirty: bool) -> Result<()> {
 }
 
 fn run_pre_lane(lane: &str, dry_run: bool, json: bool) -> Result<()> {
-    if !json {
-        println!(
-            "{} Running pre-release lane: {}",
-            style("🔄").bold(),
-            style(lane).cyan()
-        );
+    if json {
+        // Stdout is reserved for release's own JSON envelope. Run the lane
+        // silently; failure bails with a plain stderr error per envelope rules.
+        return crate::lanes::run_for_pre_release(lane, dry_run);
     }
+
+    println!(
+        "{} Running pre-release lane: {}",
+        style("🔄").bold(),
+        style(lane).cyan()
+    );
 
     let action = crate::lanes::LaneAction::Run {
         name: lane.to_string(),
         dry_run,
-        json,
+        json: false,
     };
     crate::lanes::run(action)?;
 
-    if !json {
-        println!("{} Pre-release lane passed", style("✅").green().bold());
-    }
+    println!("{} Pre-release lane passed", style("✅").green().bold());
     Ok(())
 }
 
