@@ -549,6 +549,8 @@ enum ConfigAction {
         /// Value to remove
         value: String,
     },
+    /// Interactively edit config values
+    Edit,
     /// Show all config values
     List,
     /// Show config file path
@@ -1302,6 +1304,10 @@ fn handle_config(action: ConfigAction) -> Result<()> {
                 );
             }
         }
+        ConfigAction::Edit => {
+            crate::utils::require_interactive("fledge config edit")?;
+            interactive_config_edit()?;
+        }
         ConfigAction::List => {
             let config = config::Config::load()?;
             let path = config::Config::config_path();
@@ -1440,6 +1446,290 @@ fn print_config_list_described(key: &str, values: &[String], desc: &str) {
             }
         }
     }
+}
+
+fn interactive_config_edit() -> Result<()> {
+    use dialoguer::{Input, Select};
+    let theme = dialoguer::theme::ColorfulTheme::default();
+
+    struct ConfigKey {
+        key: &'static str,
+        desc: &'static str,
+        kind: KeyKind,
+    }
+
+    enum KeyKind {
+        Text,
+        Secret,
+        Enum(&'static [&'static str]),
+        Number,
+        List,
+    }
+
+    let keys = vec![
+        ConfigKey {
+            key: "defaults.author",
+            desc: "Author name for new projects",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "defaults.github_org",
+            desc: "GitHub org for new projects",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "defaults.license",
+            desc: "Default license",
+            kind: KeyKind::Enum(&[
+                "MIT",
+                "Apache-2.0",
+                "GPL-3.0",
+                "BSD-3-Clause",
+                "ISC",
+                "UNLICENSED",
+            ]),
+        },
+        ConfigKey {
+            key: "github.token",
+            desc: "API token for GitHub operations",
+            kind: KeyKind::Secret,
+        },
+        ConfigKey {
+            key: "templates.paths",
+            desc: "Local dirs with project templates",
+            kind: KeyKind::List,
+        },
+        ConfigKey {
+            key: "templates.repos",
+            desc: "GitHub repos with templates (owner/repo)",
+            kind: KeyKind::List,
+        },
+        ConfigKey {
+            key: "ai.provider",
+            desc: "LLM backend",
+            kind: KeyKind::Enum(&["claude", "ollama"]),
+        },
+        ConfigKey {
+            key: "ai.claude.model",
+            desc: "Claude model name",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.ollama.host",
+            desc: "Ollama API endpoint URL",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.ollama.api_key",
+            desc: "Ollama Cloud API key",
+            kind: KeyKind::Secret,
+        },
+        ConfigKey {
+            key: "ai.ollama.model",
+            desc: "Ollama model name",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.ollama.timeout_seconds",
+            desc: "Request timeout in seconds",
+            kind: KeyKind::Number,
+        },
+    ];
+
+    loop {
+        let config = config::Config::load()?;
+
+        let items: Vec<String> = keys
+            .iter()
+            .map(|k| {
+                let current = match k.kind {
+                    KeyKind::Secret => config.get(k.key).map(|_| "***".to_string()),
+                    KeyKind::List => {
+                        let val = config.get(k.key).unwrap_or_default();
+                        if val.is_empty() {
+                            Some("(none)".to_string())
+                        } else {
+                            Some(val.replace('\n', ", "))
+                        }
+                    }
+                    _ => config.get(k.key),
+                };
+                let val_str = current
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "(not set)".to_string());
+                format!("{:<28} {:<20} {}", k.key, val_str, k.desc)
+            })
+            .collect();
+
+        let mut menu_items = items.clone();
+        menu_items.push("Done — save and exit".to_string());
+
+        let selection = Select::with_theme(&theme)
+            .with_prompt("Select a config key to edit")
+            .items(&menu_items)
+            .default(0)
+            .interact()?;
+
+        if selection >= keys.len() {
+            println!("{} Config saved.", style("✅").green().bold());
+            break;
+        }
+
+        let entry = &keys[selection];
+        let mut config = config::Config::load()?;
+
+        match entry.kind {
+            KeyKind::Enum(options) => {
+                let current = config.get(entry.key).unwrap_or_default();
+                let default_idx = options.iter().position(|o| *o == current).unwrap_or(0);
+
+                let choice = Select::with_theme(&theme)
+                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                    .items(options)
+                    .default(default_idx)
+                    .interact()?;
+
+                config.set(entry.key, options[choice])?;
+                config.save()?;
+                println!(
+                    "{} Set {} = {}",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan(),
+                    style(options[choice]).green()
+                );
+            }
+            KeyKind::Secret => {
+                let value: String = dialoguer::Password::with_theme(&theme)
+                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                    .allow_empty_password(true)
+                    .interact()?;
+
+                if value.is_empty() {
+                    config.unset(entry.key)?;
+                    config.save()?;
+                    println!(
+                        "{} Cleared {}",
+                        style("✅").green().bold(),
+                        style(entry.key).cyan()
+                    );
+                } else {
+                    config.set(entry.key, &value)?;
+                    config.save()?;
+                    println!(
+                        "{} Set {} = ***",
+                        style("✅").green().bold(),
+                        style(entry.key).cyan()
+                    );
+                }
+            }
+            KeyKind::Number => {
+                let current = config.get(entry.key).unwrap_or_default();
+                let value: String = Input::with_theme(&theme)
+                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                    .default(current)
+                    .validate_with(|input: &String| -> std::result::Result<(), String> {
+                        input
+                            .trim()
+                            .parse::<u64>()
+                            .map(|_| ())
+                            .map_err(|_| "Must be a non-negative integer".to_string())
+                    })
+                    .interact_text()?;
+
+                config.set(entry.key, value.trim())?;
+                config.save()?;
+                println!(
+                    "{} Set {} = {}",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan(),
+                    style(value.trim()).green()
+                );
+            }
+            KeyKind::List => {
+                let current_values: Vec<String> = config
+                    .get(entry.key)
+                    .unwrap_or_default()
+                    .split('\n')
+                    .filter(|s| !s.is_empty())
+                    .map(String::from)
+                    .collect();
+
+                let mut list_items: Vec<String> = current_values
+                    .iter()
+                    .map(|v| format!("Remove: {}", v))
+                    .collect();
+                list_items.push("Add new value".to_string());
+                list_items.push("Back".to_string());
+
+                let choice = Select::with_theme(&theme)
+                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                    .items(&list_items)
+                    .default(list_items.len() - 1)
+                    .interact()?;
+
+                if choice < current_values.len() {
+                    let removed = &current_values[choice];
+                    config.remove_from_list(entry.key, removed)?;
+                    config.save()?;
+                    println!(
+                        "{} Removed {} from {}",
+                        style("✅").green().bold(),
+                        style(removed).red(),
+                        style(entry.key).cyan()
+                    );
+                } else if choice == current_values.len() {
+                    let value: String = Input::with_theme(&theme)
+                        .with_prompt("Value to add")
+                        .interact_text()?;
+                    if !value.trim().is_empty() {
+                        config.add_to_list(entry.key, value.trim())?;
+                        config.save()?;
+                        println!(
+                            "{} Added {} to {}",
+                            style("✅").green().bold(),
+                            style(value.trim()).green(),
+                            style(entry.key).cyan()
+                        );
+                    }
+                }
+            }
+            KeyKind::Text => {
+                let current = config.get(entry.key).unwrap_or_default();
+                let mut input = Input::<String>::with_theme(&theme)
+                    .with_prompt(format!("{} — {} (empty to clear)", entry.key, entry.desc))
+                    .allow_empty(true);
+
+                if !current.is_empty() {
+                    input = input.default(current);
+                }
+
+                let value: String = input.interact_text()?;
+
+                if value.trim().is_empty() {
+                    config.unset(entry.key)?;
+                    config.save()?;
+                    println!(
+                        "{} Cleared {}",
+                        style("✅").green().bold(),
+                        style(entry.key).cyan()
+                    );
+                } else {
+                    config.set(entry.key, value.trim())?;
+                    config.save()?;
+                    println!(
+                        "{} Set {} = {}",
+                        style("✅").green().bold(),
+                        style(entry.key).cyan(),
+                        style(value.trim()).green()
+                    );
+                }
+            }
+        }
+
+        println!();
+    }
+
+    Ok(())
 }
 
 fn install_completions(shell: Option<Shell>) -> Result<()> {
