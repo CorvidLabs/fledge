@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 16
+version: 17
 status: active
 files:
   - src/lanes.rs
@@ -231,6 +231,7 @@ $ fledge lanes run ci --json --dry-run
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 17 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `lanes list --json` renames `steps` (integer count) to `step_count`. The bare key `steps` read like an array but emitted a count, surprising consumers — full step detail lives in `lanes run --dry-run --json`. (b) `lanes import --json` renames `tier` to `trust_tier` to match every other plugin/lane envelope. Last-chance shape break before tagging 1.0 |
 | 16 | 2026-04-26 | Add `run_for_pre_release(name, dry_run)` — a silent lane executor used by `release --json --pre-lane <name>` so the release JSON envelope is the only thing on stdout. Subprocess stdout/stderr is redirected to null; failure bails with a plain stderr error and non-zero exit. Pretty-print release path is unchanged and still goes through `LaneAction::Run` |
 | 15 | 2026-04-26 | `lanes run --json --dry-run` now emits a `{schema_version: 1, lane, description, total_steps, fail_fast, dry_run: true, steps: [{step, kind, name, items?}]}` envelope. Previously it ignored `--json` and printed prose, breaking the contract that `--json` always means parseable stdout. Per-step `duration_ms` is omitted in dry-run mode (no execution). Behavioral example for the per-step shape on real runs (`steps: [{step, name, success, duration_ms, error}, ...]`) also documented |
 | 14 | 2026-04-26 | `lanes import --json` envelope tightened: `file` is now always the computed `.fledge/lanes/<safe_name>.toml` path (string, never null), and a new `written: bool` field signals whether the file was actually created (false when every lane was skipped). Previously `file: null` in the all-skipped case implied the path wasn't computable, but it's a pure function of source — null was misleading |

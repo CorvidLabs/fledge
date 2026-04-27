@@ -803,7 +803,7 @@ fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::V
         "name": entry.name,
         "source": entry.source,
         "version": entry.version,
-        "tier": tier.label(),
+        "trust_tier": tier.label(),
         "commands": entry.commands,
         "pinned_ref": entry.pinned_ref,
         "capabilities": entry.capabilities,
@@ -2166,8 +2166,16 @@ fn publish_plugin(
                             "owner": owner,
                             "name": repo_name,
                             "url": format!("https://github.com/{owner}/{repo_name}"),
-                            "exists": true,
+                            "created": false,
+                            "private": private,
                         },
+                        "plugin": {
+                            "name": manifest.plugin.name,
+                            "version": manifest.plugin.version,
+                            "description": desc,
+                        },
+                        "topic": "fledge-plugin",
+                        "install_hint": format!("fledge plugins install {owner}/{repo_name}"),
                     });
                     println!("{}", serde_json::to_string_pretty(&result)?);
                 } else {
@@ -2228,6 +2236,7 @@ fn publish_plugin(
         let result = serde_json::json!({
             "schema_version": 1,
             "action": "publish",
+            "cancelled": false,
             "repo": {
                 "owner": owner,
                 "name": repo_name,

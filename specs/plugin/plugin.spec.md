@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 15
+version: 16
 status: active
 files:
   - src/plugin.rs
@@ -288,6 +288,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 16 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `plugins install --json` (single + defaults) renames the per-plugin `tier` field to `trust_tier` to match every other plugin envelope (`list`, `audit`, `search`). (b) `plugins publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `plugin`, `topic`, `install_hint`); `cancelled` is `true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` already covers it). Consumers can now read the same keys regardless of cancel/success. Last-chance shape break before tagging 1.0 |
 | 15 | 2026-04-25 | **Breaking (tier C, #272):** `plugins list/audit/search/validate --json` outputs migrated from bare top-level arrays to `{schema_version: 1, <resource>: [...]}` envelopes (`plugins`, `audit`, `results`, and validate report flattened with schema_version). Last-chance shape break before 1.0 freezes the contract. AGENTS.md and integration tests updated in lockstep |
 | 14 | 2026-04-25 | Tier B follow-up: `plugins create` and `plugins publish` honour `--json` and emit a `{schema_version:1, action, ...}` envelope. `create` reports `path/name/description/files_created`; `publish` reports `repo/template/topic/install_hint` plus a `cancelled: true` shape on user-declined update prompts. Invariant 11 widened to enumerate `create` and `publish`. |
 | 13 | 2026-04-25 | `--json` now actually emits structured output for `install`, `install --defaults`, `remove`, and `update` (previously the global flag was accepted but silently ignored — agents passing `--json` got ANSI-coloured prose back, a 1.0 footgun caught by the multi-model readiness review). All four emit a `{schema_version: 1, action, ...}` envelope on stdout; warnings stay on stderr; failure paths still exit non-zero so agents can't misclassify them. Invariant 11 rewritten to enumerate the full coverage. |

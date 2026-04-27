@@ -1668,8 +1668,14 @@ fn publish_template(
                             "owner": owner,
                             "name": repo_name,
                             "url": format!("https://github.com/{owner}/{repo_name}"),
-                            "exists": true,
+                            "created": false,
+                            "private": private,
                         },
+                        "template": {
+                            "description": desc,
+                        },
+                        "topic": "fledge-template",
+                        "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
                     });
                     println!("{}", serde_json::to_string_pretty(&result)?);
                 } else {
@@ -1730,6 +1736,7 @@ fn publish_template(
         let result = serde_json::json!({
             "schema_version": 1,
             "action": "publish",
+            "cancelled": false,
             "repo": {
                 "owner": owner,
                 "name": repo_name,

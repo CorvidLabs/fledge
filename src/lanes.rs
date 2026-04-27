@@ -309,7 +309,7 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
                 let mut entry = serde_json::json!({
                     "name": name,
                     "description": lane.description,
-                    "steps": lane.steps.len(),
+                    "step_count": lane.steps.len(),
                     "fail_fast": lane.fail_fast,
                 });
                 if let Some(ref src) = lane.source {
@@ -1288,7 +1288,7 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
                 "schema_version": 1,
                 "action": "import",
                 "source": display_source,
-                "tier": tier.label(),
+                "trust_tier": tier.label(),
                 "imported": [],
                 "skipped": skipped,
                 "file": relative_file,
@@ -1317,7 +1317,7 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
             "schema_version": 1,
             "action": "import",
             "source": display_source,
-            "tier": tier.label(),
+            "trust_tier": tier.label(),
             "imported": imported_lanes,
             "skipped": skipped,
             "file": relative_file,

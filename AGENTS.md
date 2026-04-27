@@ -70,7 +70,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge plugins audit --json` | `{schema_version: 1, audit: [{name, version, trust_tier, capabilities, has_lifecycle_hooks, ...}]}` | Capability/hook audit |
 | `fledge plugins search --json` | `{schema_version: 1, results: [{name, full_name, stars, trust_tier, ...}]}` | GitHub search for `fledge-plugin`-tagged repos |
 | `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` | CI gate before publish |
-| `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, steps, fail_fast, source?, trust_tier}]}` | Discovering lanes available to run |
+| `fledge lanes list --json` | `{schema_version: 1, lanes: [{name, description, step_count, fail_fast, source?, trust_tier}]}`. `step_count` is an integer; full step detail lives in `lanes run --dry-run --json` | Discovering lanes available to run |
 | `fledge lanes search --json` | `{schema_version: 1, results: [...]}` (same shape as plugins search) | GitHub search for `fledge-lane`-tagged repos |
 | `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps: [...], failures: [...]}` | Running the project's own CI pipeline |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` | CI gate before publish |
@@ -79,7 +79,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates validate --json` | `{schema_version: 1, reports: [{path, template, errors, warnings}]}` | CI gate before publish |
 | `fledge templates init <template> --json` | `{schema_version: 1, action: "init", project: {name, path}, template: {name, source, version}, variables_used, files_created, git_initialized, hooks_run}` | Scaffolding a new project |
 | `fledge templates create --json` | `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` | Creating a new template skeleton |
-| `fledge templates publish --json` | `{schema_version: 1, action: "publish", repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}` | Publishing a template repo |
+| `fledge templates publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines a confirmation | Publishing a template repo |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. Branch name the agent just created | Branch scripting |
 | `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}`. PR URL to report back | After agent finishes a task |
 | `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}`. Current state of the branch | Pre-action sanity check |

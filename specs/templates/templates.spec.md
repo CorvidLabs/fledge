@@ -1,6 +1,6 @@
 ---
 module: templates
-version: 5
+version: 6
 status: active
 files:
   - src/templates.rs
@@ -154,3 +154,4 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | 2026-04-18 | CorvidAgent | v3: Add discover_templates_with_repos for remote GitHub template support |
 | 2026-04-20 | CorvidAgent | v4: Add check_requirements for template tool dependency checking |
 | 2026-04-25 | 0xLeif | v5: Remove `load_templates_from_dir_pub` (was only used by deleted `templates update` and `templates publish`); now an internal `fn` |
+| 2026-04-26 | 0xLeif | v6: **Breaking (1.0 contract finalize):** `templates publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `template`, `topic`, `use_hint`). `cancelled` is `true` when user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Consumers can now read the same keys regardless of cancel/success |
