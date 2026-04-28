@@ -107,7 +107,7 @@ Scaffolds a new fledge template project with a valid `template.toml` manifest, e
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-19 | CorvidAgent | Initial spec |
-| 2026-04-25 | 0xLeif | v2: `--json` emits structured envelope (schema_version: 1) for `templates create`; prose suppressed, JSON mode implies non-interactive |
+| Version | Date | Changes |
+|---------|------|---------|
+| 2 | 2026-04-25 | `--json` emits structured envelope (`schema_version: 1`) for `templates create`; prose suppressed, JSON mode implies non-interactive |
+| 1 | 2026-04-19 | Initial spec |

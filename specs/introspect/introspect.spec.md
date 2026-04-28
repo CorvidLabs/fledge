@@ -125,5 +125,5 @@ $ fledge introspect --json | jq '.subcommands[] | select(.aliases | length > 0) 
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-23 | Initial spec — `fledge introspect` with pretty and JSON output for agent discoverability |
-| 2 | 2026-04-25 | Add `schema_version: 1` to `--json` output (additive — emitted alongside existing top-level keys, not nested). Locks the agent-facing JSON shape for 1.0 |
+| 2 | 2026-04-25 | Add `schema_version: 1` to `--json` output (additive, emitted alongside existing top-level keys, not nested). Locks the agent-facing JSON shape for 1.0 |
+| 1 | 2026-04-23 | Initial spec, `fledge introspect` with pretty and JSON output for agent discoverability |

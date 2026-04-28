@@ -114,7 +114,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-18 | CorvidAgent | Initial spec |
-| 2026-04-19 | CorvidAgent | v3: Add version pinning with @ref syntax |
+| Version | Date | Changes |
+|---------|------|---------|
+| 3 | 2026-04-19 | Add version pinning with `@ref` syntax |
+| 1 | 2026-04-18 | Initial spec |

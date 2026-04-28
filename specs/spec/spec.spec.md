@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 7
+version: 8
 status: active
 files:
   - src/spec.rs
@@ -24,12 +24,12 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
 | `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
-| `IndexEntry` | Compact prompt-friendly record of one spec (name, version, status, purpose, files) |
+| `IndexEntry` | Compact prompt-friendly record of one spec (name, version, status, purpose, files, path) |
 | `collect_index` | Enumerate every spec as `IndexEntry`s, sorted by name |
 | `render_index_markdown` | Render a slice of `IndexEntry` as a markdown block suitable for prompt injection |
 | `load_module_bundle` | Concatenate a module's `.spec.md` and existing companion files into one markdown blob |
 | `all_module_names` | Sorted list of every module name with a `.spec.md` file |
-| `specs_for_changed_files` | Module names whose `files:` or `specs/<name>/` directory intersects a given set of paths |
+| `specs_for_changed_files` | Module names whose `files:` or whose spec file's parent directory intersects a given set of paths |
 
 ### Structs & Enums
 
@@ -40,7 +40,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `SpecResult` | Result of validating a single spec (warnings + errors) |
 | `SpecSummary` | (private) Summary for `list`: name, version, status, path, files, section/required counts, companions, missing companions |
 | `SpecDetail` | (private) Detail for `show`: name, version, status, path, files, sections, companions, missing companions |
-| `IndexEntry` | `{name, version, status, purpose: Option<String>, files}` |
+| `IndexEntry` | `{name, version, status, purpose: Option<String>, files, path: PathBuf}` |
 | `ValidationIssue` | Individual issue: message and is_error flag |
 
 ### Traits
@@ -80,6 +80,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 12. `collect_index` returns an empty `Vec` (not an error) when the project has no `.specsync/` or no `specs/` directory
 13. `load_module_bundle` errors only when the specific requested module is missing; missing companions are simply omitted
 14. `render_index_markdown` produces stable output (entries must be pre-sorted; `collect_index` already guarantees this)
+15. `specs_for_changed_files` and `load_module_bundle` resolve each spec via its actual on-disk path, so sub-specs that share a directory (e.g. `specs/plugin/plugin-protocol.spec.md` declaring `module: plugin-protocol`) are matched by the parent dir they actually live in. When two specs share a directory, a change under that directory matches both
 
 ## Behavioral Examples
 
@@ -230,7 +231,8 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 7 | 2026-04-26 | Doc sync — behavioral examples for `spec list --json` and `spec show --json` updated to show the post-tier-D envelope shapes (previously displayed the bare-array / bare-detail forms shipped before envelope migration). Invariant 8 reworded to describe the envelope. No code change |
+| 8 | 2026-04-27 | Fix nested-spec resolution (#291). `IndexEntry` now carries the spec file's on-disk `path`. `specs_for_changed_files` matches via each spec's actual parent directory rather than the assumed `<specs_dir>/<name>/`, and `load_module_bundle` resolves the spec file through the index instead of guessing. Sub-specs that share a directory with another module (e.g. `specs/plugin/plugin-protocol.spec.md`) now resolve correctly |
+| 7 | 2026-04-26 | Doc sync, behavioral examples for `spec list --json` and `spec show --json` updated to show the post-tier-D envelope shapes (previously displayed the bare-array / bare-detail forms shipped before envelope migration). Invariant 8 reworded to describe the envelope. No code change |
 | 6 | 2026-04-26 | Tier-D 1.0 envelope (continuation): all three `--json` paths now wrap output as `{schema_version: 1, action, ...}`. **`spec list --json` is breaking**: bare top-level array → `{schema_version: 1, action: "spec_list", specs: [...]}`. `spec check --json` adds `schema_version`/`action: "spec_check"` (existing fields preserved). `spec show --json` wraps the prior bare detail as `{schema_version: 1, action: "spec_show", spec: {...}}`. Tests updated to assert the envelope shape |
 | 5 | 2026-04-23 | Add `--json` to `spec check`. Payload: `{specs: [{name, version, status, file_count, section_count, required_count, errors, warnings}], totals: {checked, errors, warnings}, strict}`. Exit code still non-zero on errors or strict-with-warnings. |
 | 4 | 2026-04-23 | Add `specs_for_changed_files` for `review`'s spec auto-detection (matches frontmatter `files:` and `<specs_dir>/<name>/` directory prefix, respecting the configured `specs_dir`) |

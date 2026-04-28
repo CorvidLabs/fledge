@@ -98,7 +98,7 @@ None (uses only git CLI and standard library)
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4 | 2026-04-26 | Doc sync — behavioral example updated to show the post-tier-D envelope shape (was still showing the pre-1.0 bare-array form). No code change |
-| 3 | 2026-04-26 | **Breaking (tier D, 1.0):** `changelog --json` migrated from a bare top-level array to `{schema_version: 1, action: "changelog", releases: [...]}`. Same shape break tier C (#274) applied to the three pillars — this caught a remaining bare-array output. Last-chance shape break before 1.0 freezes the contract. Consumers reading `result[0]` now read `result.releases[0]` |
+| 4 | 2026-04-26 | Doc sync, behavioral example updated to show the post-tier-D envelope shape (was still showing the pre-1.0 bare-array form). No code change |
+| 3 | 2026-04-26 | **Breaking (tier D, 1.0):** `changelog --json` migrated from a bare top-level array to `{schema_version: 1, action: "changelog", releases: [...]}`. Same shape break tier C (#274) applied to the three pillars, this caught a remaining bare-array output. Last-chance shape break before 1.0 freezes the contract. Consumers reading `result[0]` now read `result.releases[0]` |
 | 2 | 2026-04-22 | Document that breaking changes are not parsed separately; note no types filter config |
 | 1 | 2026-04-19 | Initial spec |

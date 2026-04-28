@@ -566,7 +566,7 @@ These are not part of v1 but are designed to be additive under the policy above:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-22 | Initial spec — fledge-v1 protocol with prompt, confirm, select, progress, log, output, store/load, exec, metadata |
-| 1.1 | 2026-04-22 | Add capability manifest — exec, store, metadata capabilities with enforcement and install-time approval |
-| 2 | 2026-04-25 | Add Compatibility Policy — `fledge-v1` is additive-only within v1; field removal or retyping requires `fledge-v2`. Locks the 1.0 plugin contract |
 | 3 | 2026-04-27 | Security: exec command stdout/stderr capped at 10 MB each (`MAX_EXEC_OUTPUT_SIZE`) to prevent OOM from unbounded plugin output. Invariant 14 added |
+| 2 | 2026-04-25 | Add Compatibility Policy, `fledge-v1` is additive-only within v1; field removal or retyping requires `fledge-v2`. Locks the 1.0 plugin contract |
+| 1.1 | 2026-04-22 | Add capability manifest, `exec`, `store`, `metadata` capabilities with enforcement and install-time approval |
+| 1 | 2026-04-22 | Initial spec, fledge-v1 protocol with prompt, confirm, select, progress, log, output, store/load, exec, metadata |

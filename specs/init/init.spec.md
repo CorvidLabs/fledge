@@ -134,11 +134,11 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-18 | CorvidAgent | Initial spec |
-| 2026-04-18 | CorvidAgent | v2: fill in export descriptions, re-validate against source |
-| 2026-04-18 | CorvidAgent | v3: add remote template support via owner/repo syntax |
-| 2026-04-19 | CorvidAgent | v5: init now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |
-| 2026-04-21 | CorvidAgent | v7: add author/org fields to InitOptions, document plugin pre_init hook and versioning check |
-| 2026-04-25 | 0xLeif | v8: `--json` emits structured envelope (schema_version: 1) for `templates init`; prose suppressed, JSON mode implies non-interactive, failure paths still exit non-zero |
+| Version | Date | Changes |
+|---------|------|---------|
+| 8 | 2026-04-25 | `--json` emits structured envelope (`schema_version: 1`) for `templates init`; prose suppressed, JSON mode implies non-interactive, failure paths still exit non-zero |
+| 7 | 2026-04-21 | Add author/org fields to `InitOptions`, document plugin `pre_init` hook and versioning check |
+| 5 | 2026-04-19 | `init` now writes `.fledge.toml` with template source, variables, and file hashes for `fledge update` |
+| 3 | 2026-04-18 | Add remote template support via `owner/repo` syntax |
+| 2 | 2026-04-18 | Fill in export descriptions, re-validate against source |
+| 1 | 2026-04-18 | Initial spec |

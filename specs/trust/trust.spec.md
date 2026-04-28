@@ -99,5 +99,5 @@ parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://us
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-23 | Initial spec — extracted from plugin.rs |
+| 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |
 | 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (currently `["0xLeif"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |

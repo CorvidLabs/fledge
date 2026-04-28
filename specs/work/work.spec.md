@@ -304,13 +304,13 @@ $ fledge work status --json
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-19 | Initial spec for fledge work |
-| 2 | 2026-04-20 | Flexible branch types, configurable format, `{author}` support, `--type`/`--issue`/`--prefix` flags |
-| 3 | 2026-04-20 | Added `feature`, `bug`, `task` as valid branch types |
-| 4 | 2026-04-21 | Correct load_work_config as internal (not exported) |
-| 5 | 2026-04-22 | Document lifecycle hooks: post_work_start (silent) and pre_pr (propagating) |
-| 6 | 2026-04-23 | Add `--json` to `start`, `pr`, and `status`. `status` now also reports `behind`. Pretty output suppressed in JSON mode; errors still go to stderr. |
-| 7 | 2026-04-24 | `work pr` auto-generates the PR body from commits when `--body` is omitted, shows a styled preview, and prompts for confirmation before creating the PR. `--yes` / `-y` skips the prompt; non-interactive shells must pass `--yes` or `--json`. |
-| 8 | 2026-04-24 | `work pr --ai` generates a richer Markdown body via the configured LLM (`fledge ai use`-aware), with `--provider` / `--model` per-call overrides. Prompt includes commit log, diffstat, and truncated diff; spinner shown unless `--json`. |
-| 10 | 2026-04-26 | Doc sync — behavioral examples for `work start/pr/status --json` updated to show the post-tier-D envelope shapes (with `schema_version` and `action`). No code change |
+| 10 | 2026-04-26 | Doc sync, behavioral examples for `work start/pr/status --json` updated to show the post-tier-D envelope shapes (with `schema_version` and `action`). No code change |
 | 9 | 2026-04-26 | Tier-D 1.0 envelope: `work start --json`, `work pr --json`, `work status --json` now include `schema_version: 1` and `action: "work_start"|"work_pr"|"work_status"` at the top level. Field shapes otherwise unchanged. Closes the gap where tier C (#274) only migrated plugins/lanes/templates and missed the cross-cutting commands |
+| 8 | 2026-04-24 | `work pr --ai` generates a richer Markdown body via the configured LLM (`fledge ai use`-aware), with `--provider` / `--model` per-call overrides. Prompt includes commit log, diffstat, and truncated diff; spinner shown unless `--json` |
+| 7 | 2026-04-24 | `work pr` auto-generates the PR body from commits when `--body` is omitted, shows a styled preview, and prompts for confirmation before creating the PR. `--yes` / `-y` skips the prompt; non-interactive shells must pass `--yes` or `--json` |
+| 6 | 2026-04-23 | Add `--json` to `start`, `pr`, and `status`. `status` now also reports `behind`. Pretty output suppressed in JSON mode; errors still go to stderr |
+| 5 | 2026-04-22 | Document lifecycle hooks: `post_work_start` (silent) and `pre_pr` (propagating) |
+| 4 | 2026-04-21 | Correct `load_work_config` as internal (not exported) |
+| 3 | 2026-04-20 | Add `feature`, `bug`, `task` as valid branch types |
+| 2 | 2026-04-20 | Flexible branch types, configurable format, `{author}` support, `--type`/`--issue`/`--prefix` flags |
+| 1 | 2026-04-19 | Initial spec for fledge work |

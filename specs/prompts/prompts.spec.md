@@ -104,8 +104,8 @@ Interactive user prompts using dialoguer. Handles template selection and variabl
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-18 | CorvidAgent | Initial spec |
-| 2026-04-21 | CorvidAgent | v3: add author_override and org_override params to prompt_variables signature |
-| 2026-04-18 | CorvidAgent | v2: fill API descriptions, add license invariant, add prompt ordering invariant, add Tera/plain default scenarios |
+| Version | Date | Changes |
+|---------|------|---------|
+| 3 | 2026-04-21 | Add `author_override` and `org_override` params to `prompt_variables` signature |
+| 2 | 2026-04-18 | Fill API descriptions, add license invariant, add prompt ordering invariant, add Tera/plain default scenarios |
+| 1 | 2026-04-18 | Initial spec |

@@ -83,6 +83,6 @@ Err: Not a git repository.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2 | 2026-04-25 | v0.15 tight-core: remove `detect_repo`, `parse_repo_url`, `format_relative_time` — they only existed for the deleted `checks`/`issues`/`prs` commands and now live in `fledge-plugin-github`. `parse_repo_url` retained as a `#[cfg(test)]` helper. |
+| 2 | 2026-04-25 | v0.15 tight-core: remove `detect_repo`, `parse_repo_url`, `format_relative_time`, they only existed for the deleted `checks`/`issues`/`prs` commands and now live in `fledge-plugin-github`. `parse_repo_url` retained as a `#[cfg(test)]` helper. |
 | 1 | 2026-04-21 | Add ensure_git_repo and ensure_claude_cli exports |
 | 1 | 2026-04-19 | Initial spec |
