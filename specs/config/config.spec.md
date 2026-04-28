@@ -203,14 +203,14 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 ## Change Log
 
-| Date | Author | Change |
-|------|--------|--------|
-| 2026-04-18 | CorvidAgent | Initial spec |
-| 2026-04-18 | CorvidAgent | v2: filled in exported function descriptions, re-validated against source |
-| 2026-04-18 | CorvidAgent | v3: add GitHubConfig, github_token(), template_repos(), templates.repos field |
-| 2026-04-19 | CorvidAgent | v4: add save(), get(), set(), unset() for CLI config management |
-| 2026-04-19 | CorvidAgent | v5: add add_to_list(), remove_from_list(), is_valid_key(); extend get/set/unset for list keys (templates.paths, templates.repos) |
-| 2026-04-22 | CorvidAgent | v6: github_token() now falls back to `gh auth token` CLI when no env var or config is set |
-| 2026-04-23 | CorvidAgent | v7: add `[ai]` section — `ai.provider` (scalar, `claude`/`ollama` only), `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`. Defaults preserve pre-v0.13 Claude-only behavior. `add_to_list`/`remove_from_list` now route through `is_valid_key` so new scalar keys get the right error message. |
-| 2026-04-24 | CorvidAgent | v8: add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default. |
-| 2026-04-26 | CorvidAgent | v9: document `valid_keys_hint()` — returns a static string listing all valid config keys, used by `handle_config` in main.rs for error messages |
+| Version | Date | Changes |
+|---------|------|---------|
+| 9 | 2026-04-26 | Document `valid_keys_hint()`, returns a static string listing all valid config keys, used by `handle_config` in main.rs for error messages |
+| 8 | 2026-04-24 | Add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default |
+| 7 | 2026-04-23 | Add `[ai]` section, `ai.provider` (scalar, `claude`/`ollama` only), `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`. Defaults preserve pre-v0.13 Claude-only behavior. `add_to_list`/`remove_from_list` now route through `is_valid_key` so new scalar keys get the right error message |
+| 6 | 2026-04-22 | `github_token()` now falls back to `gh auth token` CLI when no env var or config is set |
+| 5 | 2026-04-19 | Add `add_to_list()`, `remove_from_list()`, `is_valid_key()`; extend get/set/unset for list keys (`templates.paths`, `templates.repos`) |
+| 4 | 2026-04-19 | Add `save()`, `get()`, `set()`, `unset()` for CLI config management |
+| 3 | 2026-04-18 | Add `GitHubConfig`, `github_token()`, `template_repos()`, `templates.repos` field |
+| 2 | 2026-04-18 | Filled in exported function descriptions, re-validated against source |
+| 1 | 2026-04-18 | Initial spec |

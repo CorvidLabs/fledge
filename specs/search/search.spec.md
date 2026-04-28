@@ -108,5 +108,5 @@ urlencod("topic:fledge-template")  // "topic%3Afledge-template"
 | Version | Date | Changes |
 |---------|------|---------|
 | 3 | 2026-04-25 | `templates search` re-absorbed into core (`main.rs::search_templates`); the `fledge-plugin-templates-remote` plugin was redundant with the existing helpers and is dropped from `DEFAULT_PLUGINS`. Module remains a library of query/parse helpers consumed by `main`, `lanes`, `plugins`, and `github`. |
-| 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex` — the user-facing `templates search` command lived in `fledge-plugin-templates-remote` then. |
+| 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex`, the user-facing `templates search` command lived in `fledge-plugin-templates-remote` then. |
 | 1 | 2026-04-19 | Initial spec |

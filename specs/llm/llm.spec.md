@@ -126,6 +126,6 @@ $ fledge review --provider claude --model opus-4
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 3 | 2026-04-27 | Document `normalize_ollama_host` — ensures bare `host:port` values get an `http://` scheme; update invariant 3 to describe full normalization behavior |
+| 3 | 2026-04-27 | Document `normalize_ollama_host`, ensures bare `host:port` values get an `http://` scheme; update invariant 3 to describe full normalization behavior |
 | 2 | 2026-04-24 | `OllamaProvider` gains a `timeout: Duration` field populated by `build_provider`; adds `ai.ollama.timeout_seconds` config fallback so the per-request timeout is tunable without env vars (`FLEDGE_AI_TIMEOUT` still wins) |
-| 1 | 2026-04-23 | Initial spec — provider abstraction with Claude + Ollama implementations, env-var and config resolution, CLI overrides |
+| 1 | 2026-04-23 | Initial spec, provider abstraction with Claude + Ollama implementations, env-var and config resolution, CLI overrides |

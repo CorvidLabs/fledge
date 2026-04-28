@@ -120,8 +120,8 @@ $ fledge doctor --json
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 8 | 2026-04-26 | Doc sync — `doctor --json` behavioral example updated to show the post-tier-D envelope shape. No code change |
-| 7 | 2026-04-26 | Tier-D 1.0 envelope: `doctor --json` now wraps output as `{schema_version: 1, action: "doctor", sections, passed, failed}`. Previously emitted bare `{sections, passed, failed}` — a 1.0 contract violation per the AGENTS.md rule that every `--json` output is enveloped. Inner `DoctorReport` struct unchanged so the unit test still validates section serialization. New integration assertion in `cli_doctor_json_valid` |
+| 8 | 2026-04-26 | Doc sync, `doctor --json` behavioral example updated to show the post-tier-D envelope shape. No code change |
+| 7 | 2026-04-26 | Tier-D 1.0 envelope: `doctor --json` now wraps output as `{schema_version: 1, action: "doctor", sections, passed, failed}`. Previously emitted bare `{sections, passed, failed}`, a 1.0 contract violation per the AGENTS.md rule that every `--json` output is enveloped. Inner `DoctorReport` struct unchanged so the unit test still validates section serialization. New integration assertion in `cli_doctor_json_valid` |
 | 6 | 2026-04-25 | Re-absorbed `fledge-plugin-doctor` toolchain probes into core as a new informational `Toolchains` section. Missing toolchain entries render dimmed and don't pollute the pass/fail totals because environmental availability isn't a project error. Plugin dropped from `DEFAULT_PLUGINS`. |
 | 5 | 2026-04-25 | v0.15 tight-core: stripped `Project Type`, `Toolchain`, and `Dependencies` sections. Self-check only: fledge config, git, AI provider. Toolchain probes deferred to `fledge-plugin-doctor`. |
 | 4 | 2026-04-24 | Active-Ollama display honors `FLEDGE_AI_MODEL` env override (previously only `OLLAMA_HOST` was honored) |
