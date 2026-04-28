@@ -111,6 +111,10 @@ pub struct IndexEntry {
     pub status: String,
     pub purpose: Option<String>,
     pub files: Vec<String>,
+    /// Absolute path to the `.spec.md` file on disk. Tracked so callers can
+    /// resolve specs that live in shared directories (e.g.
+    /// `specs/plugin/plugin-protocol.spec.md` declaring `module: plugin-protocol`).
+    pub path: PathBuf,
 }
 
 fn load_config(project_root: &Path) -> Result<SpecSyncConfig> {
@@ -644,6 +648,7 @@ pub fn collect_index(root: &Path) -> Result<Vec<IndexEntry>> {
             status: fm.status,
             purpose: extract_purpose(&body),
             files: fm.files,
+            path,
         });
     }
     entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -691,12 +696,6 @@ pub fn all_module_names(root: &Path) -> Result<Vec<String>> {
 /// put specs under e.g. `docs/specs/` match correctly.
 pub fn specs_for_changed_files(root: &Path, changed_files: &[String]) -> Result<Vec<String>> {
     let index = collect_index(root)?;
-    // Best-effort: if config is unreadable for any reason, fall back to "specs".
-    let specs_dir_name = load_config(root)
-        .ok()
-        .and_then(|c| c.specs_dir)
-        .unwrap_or_else(|| "specs".to_string());
-    let specs_dir_trimmed = specs_dir_name.trim_end_matches('/');
 
     let mut matched = Vec::new();
     for entry in &index {
@@ -704,8 +703,22 @@ pub fn specs_for_changed_files(root: &Path, changed_files: &[String]) -> Result<
             .files
             .iter()
             .any(|f| changed_files.iter().any(|c| c == f));
-        let spec_prefix = format!("{specs_dir_trimmed}/{}/", entry.name);
-        let dir_match = changed_files.iter().any(|c| c.starts_with(&spec_prefix));
+        // Use the spec file's actual parent directory rather than assuming
+        // `<specs_dir>/<name>/`. Sub-specs that share a directory with another
+        // module (e.g. `specs/plugin/plugin-protocol.spec.md`) resolve correctly,
+        // and so do specs at the top level of a custom `specs_dir`.
+        let dir_match = entry
+            .path
+            .parent()
+            .and_then(|parent| parent.strip_prefix(root).ok())
+            .map(|rel_parent| {
+                let mut prefix = rel_parent.to_string_lossy().replace('\\', "/");
+                if !prefix.ends_with('/') {
+                    prefix.push('/');
+                }
+                changed_files.iter().any(|c| c.starts_with(&prefix))
+            })
+            .unwrap_or(false);
         if files_match || dir_match {
             matched.push(entry.name.clone());
         }
@@ -719,23 +732,39 @@ pub fn specs_for_changed_files(root: &Path, changed_files: &[String]) -> Result<
 /// companion files exist, concatenated as a single markdown block with headers.
 pub fn load_module_bundle(root: &Path, name: &str) -> Result<String> {
     validate_module_name(name)?;
-    let specs_dir = specs_dir_from_config(root)?;
-    let module_dir = specs_dir.join(name);
-    let spec_path = module_dir.join(format!("{name}.spec.md"));
-    if !spec_path.exists() {
-        bail!(
-            "No spec found for '{}' (looked at {})",
-            name,
-            spec_path.display()
-        );
-    }
+
+    // Resolve via the index so sub-specs (e.g. `specs/plugin/plugin-protocol.spec.md`
+    // declaring `module: plugin-protocol`) load from their real on-disk location.
+    let entry = collect_index(root)
+        .ok()
+        .and_then(|index| index.into_iter().find(|e| e.name == name));
+
+    let spec_path = match entry {
+        Some(e) => e.path,
+        None => {
+            // Preserve the prior error path: report the conventional location.
+            let specs_dir = specs_dir_from_config(root)?;
+            let fallback = specs_dir.join(name).join(format!("{name}.spec.md"));
+            bail!(
+                "No spec found for '{}' (looked at {})",
+                name,
+                fallback.display()
+            );
+        }
+    };
+
+    let module_dir = spec_path.parent().unwrap_or(&spec_path).to_path_buf();
+    let spec_filename = spec_path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| format!("{name}.spec.md"));
 
     let mut bundle = String::new();
     bundle.push_str(&format!("## Spec bundle: {name}\n\n"));
 
     let spec_content = fs::read_to_string(&spec_path)
         .with_context(|| format!("reading {}", spec_path.display()))?;
-    bundle.push_str(&format!("### `{name}.spec.md`\n\n"));
+    bundle.push_str(&format!("### `{spec_filename}`\n\n"));
     bundle.push_str(spec_content.trim_end());
     bundle.push_str("\n\n");
 
@@ -1462,6 +1491,7 @@ More text.
                 status: "active".into(),
                 purpose: Some("Does foo.".into()),
                 files: vec!["src/foo.rs".into()],
+                path: PathBuf::from("specs/foo/foo.spec.md"),
             },
             IndexEntry {
                 name: "bar".into(),
@@ -1469,6 +1499,7 @@ More text.
                 status: "draft".into(),
                 purpose: None,
                 files: Vec::new(),
+                path: PathBuf::from("specs/bar/bar.spec.md"),
             },
         ];
         let md = render_index_markdown(&entries);
@@ -1639,6 +1670,66 @@ More text.
         let changed_wrong = vec!["specs/trust/context.md".to_string()];
         let matched_wrong = specs_for_changed_files(tmp.path(), &changed_wrong).unwrap();
         assert!(matched_wrong.is_empty());
+    }
+
+    /// Scaffold a project where two specs share a directory: a primary
+    /// `plugin/plugin.spec.md` and a nested `plugin/plugin-protocol.spec.md`
+    /// declaring `module: plugin-protocol`. Mirrors the layout from issue #291.
+    fn scaffold_project_with_nested_spec(tmp: &TempDir) {
+        let specsync = tmp.path().join(".specsync");
+        fs::create_dir_all(&specsync).unwrap();
+        fs::write(
+            specsync.join("config.toml"),
+            "specs_dir = \"specs\"\nrequired_sections = []\n",
+        )
+        .unwrap();
+        let dir = tmp.path().join("specs/plugin");
+        fs::create_dir_all(&dir).unwrap();
+
+        let plugin_spec = "---\nmodule: plugin\nversion: 1\nstatus: active\nfiles:\n  - src/plugin.rs\n\ndb_tables: []\ndepends_on: []\n---\n\n## Purpose\n\nP.\n";
+        fs::write(dir.join("plugin.spec.md"), plugin_spec).unwrap();
+
+        let protocol_spec = "---\nmodule: plugin-protocol\nversion: 1\nstatus: active\nfiles:\n  - src/protocol.rs\n\ndb_tables: []\ndepends_on: []\n---\n\n## Purpose\n\nProtocol purpose.\n";
+        fs::write(dir.join("plugin-protocol.spec.md"), protocol_spec).unwrap();
+        fs::write(dir.join("requirements.md"), "shared reqs\n").unwrap();
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_resolves_nested_spec() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_nested_spec(&tmp);
+
+        // Changing src/protocol.rs (declared in plugin-protocol's `files:`)
+        // should resolve via the nested spec, not via a non-existent
+        // specs/plugin-protocol/ directory.
+        let changed = vec!["src/protocol.rs".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["plugin-protocol"]);
+    }
+
+    #[test]
+    fn test_specs_for_changed_files_shared_dir_matches_both_specs() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_nested_spec(&tmp);
+
+        // A file under specs/plugin/ affects both specs that share the dir.
+        let changed = vec!["specs/plugin/requirements.md".to_string()];
+        let matched = specs_for_changed_files(tmp.path(), &changed).unwrap();
+        assert_eq!(matched, vec!["plugin", "plugin-protocol"]);
+    }
+
+    #[test]
+    fn test_load_module_bundle_loads_nested_spec_by_module_name() {
+        let tmp = TempDir::new().unwrap();
+        scaffold_project_with_nested_spec(&tmp);
+
+        let bundle = load_module_bundle(tmp.path(), "plugin-protocol").unwrap();
+        assert!(bundle.contains("## Spec bundle: plugin-protocol"));
+        assert!(bundle.contains("### `plugin-protocol.spec.md`"));
+        assert!(bundle.contains("Protocol purpose."));
+        // Companions in the shared parent dir are picked up.
+        assert!(bundle.contains("### `requirements.md`"));
+        assert!(bundle.contains("shared reqs"));
     }
 
     #[test]

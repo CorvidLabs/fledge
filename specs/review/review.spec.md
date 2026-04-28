@@ -1,6 +1,6 @@
 ---
 module: review
-version: 9
+version: 10
 status: active
 files:
   - src/review.rs
@@ -58,7 +58,7 @@ AI-powered code review of current branch changes. Gets the git diff against a ba
 7. `--model` overrides the Claude model used for review
 8. `--prompt` appends a custom focus prompt to the default review instructions
 9. `--format` controls output style: `summary` (default), `checklist`, or `inline`
-10. When the repo has specs, `review` auto-detects relevant modules by intersecting the diff's changed-file list with each spec's frontmatter `files:` field and with the `<specs_dir>/<name>/` directory prefix (respects the `specs_dir` key from `.specsync/config.toml`, defaulting to `specs/`)
+10. When the repo has specs, `review` auto-detects relevant modules by intersecting the diff's changed-file list with each spec's frontmatter `files:` field and with the spec file's actual parent directory (respects the `specs_dir` key from `.specsync/config.toml`, defaulting to `specs/`). Sub-specs that share a directory with another module (e.g. `specs/plugin/plugin-protocol.spec.md` declaring `module: plugin-protocol`) resolve via their real on-disk parent, not via an assumed `<specs_dir>/<name>/`
 11. `--with-specs <names>` (comma-separated, repeatable) appends named modules to the auto-detected set and dedupes
 12. `--no-auto-specs` skips the auto-detection step (but still honors `--with-specs`)
 13. The review target is always the diff; the prompt explicitly instructs Claude that specs are context-only and that changes outside the diff must not be suggested
@@ -214,12 +214,13 @@ $ fledge review --with-model ollama:gpt-oss:120b-cloud --json
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 6 | 2026-04-23 | Provider abstraction: `--provider` flag, JSON gains `provider`/`model` fields, invocation routes through `llm::build_provider` instead of shelling out to `claude` directly. Works with Ollama (local or cloud) end-to-end. |
-| 9 | 2026-04-26 | Doc sync — `review --json` (single + panel) behavioral examples updated to show the post-tier-D envelope shape. Single-vs-panel field-presence rule explicitly documented. No code change |
-| 8 | 2026-04-26 | Tier-D 1.0 envelope: `review --json` adds `schema_version: 1` and `action: "review"` at the top level. Existing fields (`base`, `file`, `diff_stats`, `spec_context`, `reviews`, single-model `provider`/`model`/`review`) all preserved — purely additive. Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
-| 7 | 2026-04-24 | Multi-model panel: `--with-model <provider[:model]>` (repeatable + comma-separated) and `--no-active` add parallel review slots that share the same diff + spec context. Per-slot errors are captured (not fatal). JSON gains `reviews[]` array; legacy top-level `review`/`provider`/`model` preserved when panel size is 1. Text output gets cyan banner headers between slots when panel size ≥ 2. |
+| 10 | 2026-04-27 | Fix nested-spec auto-detection (#291). Invariant 10 now describes resolution via each spec's actual parent directory rather than the assumed `<specs_dir>/<name>/`. Sub-specs sharing a directory (e.g. `specs/plugin/plugin-protocol.spec.md`) resolve correctly. Behavior change lives in the `spec` module; `review` only inherits |
+| 9 | 2026-04-26 | Doc sync, `review --json` (single + panel) behavioral examples updated to show the post-tier-D envelope shape. Single-vs-panel field-presence rule explicitly documented. No code change |
+| 8 | 2026-04-26 | Tier-D 1.0 envelope: `review --json` adds `schema_version: 1` and `action: "review"` at the top level. Existing fields (`base`, `file`, `diff_stats`, `spec_context`, `reviews`, single-model `provider`/`model`/`review`) all preserved (purely additive). Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
+| 7 | 2026-04-24 | Multi-model panel: `--with-model <provider[:model]>` (repeatable + comma-separated) and `--no-active` add parallel review slots that share the same diff + spec context. Per-slot errors are captured (not fatal). JSON gains `reviews[]` array; legacy top-level `review`/`provider`/`model` preserved when panel size is 1. Text output gets cyan banner headers between slots when panel size ≥ 2 |
+| 6 | 2026-04-23 | Provider abstraction: `--provider` flag, JSON gains `provider`/`model` fields, invocation routes through `llm::build_provider` instead of shelling out to `claude` directly. Works with Ollama (local or cloud) end-to-end |
 | 5 | 2026-04-23 | Spec-aware review: auto-detect specs for diffed modules (honors `specs_dir` config), `--with-specs`, `--no-auto-specs`, `spec_context` field in JSON output, prompt constraints to keep review target on the diff only |
-| 4 | 2026-04-23 | Add ReviewFormat enum, model/prompt/format fields to ReviewOptions |
+| 4 | 2026-04-23 | Add `ReviewFormat` enum, model/prompt/format fields to `ReviewOptions` |
 | 3 | 2026-04-22 | Document default branch fallback algorithm (symbolic-ref → main → master → fallback main) |
-| 2 | 2026-04-21 | Add json field to ReviewOptions |
+| 2 | 2026-04-21 | Add `json` field to `ReviewOptions` |
 | 1 | 2026-04-19 | Initial spec |
