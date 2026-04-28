@@ -14,12 +14,12 @@ use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 /// installs all of them so a fresh fledge install gets back to feature
 /// parity with v0.14 in one command.
 ///
-/// Pin every entry to a release tag (`owner/repo@vX.Y.Z`) once one
-/// exists — unpinned entries track HEAD and are a supply-chain risk.
+/// Every entry is pinned to a release tag (`owner/repo@vX.Y.Z`).
+/// Bump the tag here when adopting a new plugin release.
 pub const DEFAULT_PLUGINS: &[&str] = &[
     "CorvidLabs/fledge-plugin-github@v0.2.1",
-    "CorvidLabs/fledge-plugin-deps",
-    "CorvidLabs/fledge-plugin-metrics",
+    "CorvidLabs/fledge-plugin-deps@v0.1.0",
+    "CorvidLabs/fledge-plugin-metrics@v0.2.0",
 ];
 
 #[derive(Debug, Deserialize)]
