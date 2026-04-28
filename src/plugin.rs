@@ -12,10 +12,12 @@ use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 /// These are the plugins that took over commands removed from core in
 /// v0.15 (the tight-core refactor). Running `fledge plugins install --defaults`
 /// installs all of them so a fresh fledge install gets back to feature
-/// parity with v0.14 in one command. Each entry is a `<owner>/<repo>` ref
-/// understood by `parse_source_ref`.
+/// parity with v0.14 in one command.
+///
+/// Pin every entry to a release tag (`owner/repo@vX.Y.Z`) once one
+/// exists — unpinned entries track HEAD and are a supply-chain risk.
 pub const DEFAULT_PLUGINS: &[&str] = &[
-    "CorvidLabs/fledge-plugin-github",
+    "CorvidLabs/fledge-plugin-github@v0.2.1",
     "CorvidLabs/fledge-plugin-deps",
     "CorvidLabs/fledge-plugin-metrics",
 ];
@@ -601,7 +603,7 @@ fn install_defaults(force: bool, json: bool) -> Result<()> {
 /// what was installed; the caller is responsible for printing the JSON
 /// envelope (so single-install and bulk-install share one shape).
 fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::Value> {
-    let force = force || crate::utils::is_non_interactive() || json;
+    let force = force || crate::utils::is_non_interactive();
     let (_, git_ref) = parse_source_ref(source);
     let url = normalize_source(source);
     let repo_name = extract_name_from_source(source);
@@ -884,13 +886,15 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
         // Match each installed plugin's source against the DEFAULT_PLUGINS
         // list. Stored sources use either the shorthand `owner/repo` form
         // (the install-time input) or the normalized URL — accept both.
-        // Plugins from the curated set get updated; every community plugin
-        // (figma, weather, e2e, ...) is left alone.
+        // DEFAULT_PLUGINS entries may carry an `@ref` suffix; strip it
+        // before comparing so pinned defaults still match stored sources.
         let is_default = |source: &str| -> bool {
             DEFAULT_PLUGINS.iter().any(|d| {
-                source == *d
+                let (base, _) = parse_source_ref(d);
+                source == base
+                    || source == *d
                     || source == normalize_source(d)
-                    || source.trim_end_matches(".git").ends_with(d)
+                    || source.trim_end_matches(".git").ends_with(base)
             })
         };
         let matched: Vec<&PluginEntry> = registry
@@ -1079,6 +1083,63 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
             let manifest: PluginManifest =
                 toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
+            let new_caps = &manifest.capabilities;
+            let old_caps = entry.capabilities.as_ref();
+            let added_exec = new_caps.exec && !old_caps.is_some_and(|c| c.exec);
+            let added_store = new_caps.store && !old_caps.is_some_and(|c| c.store);
+            let added_metadata = new_caps.metadata && !old_caps.is_some_and(|c| c.metadata);
+            let has_new_caps = added_exec || added_store || added_metadata;
+
+            if has_new_caps {
+                if !json {
+                    println!(
+                        "\n  {} {} v{} requests new capabilities:",
+                        style("!").yellow().bold(),
+                        style(&entry.name).cyan(),
+                        manifest.plugin.version
+                    );
+                    if added_exec {
+                        println!("    {} exec — run shell commands", style("+").yellow());
+                    }
+                    if added_store {
+                        println!(
+                            "    {} store — persist data between runs",
+                            style("+").yellow()
+                        );
+                    }
+                    if added_metadata {
+                        println!(
+                            "    {} metadata — read project metadata and environment",
+                            style("+").yellow()
+                        );
+                    }
+                    println!();
+                }
+
+                if !crate::utils::is_interactive() {
+                    results.push(serde_json::json!({
+                        "name": entry.name,
+                        "status": "failed",
+                        "detail": "update adds new capabilities — rerun interactively or reinstall with --force",
+                    }));
+                    continue;
+                }
+
+                let confirm =
+                    dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                        .with_prompt("Grant new capabilities?")
+                        .default(false)
+                        .interact()?;
+                if !confirm {
+                    results.push(serde_json::json!({
+                        "name": entry.name,
+                        "status": "skipped",
+                        "detail": "new capabilities declined by user",
+                    }));
+                    continue;
+                }
+            }
+
             run_build(&plugin_dir, &manifest)?;
 
             let bin_dir = plugin_bin_dir();
@@ -1090,11 +1151,18 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
             }
             link_commands(&plugin_dir, &bin_dir, &manifest)?;
 
+            let granted_caps = if manifest.plugin.protocol.is_some() {
+                Some(manifest.capabilities.clone())
+            } else {
+                entry.capabilities.clone()
+            };
+
             let new_cmds: Vec<String> = manifest.commands.iter().map(|c| c.name.clone()).collect();
             let mut reg = load_registry()?;
             if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
                 e.version = manifest.plugin.version.clone();
                 e.commands = new_cmds.clone();
+                e.capabilities = granted_caps;
             }
             save_registry(&reg)?;
 
@@ -2381,21 +2449,19 @@ mod tests {
 
     #[test]
     fn default_plugins_are_well_formed() {
-        // Every entry should parse via parse_source_ref so --defaults can't
-        // ship a bogus ref that fails at install time.
         assert!(!DEFAULT_PLUGINS.is_empty());
         for src in DEFAULT_PLUGINS {
-            let (owner_repo, _git_ref) = parse_source_ref(src);
+            let (owner_repo, git_ref) = parse_source_ref(src);
             assert!(
                 owner_repo.contains('/'),
                 "DEFAULT_PLUGINS entry '{src}' must be owner/repo"
             );
-            // No accidental @ref pinning in the default list — defaults
-            // should track the latest stable, not be frozen on a tag.
-            assert!(
-                !src.contains('@'),
-                "DEFAULT_PLUGINS entry '{src}' should not pin a ref"
-            );
+            if let Some(r) = git_ref {
+                assert!(
+                    r.starts_with('v'),
+                    "DEFAULT_PLUGINS pinned ref '{r}' should be a version tag (v...)"
+                );
+            }
         }
     }
 
@@ -2425,16 +2491,17 @@ mod tests {
 
     #[test]
     fn default_source_match_recognizes_shorthand() {
-        // The matcher used by `update_plugins(.., defaults=true)` must
-        // recognize stored sources in any of three forms: bare shorthand,
-        // normalized URL, or URL without `.git`. This duplicates the
-        // closure in `update_plugins` to test the matching logic in
-        // isolation — keep the two in sync.
+        // Mirrors the closure in `update_plugins` — keep the two in sync.
+        // Must match stored sources in bare shorthand, normalized URL, or
+        // URL-without-.git form, even when DEFAULT_PLUGINS entries carry
+        // an `@ref` suffix.
         let is_default = |source: &str| -> bool {
             DEFAULT_PLUGINS.iter().any(|d| {
-                source == *d
+                let (base, _) = parse_source_ref(d);
+                source == base
+                    || source == *d
                     || source == normalize_source(d)
-                    || source.trim_end_matches(".git").ends_with(d)
+                    || source.trim_end_matches(".git").ends_with(base)
             })
         };
         assert!(is_default("CorvidLabs/fledge-plugin-github"));
