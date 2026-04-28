@@ -54,6 +54,33 @@ repos = ["CorvidLabs/fledge-templates", "myorg/templates"]
 | `paths` | Local directories with templates |
 | `repos` | GitHub repos to pull templates from (`owner/repo`) |
 
+### [ai]
+
+AI provider and model settings. Written by `fledge ai use` or `fledge config set`/`edit`:
+
+```toml
+[ai]
+provider = "ollama"             # "claude" or "ollama"
+
+[ai.claude]
+model = "opus-4.7"             # model name passed to claude CLI
+
+[ai.ollama]
+host = "http://localhost:11434" # Ollama API endpoint (always normalized to include scheme)
+model = "qwen3-coder:480b-cloud"
+api_key = "sk-..."             # for Ollama Cloud / authenticated endpoints
+timeout_seconds = 600          # request timeout (default: 600)
+```
+
+| Key | What it does | Default |
+|-----|-------------|---------|
+| `ai.provider` | Active LLM backend | `claude` |
+| `ai.claude.model` | Model name for Claude CLI | Claude CLI default |
+| `ai.ollama.host` | Ollama API endpoint URL | `http://localhost:11434` |
+| `ai.ollama.model` | Ollama model name | `llama3.2:latest` |
+| `ai.ollama.api_key` | Bearer token for authenticated endpoints | (none) |
+| `ai.ollama.timeout_seconds` | Request timeout in seconds | `600` |
+
 ### [github]
 
 ```toml
@@ -92,6 +119,18 @@ repos = ["CorvidLabs/fledge-templates", "my-org/my-templates"]
 
 [github]
 token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+
+[ai]
+provider = "ollama"
+
+[ai.claude]
+model = "opus-4.7"
+
+[ai.ollama]
+host = "https://ollama.com"
+model = "qwen3-coder:480b-cloud"
+api_key = "sk-your-key"
+timeout_seconds = 600
 ```
 
 ## Environment Variables
@@ -100,8 +139,13 @@ token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
 |----------|-------------|
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
 | `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
+| `FLEDGE_AI_PROVIDER` | AI provider override (`claude` or `ollama`) |
+| `FLEDGE_AI_MODEL` | AI model override |
+| `FLEDGE_AI_TIMEOUT` | Ollama request timeout in seconds |
+| `OLLAMA_HOST` | Ollama API endpoint URL |
+| `OLLAMA_API_KEY` | Ollama Bearer token |
 
-If neither env var nor config is set, fledge falls back to `gh auth token` (GitHub CLI) automatically.
+If neither env var nor config is set, fledge falls back to `gh auth token` (GitHub CLI) automatically for GitHub operations.
 
 ## Project Configuration (fledge.toml)
 
