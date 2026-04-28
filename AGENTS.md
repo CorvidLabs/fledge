@@ -103,7 +103,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, ...) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
-Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `ai use`, `config *`, `completions`. If you need structured output from one of these, add it via a spec + PR. It's an accepted pattern.
+Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `watch`, `ai use`, `config *` (including `config edit`, an interactive editor), `completions`. If you need structured output from one of these, add it via a spec + PR. It's an accepted pattern.
 
 **Envelope contract.** Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 

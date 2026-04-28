@@ -268,7 +268,7 @@ fledge lanes validate --json
 Manage `~/.config/fledge/config.toml`.
 
 ```
-fledge config <get|set|unset|add|remove|list|path|init>
+fledge config <get|set|unset|add|remove|edit|list|path|init>
 ```
 
 | Subcommand | What it does |
@@ -278,18 +278,22 @@ fledge config <get|set|unset|add|remove|list|path|init>
 | `unset <key>` | Delete a value |
 | `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
 | `remove <key> <value>` | Remove from a list |
+| `edit` | Interactively browse and edit config values (requires TTY) |
 | `list` | Show everything |
 | `path` | Print config file path |
 | `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
 
 **Valid keys:**
-- `defaults.author`: `defaults.github_org`, `defaults.license`
+- `defaults.author`, `defaults.github_org`, `defaults.license`
 - `github.token`
-- `templates.paths`: `templates.repos`
+- `templates.paths`, `templates.repos`
+- `ai.provider`, `ai.claude.model`
+- `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
 
 ```bash
 fledge config set defaults.author "Leif"
 fledge config add templates.repos "CorvidLabs/fledge-templates"
+fledge config edit                                  # interactive config editor
 fledge config list
 ```
 

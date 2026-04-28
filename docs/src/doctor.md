@@ -52,7 +52,7 @@ The Toolchains section is **informational**. Missing entries render dimmed (`· 
 $ fledge doctor
 
   fledge
-    ✅ fledge config 0.15.3, loaded
+    ✅ fledge config 0.16.0, loaded
 
   Git
     ✅ git 2.50.1
@@ -104,7 +104,7 @@ Returns a structured envelope:
   "sections": [
     {
       "name": "fledge",
-      "checks": [{"name": "fledge config", "status": "ok", "version": "0.15.3", "detail": "loaded", "fix": null}]
+      "checks": [{"name": "fledge config", "status": "ok", "version": "0.16.0", "detail": "loaded", "fix": null}]
     },
     {
       "name": "Toolchains",

@@ -91,13 +91,29 @@ fledge templates init my-app --template user/repo --refresh
 
 ## fledge review / fledge ask not working
 
-These commands use the Claude CLI. Make sure it's installed and authenticated:
+These commands use the active AI provider. Check which provider is configured:
+
+```bash
+fledge ai status
+fledge doctor        # the AI section will diagnose the issue
+```
+
+**If using Claude (default):** Make sure the `claude` CLI is installed and authenticated:
 
 ```bash
 claude --version
 ```
 
 If Claude isn't installed, see [Claude CLI docs](https://docs.anthropic.com/en/docs/claude-code/overview) for setup instructions.
+
+**If using Ollama:** Make sure the Ollama daemon is running and the host is correct:
+
+```bash
+fledge ai status                    # check host and model
+fledge ai models --provider ollama  # verify the endpoint is reachable
+```
+
+If the host is missing `http://`, fledge normalizes it automatically (as of v0.16.0). If using Ollama Cloud, make sure `OLLAMA_API_KEY` or `ai.ollama.api_key` is set.
 
 ## Clippy or fmt warnings in CI
 
