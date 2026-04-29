@@ -7,7 +7,7 @@ use crate::spec;
 
 /// JSON schema version for the `ask` envelope. See lanes.rs for the per-command
 /// rationale.
-pub const ASK_SCHEMA: u32 = 1;
+const ASK_SCHEMA: u32 = 1;
 
 pub struct AskOptions {
     pub question: String,

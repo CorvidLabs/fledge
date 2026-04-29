@@ -10,7 +10,7 @@ use crate::templates::{matches_glob_pub, TemplateManifest};
 /// JSON schema version for the templates `validate` envelope (single and multi
 /// share the same `{schema_version, reports}` shape). See lanes.rs for the
 /// per-command rationale.
-pub const VALIDATE_SCHEMA: u32 = 1;
+const VALIDATE_SCHEMA: u32 = 1;
 
 pub struct ValidateOptions {
     pub path: PathBuf,

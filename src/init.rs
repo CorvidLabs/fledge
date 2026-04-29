@@ -10,7 +10,7 @@ use crate::trust;
 
 /// JSON schema version for the `init` envelope. See lanes.rs for the per-command
 /// rationale.
-pub const INIT_SCHEMA: u32 = 1;
+const INIT_SCHEMA: u32 = 1;
 
 pub struct InitOptions {
     pub name: String,

@@ -13,7 +13,7 @@ use crate::spec;
 
 /// JSON schema version for the `review` envelope. See lanes.rs for the
 /// per-command rationale.
-pub const REVIEW_SCHEMA: u32 = 1;
+const REVIEW_SCHEMA: u32 = 1;
 
 #[derive(Debug, Clone, Default)]
 pub enum ReviewFormat {

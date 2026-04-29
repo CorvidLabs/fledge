@@ -11,9 +11,9 @@ const VALID_BRANCH_TYPES: &[&str] = &[
 
 /// Per-command JSON schema versions for `work` subcommands. See lanes.rs for
 /// rationale.
-pub const WORK_START_SCHEMA: u32 = 1;
-pub const WORK_PR_SCHEMA: u32 = 1;
-pub const WORK_STATUS_SCHEMA: u32 = 1;
+const WORK_START_SCHEMA: u32 = 1;
+const WORK_PR_SCHEMA: u32 = 1;
+const WORK_STATUS_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 pub struct WorkConfig {

@@ -13,9 +13,9 @@ static EMBEDDED_TEMPLATES: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
 /// changes can bump exactly the affected envelope without semantically
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
-pub const TEMPLATES_LIST_SCHEMA: u32 = 1;
-pub const TEMPLATES_SEARCH_SCHEMA: u32 = 1;
-pub const TEMPLATES_PUBLISH_SCHEMA: u32 = 1;
+pub(crate) const TEMPLATES_LIST_SCHEMA: u32 = 1;
+pub(crate) const TEMPLATES_SEARCH_SCHEMA: u32 = 1;
+pub(crate) const TEMPLATES_PUBLISH_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 pub struct TemplateManifest {

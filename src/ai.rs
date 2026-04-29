@@ -10,8 +10,8 @@ use crate::utils;
 
 /// Per-command JSON schema versions for `ai` subcommands. See lanes.rs for
 /// rationale.
-pub const AI_STATUS_SCHEMA: u32 = 1;
-pub const AI_MODELS_SCHEMA: u32 = 1;
+const AI_STATUS_SCHEMA: u32 = 1;
+const AI_MODELS_SCHEMA: u32 = 1;
 
 /// CLI actions dispatched from `fledge ai`.
 pub enum AiAction {

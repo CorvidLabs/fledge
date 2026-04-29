@@ -27,14 +27,14 @@ pub const DEFAULT_PLUGINS: &[&str] = &[
 /// changes can bump exactly the affected envelope without semantically
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
-pub const PLUGINS_INSTALL_SCHEMA: u32 = 1;
-pub const PLUGINS_UPDATE_SCHEMA: u32 = 1;
-pub const PLUGINS_REMOVE_SCHEMA: u32 = 1;
-pub const PLUGINS_LIST_SCHEMA: u32 = 1;
-pub const PLUGINS_AUDIT_SCHEMA: u32 = 1;
-pub const PLUGINS_SEARCH_SCHEMA: u32 = 1;
-pub const PLUGINS_CREATE_SCHEMA: u32 = 1;
-pub const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
+const PLUGINS_INSTALL_SCHEMA: u32 = 1;
+const PLUGINS_UPDATE_SCHEMA: u32 = 1;
+const PLUGINS_REMOVE_SCHEMA: u32 = 1;
+const PLUGINS_LIST_SCHEMA: u32 = 1;
+const PLUGINS_AUDIT_SCHEMA: u32 = 1;
+const PLUGINS_SEARCH_SCHEMA: u32 = 1;
+const PLUGINS_CREATE_SCHEMA: u32 = 1;
+const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 struct PluginManifest {

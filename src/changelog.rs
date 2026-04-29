@@ -4,7 +4,7 @@ use std::process::Command;
 
 /// JSON schema version for the `changelog` envelope. See lanes.rs for the
 /// per-command rationale.
-pub const CHANGELOG_SCHEMA: u32 = 1;
+const CHANGELOG_SCHEMA: u32 = 1;
 
 pub struct ChangelogOptions {
     pub limit: usize,

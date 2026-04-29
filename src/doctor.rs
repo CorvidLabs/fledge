@@ -7,7 +7,7 @@ use std::time::Duration;
 
 /// JSON schema version for the `doctor` envelope. See lanes.rs for the
 /// per-command rationale.
-pub const DOCTOR_SCHEMA: u32 = 1;
+const DOCTOR_SCHEMA: u32 = 1;
 
 pub struct DoctorOptions {
     pub json: bool,

@@ -8,9 +8,9 @@ use std::process::Command;
 /// Per-command JSON schema versions for `run` subcommands. See lanes.rs for
 /// rationale. (Note: this is the wire-envelope version, distinct from the
 /// `schema_version` field on `fledge.toml` itself, which is a manifest version.)
-pub const RUN_LIST_SCHEMA: u32 = 1;
-pub const RUN_TASK_SCHEMA: u32 = 1;
-pub const RUN_INIT_SCHEMA: u32 = 1;
+const RUN_LIST_SCHEMA: u32 = 1;
+const RUN_TASK_SCHEMA: u32 = 1;
+const RUN_INIT_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 struct FledgeFile {

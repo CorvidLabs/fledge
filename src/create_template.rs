@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 /// JSON schema version for the `templates create` envelope. See lanes.rs for
 /// the per-command rationale.
-pub const CREATE_TEMPLATE_SCHEMA: u32 = 1;
+const CREATE_TEMPLATE_SCHEMA: u32 = 1;
 
 pub struct CreateTemplateOptions {
     pub name: String,

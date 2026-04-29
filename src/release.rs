@@ -10,7 +10,7 @@ use crate::versioning::{parse_version, Version};
 /// JSON schema version for the `release` envelope (covers both dry-run and real
 /// runs since they share the same shape, distinguished by the `dry_run` bool).
 /// See lanes.rs for the per-command rationale.
-pub const RELEASE_SCHEMA: u32 = 1;
+const RELEASE_SCHEMA: u32 = 1;
 
 pub struct ReleaseOptions {
     pub bump: String,

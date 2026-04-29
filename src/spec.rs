@@ -9,9 +9,9 @@ const COMPANION_FILES: &[&str] = &["requirements.md", "tasks.md", "context.md", 
 
 /// Per-command JSON schema versions for `spec` subcommands. See lanes.rs for
 /// rationale.
-pub const SPEC_CHECK_SCHEMA: u32 = 1;
-pub const SPEC_LIST_SCHEMA: u32 = 1;
-pub const SPEC_SHOW_SCHEMA: u32 = 1;
+const SPEC_CHECK_SCHEMA: u32 = 1;
+const SPEC_LIST_SCHEMA: u32 = 1;
+const SPEC_SHOW_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 struct SpecSyncConfig {

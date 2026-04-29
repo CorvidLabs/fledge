@@ -16,14 +16,14 @@ use crate::trust::{determine_trust_tier, determine_trust_tier_from_owner};
 /// changes can bump exactly the affected envelope without semantically
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
-pub const LANES_LIST_SCHEMA: u32 = 1;
-pub const LANES_DRY_RUN_SCHEMA: u32 = 1;
-pub const LANES_RUN_SCHEMA: u32 = 1;
-pub const LANES_INIT_SCHEMA: u32 = 1;
-pub const LANES_SEARCH_SCHEMA: u32 = 1;
-pub const LANES_IMPORT_SCHEMA: u32 = 1;
-pub const LANES_CREATE_SCHEMA: u32 = 1;
-pub const LANES_PUBLISH_SCHEMA: u32 = 1;
+const LANES_LIST_SCHEMA: u32 = 1;
+const LANES_DRY_RUN_SCHEMA: u32 = 1;
+const LANES_RUN_SCHEMA: u32 = 1;
+const LANES_INIT_SCHEMA: u32 = 1;
+const LANES_SEARCH_SCHEMA: u32 = 1;
+const LANES_IMPORT_SCHEMA: u32 = 1;
+const LANES_CREATE_SCHEMA: u32 = 1;
+const LANES_PUBLISH_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 struct FledgeFileWithLanes {
