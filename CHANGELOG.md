@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.17.0] - 2026-04-29
+
+### Chores
+
+- scope schema_version per-command via named constants (#297) (faeaefe)
+- update Homebrew formula to v0.16.0 (#288) (8d8bd56)
+
+### Documentation
+
+- update framing to lead with what fledge does, not how it's built (#306) (4f5fa17)
+- update CLAUDE.md architecture section for post-refactor module structure (#304) (8ecab3a)
+- update documentation for v0.16.0 changes (#295) (11b99fd)
+
+### Features
+
+- add interactive `fledge config edit` command (d21e372)
+
+### Fixes
+
+- update spec files to reference new module paths post-refactor (#305) (fe2924a)
+- pre-1.0 security hardening (#296) (c9562d6)
+- resolve nested specs + organize change logs (closes #291) (#294) (36b7c49)
+- normalize Ollama host to include scheme (#293) (5847846)
+- security hardening for 1.0 — hook gates + output caps (#289) (bc3be9a)
+
+### Refactoring
+
+- split plugin.rs (105KB) into plugin/ folder module (#298) (af8b490)
+- split lanes.rs (87KB) into lanes/ folder module (#299) (92f246d)
+- split release.rs (57KB) into release/ folder module (#303) (596fcd3)
+- split protocol.rs (65KB) into protocol/ folder module (#301) (aa3f60f)
+- split spec.rs (62KB) into spec/ folder module (#302) (89e0ec9)
+- extract CLI types and handlers into sibling modules (#300) (3cd93d7)
+
 ## [v0.16.0] - 2026-04-26
 
 ### Chores
