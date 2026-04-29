@@ -3,7 +3,13 @@ module: release
 version: 4
 status: active
 files:
-  - src/release.rs
+  - src/release/mod.rs
+  - src/release/bump.rs
+  - src/release/changelog.rs
+  - src/release/git.rs
+  - src/release/toml_utils.rs
+  - src/release/version.rs
+  - src/release/tests.rs
 
 db_tables: []
 depends_on:
