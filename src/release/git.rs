@@ -91,7 +91,12 @@ pub(crate) fn create_tag(dir: &Path, version: &Version, quiet: bool) -> Result<(
     Ok(())
 }
 
-pub(crate) fn push_release(dir: &Path, version: &Version, has_tag: bool, quiet: bool) -> Result<()> {
+pub(crate) fn push_release(
+    dir: &Path,
+    version: &Version,
+    has_tag: bool,
+    quiet: bool,
+) -> Result<()> {
     let output = Command::new("git")
         .args(["push"])
         .current_dir(dir)

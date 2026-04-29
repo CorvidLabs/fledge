@@ -76,9 +76,18 @@ mod tests {
     #[test]
     fn apply_bump_from_zero() {
         let v = parse_version("0.0.0").unwrap();
-        assert_eq!(version::apply_bump(&v, "major").unwrap().to_string(), "1.0.0");
-        assert_eq!(version::apply_bump(&v, "minor").unwrap().to_string(), "0.1.0");
-        assert_eq!(version::apply_bump(&v, "patch").unwrap().to_string(), "0.0.1");
+        assert_eq!(
+            version::apply_bump(&v, "major").unwrap().to_string(),
+            "1.0.0"
+        );
+        assert_eq!(
+            version::apply_bump(&v, "minor").unwrap().to_string(),
+            "0.1.0"
+        );
+        assert_eq!(
+            version::apply_bump(&v, "patch").unwrap().to_string(),
+            "0.0.1"
+        );
     }
 
     #[test]
@@ -95,7 +104,10 @@ name = "my-app"
 version = "0.5.0"
 edition = "2021"
 "#;
-        assert_eq!(toml_utils::extract_toml_version(content), Some("0.5.0".to_string()));
+        assert_eq!(
+            toml_utils::extract_toml_version(content),
+            Some("0.5.0".to_string())
+        );
     }
 
     #[test]
@@ -141,14 +153,26 @@ edition = "2021"
 
     #[test]
     fn classify_conventional_commits() {
-        assert_eq!(changelog::classify_for_changelog("feat: add release"), "Features");
-        assert_eq!(changelog::classify_for_changelog("fix: handle null"), "Fixes");
+        assert_eq!(
+            changelog::classify_for_changelog("feat: add release"),
+            "Features"
+        );
+        assert_eq!(
+            changelog::classify_for_changelog("fix: handle null"),
+            "Fixes"
+        );
         assert_eq!(
             changelog::classify_for_changelog("docs: update readme"),
             "Documentation"
         );
-        assert_eq!(changelog::classify_for_changelog("chore: bump deps"), "Chores");
-        assert_eq!(changelog::classify_for_changelog("feat(cli): add flag"), "Features");
+        assert_eq!(
+            changelog::classify_for_changelog("chore: bump deps"),
+            "Chores"
+        );
+        assert_eq!(
+            changelog::classify_for_changelog("feat(cli): add flag"),
+            "Features"
+        );
         assert_eq!(changelog::classify_for_changelog("random message"), "Other");
     }
 
@@ -162,12 +186,18 @@ edition = "2021"
             changelog::strip_conventional_prefix("fix(core): null check"),
             "null check"
         );
-        assert_eq!(changelog::strip_conventional_prefix("update readme"), "update readme");
+        assert_eq!(
+            changelog::strip_conventional_prefix("update readme"),
+            "update readme"
+        );
     }
 
     #[test]
     fn strip_prefix_no_space_after_colon() {
-        assert_eq!(changelog::strip_conventional_prefix("feat:add release"), "add release");
+        assert_eq!(
+            changelog::strip_conventional_prefix("feat:add release"),
+            "add release"
+        );
         assert_eq!(
             changelog::strip_conventional_prefix("fix(core):null check"),
             "null check"
@@ -193,7 +223,10 @@ edition = "2021"
             r#"{"name": "test", "version": "2.0.0"}"#,
         )
         .unwrap();
-        assert_eq!(version::read_package_json_version(tmp.path()).unwrap(), "2.0.0");
+        assert_eq!(
+            version::read_package_json_version(tmp.path()).unwrap(),
+            "2.0.0"
+        );
     }
 
     #[test]
@@ -322,7 +355,10 @@ edition = "2021"
     #[test]
     fn extract_versioned_section_returns_none_when_section_absent() {
         let toml = "[plugin]\nname = \"x\"\n";
-        assert_eq!(toml_utils::extract_versioned_toml_section(toml, "plugin"), None);
+        assert_eq!(
+            toml_utils::extract_versioned_toml_section(toml, "plugin"),
+            None
+        );
     }
 
     #[test]
