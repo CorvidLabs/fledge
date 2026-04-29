@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::{validate_lanes, FledgeFileWithLanes, LANES_PUBLISH_SCHEMA};
 
-pub(super) fn publish_lanes(
+pub(crate) fn publish_lanes(
     path: &Path,
     org: Option<&str>,
     private: bool,

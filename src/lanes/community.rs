@@ -7,7 +7,7 @@ use super::{
 };
 use crate::trust::{determine_trust_tier, determine_trust_tier_from_owner};
 
-pub(super) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Result<()> {
+pub(crate) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Result<()> {
     let config = crate::config::Config::load()?;
     let token = config.github_token();
 
@@ -107,7 +107,7 @@ pub(super) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bo
     Ok(())
 }
 
-pub(super) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
+pub(crate) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join("fledge.toml");
 
@@ -303,7 +303,7 @@ pub(super) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<String>) {
+pub(crate) fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<String>) {
     let source = source
         .strip_prefix("https://github.com/")
         .unwrap_or(source)
@@ -326,7 +326,7 @@ pub(super) fn parse_import_source(source: &str) -> (String, String, Option<Strin
     (owner, repo, subpath, git_ref)
 }
 
-pub(super) fn base64_decode(input: &str) -> Result<Vec<u8>> {
+pub(crate) fn base64_decode(input: &str) -> Result<Vec<u8>> {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD
         .decode(input)

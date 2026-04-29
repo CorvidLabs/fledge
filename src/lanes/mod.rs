@@ -620,4 +620,3 @@ pub(super) fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
     out.push_str("]\n");
     out
 }
-

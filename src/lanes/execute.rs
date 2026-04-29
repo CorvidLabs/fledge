@@ -12,7 +12,7 @@ use super::{
     LANES_RUN_SCHEMA,
 };
 
-pub(super) fn execute_lane(
+pub(crate) fn execute_lane(
     lane_name: &str,
     lane: &LaneDef,
     tasks: &BTreeMap<String, TaskDef>,
@@ -111,7 +111,7 @@ pub(super) fn execute_lane(
     Ok(())
 }
 
-pub(super) fn execute_lane_json(
+pub(crate) fn execute_lane_json(
     lane_name: &str,
     lane: &LaneDef,
     tasks: &BTreeMap<String, TaskDef>,
@@ -178,7 +178,7 @@ pub(super) fn execute_lane_json(
     Ok(())
 }
 
-pub(super) fn execute_lane_silent(
+pub(crate) fn execute_lane_silent(
     lane_name: &str,
     lane: &LaneDef,
     tasks: &BTreeMap<String, TaskDef>,
@@ -219,7 +219,7 @@ pub(super) fn execute_lane_silent(
     Ok(())
 }
 
-pub(super) fn execute_task_with_deps(
+pub(crate) fn execute_task_with_deps(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
@@ -229,7 +229,7 @@ pub(super) fn execute_task_with_deps(
     execute_task_recursive(name, tasks, project_dir, &mut visited, quiet)
 }
 
-pub(super) fn execute_task_recursive(
+pub(crate) fn execute_task_recursive(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
@@ -255,7 +255,7 @@ pub(super) fn execute_task_recursive(
     execute_single_task(name, task, project_dir, quiet)
 }
 
-pub(super) fn execute_single_task(
+pub(crate) fn execute_single_task(
     name: &str,
     task: &TaskDef,
     project_dir: &Path,
@@ -307,7 +307,7 @@ pub(super) fn execute_single_task(
     Ok(())
 }
 
-pub(super) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Result<()> {
+pub(crate) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Result<()> {
     if !quiet {
         println!(
             "  {} {}",
@@ -338,7 +338,7 @@ pub(super) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Resu
     Ok(())
 }
 
-pub(super) fn execute_parallel(
+pub(crate) fn execute_parallel(
     items: &[ParallelItem],
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,

@@ -4,7 +4,7 @@ use console::style;
 use super::{FledgeFileWithLanes, LANES_INIT_SCHEMA};
 use crate::run::detect_project_type;
 
-pub(super) fn lane_defaults(project_type: &str) -> &'static str {
+pub(crate) fn lane_defaults(project_type: &str) -> &'static str {
     match project_type {
         "rust" => {
             r#"
@@ -78,7 +78,7 @@ steps = ["build", "test"]
     }
 }
 
-pub(super) fn init_lanes(json: bool) -> Result<()> {
+pub(crate) fn init_lanes(json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let path = cwd.join("fledge.toml");
 

@@ -3,7 +3,14 @@ module: lanes
 version: 18
 status: active
 files:
-  - src/lanes.rs
+  - src/lanes/mod.rs
+  - src/lanes/community.rs
+  - src/lanes/create.rs
+  - src/lanes/defaults.rs
+  - src/lanes/execute.rs
+  - src/lanes/publish.rs
+  - src/lanes/validate.rs
+  - src/lanes/tests.rs
 
 db_tables: []
 depends_on:

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use super::LANES_CREATE_SCHEMA;
 
-pub(super) fn create_lane_repo(
+pub(crate) fn create_lane_repo(
     name: &str,
     output: &Path,
     description: Option<&str>,

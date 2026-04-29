@@ -6,14 +6,14 @@ use std::path::Path;
 use super::{FledgeFileWithLanes, ParallelItem, Step};
 
 #[derive(Default, serde::Serialize)]
-pub(super) struct LaneValidationReport {
+pub(crate) struct LaneValidationReport {
     pub(super) path: String,
     pub(super) lane_count: usize,
     pub(super) errors: Vec<String>,
     pub(super) warnings: Vec<String>,
 }
 
-pub(super) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()> {
+pub(crate) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()> {
     let path = path.canonicalize().unwrap_or(path.to_path_buf());
 
     let fledge_toml = path.join("fledge.toml");
@@ -157,7 +157,7 @@ pub(super) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()
     print_lane_report(&report, strict, json)
 }
 
-pub(super) fn print_lane_report(
+pub(crate) fn print_lane_report(
     report: &LaneValidationReport,
     strict: bool,
     json: bool,
