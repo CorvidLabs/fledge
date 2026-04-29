@@ -3,7 +3,13 @@ module: plugin-protocol
 version: 3
 status: active
 files:
-  - src/protocol.rs
+  - src/protocol/mod.rs
+  - src/protocol/ui.rs
+  - src/protocol/store.rs
+  - src/protocol/exec.rs
+  - src/protocol/metadata.rs
+  - src/protocol/detect.rs
+  - src/protocol/tests.rs
 
 db_tables: []
 depends_on:
