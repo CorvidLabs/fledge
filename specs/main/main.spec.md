@@ -4,6 +4,9 @@ version: 9
 status: active
 files:
   - src/main.rs
+  - src/cli.rs
+  - src/config_cmds.rs
+  - src/template_cmds.rs
 
 db_tables: []
 depends_on:

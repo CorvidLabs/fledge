@@ -4,6 +4,16 @@ version: 19
 status: active
 files:
   - src/plugin/mod.rs
+  - src/plugin/install.rs
+  - src/plugin/list.rs
+  - src/plugin/remove.rs
+  - src/plugin/run_plugin.rs
+  - src/plugin/create.rs
+  - src/plugin/publish.rs
+  - src/plugin/update.rs
+  - src/plugin/validate.rs
+  - src/plugin/search.rs
+  - src/plugin/tests.rs
 
 db_tables: []
 depends_on:

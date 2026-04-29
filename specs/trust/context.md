@@ -17,8 +17,8 @@ spec: trust.spec.md
 
 - `src/trust.rs` — complete implementation (~100 LOC + tests)
 - `specs/trust/trust.spec.md` — formal API, invariants, and behavioral examples
-- `src/plugin.rs` — primary consumer; shows how tiers surface in `list`, `install`, and `audit`
-- `src/search.rs`, `src/lanes.rs`, `src/init.rs` — other consumers using `determine_trust_tier_from_owner`
+- `src/plugin/mod.rs` — primary consumer; shows how tiers surface in `list`, `install`, and `audit`
+- `src/search.rs`, `src/lanes/mod.rs`, `src/init.rs` — other consumers using `determine_trust_tier_from_owner`
 
 ## Current Status
 
