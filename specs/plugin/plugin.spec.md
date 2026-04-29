@@ -3,7 +3,7 @@ module: plugin
 version: 17
 status: active
 files:
-  - src/plugin.rs
+  - src/plugin/mod.rs
 
 db_tables: []
 depends_on:
