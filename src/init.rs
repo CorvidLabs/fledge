@@ -8,6 +8,10 @@ use crate::prompts;
 use crate::templates::{self, Template};
 use crate::trust;
 
+/// JSON schema version for the `init` envelope. See lanes.rs for the per-command
+/// rationale.
+pub const INIT_SCHEMA: u32 = 1;
+
 pub struct InitOptions {
     pub name: String,
     pub template: Option<String>,
@@ -174,7 +178,7 @@ fn emit_init_envelope(
     hooks_run: bool,
 ) -> Result<()> {
     let result = serde_json::json!({
-        "schema_version": 1,
+        "schema_version": INIT_SCHEMA,
         "action": "init",
         "project": {
             "name": name,

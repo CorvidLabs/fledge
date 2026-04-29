@@ -11,6 +11,20 @@ use std::time::Instant;
 use crate::run::detect_project_type;
 use crate::trust::{determine_trust_tier, determine_trust_tier_from_owner};
 
+/// Per-command JSON schema versions. Each constant tracks the wire shape of one
+/// `lanes` subcommand's `--json` envelope independently so that future shape
+/// changes can bump exactly the affected envelope without semantically
+/// corrupting the meaning of `schema_version` for unrelated commands. Additive
+/// changes (new optional fields) do not bump.
+pub const LANES_LIST_SCHEMA: u32 = 1;
+pub const LANES_DRY_RUN_SCHEMA: u32 = 1;
+pub const LANES_RUN_SCHEMA: u32 = 1;
+pub const LANES_INIT_SCHEMA: u32 = 1;
+pub const LANES_SEARCH_SCHEMA: u32 = 1;
+pub const LANES_IMPORT_SCHEMA: u32 = 1;
+pub const LANES_CREATE_SCHEMA: u32 = 1;
+pub const LANES_PUBLISH_SCHEMA: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 struct FledgeFileWithLanes {
     #[serde(default)]
@@ -323,7 +337,7 @@ fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Result<()> {
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_LIST_SCHEMA,
             "lanes": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -450,7 +464,7 @@ fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Result<()> {
             .collect();
 
         let output = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_DRY_RUN_SCHEMA,
             "lane": lane_name,
             "description": lane.description.as_deref().unwrap_or(""),
             "total_steps": lane.steps.len(),
@@ -651,7 +665,7 @@ fn execute_lane_json(
     let success = failures.is_empty();
 
     let output = serde_json::json!({
-        "schema_version": 1,
+        "schema_version": LANES_RUN_SCHEMA,
         "lane": lane_name,
         "description": lane.description.as_deref().unwrap_or(""),
         "total_steps": total_steps,
@@ -1037,7 +1051,7 @@ fn init_lanes(json: bool) -> Result<()> {
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_INIT_SCHEMA,
             "action": "init",
             "file": "fledge.toml",
             "project_type": project_type,
@@ -1077,7 +1091,7 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
     if results.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": LANES_SEARCH_SCHEMA,
                 "results": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1110,7 +1124,7 @@ fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bool) -> Resu
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_SEARCH_SCHEMA,
             "results": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1285,7 +1299,7 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     if imported_lanes.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": LANES_IMPORT_SCHEMA,
                 "action": "import",
                 "source": display_source,
                 "trust_tier": tier.label(),
@@ -1314,7 +1328,7 @@ fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_IMPORT_SCHEMA,
             "action": "import",
             "source": display_source,
             "trust_tier": tier.label(),
@@ -1522,7 +1536,7 @@ See [fledge docs](https://github.com/CorvidLabs/fledge) for lane syntax.
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_CREATE_SCHEMA,
             "action": "create",
             "path": target.display().to_string(),
             "name": name,
@@ -1828,7 +1842,7 @@ fn publish_lanes(
             if !confirm {
                 if json {
                     let result = serde_json::json!({
-                        "schema_version": 1,
+                        "schema_version": LANES_PUBLISH_SCHEMA,
                         "action": "publish",
                         "cancelled": true,
                         "repo": {
@@ -1899,7 +1913,7 @@ fn publish_lanes(
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": LANES_PUBLISH_SCHEMA,
             "action": "publish",
             "cancelled": false,
             "repo": {

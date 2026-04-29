@@ -3,6 +3,10 @@ use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input};
 use std::path::{Path, PathBuf};
 
+/// JSON schema version for the `templates create` envelope. See lanes.rs for
+/// the per-command rationale.
+pub const CREATE_TEMPLATE_SCHEMA: u32 = 1;
+
 pub struct CreateTemplateOptions {
     pub name: String,
     pub output: PathBuf,
@@ -46,7 +50,7 @@ pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
 
     if options.json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": CREATE_TEMPLATE_SCHEMA,
             "action": "create",
             "path": target.display().to_string(),
             "name": answers.name,

@@ -7,6 +7,12 @@ use walkdir::WalkDir;
 
 const COMPANION_FILES: &[&str] = &["requirements.md", "tasks.md", "context.md", "testing.md"];
 
+/// Per-command JSON schema versions for `spec` subcommands. See lanes.rs for
+/// rationale.
+pub const SPEC_CHECK_SCHEMA: u32 = 1;
+pub const SPEC_LIST_SCHEMA: u32 = 1;
+pub const SPEC_SHOW_SCHEMA: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 struct SpecSyncConfig {
     specs_dir: Option<String>,
@@ -389,7 +395,7 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     if !specs_dir.exists() {
         if json {
             let payload = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": SPEC_CHECK_SCHEMA,
                 "action": "spec_check",
                 "specs": [],
                 "totals": { "checked": 0, "errors": 0, "warnings": 0 },
@@ -435,7 +441,7 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     if results.is_empty() {
         if json {
             let payload = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": SPEC_CHECK_SCHEMA,
                 "action": "spec_check",
                 "specs": [],
                 "totals": { "checked": 0, "errors": 0, "warnings": 0 },
@@ -490,7 +496,7 @@ fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
             })
             .collect();
         let payload = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": SPEC_CHECK_SCHEMA,
             "action": "spec_check",
             "specs": specs_payload,
             "totals": {
@@ -842,7 +848,7 @@ fn list_specs(root: &Path, json: bool) -> Result<()> {
 
     if json {
         let envelope = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": SPEC_LIST_SCHEMA,
             "action": "spec_list",
             "specs": summaries,
         });
@@ -955,7 +961,7 @@ fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
 
     if json {
         let envelope = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": SPEC_SHOW_SCHEMA,
             "action": "spec_show",
             "spec": detail,
         });

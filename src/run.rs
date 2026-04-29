@@ -5,6 +5,13 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::process::Command;
 
+/// Per-command JSON schema versions for `run` subcommands. See lanes.rs for
+/// rationale. (Note: this is the wire-envelope version, distinct from the
+/// `schema_version` field on `fledge.toml` itself, which is a manifest version.)
+pub const RUN_LIST_SCHEMA: u32 = 1;
+pub const RUN_TASK_SCHEMA: u32 = 1;
+pub const RUN_INIT_SCHEMA: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 struct FledgeFile {
     #[serde(default)]
@@ -185,7 +192,7 @@ fn list_tasks_json(tasks: &BTreeMap<String, TaskDef>, auto_detected: bool) -> Re
         })
         .collect();
     let envelope = serde_json::json!({
-        "schema_version": 1,
+        "schema_version": RUN_LIST_SCHEMA,
         "action": "run_list",
         "auto_detected": auto_detected,
         "tasks": task_list,
@@ -236,7 +243,7 @@ fn execute_task(
             .with_context(|| format!("running task '{name}'"))?;
 
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": RUN_TASK_SCHEMA,
             "action": "run_task",
             "task": name,
             "command": cmd_str,
@@ -478,7 +485,7 @@ fn init_fledge_toml(lang_override: Option<&str>, json: bool) -> Result<()> {
 
     if json {
         let envelope = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": RUN_INIT_SCHEMA,
             "action": "run_init",
             "file": "fledge.toml",
             "project_type": project_type,
