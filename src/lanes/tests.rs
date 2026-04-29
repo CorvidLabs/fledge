@@ -384,9 +384,7 @@ steps = [
         Step::Parallel { parallel } => {
             assert_eq!(parallel.len(), 2);
             assert!(matches!(&parallel[0], ParallelItem::TaskRef(n) if n == "lint"));
-            assert!(
-                matches!(&parallel[1], ParallelItem::Inline { run } if run == "echo inline")
-            );
+            assert!(matches!(&parallel[1], ParallelItem::Inline { run } if run == "echo inline"));
         }
         _ => panic!("expected parallel step"),
     }
@@ -606,8 +604,7 @@ fn parse_import_source_with_subpath() {
 
 #[test]
 fn parse_import_source_with_subpath_and_ref() {
-    let (owner, repo, subpath, git_ref) =
-        parse_import_source("CorvidLabs/fledge-lanes/rust@main");
+    let (owner, repo, subpath, git_ref) = parse_import_source("CorvidLabs/fledge-lanes/rust@main");
     assert_eq!(owner, "CorvidLabs");
     assert_eq!(repo, "fledge-lanes");
     assert_eq!(subpath.unwrap(), "rust");

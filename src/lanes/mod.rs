@@ -16,16 +16,16 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-// Re-export submodule items used by tests or other submodules
-pub(super) use community::{base64_decode, parse_import_source};
-pub(super) use create::create_lane_repo;
-pub(super) use defaults::{init_lanes, lane_defaults};
-pub(super) use execute::{
-    execute_inline, execute_lane, execute_lane_json, execute_lane_silent, execute_parallel,
-    execute_single_task, execute_task_recursive, execute_task_with_deps,
-};
-pub(super) use publish::publish_lanes;
-pub(super) use validate::{print_lane_report, validate_lanes, LaneValidationReport};
+#[cfg(test)]
+use community::{base64_decode, parse_import_source};
+#[cfg(test)]
+use create::create_lane_repo;
+#[cfg(test)]
+use defaults::lane_defaults;
+#[cfg(test)]
+use execute::execute_lane;
+#[cfg(test)]
+use validate::validate_lanes;
 
 /// Per-command JSON schema versions. Each constant tracks the wire shape of one
 /// `lanes` subcommand's `--json` envelope independently so that future shape
@@ -234,8 +234,7 @@ pub fn run(action: LaneAction) -> Result<()> {
             if dry_run {
                 dry_run_lane(&name, lane, json)
             } else {
-                let project_dir =
-                    std::env::current_dir().context("getting current directory")?;
+                let project_dir = std::env::current_dir().context("getting current directory")?;
                 execute::execute_lane(&name, lane, &config.tasks, &project_dir, json)
             }
         }

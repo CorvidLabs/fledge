@@ -303,7 +303,9 @@ pub(crate) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn parse_import_source(source: &str) -> (String, String, Option<String>, Option<String>) {
+pub(crate) fn parse_import_source(
+    source: &str,
+) -> (String, String, Option<String>, Option<String>) {
     let source = source
         .strip_prefix("https://github.com/")
         .unwrap_or(source)

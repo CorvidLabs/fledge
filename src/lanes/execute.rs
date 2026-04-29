@@ -8,8 +8,7 @@ use std::thread;
 use std::time::Instant;
 
 use super::{
-    format_duration, step_description, LaneDef, ParallelItem, Step, TaskDef,
-    LANES_RUN_SCHEMA,
+    format_duration, step_description, LaneDef, ParallelItem, Step, TaskDef, LANES_RUN_SCHEMA,
 };
 
 pub(crate) fn execute_lane(
