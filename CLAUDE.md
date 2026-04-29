@@ -1,8 +1,8 @@
 # fledge
 
-Dev-lifecycle CLI — scaffolding, task running, code review, and the full dev loop from init to changelog. Built in Rust with clap for CLI parsing, Tera for template rendering.
+Dev lifecycle CLI. One tool for the dev loop, any language. Scaffolding, task running, code review, and the full loop from init to changelog. Built in Rust with clap for CLI parsing, Tera for template rendering.
 
-Six pillars: **scaffold** (templates), **run** (run/lanes/watch), **spec** (spec), **AI** (ai/ask/review), **ship** (work/release/changelog), **extend** (plugins/config/introspect/completions/doctor). Anything outside that surface — GitHub-specific commands, polyglot dep audits, code metrics, deeper toolchain probes — lives in plugins (`CorvidLabs/fledge-plugin-*`), installed via `fledge plugins install --defaults`. See `AGENTS.md` for the agent-facing tour.
+Six pillars: **scaffold** (templates), **run** (run/lanes/watch), **spec** (spec), **AI** (ai/ask/review), **ship** (work/release/changelog), **extend** (plugins/config/introspect/completions/doctor). Anything outside that surface lives in plugins (`CorvidLabs/fledge-plugin-*`), installed via `fledge plugins install --defaults`. See `AGENTS.md` for the agent-facing tour.
 
 ## Build & Test
 
