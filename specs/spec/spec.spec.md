@@ -1,9 +1,13 @@
 ---
 module: spec
-version: 8
+version: 9
 status: active
 files:
-  - src/spec.rs
+  - src/spec/mod.rs
+  - src/spec/parse.rs
+  - src/spec/validation.rs
+  - src/spec/commands.rs
+  - src/spec/tests.rs
 
 db_tables: []
 depends_on: []
@@ -30,6 +34,39 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `load_module_bundle` | Concatenate a module's `.spec.md` and existing companion files into one markdown blob |
 | `all_module_names` | Sorted list of every module name with a `.spec.md` file |
 | `specs_for_changed_files` | Module names whose `files:` or whose spec file's parent directory intersects a given set of paths |
+| `commands` | (internal) Submodule containing spec subcommand implementations |
+| `parse` | (internal) Submodule for frontmatter and section parsing |
+| `validation` | (internal) Submodule for spec validation logic |
+| `COMPANION_FILES` | (internal) List of expected companion filenames: requirements.md, tasks.md, context.md, testing.md |
+| `SPEC_CHECK_SCHEMA` | (internal) JSON schema version for `spec check --json` output |
+| `SPEC_LIST_SCHEMA` | (internal) JSON schema version for `spec list --json` output |
+| `SPEC_SHOW_SCHEMA` | (internal) JSON schema version for `spec show --json` output |
+| `SpecSyncConfig` | (internal) Parsed `.specsync/config.toml` — specs_dir and required_sections |
+| `load_config` | (internal) Read and parse `.specsync/config.toml` from project root |
+| `find_project_root` | (internal) Return current working directory as the project root |
+| `specs_dir_from_config` | (internal) Resolve the specs directory path from config |
+| `find_spec_files` | (internal) Walk a directory tree and collect all `.spec.md` file paths |
+| `classify_companions` | (internal) Partition companion files into present and missing lists |
+| `validate_module_name` | (internal) Reject empty, dot, or path-traversal module names |
+| `to_title_case` | (internal) Convert snake_case to Title Case for spec scaffolding |
+| `parse_frontmatter` | (internal) Parse YAML frontmatter and body from a spec file string |
+| `extract_sections` | (internal) Extract `## Section` headings from a spec body |
+| `extract_purpose` | (internal) Extract the first paragraph under `## Purpose` |
+| `ValidationIssue` | (internal) Individual validation issue with message and is_error flag |
+| `SpecResult` | (internal) Aggregate result of validating a single spec |
+| `has_errors` | (internal) `SpecResult` method — true if any issue is an error |
+| `has_warnings` | (internal) `SpecResult` method — true if any issue is a warning |
+| `error_count` | (internal) `SpecResult` method — count of error issues |
+| `warning_count` | (internal) `SpecResult` method — count of warning issues |
+| `validate_spec` | (internal) Validate a single spec file against project root and required sections |
+| `SpecSummary` | (internal) Summary struct for `spec list` output |
+| `SpecDetail` | (internal) Detail struct for `spec show` output |
+| `check` | (internal) Run spec validation and print human or JSON report |
+| `build_summary` | (internal) Parse a spec file into a `SpecSummary` for listing |
+| `list_specs` | (internal) Enumerate and display all specs with metadata |
+| `show_spec` | (internal) Display detailed view of a single spec |
+| `init` | (internal) Scaffold `.specsync/` directory with config and registry |
+| `new_spec` | (internal) Create a new spec module directory with template files |
 
 ### Structs & Enums
 
@@ -231,6 +268,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 9 | 2026-04-29 | Document all `pub(crate)` exports from module split (`mod.rs`, `parse.rs`, `validation.rs`, `commands.rs`) to satisfy strict spec-sync validation |
 | 8 | 2026-04-27 | Fix nested-spec resolution (#291). `IndexEntry` now carries the spec file's on-disk `path`. `specs_for_changed_files` matches via each spec's actual parent directory rather than the assumed `<specs_dir>/<name>/`, and `load_module_bundle` resolves the spec file through the index instead of guessing. Sub-specs that share a directory with another module (e.g. `specs/plugin/plugin-protocol.spec.md`) now resolve correctly |
 | 7 | 2026-04-26 | Doc sync, behavioral examples for `spec list --json` and `spec show --json` updated to show the post-tier-D envelope shapes (previously displayed the bare-array / bare-detail forms shipped before envelope migration). Invariant 8 reworded to describe the envelope. No code change |
 | 6 | 2026-04-26 | Tier-D 1.0 envelope (continuation): all three `--json` paths now wrap output as `{schema_version: 1, action, ...}`. **`spec list --json` is breaking**: bare top-level array → `{schema_version: 1, action: "spec_list", specs: [...]}`. `spec check --json` adds `schema_version`/`action: "spec_check"` (existing fields preserved). `spec show --json` wraps the prior bare detail as `{schema_version: 1, action: "spec_show", spec: {...}}`. Tests updated to assert the envelope shape |
