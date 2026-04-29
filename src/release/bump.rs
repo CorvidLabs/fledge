@@ -9,7 +9,7 @@ use super::toml_utils::replace_versioned_toml_section;
 use super::version::detect_current_version;
 use super::BumpResult;
 
-pub(crate) fn detect_version_files(dir: &Path) -> Vec<String> {
+pub(super) fn detect_version_files(dir: &Path) -> Vec<String> {
     let candidates: &[(&str, &str)] = &[
         ("plugin.toml", "fledge-plugin"),
         ("Cargo.toml", "rust"),
@@ -28,7 +28,7 @@ pub(crate) fn detect_version_files(dir: &Path) -> Vec<String> {
         .collect()
 }
 
-pub(crate) fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
+pub(super) fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
     let old = detect_current_version(dir).unwrap_or(Version {
         major: 0,
         minor: 0,

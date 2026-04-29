@@ -5,7 +5,7 @@ use std::process::Command;
 
 use crate::versioning::Version;
 
-pub(crate) fn create_release_commit(
+pub(super) fn create_release_commit(
     dir: &Path,
     version: &Version,
     bumped_files: &[String],
@@ -56,7 +56,7 @@ pub(crate) fn create_release_commit(
     Ok(())
 }
 
-pub(crate) fn create_tag(dir: &Path, version: &Version, quiet: bool) -> Result<()> {
+pub(super) fn create_tag(dir: &Path, version: &Version, quiet: bool) -> Result<()> {
     let tag = format!("v{version}");
 
     let check = Command::new("git")
@@ -91,7 +91,7 @@ pub(crate) fn create_tag(dir: &Path, version: &Version, quiet: bool) -> Result<(
     Ok(())
 }
 
-pub(crate) fn push_release(
+pub(super) fn push_release(
     dir: &Path,
     version: &Version,
     has_tag: bool,

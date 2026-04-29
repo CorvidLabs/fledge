@@ -5,7 +5,7 @@ use std::process::Command;
 
 use crate::versioning::Version;
 
-pub(crate) fn generate_changelog_entry(dir: &Path, version: &Version, quiet: bool) -> Result<bool> {
+pub(super) fn generate_changelog_entry(dir: &Path, version: &Version, quiet: bool) -> Result<bool> {
     let date = chrono::Local::now().format("%Y-%m-%d").to_string();
     let tag_name = format!("v{version}");
 
@@ -90,7 +90,7 @@ pub(crate) fn generate_changelog_entry(dir: &Path, version: &Version, quiet: boo
     Ok(true)
 }
 
-pub(crate) fn classify_for_changelog(msg: &str) -> &'static str {
+pub(super) fn classify_for_changelog(msg: &str) -> &'static str {
     let prefixes = [
         ("feat", "Features"),
         ("fix", "Fixes"),
@@ -113,7 +113,7 @@ pub(crate) fn classify_for_changelog(msg: &str) -> &'static str {
     "Other"
 }
 
-pub(crate) fn strip_conventional_prefix(msg: &str) -> &str {
+pub(super) fn strip_conventional_prefix(msg: &str) -> &str {
     if let Some(colon_pos) = msg.find(':') {
         let prefix = &msg[..colon_pos];
         let after = msg[colon_pos + 1..].trim_start();

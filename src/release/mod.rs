@@ -5,11 +5,11 @@ use std::process::Command;
 
 use crate::versioning::Version;
 
-pub(crate) mod bump;
-pub(crate) mod changelog;
-pub(crate) mod git;
-pub(crate) mod toml_utils;
-pub(crate) mod version;
+mod bump;
+mod changelog;
+mod git;
+mod toml_utils;
+mod version;
 
 #[cfg(test)]
 mod tests;
@@ -34,10 +34,10 @@ pub struct ReleaseOptions {
     pub json: bool,
 }
 
-pub(crate) struct BumpResult {
-    pub(crate) old: Version,
-    pub(crate) new: Version,
-    pub(crate) files_bumped: Vec<String>,
+struct BumpResult {
+    old: Version,
+    new: Version,
+    files_bumped: Vec<String>,
 }
 
 pub fn run(opts: ReleaseOptions) -> Result<()> {
@@ -188,7 +188,7 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn preflight_checks(dir: &Path, allow_dirty: bool) -> Result<()> {
+fn preflight_checks(dir: &Path, allow_dirty: bool) -> Result<()> {
     if !dir.join(".git").exists() {
         bail!("Not a git repository. Run `git init` first.");
     }
@@ -212,7 +212,7 @@ pub(crate) fn preflight_checks(dir: &Path, allow_dirty: bool) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn run_pre_lane(lane: &str, dry_run: bool, json: bool) -> Result<()> {
+fn run_pre_lane(lane: &str, dry_run: bool, json: bool) -> Result<()> {
     if json {
         // Stdout is reserved for release's own JSON envelope. Run the lane
         // silently; failure bails with a plain stderr error per envelope rules.

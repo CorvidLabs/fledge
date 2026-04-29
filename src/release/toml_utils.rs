@@ -1,6 +1,6 @@
 use regex_lite::Regex;
 
-pub(crate) fn extract_toml_version(content: &str) -> Option<String> {
+pub(super) fn extract_toml_version(content: &str) -> Option<String> {
     let re = Regex::new(r#"(?m)^version\s*=\s*"([^"]+)""#).unwrap();
     re.captures(content).map(|c| c[1].to_string())
 }
@@ -8,7 +8,7 @@ pub(crate) fn extract_toml_version(content: &str) -> Option<String> {
 /// Extract `version = "X.Y.Z"` from a specific `[section]` table within a TOML
 /// file. Stops scanning at the next table header so a later table's `version`
 /// (e.g. on a `[[commands]]` entry) doesn't get picked up by accident.
-pub(crate) fn extract_versioned_toml_section(content: &str, section: &str) -> Option<String> {
+pub(super) fn extract_versioned_toml_section(content: &str, section: &str) -> Option<String> {
     let header = format!("[{section}]");
     let mut in_section = false;
     let version_re = Regex::new(r#"^\s*version\s*=\s*"([^"]+)"\s*$"#).unwrap();
@@ -31,7 +31,7 @@ pub(crate) fn extract_versioned_toml_section(content: &str, section: &str) -> Op
 /// Returns `Some(new_content)` if a replacement was made, `None` if either the
 /// section or its `version` line was absent (so the caller knows whether to
 /// touch the file). Preserves the original line-ending (LF / CRLF).
-pub(crate) fn replace_versioned_toml_section(
+pub(super) fn replace_versioned_toml_section(
     content: &str,
     section: &str,
     new_version: &str,
