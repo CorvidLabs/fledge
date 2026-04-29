@@ -3,7 +3,11 @@ module: spec
 version: 8
 status: active
 files:
-  - src/spec.rs
+  - src/spec/mod.rs
+  - src/spec/parse.rs
+  - src/spec/validation.rs
+  - src/spec/commands.rs
+  - src/spec/tests.rs
 
 db_tables: []
 depends_on: []
