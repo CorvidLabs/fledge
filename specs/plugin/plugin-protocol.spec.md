@@ -1,9 +1,15 @@
 ---
 module: plugin-protocol
-version: 3
+version: 5
 status: active
 files:
-  - src/protocol.rs
+  - src/protocol/mod.rs
+  - src/protocol/ui.rs
+  - src/protocol/store.rs
+  - src/protocol/exec.rs
+  - src/protocol/metadata.rs
+  - src/protocol/detect.rs
+  - src/protocol/tests.rs
 
 db_tables: []
 depends_on:
@@ -25,8 +31,35 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 | Export | Description |
 |--------|-------------|
 | `run_protocol_plugin` | Spawn a plugin in protocol mode, handling JSON-lines communication |
-| `OutboundMessage` | Enum of all outbound (plugin → fledge) message types |
-| `PluginContext` | Init context sent to the plugin on startup |
+| `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
+| `PluginContext` | Project info, git state, args, fledge version, capabilities — sent in `init` message |
+| `CapabilitiesInfo` | Struct tracking whether plugin has exec, store, and metadata capabilities |
+| `ProjectContext` | Struct containing project name, root path, detected language, and optional git context |
+| `GitContext` | Struct describing git branch, dirty status, remote name, and sanitized remote URL |
+| `PluginInfo` | Struct holding plugin name, version, and directory path |
+| `FledgeInfo` | Struct containing fledge framework version |
+| `InboundResponse` | Struct for sending responses back to plugins with message type, request ID, and JSON value |
+| `handle_prompt` | Display an interactive text input prompt with optional default and validation |
+| `handle_confirm` | Display a yes/no confirmation dialog with optional default |
+| `handle_select` | Display a single-choice selection menu from a list of options |
+| `handle_multi_select` | Display a multi-choice selection menu allowing multiple selections |
+| `handle_progress` | Display and update a progress bar or spinner with current/total values |
+| `clear_progress` | Finish and clear any active progress bar display |
+| `handle_log` | Print formatted log messages with color-coded severity levels |
+| `MAX_STORE_KEY_SIZE` | 256-byte limit for plugin state key sizes |
+| `MAX_STORE_VALUE_SIZE` | 64 KB limit per individual plugin state value |
+| `MAX_STORE_TOTAL_SIZE` | 1 MB limit for total combined plugin state size |
+| `MAX_STORE_KEY_COUNT` | 256-key maximum for plugin state storage |
+| `handle_store` | Persist a key-value pair to plugin's state.json with locking and validation |
+| `handle_load` | Retrieve a stored value by key from plugin's state.json with shared locking |
+| `MAX_EXEC_OUTPUT_SIZE` | 10 MB limit per stdout/stderr stream from executed commands |
+| `handle_exec` | Execute a shell command with optional cwd and timeout, returning exit code and output |
+| `wait_with_timeout` | Wait for a child process with a timeout duration |
+| `kill_child` | Forcefully terminate a child process with signal handling |
+| `handle_metadata` | Retrieve requested metadata (fledge config, git tags/status/log, env vars) as JSON |
+| `detect_project_context` | Detect project name, root path, language, and git context from current environment |
+| `sanitize_remote_url` | Strip credentials from HTTPS/HTTP git URLs |
+| `detect_git_context` | Extract git branch, dirty status, remote name, and sanitized remote URL |
 
 ### Structs & Enums
 
@@ -34,9 +67,12 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 |------|-------------|
 | `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
 | `PluginContext` | Project info, git state, args, fledge version, capabilities — sent in `init` message |
-| `PluginCapabilities` | Declared capabilities: exec, store, metadata (all default false) |
-| `ExecResult` | Shell command result: exit code, stdout, stderr |
-| `PluginStorage` | Key-value store backed by `state.json` |
+| `CapabilitiesInfo` | Declared capabilities: exec, store, metadata (all default false) |
+| `ProjectContext` | Project name, root path, detected language, and optional git context |
+| `GitContext` | Git branch, dirty status, remote name, and sanitized remote URL |
+| `PluginInfo` | Plugin name, version, and directory path |
+| `FledgeInfo` | Fledge framework version |
+| `InboundResponse` | Response message with type, request ID, and JSON value |
 
 ## Opt-In
 
@@ -566,6 +602,8 @@ These are not part of v1 but are designed to be additive under the policy above:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-04-29 | Fix spec-sync: consolidate all exports into standard `Exported Functions` table (custom subsection headers were not parsed by spec-sync) |
+| 4 | 2026-04-29 | Document all public exports from protocol submodules (ui, store, exec, metadata, detect) after module split |
 | 3 | 2026-04-27 | Security: exec command stdout/stderr capped at 10 MB each (`MAX_EXEC_OUTPUT_SIZE`) to prevent OOM from unbounded plugin output. Invariant 14 added |
 | 2 | 2026-04-25 | Add Compatibility Policy, `fledge-v1` is additive-only within v1; field removal or retyping requires `fledge-v2`. Locks the 1.0 plugin contract |
 | 1.1 | 2026-04-22 | Add capability manifest, `exec`, `store`, `metadata` capabilities with enforcement and install-time approval |
