@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 18
+version: 19
 status: active
 files:
   - src/lanes/mod.rs
@@ -36,6 +36,25 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `run_for_pre_release` | Silent lane gate for `release --json --pre-lane`; runs steps with subprocess output suppressed and emits no envelope. Failure bails to stderr |
 | `LaneAction` | Enum: `Run`, `List`, `Init`, `Search`, `Import`, `Publish`, `Create`, `Validate` |
 | `LaneDef` | Lane definition: description, steps, and fail_fast flag |
+| `LaneValidationReport` | Validation results struct: path, lane count, errors, warnings |
+| `search_lanes` | Search GitHub for community lanes matching keyword/author filters |
+| `import_lanes` | Import lanes from a remote GitHub repository into local config |
+| `parse_import_source` | Parse import source string into owner, repo, subpath, git ref |
+| `base64_decode` | Decode base64 string (standard and no-pad variants) |
+| `create_lane_repo` | Scaffold a new lane repository template |
+| `lane_defaults` | Return project-type-specific default lane TOML |
+| `init_lanes` | Initialize default lanes in fledge.toml based on detected project type |
+| `execute_lane` | Execute a lane with progress display (human-readable or JSON) |
+| `execute_lane_json` | Execute a lane and output step results as JSON |
+| `execute_lane_silent` | Execute a lane without console output |
+| `execute_task_with_deps` | Execute a task and all its dependencies with cycle detection |
+| `execute_task_recursive` | Recursively execute a task and its deps, tracking visited set |
+| `execute_single_task` | Execute a single task as a shell command |
+| `execute_inline` | Execute an inline shell command in project directory |
+| `execute_parallel` | Execute parallel items using thread scoping, collecting errors |
+| `publish_lanes` | Publish a lane repository to GitHub with fledge-lane topic |
+| `validate_lanes` | Validate lanes for structural integrity and task references |
+| `print_lane_report` | Output a validation report in human-readable or JSON format |
 
 ### Structs & Enums
 
@@ -45,13 +64,32 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `LaneDef` | A named lane with description, steps, and fail_fast flag |
 | `Step` | A single step: task reference, inline command, or parallel group |
 | `ParallelItem` | An item within a parallel group: task reference or inline command |
+| `LaneValidationReport` | Validation results: path, lane_count, errors, warnings (serializable) |
 
 ### Functions
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `run` | `(LaneAction) -> Result<()>` | Main entry — dispatch to init/list/execute/search/import |
-| `run_for_pre_release` | `(&str, bool) -> Result<()>` | Run a lane silently as a pre-release gate. No stdout output; subprocess stdout/stderr suppressed. Used by `release --json --pre-lane` to keep the release envelope the only thing on stdout |
+| `run_for_pre_release` | `(&str, bool) -> Result<()>` | Run a lane silently as a pre-release gate |
+| `search_lanes` | `(Option<&str>, Option<&str>, bool) -> Result<()>` | Search GitHub for community lanes matching keyword and author filters |
+| `import_lanes` | `(&str, bool, bool) -> Result<()>` | Import lanes from a remote GitHub repo into local `.fledge/lanes/` |
+| `parse_import_source` | `(&str) -> (String, String, Option<String>, Option<String>)` | Parse import source into (owner, repo, subpath, git_ref) |
+| `base64_decode` | `(&str) -> Result<Vec<u8>>` | Decode base64 string (standard and no-pad) |
+| `create_lane_repo` | `(&str, &Path, Option<&str>, bool, bool) -> Result<()>` | Scaffold a new lane repository with fledge.toml, README, .gitignore |
+| `lane_defaults` | `(&str) -> &'static str` | Return default lane TOML for a project type |
+| `init_lanes` | `(bool) -> Result<()>` | Initialize default lanes in fledge.toml based on detected project type |
+| `execute_lane` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute a lane with human-readable or JSON progress |
+| `execute_lane_json` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path) -> Result<()>` | Execute a lane and output step results as JSON |
+| `execute_lane_silent` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path) -> Result<()>` | Execute a lane without console output |
+| `execute_task_with_deps` | `(&str, &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute a task and all its dependencies with cycle detection |
+| `execute_task_recursive` | `(&str, &BTreeMap<String, TaskDef>, &Path, &mut HashSet<String>, bool) -> Result<()>` | Recursively execute task deps, tracking visited set for cycles |
+| `execute_single_task` | `(&str, &TaskDef, &Path, bool) -> Result<()>` | Execute a single task as a shell command in project directory |
+| `execute_inline` | `(&str, &Path, bool) -> Result<()>` | Execute an inline shell command in project directory |
+| `execute_parallel` | `(&[ParallelItem], &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute parallel items via thread scoping, collecting all errors |
+| `publish_lanes` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Publish lane repo to GitHub with fledge-lane topic |
+| `validate_lanes` | `(&Path, bool, bool) -> Result<()>` | Validate lanes for structural integrity, task refs, circular deps |
+| `print_lane_report` | `(&LaneValidationReport, bool, bool) -> Result<()>` | Output validation report in human-readable or JSON format |
 
 ## Config Format
 
@@ -238,6 +276,7 @@ $ fledge lanes run ci --json --dry-run
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 19 | 2026-04-29 | Document all submodule exports (community, create, defaults, execute, publish, validate) after splitting lanes.rs into lanes/ module folder |
 | 18 | 2026-04-27 | **Breaking (1.0 contract finalize, follow-up):** `lanes publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `lanes_published`, `topic`, `import_hint`); `cancelled: true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Mirrors the same fix landed for `plugins publish` and `templates publish` in the previous commit |
 | 17 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `lanes list --json` renames `steps` (integer count) to `step_count`. The bare key `steps` read like an array but emitted a count, surprising consumers, full step detail lives in `lanes run --dry-run --json`. (b) `lanes import --json` renames `tier` to `trust_tier` to match every other plugin/lane envelope. Last-chance shape break before tagging 1.0 |
 | 16 | 2026-04-26 | Add `run_for_pre_release(name, dry_run)`, a silent lane executor used by `release --json --pre-lane <name>` so the release JSON envelope is the only thing on stdout. Subprocess stdout/stderr is redirected to null; failure bails with a plain stderr error and non-zero exit. Pretty-print release path is unchanged and still goes through `LaneAction::Run` |

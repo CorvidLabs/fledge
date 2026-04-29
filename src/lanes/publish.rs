@@ -2,7 +2,8 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use std::path::Path;
 
-use super::{validate_lanes, FledgeFileWithLanes, LANES_PUBLISH_SCHEMA};
+use super::validate::validate_lanes;
+use super::{FledgeFileWithLanes, LANES_PUBLISH_SCHEMA};
 
 pub(crate) fn publish_lanes(
     path: &Path,
