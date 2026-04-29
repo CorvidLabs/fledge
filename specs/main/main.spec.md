@@ -1,6 +1,6 @@
 ---
 module: main
-version: 9
+version: 10
 status: active
 files:
   - src/main.rs
@@ -46,9 +46,34 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 
 ## Public API
 
-### Exported Functions
+### Structs & Enums
 
-No public exports — `main.rs` is the binary entry point.
+| Type | Source | Description |
+|------|--------|-------------|
+| `Cli` | `src/cli.rs` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and the `Commands` subcommand enum |
+| `Commands` | `src/cli.rs` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
+| `TemplatesSubcommand` | `src/cli.rs` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
+| `SpecSubcommand` | `src/cli.rs` | Enum of `spec` subcommands: Check, Init, List, New, Show |
+| `WorkSubcommand` | `src/cli.rs` | Enum of `work` subcommands: Start, Pr, Status |
+| `AiSubcommand` | `src/cli.rs` | Enum of `ai` subcommands: Status, Models, Use |
+| `ConfigAction` | `src/cli.rs` | Enum of `config` subcommands: Get, Set, Unset, Add, Remove, Edit, List, Path, Init |
+| `LaneSubcommand` | `src/cli.rs` | Enum of `lanes` subcommands: Run, List, Init, Search, Import, Publish, Create, Validate, and External |
+| `PluginSubcommand` | `src/cli.rs` | Enum of `plugins` subcommands: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
+
+### Functions
+
+| Function | Source | Signature | Description |
+|----------|--------|-----------|-------------|
+| `handle_config` | `src/config_cmds.rs` | `(ConfigAction) -> Result<()>` | Dispatch `fledge config` subcommands (get, set, unset, add, remove, edit, list, path, init) |
+| `print_config_described` | `src/config_cmds.rs` | `(&str, &Option<impl Display>, &str)` | Print a single config key with its current value and description |
+| `print_config_value_described` | `src/config_cmds.rs` | `(&str, &impl Display, &str)` | Print a single config key with a non-optional value and description |
+| `print_config_list_described` | `src/config_cmds.rs` | `(&str, &[String], &str)` | Print a list config key with its values and description |
+| `interactive_config_edit` | `src/config_cmds.rs` | `() -> Result<()>` | Interactive TUI loop for editing config keys via dialoguer prompts |
+| `handle_templates` | `src/template_cmds.rs` | `(TemplatesSubcommand) -> Result<()>` | Dispatch `fledge templates` subcommands (init, create, validate, list, search, publish) |
+| `install_completions` | `src/template_cmds.rs` | `(Option<Shell>) -> Result<()>` | Generate and install shell completions for bash, zsh, or fish |
+| `list_templates` | `src/template_cmds.rs` | `(bool) -> Result<()>` | List available templates from configured sources. Bool controls JSON output |
+| `search_templates` | `src/template_cmds.rs` | `(Option<&str>, Option<&str>, usize, bool) -> Result<()>` | Search GitHub for community templates by query, author, limit, and JSON flag |
+| `publish_template` | `src/template_cmds.rs` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Validate and publish a template directory to GitHub with topic tagging |
 
 ## Behavioral Examples
 
@@ -94,6 +119,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-04-29 | Document all public exports from `cli.rs`, `config_cmds.rs`, and `template_cmds.rs` now that these files are listed in spec frontmatter. No API changes |
 | 9 | 2026-04-26 | `templates list` empty case now exits 0 in both modes. JSON mode emits `{schema_version: 1, templates: [], hint}`; non-JSON prints "No templates configured" + hint. Previously both bailed with non-zero exit, breaking agents that call `templates list --json` defensively |
 | 8 | 2026-04-25 | **Breaking (tier C, #272):** `templates search --json` migrated from bare top-level array to `{schema_version: 1, results: [...]}`. Last-chance shape break before 1.0 |
 | 7 | 2026-04-25 | Tier-B `--json` envelopes for `templates list` and `templates publish` (handled inline in main.rs). Both emit `{schema_version: 1, ...}` matching the contract used by plugins/lanes/init/create_template. Failure paths still exit non-zero. Closes the gap where `templates list --json` previously errored with "unexpected argument" (#271) |
