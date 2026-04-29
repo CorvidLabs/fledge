@@ -46,6 +46,30 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 
 ## Public API
 
+### Exported Functions
+
+| Export | Description |
+|--------|-------------|
+| `Cli` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and the `Commands` subcommand enum |
+| `Commands` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
+| `TemplatesSubcommand` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
+| `SpecSubcommand` | Enum of `spec` subcommands: Check, Init, List, New, Show |
+| `WorkSubcommand` | Enum of `work` subcommands: Start, Pr, Status |
+| `AiSubcommand` | Enum of `ai` subcommands: Status, Models, Use |
+| `ConfigAction` | Enum of `config` subcommands: Get, Set, Unset, Add, Remove, Edit, List, Path, Init |
+| `LaneSubcommand` | Enum of `lanes` subcommands: Run, List, Init, Search, Import, Publish, Create, Validate, and External |
+| `PluginSubcommand` | Enum of `plugins` subcommands: Install, Remove, Update, List, Audit, Search, Run, Publish, Create, Validate |
+| `handle_config` | Dispatch `fledge config` subcommands (get, set, unset, add, remove, edit, list, path, init) |
+| `print_config_described` | Print a single config key with its current value and description |
+| `print_config_value_described` | Print a single config key with a non-optional value and description |
+| `print_config_list_described` | Print a list config key with its values and description |
+| `interactive_config_edit` | Interactive TUI loop for editing config keys via dialoguer prompts |
+| `handle_templates` | Dispatch `fledge templates` subcommands (init, create, validate, list, search, publish) |
+| `install_completions` | Generate and install shell completions for bash, zsh, or fish |
+| `list_templates` | List available templates from configured sources |
+| `search_templates` | Search GitHub for community templates by query, author, and limit |
+| `publish_template` | Validate and publish a template directory to GitHub with topic tagging |
+
 ### Structs & Enums
 
 | Type | Source | Description |

@@ -40,6 +40,22 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
+| `install_action` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
+| `install_defaults` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
+| `install_plugin` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `list_plugins` | List installed plugins with trust tier, version, and source info |
+| `audit_plugins` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
+| `has_lifecycle_hooks` | Check whether a plugin has any lifecycle hooks defined in its manifest |
+| `get_lifecycle_hooks` | Return all lifecycle hooks for a plugin as (event, command) pairs |
+| `remove_plugin` | Remove an installed plugin: delete symlinks, run post_remove hook, clean up directory and registry |
+| `create_plugin` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
+| `publish_plugin` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
+| `update_plugins` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
+| `find_latest_tag` | Fetch tags and return the latest version-sorted tag for a plugin repo |
+| `PluginValidationReport` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
+| `validate_plugin` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
+| `print_plugin_report` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
+| `search_plugins` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
 
 ### Structs & Enums
 
@@ -74,8 +90,6 @@ Plugin system for community extensions. Plugins are external executables that re
 | `validate_plugin` | `validate.rs` | `(&Path, bool, bool) -> Result<()>` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
 | `print_plugin_report` | `validate.rs` | `(&PluginValidationReport, bool, bool) -> Result<()>` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
 | `search_plugins` | `search.rs` | `(Option<&str>, Option<&str>, usize, bool) -> Result<()>` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
-| `run_plugin_cmd` | `run_plugin.rs` | `(&str, &[String]) -> Result<()>` | Resolve and execute a plugin command, handling protocol plugins and FLEDGE_PLUGIN_DIR |
-| `run_hook` | `run_plugin.rs` | `(&Path, &str, &str) -> Result<()>` | Execute a lifecycle or build hook script within a plugin directory |
 
 ## Plugin Format
 
