@@ -67,16 +67,17 @@ detect_arch() {
     case "$uname_m" in
         x86_64|amd64)  echo "x86_64" ;;
         aarch64|arm64) echo "aarch64" ;;
-        *) err "unsupported architecture: $uname_m" ;;
+        i386|i686)     err "32-bit systems are not supported — fledge requires a 64-bit OS" ;;
+        *)             err "unsupported architecture: $uname_m" ;;
     esac
 }
 
 artifact_name() {
     local os="$1" arch="$2"
     case "$os" in
-        linux)   echo "fledge-linux-x86_64" ;;
+        linux)   echo "fledge-linux-$arch" ;;
         macos)   echo "fledge-macos-$arch" ;;
-        windows) echo "fledge-windows-x86_64.exe" ;;
+        windows) echo "fledge-windows-$arch.exe" ;;
     esac
 }
 
