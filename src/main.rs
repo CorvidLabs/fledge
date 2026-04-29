@@ -1823,7 +1823,7 @@ fn list_templates(json: bool) -> Result<()> {
             })
             .collect();
         let mut result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": templates::TEMPLATES_LIST_SCHEMA,
             "templates": entries,
         });
         if available.is_empty() {
@@ -1877,7 +1877,7 @@ fn search_templates(
     if results.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": templates::TEMPLATES_SEARCH_SCHEMA,
                 "results": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1910,7 +1910,7 @@ fn search_templates(
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": templates::TEMPLATES_SEARCH_SCHEMA,
             "results": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -2028,7 +2028,7 @@ fn publish_template(
             if !confirm {
                 if json {
                     let result = serde_json::json!({
-                        "schema_version": 1,
+                        "schema_version": templates::TEMPLATES_PUBLISH_SCHEMA,
                         "action": "publish",
                         "cancelled": true,
                         "repo": {
@@ -2101,7 +2101,7 @@ fn publish_template(
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": templates::TEMPLATES_PUBLISH_SCHEMA,
             "action": "publish",
             "cancelled": false,
             "repo": {

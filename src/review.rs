@@ -11,6 +11,10 @@ use crate::config::Config;
 use crate::llm::{self, ProviderKind, ProviderOverride};
 use crate::spec;
 
+/// JSON schema version for the `review` envelope. See lanes.rs for the
+/// per-command rationale.
+const REVIEW_SCHEMA: u32 = 1;
+
 #[derive(Debug, Clone, Default)]
 pub enum ReviewFormat {
     #[default]
@@ -277,7 +281,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         // Single-model invocations keep the legacy top-level `review` /
         // `provider` / `model` fields so existing scripts don't break.
         let mut response = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": REVIEW_SCHEMA,
             "action": "review",
             "base": base,
             "file": options.file,

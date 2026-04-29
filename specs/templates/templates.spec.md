@@ -1,6 +1,6 @@
 ---
 module: templates
-version: 6
+version: 7
 status: active
 files:
   - src/templates.rs
@@ -32,6 +32,9 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 | `render_template` | Renders a template's files into a target directory using Tera variable substitution |
 | `matches_glob_pub` | Tests whether a file path matches a glob pattern |
 | `check_requirements` | Checks which required tools from `template.toml` are available on PATH |
+| `TEMPLATES_LIST_SCHEMA` | Per-command JSON schema version for `templates list --json` envelope |
+| `TEMPLATES_SEARCH_SCHEMA` | Per-command JSON schema version for `templates search --json` envelope |
+| `TEMPLATES_PUBLISH_SCHEMA` | Per-command JSON schema version for `templates publish --json` envelope |
 
 ### Structs & Enums
 
@@ -149,6 +152,7 @@ Template discovery, loading, and rendering. Finds templates from built-in and us
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-04-29 | Add `TEMPLATES_LIST_SCHEMA`, `TEMPLATES_SEARCH_SCHEMA`, `TEMPLATES_PUBLISH_SCHEMA` per-command schema version constants (crate-visible, used by `main.rs` for `--json` envelopes) |
 | 6 | 2026-04-26 | **Breaking (1.0 contract finalize):** `templates publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `template`, `topic`, `use_hint`). `cancelled` is `true` when user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Consumers can now read the same keys regardless of cancel/success |
 | 5 | 2026-04-25 | Remove `load_templates_from_dir_pub` (was only used by deleted `templates update` and `templates publish`); now an internal `fn` |
 | 4 | 2026-04-20 | Add `check_requirements` for template tool dependency checking |

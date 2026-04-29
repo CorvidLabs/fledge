@@ -2,6 +2,10 @@ use anyhow::{Context, Result};
 use console::style;
 use std::process::Command;
 
+/// JSON schema version for the `changelog` envelope. See lanes.rs for the
+/// per-command rationale.
+const CHANGELOG_SCHEMA: u32 = 1;
+
 pub struct ChangelogOptions {
     pub limit: usize,
     pub json: bool,
@@ -71,7 +75,7 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
 
     if opts.json {
         let envelope = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": CHANGELOG_SCHEMA,
             "action": "changelog",
             "releases": releases,
         });

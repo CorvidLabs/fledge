@@ -22,6 +22,20 @@ pub const DEFAULT_PLUGINS: &[&str] = &[
     "CorvidLabs/fledge-plugin-metrics@v0.2.0",
 ];
 
+/// Per-command JSON schema versions. Each constant tracks the wire shape of one
+/// `plugins` subcommand's `--json` envelope independently so that future shape
+/// changes can bump exactly the affected envelope without semantically
+/// corrupting the meaning of `schema_version` for unrelated commands. Additive
+/// changes (new optional fields) do not bump.
+const PLUGINS_INSTALL_SCHEMA: u32 = 1;
+const PLUGINS_UPDATE_SCHEMA: u32 = 1;
+const PLUGINS_REMOVE_SCHEMA: u32 = 1;
+const PLUGINS_LIST_SCHEMA: u32 = 1;
+const PLUGINS_AUDIT_SCHEMA: u32 = 1;
+const PLUGINS_SEARCH_SCHEMA: u32 = 1;
+const PLUGINS_CREATE_SCHEMA: u32 = 1;
+const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 struct PluginManifest {
     plugin: PluginMeta,
@@ -507,7 +521,7 @@ fn install_action(source: Option<&str>, force: bool, defaults: bool, json: bool)
     let report = install_plugin(source, force, json)?;
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_INSTALL_SCHEMA,
             "action": "install",
             "scope": "single",
             "installed": [report],
@@ -578,7 +592,7 @@ fn install_defaults(force: bool, json: bool) -> Result<()> {
             .map(|(source, err)| serde_json::json!({ "source": source, "error": err }))
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_INSTALL_SCHEMA,
             "action": "install",
             "scope": "defaults",
             "installed": installed,
@@ -907,7 +921,7 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
-                        "schema_version": 1,
+                        "schema_version": PLUGINS_UPDATE_SCHEMA,
                         "action": "update",
                         "scope": "defaults",
                         "results": [],
@@ -948,7 +962,7 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
                         println!(
                             "{}",
                             serde_json::to_string_pretty(&serde_json::json!({
-                                "schema_version": 1,
+                                "schema_version": PLUGINS_UPDATE_SCHEMA,
                                 "action": "update",
                                 "scope": "all",
                                 "results": [],
@@ -1208,7 +1222,7 @@ fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
-                "schema_version": 1,
+                "schema_version": PLUGINS_UPDATE_SCHEMA,
                 "action": "update",
                 "scope": scope,
                 "results": results,
@@ -1303,7 +1317,7 @@ fn remove_plugin(name: &str, json: bool) -> Result<()> {
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_REMOVE_SCHEMA,
             "action": "remove",
             "removed": {
                 "name": removed_name,
@@ -1330,7 +1344,7 @@ fn list_plugins(json: bool) -> Result<()> {
     if registry.plugins.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": PLUGINS_LIST_SCHEMA,
                 "plugins": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1362,7 +1376,7 @@ fn list_plugins(json: bool) -> Result<()> {
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_LIST_SCHEMA,
             "plugins": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1410,7 +1424,7 @@ fn audit_plugins(json: bool) -> Result<()> {
     if registry.plugins.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": PLUGINS_AUDIT_SCHEMA,
                 "audit": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1443,7 +1457,7 @@ fn audit_plugins(json: bool) -> Result<()> {
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_AUDIT_SCHEMA,
             "audit": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1615,7 +1629,7 @@ fn search_plugins(
     if items.is_empty() {
         if json {
             let result = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": PLUGINS_SEARCH_SCHEMA,
                 "results": [],
             });
             println!("{}", serde_json::to_string_pretty(&result)?);
@@ -1648,7 +1662,7 @@ fn search_plugins(
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_SEARCH_SCHEMA,
             "results": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -2033,7 +2047,7 @@ See [fledge plugin docs](https://github.com/CorvidLabs/fledge) for the full plug
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_CREATE_SCHEMA,
             "action": "create",
             "path": target.display().to_string(),
             "name": name,
@@ -2291,7 +2305,7 @@ fn publish_plugin(
             if !confirm {
                 if json {
                     let result = serde_json::json!({
-                        "schema_version": 1,
+                        "schema_version": PLUGINS_PUBLISH_SCHEMA,
                         "action": "publish",
                         "cancelled": true,
                         "repo": {
@@ -2366,7 +2380,7 @@ fn publish_plugin(
 
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": PLUGINS_PUBLISH_SCHEMA,
             "action": "publish",
             "cancelled": false,
             "repo": {

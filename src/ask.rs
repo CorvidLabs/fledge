@@ -5,6 +5,10 @@ use crate::config::Config;
 use crate::llm::{self, ProviderOverride};
 use crate::spec;
 
+/// JSON schema version for the `ask` envelope. See lanes.rs for the per-command
+/// rationale.
+const ASK_SCHEMA: u32 = 1;
+
 pub struct AskOptions {
     pub question: String,
     pub json: bool,
@@ -38,7 +42,7 @@ pub fn run(options: AskOptions) -> Result<()> {
 
     if options.json {
         let response = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": ASK_SCHEMA,
             "action": "ask",
             "question": options.question,
             "answer": answer.trim(),

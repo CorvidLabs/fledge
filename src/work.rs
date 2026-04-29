@@ -9,6 +9,12 @@ const VALID_BRANCH_TYPES: &[&str] = &[
     "feat", "feature", "fix", "bug", "chore", "task", "docs", "hotfix", "refactor",
 ];
 
+/// Per-command JSON schema versions for `work` subcommands. See lanes.rs for
+/// rationale.
+const WORK_START_SCHEMA: u32 = 1;
+const WORK_PR_SCHEMA: u32 = 1;
+const WORK_STATUS_SCHEMA: u32 = 1;
+
 #[derive(Debug, Deserialize)]
 pub struct WorkConfig {
     #[serde(default = "default_branch_format")]
@@ -264,7 +270,7 @@ fn start(
 
     if json {
         let payload = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": WORK_START_SCHEMA,
             "action": "work_start",
             "branch": branch_name,
             "base": base_branch,
@@ -432,7 +438,7 @@ fn pr(
 
     if json {
         let payload = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": WORK_PR_SCHEMA,
             "action": "work_pr",
             "url": pr_url,
             "number": pr_number,
@@ -508,7 +514,7 @@ fn status(json: bool) -> Result<()> {
             None => serde_json::Value::Null,
         };
         let payload = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": WORK_STATUS_SCHEMA,
             "action": "work_status",
             "branch": branch,
             "default": default,

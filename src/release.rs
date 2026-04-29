@@ -7,6 +7,11 @@ use std::process::Command;
 use crate::run::detect_project_type;
 use crate::versioning::{parse_version, Version};
 
+/// JSON schema version for the `release` envelope (covers both dry-run and real
+/// runs since they share the same shape, distinguished by the `dry_run` bool).
+/// See lanes.rs for the per-command rationale.
+const RELEASE_SCHEMA: u32 = 1;
+
 pub struct ReleaseOptions {
     pub bump: String,
     pub dry_run: bool,
@@ -48,7 +53,7 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
 
         if opts.json {
             let envelope = serde_json::json!({
-                "schema_version": 1,
+                "schema_version": RELEASE_SCHEMA,
                 "action": "release",
                 "dry_run": true,
                 "version": new_version.to_string(),
@@ -143,7 +148,7 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
 
     if opts.json {
         let envelope = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": RELEASE_SCHEMA,
             "action": "release",
             "dry_run": false,
             "version": new_version.to_string(),

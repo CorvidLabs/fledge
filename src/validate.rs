@@ -7,6 +7,11 @@ use walkdir::WalkDir;
 
 use crate::templates::{matches_glob_pub, TemplateManifest};
 
+/// JSON schema version for the templates `validate` envelope (single and multi
+/// share the same `{schema_version, reports}` shape). See lanes.rs for the
+/// per-command rationale.
+const VALIDATE_SCHEMA: u32 = 1;
+
 pub struct ValidateOptions {
     pub path: PathBuf,
     pub strict: bool,
@@ -268,7 +273,7 @@ fn extract_variables(content: &str) -> HashSet<String> {
 fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<()> {
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": VALIDATE_SCHEMA,
             "reports": [report],
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -303,7 +308,7 @@ fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<(
 fn print_reports(reports: &[ValidationReport], strict: bool, json: bool) -> Result<()> {
     if json {
         let result = serde_json::json!({
-            "schema_version": 1,
+            "schema_version": VALIDATE_SCHEMA,
             "reports": reports,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
