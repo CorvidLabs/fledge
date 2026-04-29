@@ -5,8 +5,8 @@ use std::process::Command;
 
 use super::{load_registry, plugin_bin_dir, plugins_dir, PluginCapabilities, PluginManifest};
 
-pub(crate) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
-    let bin_path = resolve_plugin_command(name)
+pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
+    let bin_path = super::resolve_plugin_command(name)
         .or_else(|| resolve_plugin_by_name(name))
         .ok_or_else(|| {
             let hint = match find_commands_for_plugin(name) {
@@ -54,16 +54,6 @@ pub(crate) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
-    let bin_dir = plugin_bin_dir();
-    let bin_path = bin_dir.join(format!("fledge-{name}"));
-    if bin_path.exists() {
-        return Some(bin_path);
-    }
-
-    which_fledge_plugin(name)
-}
-
 /// Compute the plugin's source directory from the resolved binary path.
 ///
 /// `bin_path` is typically the symlink at `~/.config/fledge/plugins/bin/<cmd>`,
@@ -74,13 +64,13 @@ pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
 ///
 /// Returns `None` if the path can't be resolved (in which case we just don't
 /// set the env var — plugins that don't rely on it work as before).
-pub(crate) fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
+pub(super) fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
     let resolved = std::fs::canonicalize(bin_path).ok()?;
     // <plugin_dir>/<bin_subdir>/<binary> — take parent twice.
     resolved.parent()?.parent().map(|p| p.to_path_buf())
 }
 
-pub(crate) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
+pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
     println!(
         "  {} Running {} hook...",
         style("▶️").cyan().bold(),
@@ -131,7 +121,7 @@ fn resolve_plugin_by_name(plugin_name: &str) -> Option<PathBuf> {
         .iter()
         .find(|p| p.name == plugin_name || p.name == format!("fledge-{plugin_name}"))?;
     let first_cmd = entry.commands.first()?;
-    resolve_plugin_command(first_cmd)
+    super::resolve_plugin_command(first_cmd)
 }
 
 fn find_commands_for_plugin(plugin_name: &str) -> Option<Vec<String>> {
@@ -180,7 +170,7 @@ fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf, PluginC
     }
 }
 
-pub(crate) fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
+pub(super) fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
     let target = format!("fledge-{name}");
     let path_var = std::env::var("PATH").ok()?;
 

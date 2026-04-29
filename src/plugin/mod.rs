@@ -20,34 +20,30 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-// ─── Public API re-exports (cross-module contract) ──────────────────────────
+// ─── Internal imports for the run() dispatcher ─────────────────────────────
 
-pub use run_plugin::resolve_plugin_command;
+use create::create_plugin;
+use install::install_action;
+use list::{audit_plugins, list_plugins};
+use publish::publish_plugin;
+use remove::remove_plugin;
+use run_plugin::{run_hook, run_plugin_cmd};
+use search::search_plugins;
+use update::update_plugins;
+use validate::validate_plugin;
 
-// ─── Internal re-exports for the run() dispatcher ───────────────────────────
-
-pub(crate) use create::create_plugin;
-pub(crate) use install::install_action;
-pub(crate) use list::{audit_plugins, list_plugins};
-pub(crate) use publish::publish_plugin;
-pub(crate) use remove::remove_plugin;
-pub(crate) use run_plugin::{run_hook, run_plugin_cmd};
-pub(crate) use search::search_plugins;
-pub(crate) use update::update_plugins;
-pub(crate) use validate::validate_plugin;
-
-// ─── Re-exports needed only in tests ─────────────────────────────────────────
+// ─── Imports needed only in tests ───────────────────────────────────────────
 
 #[cfg(test)]
-pub(crate) use install::{install_defaults, install_plugin};
+use install::{install_defaults, install_plugin};
 #[cfg(test)]
-pub(crate) use list::{get_lifecycle_hooks, has_lifecycle_hooks};
+use list::{get_lifecycle_hooks, has_lifecycle_hooks};
 #[cfg(test)]
-pub(crate) use run_plugin::{resolve_plugin_source_dir, which_fledge_plugin};
+use run_plugin::{resolve_plugin_source_dir, which_fledge_plugin};
 #[cfg(test)]
-pub(crate) use update::find_latest_tag;
+use update::find_latest_tag;
 #[cfg(test)]
-pub(crate) use validate::{print_plugin_report, PluginValidationReport};
+use validate::{print_plugin_report, PluginValidationReport};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -71,26 +67,26 @@ pub const DEFAULT_PLUGINS: &[&str] = &[
 /// changes can bump exactly the affected envelope without semantically
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
-pub(crate) const PLUGINS_INSTALL_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_UPDATE_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_REMOVE_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_LIST_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_AUDIT_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_SEARCH_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_CREATE_SCHEMA: u32 = 1;
-pub(crate) const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
+const PLUGINS_INSTALL_SCHEMA: u32 = 1;
+const PLUGINS_UPDATE_SCHEMA: u32 = 1;
+const PLUGINS_REMOVE_SCHEMA: u32 = 1;
+const PLUGINS_LIST_SCHEMA: u32 = 1;
+const PLUGINS_AUDIT_SCHEMA: u32 = 1;
+const PLUGINS_SEARCH_SCHEMA: u32 = 1;
+const PLUGINS_CREATE_SCHEMA: u32 = 1;
+const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct PluginManifest {
-    pub(crate) plugin: PluginMeta,
+struct PluginManifest {
+    pub(super) plugin: PluginMeta,
     #[serde(default)]
-    pub(crate) commands: Vec<PluginCommand>,
+    pub(super) commands: Vec<PluginCommand>,
     #[serde(default)]
-    pub(crate) hooks: PluginHooks,
+    pub(super) hooks: PluginHooks,
     #[serde(default)]
-    pub(crate) capabilities: PluginCapabilities,
+    pub(super) capabilities: PluginCapabilities,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -105,34 +101,34 @@ pub struct PluginCapabilities {
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
-pub(crate) struct PluginMeta {
-    pub(crate) name: String,
-    pub(crate) version: String,
-    pub(crate) description: Option<String>,
-    pub(crate) author: Option<String>,
-    pub(crate) protocol: Option<String>,
+struct PluginMeta {
+    pub(super) name: String,
+    pub(super) version: String,
+    pub(super) description: Option<String>,
+    pub(super) author: Option<String>,
+    pub(super) protocol: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
-pub(crate) struct PluginCommand {
-    pub(crate) name: String,
-    pub(crate) description: Option<String>,
-    pub(crate) binary: String,
+struct PluginCommand {
+    pub(super) name: String,
+    pub(super) description: Option<String>,
+    pub(super) binary: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub(crate) struct PluginHooks {
-    pub(crate) build: Option<String>,
-    pub(crate) post_install: Option<String>,
-    pub(crate) post_remove: Option<String>,
-    pub(crate) pre_init: Option<String>,
-    pub(crate) post_work_start: Option<String>,
-    pub(crate) pre_pr: Option<String>,
+struct PluginHooks {
+    pub(super) build: Option<String>,
+    pub(super) post_install: Option<String>,
+    pub(super) post_remove: Option<String>,
+    pub(super) pre_init: Option<String>,
+    pub(super) post_work_start: Option<String>,
+    pub(super) pre_pr: Option<String>,
 }
 
 impl PluginHooks {
-    pub(crate) fn has_any(&self) -> bool {
+    fn has_any(&self) -> bool {
         self.build.is_some()
             || self.post_install.is_some()
             || self.post_remove.is_some()
@@ -141,7 +137,7 @@ impl PluginHooks {
             || self.pre_pr.is_some()
     }
 
-    pub(crate) fn iter_defined(&self) -> Vec<(&str, &str)> {
+    fn iter_defined(&self) -> Vec<(&str, &str)> {
         let mut hooks = Vec::new();
         if let Some(ref c) = self.pre_pr {
             hooks.push(("pre_pr", c.as_str()));
@@ -166,23 +162,23 @@ impl PluginHooks {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct PluginsRegistry {
+struct PluginsRegistry {
     #[serde(default)]
-    pub(crate) plugins: Vec<PluginEntry>,
+    pub(super) plugins: Vec<PluginEntry>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct PluginEntry {
-    pub(crate) name: String,
-    pub(crate) source: String,
-    pub(crate) version: String,
-    pub(crate) installed: String,
+struct PluginEntry {
+    pub(super) name: String,
+    pub(super) source: String,
+    pub(super) version: String,
+    pub(super) installed: String,
     #[serde(default)]
-    pub(crate) commands: Vec<String>,
+    pub(super) commands: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) pinned_ref: Option<String>,
+    pub(super) pinned_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) capabilities: Option<PluginCapabilities>,
+    pub(super) capabilities: Option<PluginCapabilities>,
 }
 
 pub struct PluginOptions {
@@ -323,27 +319,36 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
+    let bin_dir = plugin_bin_dir();
+    let bin_path = bin_dir.join(format!("fledge-{name}"));
+    if bin_path.exists() {
+        return Some(bin_path);
+    }
+    run_plugin::which_fledge_plugin(name)
+}
+
 // ─── Registry helpers ────────────────────────────────────────────────────────
 
-pub(crate) fn plugins_dir() -> PathBuf {
+fn plugins_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join("plugins")
 }
 
-pub(crate) fn plugin_bin_dir() -> PathBuf {
+fn plugin_bin_dir() -> PathBuf {
     plugins_dir().join("bin")
 }
 
-pub(crate) fn registry_path() -> PathBuf {
+fn registry_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(std::env::temp_dir)
         .join("fledge")
         .join("plugins.toml")
 }
 
-pub(crate) fn load_registry() -> Result<PluginsRegistry> {
+fn load_registry() -> Result<PluginsRegistry> {
     let path = registry_path();
     if !path.exists() {
         return Ok(PluginsRegistry {
@@ -354,7 +359,7 @@ pub(crate) fn load_registry() -> Result<PluginsRegistry> {
     toml::from_str(&content).context("parsing plugins.toml")
 }
 
-pub(crate) fn save_registry(registry: &PluginsRegistry) -> Result<()> {
+fn save_registry(registry: &PluginsRegistry) -> Result<()> {
     let path = registry_path();
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -365,7 +370,7 @@ pub(crate) fn save_registry(registry: &PluginsRegistry) -> Result<()> {
 
 // ─── Source helpers ──────────────────────────────────────────────────────────
 
-pub(crate) fn normalize_source(source: &str) -> String {
+fn normalize_source(source: &str) -> String {
     let (base, _) = parse_source_ref(source);
     if base.starts_with("https://") || base.starts_with("git@") {
         base.to_string()
@@ -376,7 +381,7 @@ pub(crate) fn normalize_source(source: &str) -> String {
     }
 }
 
-pub(crate) fn extract_name_from_source(source: &str) -> String {
+fn extract_name_from_source(source: &str) -> String {
     let (base, _) = parse_source_ref(source);
     base.rsplit('/')
         .next()
@@ -387,7 +392,7 @@ pub(crate) fn extract_name_from_source(source: &str) -> String {
 
 // ─── Build helpers ───────────────────────────────────────────────────────────
 
-pub(crate) fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, Vec<&'static str>)> {
+fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, Vec<&'static str>)> {
     if plugin_dir.join("Cargo.toml").exists() {
         Some(("Rust", vec!["cargo", "build", "--release"]))
     } else if plugin_dir.join("Package.swift").exists() {
@@ -401,7 +406,7 @@ pub(crate) fn detect_build_command(plugin_dir: &Path) -> Option<(&'static str, V
     }
 }
 
-pub(crate) fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
     if let Some(hook) = &manifest.hooks.build {
         run_hook(plugin_dir, hook, "build")?;
         return Ok(());
@@ -427,7 +432,7 @@ pub(crate) fn run_build(plugin_dir: &Path, manifest: &PluginManifest) -> Result<
 
 // ─── Security helpers ─────────────────────────────────────────────────────────
 
-pub(crate) fn validate_command_name(name: &str) -> Result<()> {
+fn validate_command_name(name: &str) -> Result<()> {
     if name.is_empty()
         || name.contains('/')
         || name.contains('\\')
@@ -444,7 +449,7 @@ pub(crate) fn validate_command_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn link_commands(
+fn link_commands(
     plugin_dir: &Path,
     bin_dir: &Path,
     manifest: &PluginManifest,
@@ -518,7 +523,7 @@ pub(crate) fn link_commands(
     Ok(command_names)
 }
 
-pub(crate) fn validate_plugin_name(name: &str) -> Result<()> {
+fn validate_plugin_name(name: &str) -> Result<()> {
     if name.is_empty()
         || name.starts_with('.')
         || name.contains('/')
@@ -532,7 +537,7 @@ pub(crate) fn validate_plugin_name(name: &str) -> Result<()> {
 
 // ─── Git auth helper ─────────────────────────────────────────────────────────
 
-pub(crate) fn apply_git_auth(cmd: &mut Command) {
+fn apply_git_auth(cmd: &mut Command) {
     let config = crate::config::Config::load().ok();
     let token = config.as_ref().and_then(|c| c.github_token());
     if let Some(ref t) = token {
@@ -553,7 +558,7 @@ pub(crate) fn apply_git_auth(cmd: &mut Command) {
 // ─── Platform helpers ────────────────────────────────────────────────────────
 
 #[cfg(unix)]
-pub(crate) fn make_executable(path: &Path) -> Result<()> {
+fn make_executable(path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -573,11 +578,11 @@ pub(crate) fn make_executable(path: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-pub(crate) fn make_executable(_path: &Path) -> Result<()> {
+fn make_executable(_path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn create_symlink(original: &Path, link: &Path) -> Result<()> {
+fn create_symlink(original: &Path, link: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         std::os::unix::fs::symlink(original, link)?;
