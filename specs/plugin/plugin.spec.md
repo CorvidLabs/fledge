@@ -1,9 +1,19 @@
 ---
 module: plugin
-version: 19
+version: 20
 status: active
 files:
   - src/plugin/mod.rs
+  - src/plugin/install.rs
+  - src/plugin/list.rs
+  - src/plugin/remove.rs
+  - src/plugin/run_plugin.rs
+  - src/plugin/create.rs
+  - src/plugin/publish.rs
+  - src/plugin/update.rs
+  - src/plugin/validate.rs
+  - src/plugin/search.rs
+  - src/plugin/tests.rs
 
 db_tables: []
 depends_on:
@@ -30,6 +40,22 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginOptions` | Options for the plugin subcommand |
 | `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
+| `install_action` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
+| `install_defaults` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
+| `install_plugin` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `list_plugins` | List installed plugins with trust tier, version, and source info |
+| `audit_plugins` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
+| `has_lifecycle_hooks` | Check whether a plugin has any lifecycle hooks defined in its manifest |
+| `get_lifecycle_hooks` | Return all lifecycle hooks for a plugin as (event, command) pairs |
+| `remove_plugin` | Remove an installed plugin: delete symlinks, run post_remove hook, clean up directory and registry |
+| `create_plugin` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
+| `publish_plugin` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
+| `update_plugins` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
+| `find_latest_tag` | Fetch tags and return the latest version-sorted tag for a plugin repo |
+| `PluginValidationReport` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
+| `validate_plugin` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
+| `print_plugin_report` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
+| `search_plugins` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
 
 ### Structs & Enums
 
@@ -40,14 +66,30 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginEntry` | (private) Installed plugin record: name, source, version, installed date, commands, pinned_ref |
 | `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
 | `PluginManifest` | (private) Parsed `plugin.toml`: name, version, description, commands, hooks |
+| `PluginValidationReport` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
 
 ### Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `run` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
-| `resolve_plugin_command` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
-| `run_lifecycle_hook` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
+| Function | Source | Signature | Description |
+|----------|--------|-----------|-------------|
+| `run` | `mod.rs` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
+| `resolve_plugin_command` | `mod.rs` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
+| `run_lifecycle_hook` | `mod.rs` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
+| `install_action` | `install.rs` | `(Option<&str>, bool, bool, bool) -> Result<()>` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
+| `install_defaults` | `install.rs` | `(bool, bool) -> Result<()>` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
+| `install_plugin` | `install.rs` | `(&str, bool, bool) -> Result<Value>` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `list_plugins` | `list.rs` | `(bool) -> Result<()>` | List installed plugins with trust tier, version, and source info |
+| `audit_plugins` | `list.rs` | `(bool) -> Result<()>` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
+| `has_lifecycle_hooks` | `list.rs` | `(&str) -> bool` | Check whether a plugin has any lifecycle hooks defined in its manifest |
+| `get_lifecycle_hooks` | `list.rs` | `(&str) -> Vec<(String, String)>` | Return all lifecycle hooks for a plugin as (event, command) pairs |
+| `remove_plugin` | `remove.rs` | `(&str, bool) -> Result<()>` | Remove an installed plugin: delete symlinks, run post_remove hook, clean up directory and registry |
+| `create_plugin` | `create.rs` | `(&str, &Path, Option<&str>, bool, bool) -> Result<()>` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
+| `publish_plugin` | `publish.rs` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
+| `update_plugins` | `update.rs` | `(Option<&str>, bool, bool) -> Result<()>` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
+| `find_latest_tag` | `update.rs` | `(&Path) -> Option<String>` | Fetch tags and return the latest version-sorted tag for a plugin repo |
+| `validate_plugin` | `validate.rs` | `(&Path, bool, bool) -> Result<()>` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
+| `print_plugin_report` | `validate.rs` | `(&PluginValidationReport, bool, bool) -> Result<()>` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
+| `search_plugins` | `search.rs` | `(Option<&str>, Option<&str>, usize, bool) -> Result<()>` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
 
 ## Plugin Format
 
@@ -291,6 +333,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 20 | 2026-04-29 | Document all submodule exports (`install.rs`, `list.rs`, `remove.rs`, `create.rs`, `publish.rs`, `update.rs`, `validate.rs`, `search.rs`, `run_plugin.rs`) now listed in spec frontmatter. No API changes |
 | 19 | 2026-04-29 | Refactor: split `plugin.rs` into `plugin/` module (11 submodules). Spec files list narrowed to `mod.rs` only — internal items use module-private visibility so spec-sync sees exactly the 7 public API exports. No API changes |
 | 17 | 2026-04-27 | Security: protocol plugins now require `exec` capability to run lifecycle hooks (previously hooks bypassed the capability gate). Install prompt displays hooks alongside capabilities for user approval. Invariants 15-16 added |
 | 16 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `plugins install --json` (single + defaults) renames the per-plugin `tier` field to `trust_tier` to match every other plugin envelope (`list`, `audit`, `search`). (b) `plugins publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `plugin`, `topic`, `install_hint`); `cancelled` is `true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` already covers it). Consumers can now read the same keys regardless of cancel/success. Last-chance shape break before tagging 1.0 |
