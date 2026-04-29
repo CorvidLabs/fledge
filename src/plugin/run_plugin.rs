@@ -3,7 +3,7 @@ use console::style;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::{load_registry, plugin_bin_dir, plugins_dir, PluginCapabilities, PluginManifest};
+use super::{load_registry, plugins_dir, PluginCapabilities, PluginManifest};
 
 pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
     let bin_path = super::resolve_plugin_command(name)
