@@ -4,7 +4,7 @@ This page is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc
 
 ## What fledge is, in one paragraph
 
-`fledge` is a single-binary dev-lifecycle CLI written in Rust. Six pillars: scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`). Anything else (GitHub-specific browsing, polyglot dep audits, code metrics, toolchain probes) is a plugin. Run `fledge plugins install --defaults` once for the curated set.
+`fledge` is a dev-lifecycle CLI. One tool for the dev loop, any language. Scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`). Anything ecosystem-specific is a plugin. Run `fledge plugins install --defaults` once for the curated set.
 
 If you're about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr create`, check first whether fledge has a wrapper. It usually does, and the wrapper has `--json` and guardrails.
 

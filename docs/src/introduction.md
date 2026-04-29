@@ -1,6 +1,6 @@
 # Introduction
 
-One Rust binary that runs the dev loop. Six pillars: scaffold, run, spec, AI, ship, extend. Plugins handle anything ecosystem-specific. Every command emits `--json` so an LLM can drive the same CLI you do.
+One CLI for the dev loop. Any language. JSON by default. Read the docs and go.
 
 ## Why I built this
 

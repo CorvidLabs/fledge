@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://corvidlabs.github.io/fledge/)
 
-One Rust binary that runs the dev loop. Six pillars: scaffold, run, spec, AI, ship, extend. Plugins handle anything ecosystem-specific. Every command emits `--json` so an LLM can drive the same CLI you do.
+One CLI for the dev loop. Any language. JSON by default. Read the docs and go.
 
 ```bash
 fledge templates init my-tool --template rust-cli
