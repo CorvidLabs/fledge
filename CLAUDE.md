@@ -15,21 +15,30 @@ cargo fmt --check
 
 ## Architecture
 
-### Core CLI surface
-- `src/main.rs` — CLI entry point (clap derive)
+### Entry point & CLI
+- `src/main.rs` — CLI entry point, top-level dispatch
+- `src/cli.rs` — Clap derive types for all subcommands
+- `src/config_cmds.rs` — Config subcommand handlers
+- `src/template_cmds.rs` — Template subcommand handlers
+
+### Core commands (single-file modules)
 - `src/init.rs` — Project initialization
 - `src/run.rs` — Task runner (fledge.toml, language detection)
-- `src/lanes.rs` — Composable workflow pipelines
 - `src/watch.rs` — File watcher / re-run on change
 - `src/work.rs` — Work branch and PR workflow
-- `src/release.rs` — Release workflow (bump, changelog, tag, push)
 - `src/changelog.rs` — Changelog generation from git tags
-- `src/spec.rs` — Spec-sync management
 - `src/review.rs` — AI-powered code review
 - `src/ask.rs` — AI-powered codebase Q&A
 - `src/ai.rs` — General-purpose AI assistant subcommand
 - `src/doctor.rs` — Environment diagnostics
 - `src/introspect.rs` — JSON command-tree dump (for agents/automation)
+
+### Multi-file modules (folder modules with `mod.rs`)
+- `src/plugin/` — Plugin install/list/run/create/publish/update/remove/validate; lifecycle hooks
+- `src/lanes/` — Composable workflow pipelines (execute, community, create, publish, validate, defaults)
+- `src/protocol/` — fledge-v1 plugin protocol (detect, exec, metadata, store, UI)
+- `src/spec/` — Spec-sync management (commands, parse, validation)
+- `src/release/` — Release workflow (bump, changelog, git, version, toml_utils)
 
 ### Templates
 - `src/templates.rs` — Template loading and Tera rendering
@@ -39,9 +48,7 @@ cargo fmt --check
 - `src/search.rs` — Template discovery via GitHub
 - `src/remote.rs` — Remote template fetching and caching
 
-### Plugins & shared infra
-- `src/plugin.rs` — Plugin install/list/run; lifecycle hooks
-- `src/protocol.rs` — fledge-v1 plugin protocol (long-running plugins)
+### Shared infra
 - `src/trust.rs` — Plugin trust-tier classification
 - `src/config.rs` — Global config (~/.config/fledge/config.toml)
 - `src/prompts.rs` — Interactive prompts (dialoguer)
