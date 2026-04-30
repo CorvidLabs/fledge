@@ -113,7 +113,7 @@ post_install = "hooks/post-install.sh"   # runs after `fledge plugins install`
 post_remove  = "hooks/post-remove.sh"    # runs after `fledge plugins remove`
 pre_init = "hooks/pre-init.sh"           # runs before `fledge init`
 post_work_start = "hooks/setup-hooks.sh" # runs after `fledge work start`
-pre_pr = "hooks/lint-all.sh"             # runs before `fledge work pr` pushes
+pre_push = "hooks/lint-all.sh"            # runs before `fledge work push` pushes
 ```
 
 ### Build System Auto-Detection
@@ -135,7 +135,7 @@ Plugins can register hooks for lifecycle events beyond install/remove:
 |------|------|----------|
 | `pre_init` | Before `fledge init` | Inject custom template variables, validate prerequisites |
 | `post_work_start` | After `fledge work start` creates a branch | Set up git hooks, configure branch-specific env |
-| `pre_pr` | Before `fledge work pr` pushes and creates PR | Run lint, format, security scans before PR creation |
+| `pre_push` | Before `fledge work push` pushes to origin | Run lint, format, security scans before push |
 
 Lifecycle hooks are called across all installed plugins. Hooks are optional — plugins only participate in events they declare. **Protocol plugins** (those declaring `protocol = "fledge-v1"`) must have the `exec` capability granted to run lifecycle hooks; without it, hooks are silently skipped. Non-protocol plugins (no capability model) run hooks unconditionally.
 

@@ -498,6 +498,8 @@ fn push(force: bool, json: bool) -> Result<()> {
         }
     }
 
+    crate::plugin::run_lifecycle_hook("pre_push")?;
+
     let sp = if json {
         None
     } else {

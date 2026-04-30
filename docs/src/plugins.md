@@ -224,7 +224,7 @@ Hooks fire in response to fledge lifecycle events. All fields are optional, plug
 | `post_remove` | string | Runs before `fledge plugins remove` deletes files |
 | `pre_init` | string | Runs before `fledge templates init` starts |
 | `post_work_start` | string | Runs after `fledge work start` creates a branch |
-| `pre_pr` | string | Runs before `fledge work pr` pushes and creates a PR |
+| `pre_push` | string | Runs before `fledge work push` pushes to origin |
 
 Values can be a path to a script (relative to plugin root) or an inline shell command.
 

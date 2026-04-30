@@ -124,7 +124,7 @@ struct PluginHooks {
     pub(super) post_remove: Option<String>,
     pub(super) pre_init: Option<String>,
     pub(super) post_work_start: Option<String>,
-    pub(super) pre_pr: Option<String>,
+    pub(super) pre_push: Option<String>,
 }
 
 impl PluginHooks {
@@ -134,13 +134,13 @@ impl PluginHooks {
             || self.post_remove.is_some()
             || self.pre_init.is_some()
             || self.post_work_start.is_some()
-            || self.pre_pr.is_some()
+            || self.pre_push.is_some()
     }
 
     fn iter_defined(&self) -> Vec<(&str, &str)> {
         let mut hooks = Vec::new();
-        if let Some(ref c) = self.pre_pr {
-            hooks.push(("pre_pr", c.as_str()));
+        if let Some(ref c) = self.pre_push {
+            hooks.push(("pre_push", c.as_str()));
         }
         if let Some(ref c) = self.build {
             hooks.push(("build", c.as_str()));
@@ -303,7 +303,7 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
         let hook = match event {
             "pre_init" => &manifest.hooks.pre_init,
             "post_work_start" => &manifest.hooks.post_work_start,
-            "pre_pr" => &manifest.hooks.pre_pr,
+            "pre_push" => &manifest.hooks.pre_push,
             _ => &None,
         };
         if let Some(hook_cmd) = hook {

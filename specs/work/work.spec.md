@@ -70,25 +70,26 @@ Provides opinionated git workflow commands for feature branch development. `fled
 5. `{author}` resolves from global config `defaults.author` or `git config user.name`
 6. `start` refuses to create a branch if there are uncommitted changes
 7. Plugin lifecycle hook `post_work_start` runs after branch creation (errors silently ignored via `.ok()`)
-8. `--prefix` bypasses type validation and format template, using raw `prefix/name`
-9. `--issue N` prepends the issue number to the branch name segment: `N-name`
-10. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
-11. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
-12. `commit --all` runs `git add -A` before committing
-13. `commit` requires staged changes; bails if nothing is staged (separate message if working tree is clean vs unstaged)
-14. `commit` without `-m` or `--ai` prompts interactively via `dialoguer::Input`; non-interactive shells must provide `-m` or `--ai`
-15. `commit --ai` sends the staged diff (truncated to 400 lines) to the configured LLM to generate the message; `--provider` / `--model` override for this single call
-16. `push` refuses to push the default branch (main/master)
-17. `push` checks commits ahead of `origin/<branch>` and refuses when there is nothing to push
-18. `push` uses `--force-with-lease` (not `--force`) when the `--force` flag is passed
-19. `push` always sets `-u origin` to establish tracking
-20. `work pr` prints a deprecation notice directing users to `fledge pr` (plugin-based) and exits with code 1
-21. `--json` on `start` emits `{schema_version, action, branch, base, type, prefix, issue}` and suppresses the pretty output
-22. `--json` on `commit` emits `{schema_version, action, hash, message, branch}` and suppresses the pretty output
-23. `--json` on `push` emits `{schema_version, action, branch, remote, force}` and suppresses the spinner + pretty output
-24. `--json` on `status` emits `{schema_version, action, branch, default, ahead, behind, dirty}`. `behind` is `null` when `git rev-list` can't compute it. `dirty` is the count of files with uncommitted changes
-25. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
-26. Status no longer reports PR info — that responsibility moved to the GitHub plugin
+8. Plugin lifecycle hook `pre_push` runs before `fledge work push` pushes to origin (errors propagate and abort the push)
+9. `--prefix` bypasses type validation and format template, using raw `prefix/name`
+10. `--issue N` prepends the issue number to the branch name segment: `N-name`
+11. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
+12. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
+13. `commit --all` runs `git add -A` before committing
+14. `commit` requires staged changes; bails if nothing is staged (separate message if working tree is clean vs unstaged)
+15. `commit` without `-m` or `--ai` prompts interactively via `dialoguer::Input`; non-interactive shells must provide `-m` or `--ai`
+16. `commit --ai` sends the staged diff (truncated to 400 lines) to the configured LLM to generate the message; `--provider` / `--model` override for this single call
+17. `push` refuses to push the default branch (main/master)
+18. `push` checks commits ahead of `origin/<branch>` and refuses when there is nothing to push
+19. `push` uses `--force-with-lease` (not `--force`) when the `--force` flag is passed
+20. `push` always sets `-u origin` to establish tracking
+21. `work pr` prints a deprecation notice directing users to `fledge pr` (plugin-based) and exits with code 1
+22. `--json` on `start` emits `{schema_version, action, branch, base, type, prefix, issue}` and suppresses the pretty output
+23. `--json` on `commit` emits `{schema_version, action, hash, message, branch}` and suppresses the pretty output
+24. `--json` on `push` emits `{schema_version, action, branch, remote, force}` and suppresses the spinner + pretty output
+25. `--json` on `status` emits `{schema_version, action, branch, default, ahead, behind, dirty}`. `behind` is `null` when `git rev-list` can't compute it. `dirty` is the count of files with uncommitted changes
+26. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
+27. Status no longer reports PR info — that responsibility moved to the GitHub plugin
 
 ## Behavioral Examples
 
