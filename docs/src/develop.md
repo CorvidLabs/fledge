@@ -1,4 +1,4 @@
-# Develop: Spec-sync
+# Spec: Spec-sync
 
 Keep your specs in sync with the code. Specs are the source of truth for module design — write the spec first, then write the code to match.
 

@@ -13,22 +13,9 @@ fledge run build
 fledge run lint
 ```
 
-No `fledge.toml` needed. Fledge looks for marker files (`Cargo.toml`, `package.json`, `go.mod`, etc.) and provides sensible default tasks.
+No `fledge.toml` needed. Fledge looks for marker files (`Cargo.toml`, `package.json`, `go.mod`, etc.) and provides sensible default tasks for Rust, Node.js, Go, Python, Ruby, Java, and Swift. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 
-### What Gets Detected
-
-| Project Type | Detected By | Default Tasks |
-|-------------|------------|---------------|
-| Rust | `Cargo.toml` | build, test, lint, fmt |
-| Node.js | `package.json` | test, build, lint, dev (if scripts exist) |
-| Go | `go.mod` | build, test, lint |
-| Python | `pyproject.toml` / `setup.py` | test, lint, fmt |
-| Ruby | `Gemfile` | test, lint |
-| Java (Gradle) | `build.gradle` | build, test |
-| Java (Maven) | `pom.xml` | build, test |
-| Swift | `Package.swift` | build, test |
-
-For Node.js projects, fledge also detects your package manager (npm, bun, yarn, pnpm) from lockfiles and uses the right one.
+See the [CLI Reference](../cli-reference.md#fledge-run-task) for the full auto-detection table.
 
 ## Lock It In: Generate a Config
 

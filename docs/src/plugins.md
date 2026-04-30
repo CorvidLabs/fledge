@@ -1,4 +1,4 @@
-# Plugins
+# Extend: Plugins, Config, Tools
 
 Plugins extend fledge with community-built commands. They're external executables distributed as GitHub repos, following the git-style subcommand pattern. `fledge-<name>` becomes `fledge <name>`.
 

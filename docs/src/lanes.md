@@ -283,7 +283,7 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 ## Related
 
 - [Configuration](./configuration.md), global config, GitHub tokens
-- [Plugins](./plugins.md), extend fledge with community commands, use plugins in lanes
+- [Extend: Plugins](./plugins.md), community commands, use plugins in lanes
 - [CLI Reference](./cli-reference.md), full `fledge lanes` subcommand reference
 - [Example Lanes](https://github.com/CorvidLabs/fledge-lanes), official community lane collection
 
