@@ -29,7 +29,7 @@ Three plugins extend fledge with commands that don't belong in every install. On
 fledge plugins install --defaults
 ```
 
-That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See [Plugins](./plugins.md) for the full list and how to build your own.
+That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See [Extend: Plugins](./plugins.md) for the full list and how to build your own.
 
 ## Zero-config
 

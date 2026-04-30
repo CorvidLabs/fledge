@@ -154,7 +154,7 @@ Per-project settings live in `fledge.toml` in your project root. This file defin
 
 For task and lane configuration, see:
 - [Lanes & Pipelines](./lanes.md), defining lanes, step types, parallel groups, importing community lanes
-- [Plugins](./plugins.md), extending fledge with community plugins
+- [Extend: Plugins](./plugins.md), extending fledge with community plugins
 
 ## Priority Order
 

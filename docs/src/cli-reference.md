@@ -5,10 +5,10 @@ Every command, every flag. If it's in fledge core, it's here. Plugin commands (`
 **Jump to:**
 [Scaffold](#scaffold-templates) |
 [Run](#run-tasks-and-lanes) |
-[Spec](#spec-develop-with-spec-sync) |
+[Spec](#spec-spec-sync) |
 [AI](#ai-ask-and-review) |
 [Ship](#ship-branch-pr-release) |
-[Extend](#extend-plugins)
+[Extend](#extend-plugins-config-tools)
 
 ## Scaffold: Templates
 
@@ -263,132 +263,58 @@ fledge lanes validate --json
 
 ---
 
-### fledge config `<action>`
+### fledge watch
 
-Manage `~/.config/fledge/config.toml`.
-
-```text
-fledge config <get|set|unset|add|remove|edit|list|path|init>
-```
-
-| Subcommand | What it does |
-|------------|-------------|
-| `get <key>` | Read a value |
-| `set <key> <value>` | Write a value |
-| `unset <key>` | Delete a value |
-| `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
-| `remove <key> <value>` | Remove from a list |
-| `edit` | Interactively browse and edit config values (requires TTY) |
-| `list` | Show everything |
-| `path` | Print config file path |
-| `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
-
-**Valid keys:**
-- `defaults.author`, `defaults.github_org`, `defaults.license`
-- `github.token`
-- `templates.paths`, `templates.repos`
-- `ai.provider`, `ai.claude.model`
-- `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
-
-```bash
-fledge config set defaults.author "Leif"
-fledge config add templates.repos "CorvidLabs/fledge-templates"
-fledge config edit                                  # interactive config editor
-fledge config list
-```
-
----
-
-### fledge doctor
-
-Diagnose fledge's environment health. Reports four sections:
-
-- **`fledge`**: config loads cleanly
-- **`Git`**: git installed; repo initialized; remote configured; working tree clean
-- **`AI`**: Claude CLI present, Ollama reachable, the active provider's status
-- **`Toolchains`** *(informational)*: probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals. A Python project shouldn't fail because Swift is absent.
+Re-run a task automatically when files change.
 
 ```text
-fledge doctor [OPTIONS]
+fledge watch [task] [OPTIONS]
 ```
+
+**Arguments:**
+- `[task]` - Task to re-run on changes [default: the last `fledge run` task]
 
 **Options:**
-- `--json` - JSON output
+- `--debounce <MS>` - Debounce interval in milliseconds [default: `300`]
 
-**Output (`--json`):** `{sections: [{name, checks: [{name, status, version, detail, fix}], informational}], passed, failed}`. Informational sections (e.g. `Toolchains`) appear in the JSON with `informational: true` and are excluded from the `passed`/`failed` totals.
-
----
-
-## Spec: Develop with spec-sync
-
-### fledge work `<action>`
-
-Work branch and PR workflow. Supports any branch type, not just features.
-
-```text
-fledge work <start|pr|status> [OPTIONS]
-```
-
-**Subcommands:**
-
-- `start <name>`: Create a work branch
-- `pr`: Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
-- `status`: Current branch + PR status
-
-**Options for `work start`:**
-
-- `-t, --branch-type <TYPE>`: Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
-- `-i, --issue <NUMBER>`: Link to GitHub issue (prefixes branch name with issue number)
-- `--prefix <PREFIX>`: Override branch prefix entirely (e.g. `user/leif`)
-- `--base <BRANCH>`: Base branch [default: `main`]
-
-**Options for `work pr`:**
-
-- `-t, --title <TITLE>`: PR title (auto-generated from branch name if omitted)
-- `-b, --body <BODY>`: Literal body (always wins over `--ai` and the heuristic generator)
-- `--draft`: Create as a draft PR
-- `--base <BASE>`: Target base branch
-- `-y, --yes`: Skip the preview/confirmation prompt (agent-friendly)
-- `--ai`: Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
-- `--provider {claude,ollama}`: Override AI provider for `--ai`
-- `--model <MODEL>`: Override AI model for `--ai`
-- `--json`: Emit `{url, number, title, head, base, draft}`; suppresses the preview
-
-**Behavior:** `work pr` shows a styled preview block (title, head→base, draft tag, full body) before any push or `gh pr create` call, then prompts y/n. Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. `--yes` skips the prompt; `--json` skips it as well. Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging.
-
-The branch format is configurable via `[work]` in `fledge.toml`:
-
-```toml
-[work]
-default_type = "feat"
-branch_format = "{author}/{type}/{name}"
-```
-
-**Examples:**
+Watches the project directory for file changes and re-runs the specified task. Ignores `.git/`, `target/`, `node_modules/`, and other common build directories.
 
 ```bash
-fledge work start add-auth                    # leif/feat/add-auth (default: {author}/{type}/{name})
-fledge work start login-crash --branch-type fix      # leif/fix/login-crash
-fledge work start bump-deps --branch-type chore      # leif/chore/bump-deps
-fledge work start login-crash --issue 42      # leif/feat/42-login-crash
-fledge work start my-feature --prefix user/leif  # user/leif/my-feature
+fledge watch test            # re-run tests on save
+fledge watch build           # rebuild on change
 ```
 
 ---
+
+## Spec: Spec-sync
 
 ### fledge spec `<action>`
 
 Spec-sync management. Specs are the source of truth for module design.
 
 ```text
-fledge spec <check|init|new> [OPTIONS]
+fledge spec <check|init|new|list|show> [OPTIONS]
 ```
 
 **Subcommands:**
 
-- `check` - Validate specs against code (`--strict` for warnings as errors)
+- `check` - Validate specs against code (`--strict` for warnings as errors, `--json` for machine-readable output)
 - `init` - Set up spec-sync for the project
 - `new <name>` - Scaffold a new spec
+- `list` - List all specs (`--json` for machine-readable output)
+- `show <name>` - Show a specific spec's content (`--json` for machine-readable output)
+
+```bash
+fledge spec check
+fledge spec check --strict
+fledge spec check --json
+fledge spec init
+fledge spec new auth
+fledge spec list
+fledge spec list --json
+fledge spec show plugin
+fledge spec show plugin --json
+```
 
 ---
 
@@ -472,88 +398,60 @@ fledge ask --with-specs all "which modules touch GitHub?"
 
 ---
 
-### fledge deps (plugin)
-
-Provided by [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps). Auto-detects ecosystem from lockfiles and shells out to the canonical tool.
-
-```text
-fledge deps [--outdated | --audit | --licenses] [--json]
-```
-
-| Lockfile | Ecosystem | Backing tool |
-|----------|-----------|--------------|
-| `Cargo.lock` | Rust | `cargo outdated` / `cargo audit` |
-| `bun.lockb` | Node (Bun) | `bun outdated` / `bun audit` |
-| `pnpm-lock.yaml` | Node (pnpm) | `pnpm outdated` / `pnpm audit` |
-| `package-lock.json` | Node (npm) | `npm outdated` / `npm audit` |
-| `yarn.lock` | Node (Yarn) | `yarn outdated` / `yarn npm audit` |
-| `poetry.lock` | Python (Poetry) | `poetry show --outdated` |
-| `uv.lock` | Python (uv) | `uv pip list --outdated` |
-
----
-
-### fledge metrics (plugin)
-
-Provided by [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). Thin wrapper over `tokei` (LOC) and `git` (churn).
-
-```text
-fledge metrics [--churn | --tests] [-l N] [--json]
-```
-
-```bash
-fledge metrics                       # LOC summary by language (tokei)
-fledge metrics --churn -l 10         # top-10 most-changed files
-fledge metrics --tests --json        # {test_files, source_files, ratio}
-```
-
----
-
 ## Ship: Branch, PR, Release
 
-### fledge issues `[view <number>]` (plugin)
+### fledge work `<action>`
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view GitHub issues.
-
-```text
-fledge issues [list] [OPTIONS]
-fledge issues view <number> [OPTIONS]
-```
-
-**Options:**
-- `-s, --state <STATE>`: `open`, `closed`, `all` [default: `open`]
-- `-l, --limit <N>`: Max results [default: `20`]
-- `--label <LABEL>`: Filter by label
-- `--json`
-
----
-
-### fledge prs `[view <number>]` (plugin)
-
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only, `fledge work pr` creates them).
+Work branch and PR workflow. Supports any branch type, not just features.
 
 ```text
-fledge prs [list] [OPTIONS]
-fledge prs view <number> [OPTIONS]
+fledge work <start|pr|status> [OPTIONS]
 ```
 
-**Options:**
-- `-s, --state <STATE>`: `open`, `closed`, `merged`, `all` [default: `open`]
-- `-l, --limit <N>`: Max results [default: `20`]
-- `--json`
+**Subcommands:**
 
----
+- `start <name>`: Create a work branch
+- `pr`: Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
+- `status`: Current branch + PR status
 
-### fledge checks (plugin)
+**Options for `work start`:**
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). CI/CD status for a branch.
+- `-t, --branch-type <TYPE>`: Branch type: `feat`, `feature`, `fix`, `bug`, `chore`, `task`, `docs`, `hotfix`, `refactor` [default: `feat`]
+- `-i, --issue <NUMBER>`: Link to GitHub issue (prefixes branch name with issue number)
+- `--prefix <PREFIX>`: Override branch prefix entirely (e.g. `user/leif`)
+- `--base <BRANCH>`: Base branch [default: `main`]
 
-```text
-fledge checks [OPTIONS]
+**Options for `work pr`:**
+
+- `-t, --title <TITLE>`: PR title (auto-generated from branch name if omitted)
+- `-b, --body <BODY>`: Literal body (always wins over `--ai` and the heuristic generator)
+- `--draft`: Create as a draft PR
+- `--base <BASE>`: Target base branch
+- `-y, --yes`: Skip the preview/confirmation prompt (agent-friendly)
+- `--ai`: Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
+- `--provider {claude,ollama}`: Override AI provider for `--ai`
+- `--model <MODEL>`: Override AI model for `--ai`
+- `--json`: Emit `{url, number, title, head, base, draft}`; suppresses the preview
+
+**Behavior:** `work pr` shows a styled preview block (title, head→base, draft tag, full body) before any push or `gh pr create` call, then prompts y/n. Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. `--yes` skips the prompt; `--json` skips it as well. Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging.
+
+The branch format is configurable via `[work]` in `fledge.toml`:
+
+```toml
+[work]
+default_type = "feat"
+branch_format = "{author}/{type}/{name}"
 ```
 
-**Options:**
-- `-b, --branch <BRANCH>`: Branch to check [default: current]
-- `--json`
+**Examples:**
+
+```bash
+fledge work start add-auth                    # leif/feat/add-auth (default: {author}/{type}/{name})
+fledge work start login-crash --branch-type fix      # leif/fix/login-crash
+fledge work start bump-deps --branch-type chore      # leif/chore/bump-deps
+fledge work start login-crash --issue 42      # leif/feat/42-login-crash
+fledge work start my-feature --prefix user/leif  # user/leif/my-feature
+```
 
 ---
 
@@ -618,7 +516,54 @@ fledge release patch --no-tag --no-changelog  # just bump version
 
 ---
 
-## Extend: Plugins
+### fledge issues `[view <number>]` (plugin)
+
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view GitHub issues.
+
+```text
+fledge issues [list] [OPTIONS]
+fledge issues view <number> [OPTIONS]
+```
+
+**Options:**
+- `-s, --state <STATE>`: `open`, `closed`, `all` [default: `open`]
+- `-l, --limit <N>`: Max results [default: `20`]
+- `--label <LABEL>`: Filter by label
+- `--json`
+
+---
+
+### fledge prs `[view <number>]` (plugin)
+
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only, `fledge work pr` creates them).
+
+```text
+fledge prs [list] [OPTIONS]
+fledge prs view <number> [OPTIONS]
+```
+
+**Options:**
+- `-s, --state <STATE>`: `open`, `closed`, `merged`, `all` [default: `open`]
+- `-l, --limit <N>`: Max results [default: `20`]
+- `--json`
+
+---
+
+### fledge checks (plugin)
+
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). CI/CD status for a branch.
+
+```text
+fledge checks [OPTIONS]
+```
+
+**Options:**
+- `-b, --branch <BRANCH>`: Branch to check [default: current]
+- `--json`
+
+---
+
+## Extend: Plugins, Config, Tools
 
 ### fledge plugins `<action>`
 
@@ -686,6 +631,82 @@ fledge plugins validate --json
 
 ---
 
+### fledge config `<action>`
+
+Manage `~/.config/fledge/config.toml`.
+
+```text
+fledge config <get|set|unset|add|remove|edit|list|path|init>
+```
+
+| Subcommand | What it does |
+|------------|-------------|
+| `get <key>` | Read a value |
+| `set <key> <value>` | Write a value |
+| `unset <key>` | Delete a value |
+| `add <key> <value>` | Append to a list (`templates.paths`, `templates.repos`) |
+| `remove <key> <value>` | Remove from a list |
+| `edit` | Interactively browse and edit config values (requires TTY) |
+| `list` | Show everything |
+| `path` | Print config file path |
+| `init [--preset <name>]` | Initialize config (presets: `corvidlabs`) |
+
+**Valid keys:**
+- `defaults.author`, `defaults.github_org`, `defaults.license`
+- `github.token`
+- `templates.paths`, `templates.repos`
+- `ai.provider`, `ai.claude.model`
+- `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
+
+```bash
+fledge config set defaults.author "Leif"
+fledge config add templates.repos "CorvidLabs/fledge-templates"
+fledge config edit                                  # interactive config editor
+fledge config list
+```
+
+---
+
+### fledge doctor
+
+Diagnose fledge's environment health. Reports four sections:
+
+- **`fledge`**: config loads cleanly
+- **`Git`**: git installed; repo initialized; remote configured; working tree clean
+- **`AI`**: Claude CLI present, Ollama reachable, the active provider's status
+- **`Toolchains`** *(informational)*: probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals. A Python project shouldn't fail because Swift is absent.
+
+```text
+fledge doctor [OPTIONS]
+```
+
+**Options:**
+- `--json` - JSON output
+
+**Output (`--json`):** `{sections: [{name, checks: [{name, status, version, detail, fix}], informational}], passed, failed}`. Informational sections (e.g. `Toolchains`) appear in the JSON with `informational: true` and are excluded from the `passed`/`failed` totals.
+
+---
+
+### fledge introspect
+
+Dump the full command tree as JSON. Includes core commands and any installed plugin commands. Designed for AI agents and automation.
+
+```text
+fledge introspect [OPTIONS]
+```
+
+**Options:**
+- `--json` - JSON output (default behavior; flag exists for consistency)
+
+**Output:** `{schema_version: 1, name, about, aliases, args, subcommands}` recursively. Each subcommand has the same shape, so the tree is fully walkable.
+
+```bash
+fledge introspect --json
+fledge introspect --json | jq '.subcommands[].name'
+```
+
+---
+
 ### fledge completions `[shell]`
 
 Shell completions for bash, zsh, fish.
@@ -702,6 +723,42 @@ fledge completions --install
 fledge completions bash >> ~/.bashrc
 fledge completions zsh > ~/.zfunc/_fledge
 fledge completions fish > ~/.config/fish/completions/fledge.fish
+```
+
+---
+
+### fledge deps (plugin)
+
+Provided by [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps). Auto-detects ecosystem from lockfiles and shells out to the canonical tool.
+
+```text
+fledge deps [--outdated | --audit | --licenses] [--json]
+```
+
+| Lockfile | Ecosystem | Backing tool |
+|----------|-----------|--------------|
+| `Cargo.lock` | Rust | `cargo outdated` / `cargo audit` |
+| `bun.lockb` | Node (Bun) | `bun outdated` / `bun audit` |
+| `pnpm-lock.yaml` | Node (pnpm) | `pnpm outdated` / `pnpm audit` |
+| `package-lock.json` | Node (npm) | `npm outdated` / `npm audit` |
+| `yarn.lock` | Node (Yarn) | `yarn outdated` / `yarn npm audit` |
+| `poetry.lock` | Python (Poetry) | `poetry show --outdated` |
+| `uv.lock` | Python (uv) | `uv pip list --outdated` |
+
+---
+
+### fledge metrics (plugin)
+
+Provided by [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). Thin wrapper over `tokei` (LOC) and `git` (churn).
+
+```text
+fledge metrics [--churn | --tests] [-l N] [--json]
+```
+
+```bash
+fledge metrics                       # LOC summary by language (tokei)
+fledge metrics --churn -l 10         # top-10 most-changed files
+fledge metrics --tests --json        # {test_files, source_files, ratio}
 ```
 
 ---
