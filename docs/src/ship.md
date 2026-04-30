@@ -26,12 +26,12 @@ fledge work pr --base develop
 fledge work pr --json                            # {url, number, title, head, base, draft}
 
 # Per-call AI provider/model overrides
-fledge work pr --ai --provider ollama --model gpt-oss:120b-cloud --yes
+fledge work pr --ai --provider ollama --model llama3.2:latest --yes
 ```
 
 The preview reads:
 
-```
+```text
 ────────────────────────────────────────────────────────────
 Title: feat: work pr, auto body + preview + confirm
 Branch:  0xleif/feat/pr-preview-and-body → main
@@ -50,13 +50,11 @@ Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. Nothing i
 
 ## GitHub browsing (plugin)
 
-Read-only views of issues, PRs, and CI status moved to [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) in v0.15. PR *creation* stays in core via `fledge work pr` above. Install:
+Read-only views of issues, PRs, and CI status live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). PR *creation* stays in core via `fledge work pr` above.
 
 ```bash
 fledge plugins install --defaults
 ```
-
-Then:
 
 ```bash
 fledge issues                          # GitHub issues (open by default)

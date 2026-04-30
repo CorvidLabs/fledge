@@ -33,8 +33,7 @@ Get a second opinion on your changes without waiting for a human reviewer:
 ```bash
 fledge review                                           # review with active model
 fledge review --file src/auth.rs                        # focus on one file
-fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
-                                                        # multi-model panel, parallel critiques
+fledge review --with-model ollama                       # multi-model panel, parallel critiques
 ```
 
 ### Branch workflow without remembering git incantations
@@ -104,8 +103,7 @@ An AI agent can:
 1. `fledge work start fix-issue-42 --issue 42`, create a branch linked to an issue
 2. Make changes
 3. `fledge lanes run ci`, run the full pipeline
-4. `fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json`
-  , multi-model review for higher-confidence findings
+4. `fledge review --with-model ollama --json`, multi-model review for higher-confidence findings
 5. Fix issues that multiple models agree on
 6. `fledge work pr --ai --yes`, AI-drafted PR with no prompt needed
 

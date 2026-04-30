@@ -74,6 +74,8 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 
 ### Non-interactive mode (one switch)
 
+> **Important:** Without `FLEDGE_NON_INTERACTIVE=1`, any command with a prompt will hang in a headless environment.
+
 Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes. Every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
 
 Commands covered: `fledge templates init`, `fledge templates create`, `fledge templates publish`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`.
@@ -99,8 +101,8 @@ Pass `--with-model <provider[:model]>` (repeatable, comma-separated) to run mult
 
 ```bash
 fledge review --json
-fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
-fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud --json
+fledge review --with-model ollama --json
+fledge review --no-active --with-model claude:sonnet,ollama --json
 ```
 
 ## Typical agent workflow
@@ -118,7 +120,7 @@ fledge run test
 fledge lanes run pre-commit
 
 # 4. Review (multi-model for high-confidence findings)
-fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
+fledge review --with-model ollama --json
 
 # 5. Open PR with AI-drafted body
 fledge work pr --ai --yes --json

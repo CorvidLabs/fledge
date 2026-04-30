@@ -63,7 +63,7 @@ $ fledge doctor
   AI
     ✅ claude 2.1.119
     ✅ ollama 0.21.2
-    ✅ Active provider: ollama (model: gpt-oss:120b-cloud, host: http://localhost:11434)
+    ✅ Active provider: ollama (model: llama3.2:latest, host: http://localhost:11434)
 
   Toolchains
     ✅ rustc 1.93.0

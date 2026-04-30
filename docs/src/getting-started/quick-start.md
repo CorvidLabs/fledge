@@ -136,17 +136,4 @@ fledge changelog --unreleased    # what's new since last tag
 fledge templates list
 ```
 
-Shows everything available: built-in, configured repos, and local paths.
-
-### Built-in Templates
-
-| Template | What you get |
-|----------|--------------|
-| `rust-cli` | Rust CLI with clap, CI, release automation |
-| `ts-bun` | TypeScript on Bun with Biome |
-| `python-cli` | Python CLI with Click and Ruff |
-| `go-cli` | Go CLI with Cobra |
-| `ts-node` | TypeScript on Node with tsx and Biome |
-| `static-site` | Vanilla HTML/CSS/JS, no dependencies |
-
-More templates (Angular, MCP server, Deno, Swift, etc.) available at [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates).
+Shows everything available: built-in (`rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`), configured repos, and local paths. More templates (Angular, MCP server, Deno, Swift, etc.) at [CorvidLabs/fledge-templates](https://github.com/CorvidLabs/fledge-templates). See [Templates](../templates.md) for the full list.

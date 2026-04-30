@@ -8,7 +8,7 @@ A template is a directory with a `template.toml` manifest and whatever files you
 
 ### Directory Structure
 
-```
+```text
 my-template/
 ├── template.toml          # manifest (required)
 ├── src/
@@ -123,7 +123,7 @@ Templates use [Tera](https://keats.github.io/tera/docs/) syntax. Here's the stuf
 
 ### Variables
 
-```
+```text
 # {{ project_name }}
 
 {{ description }}
@@ -131,7 +131,7 @@ Templates use [Tera](https://keats.github.io/tera/docs/) syntax. Here's the stuf
 
 ### Conditionals
 
-```
+```text
 {% if license == "MIT" %}
 This project is MIT licensed.
 {% endif %}
@@ -139,7 +139,7 @@ This project is MIT licensed.
 
 ### Loops
 
-```
+```text
 {% for dep in dependencies %}
 - {{ dep }}
 {% endfor %}
@@ -147,14 +147,14 @@ This project is MIT licensed.
 
 ### Filters
 
-```
+```text
 Project slug: {{ project_name | slugify }}
 Uppercase: {{ author | upper }}
 ```
 
 ### Putting it together
 
-````
+````text
 # {{ project_name }}
 
 {{ description }}

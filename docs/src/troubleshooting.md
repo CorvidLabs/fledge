@@ -113,7 +113,7 @@ fledge ai status                    # check host and model
 fledge ai models --provider ollama  # verify the endpoint is reachable
 ```
 
-If the host is missing `http://`, fledge normalizes it automatically (as of v0.16.0). If using Ollama Cloud, make sure `OLLAMA_API_KEY` or `ai.ollama.api_key` is set.
+If the host is missing `http://`, fledge normalizes it automatically. If using Ollama Cloud, make sure `OLLAMA_API_KEY` or `ai.ollama.api_key` is set.
 
 ## Clippy or fmt warnings in CI
 
