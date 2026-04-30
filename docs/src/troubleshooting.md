@@ -15,7 +15,7 @@ Add that line to your `.bashrc`, `.zshrc`, or shell profile. Then restart your t
 
 ## GitHub commands fail with "no token"
 
-Commands that talk to GitHub need a GitHub personal access token. In core: `work pr`, `review`, `templates search`, `templates publish`, `lanes search`, `lanes publish`, `plugins search`, `plugins publish`. From `fledge-plugin-github` (after `fledge plugins install --defaults`): `checks`, `issues`, `prs`.
+Commands that talk to GitHub need a GitHub personal access token. In core: `review`, `templates search`, `templates publish`, `lanes search`, `lanes publish`, `plugins search`, `plugins publish`. From `fledge-plugin-github` (after `fledge plugins install --defaults`): `github checks`, `github issues`, `github prs`.
 
 ```bash
 # Easiest: use the GitHub CLI (zero config)

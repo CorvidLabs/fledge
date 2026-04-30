@@ -1,6 +1,6 @@
 # GitHub Integration
 
-GitHub-specific browsing (`checks`, `issues`, `prs`) lives in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. **Branch and PR creation stays in core** via `fledge work`.
+GitHub-specific commands (CI checks, issues, PRs) live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. Branch creation is in core via `fledge work start`. PR creation uses `gh pr create` until `fledge github pr` ships.
 
 ```bash
 fledge plugins install --defaults
@@ -12,39 +12,39 @@ fledge plugins install CorvidLabs/fledge-plugin-github
 
 You need a GitHub token. The easiest option is to install `gh` and run `gh auth login` — fledge uses it as a fallback automatically. Otherwise, set `GITHUB_TOKEN` or configure it via `fledge config set github.token`. See [Configuration: GitHub](./configuration.md#github) for the full token resolution order and required scopes.
 
-## Browsing GitHub (plugin)
+## GitHub commands (plugin)
 
-Once you have `fledge-plugin-github` installed:
+Once you have `fledge-plugin-github` installed, all commands are under `fledge github`:
 
 ### Issues
 
 ```bash
-fledge issues                    # open issues
-fledge issues --state closed     # closed ones
-fledge issues --label bug        # filter by label
-fledge issues view 42            # specific issue
-fledge issues --limit 50
-fledge issues --json
+fledge github issues                    # open issues
+fledge github issues --state closed     # closed ones
+fledge github issues --label bug        # filter by label
+fledge github issues view 42            # specific issue
+fledge github issues --limit 50
+fledge github issues --json
 ```
 
 ### Pull Requests
 
 ```bash
-fledge prs                       # open PRs
-fledge prs --state closed
-fledge prs view 256
-fledge prs --json
+fledge github prs                       # open PRs
+fledge github prs --state closed
+fledge github prs view 256
+fledge github prs --json
 ```
 
 ### CI Status
 
 ```bash
-fledge checks                    # current branch
-fledge checks --branch main
-fledge checks --json
+fledge github checks                    # current branch
+fledge github checks --branch main
+fledge github checks --json
 ```
 
 ## Related
 
-- [Ship: Branch, PR, Release](./ship.md) — branch creation, AI-drafted PRs, release workflow
+- [Ship: Branch, Commit, Push, Release](./ship.md) — branch creation, commit, push, release workflow
 - [AI: Ask and Review](./review.md) — multi-model review panels, spec-awareness, output formats

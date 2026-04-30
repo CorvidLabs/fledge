@@ -1,6 +1,6 @@
 # CLI Reference
 
-Every command, every flag. If it's in fledge core, it's here. Plugin commands (`checks`, `issues`, `prs`, `deps`, `metrics`) ship as separate repos, install them with `fledge plugins install --defaults`.
+Every command, every flag. If it's in fledge core, it's here. Plugin commands (`github checks`, `github issues`, `github prs`, `deps`, `metrics`) ship as separate repos, install them with `fledge plugins install --defaults`.
 
 **Jump to:**
 [Scaffold](#scaffold-templates) |
@@ -402,21 +402,22 @@ fledge ask --with-specs all "which modules touch GitHub?"
 
 ---
 
-## Ship: Branch, PR, Release
+## Ship: Branch, Commit, Push, Release
 
 ### fledge work `<action>`
 
-Work branch and PR workflow. Supports any branch type, not just features.
+Git workflow for feature branches. Supports any branch type, not just features. PR creation uses `gh pr create` or the GitHub web UI (`fledge github pr` is planned but not yet released).
 
 ```text
-fledge work <start|pr|status> [OPTIONS]
+fledge work <start|commit|push|status> [OPTIONS]
 ```
 
 **Subcommands:**
 
 - `start <name>`: Create a work branch (`--json` for JSON output)
-- `pr`: Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
-- `status`: Current branch + PR status (`--json` for JSON output)
+- `commit`: Stage and commit with conventional-commit formatting (`--json` for JSON output)
+- `push`: Push the current branch to origin (`--json` for JSON output)
+- `status`: Current branch status — ahead/behind counts and dirty file count (`--json` for JSON output)
 
 **Options for `work start`:**
 
@@ -425,19 +426,21 @@ fledge work <start|pr|status> [OPTIONS]
 - `--prefix <PREFIX>`: Override branch prefix entirely (e.g. `user/leif`)
 - `--base <BRANCH>`: Base branch [default: `main`]
 
-**Options for `work pr`:**
+**Options for `work commit`:**
 
-- `-t, --title <TITLE>`: PR title (auto-generated from branch name if omitted)
-- `-b, --body <BODY>`: Literal body (always wins over `--ai` and the heuristic generator)
-- `--draft`: Create as a draft PR
-- `--base <BASE>`: Target base branch
-- `-y, --yes`: Skip the preview/confirmation prompt (agent-friendly)
-- `--ai`: Generate the body via the configured LLM (uses commit log + diffstat + truncated diff as context). Produces a Markdown body with `## Summary` + `## Test plan` sections
+- `-m, --message <MSG>`: Commit message (prompted interactively if omitted)
+- `-t, --type <TYPE>`: Commit type: `feat`, `fix`, `chore`, `docs`, `refactor`, etc. (default: inferred from branch prefix)
+- `-s, --scope <SCOPE>`: Scope for conventional commit (e.g. `work`, `cli`)
+- `-a, --all`: Stage all changes (including untracked) before committing
+- `--ai`: Generate the commit message via the configured LLM from the staged diff
 - `--provider {claude,ollama}`: Override AI provider for `--ai`
 - `--model <MODEL>`: Override AI model for `--ai`
-- `--json`: Emit `{url, number, title, head, base, draft}`; suppresses the preview
+- `--json`: Emit `{schema_version, action, hash, message, branch}`
 
-**Behavior:** `work pr` shows a styled preview block (title, head→base, draft tag, full body) before any push or `gh pr create` call, then prompts y/n. Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. `--yes` skips the prompt; `--json` skips it as well. Non-interactive shells without `--yes`/`--json` bail with a clear message rather than hanging.
+**Options for `work push`:**
+
+- `-f, --force`: Force push with `--force-with-lease` for safety
+- `--json`: Emit `{schema_version, action, branch, remote, force}`
 
 The branch format is configurable via `[work]` in `fledge.toml`:
 
@@ -450,11 +453,16 @@ branch_format = "{author}/{type}/{name}"
 **Examples:**
 
 ```bash
-fledge work start add-auth                    # leif/feat/add-auth (default: {author}/{type}/{name})
-fledge work start login-crash --branch-type fix      # leif/fix/login-crash
-fledge work start bump-deps --branch-type chore      # leif/chore/bump-deps
-fledge work start login-crash --issue 42      # leif/feat/42-login-crash
-fledge work start my-feature --prefix user/leif  # user/leif/my-feature
+fledge work start add-auth                            # leif/feat/add-auth
+fledge work start login-crash --branch-type fix       # leif/fix/login-crash
+fledge work start bump-deps --branch-type chore       # leif/chore/bump-deps
+fledge work start login-crash --issue 42              # leif/feat/42-login-crash
+fledge work start my-feature --prefix user/leif       # user/leif/my-feature
+fledge work commit -m "add search index"              # explicit message
+fledge work commit --ai --all                         # AI message + stage everything
+fledge work push                                      # push to origin
+fledge work push --force                              # force-with-lease
+fledge work status --json                             # {schema_version, action, branch, default, ahead, behind, dirty}
 ```
 
 ---
@@ -520,13 +528,13 @@ fledge release patch --no-tag --no-changelog  # just bump version
 
 ---
 
-### fledge issues `[view <number>]` (plugin)
+### fledge github issues `[view <number>]` (plugin)
 
 Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view GitHub issues.
 
 ```text
-fledge issues [list] [OPTIONS]
-fledge issues view <number> [OPTIONS]
+fledge github issues [list] [OPTIONS]
+fledge github issues view <number> [OPTIONS]
 ```
 
 **Options:**
@@ -537,13 +545,13 @@ fledge issues view <number> [OPTIONS]
 
 ---
 
-### fledge prs `[view <number>]` (plugin)
+### fledge github prs `[view <number>]` (plugin)
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view PRs (read-only, `fledge work pr` creates them).
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view pull requests. Use `gh pr create` or the GitHub web UI to open new PRs.
 
 ```text
-fledge prs [list] [OPTIONS]
-fledge prs view <number> [OPTIONS]
+fledge github prs [list] [OPTIONS]
+fledge github prs view <number> [OPTIONS]
 ```
 
 **Options:**
@@ -553,12 +561,12 @@ fledge prs view <number> [OPTIONS]
 
 ---
 
-### fledge checks (plugin)
+### fledge github checks (plugin)
 
 Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). CI/CD status for a branch.
 
 ```text
-fledge checks [OPTIONS]
+fledge github checks [OPTIONS]
 ```
 
 **Options:**
@@ -596,7 +604,7 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate|au
 
 | Repo | Adds |
 |------|------|
-| [`CorvidLabs/fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` |
+| [`CorvidLabs/fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `github checks`, `github issues`, `github prs` |
 | [`CorvidLabs/fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` |
 | [`CorvidLabs/fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` |
 

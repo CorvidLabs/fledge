@@ -74,7 +74,7 @@ Provide a consistent loading spinner for long-running operations (network calls,
 $ fledge templates search rust
   Searching GitHub for community templates: ⠙    # animates through braille frames
 
-$ fledge work pr
+$ fledge work push
   Pushing feat/spinner to origin: 🌎    # animates through globe frames
   ✅ Pushed to origin/feat/spinner
 ```

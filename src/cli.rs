@@ -455,7 +455,7 @@ pub enum WorkSubcommand {
         #[arg(long)]
         json: bool,
     },
-    /// [Deprecated] Use `fledge pr` from fledge-plugin-github instead
+    /// [Deprecated] Use `gh pr create` until `fledge github pr` ships
     #[command(hide = true)]
     Pr {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]

@@ -24,7 +24,7 @@ spec: spinner.spec.md
 # Any network command shows a spinner
 fledge templates search rust
 fledge plugins search deploy
-fledge work pr
+fledge work push
 
 # Spinner clears cleanly — no leftover text after command completes
 ```
