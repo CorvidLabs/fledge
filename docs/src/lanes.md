@@ -187,6 +187,8 @@ This helps identify slow steps in your pipeline without any extra tooling.
 
 ## Task Configuration
 
+Tasks are the building blocks that lanes and `fledge run` execute. Define them in `fledge.toml`.
+
 ### Short Form
 
 ```toml
@@ -213,7 +215,7 @@ dir = "crates/core"
 | `env` | table | Environment variables for this task |
 | `dir` | string | Working directory (relative to project root) |
 
-### Examples
+## Lane Examples
 
 #### CI Pipeline
 
@@ -265,7 +267,7 @@ steps = [
 | Go | `go.mod` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Python | `pyproject.toml` | `ci` (fmt, lint, test), `check` (parallel fmt+lint, test) |
 
-### CLI
+## Lanes CLI
 
 ```bash
 fledge lanes run ci                   # run a lane
@@ -337,10 +339,10 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 ### Related
 
-- [Configuration](./configuration.md), global config, GitHub tokens
-- [Extend: Plugins](./plugins.md), community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md), full `fledge lanes` subcommand reference
-- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes), official community lane collection
+- [Configuration](./configuration.md) — global config, GitHub tokens
+- [Extend: Plugins](./plugins.md) — community commands, use plugins in lanes
+- [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
+- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
 
 ### Tips
 

@@ -2,7 +2,7 @@
 
 fledge is designed for humans *and* AI agents to use the same CLI. Human-facing docs (the rest of this book) cover *why* and *how-to*. This page covers what an agent specifically needs to know.
 
-The canonical short-form entrypoint for agents lives at [AGENTS.md](https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md) in the repository root. This page is its long-form companion. Point agents to either. For how specs work and why they matter, see [Spec: Spec-sync](./develop.md).
+The canonical short-form entrypoint for agents lives at [AGENTS.md](https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md) in the repository root. This page is its long-form companion. Point agents to either. For how specs work and why they matter, see [Spec: Spec-sync](./spec.md).
 
 ## Design principles
 
