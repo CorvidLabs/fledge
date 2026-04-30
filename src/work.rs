@@ -12,8 +12,9 @@ const VALID_BRANCH_TYPES: &[&str] = &[
 /// Per-command JSON schema versions for `work` subcommands. See lanes.rs for
 /// rationale.
 const WORK_START_SCHEMA: u32 = 1;
-const WORK_PR_SCHEMA: u32 = 1;
-const WORK_STATUS_SCHEMA: u32 = 1;
+const WORK_COMMIT_SCHEMA: u32 = 1;
+const WORK_PUSH_SCHEMA: u32 = 1;
+const WORK_STATUS_SCHEMA: u32 = 2;
 
 #[derive(Debug, Deserialize)]
 pub struct WorkConfig {
@@ -72,20 +73,24 @@ pub enum WorkAction {
         base: Option<String>,
         json: bool,
     },
-    Pr {
-        title: Option<String>,
-        body: Option<String>,
-        draft: bool,
-        base: Option<String>,
-        json: bool,
-        yes: bool,
+    Commit {
+        message: Option<String>,
+        commit_type: Option<String>,
+        scope: Option<String>,
+        all: bool,
         ai: bool,
         provider: Option<String>,
         model: Option<String>,
+        json: bool,
+    },
+    Push {
+        force: bool,
+        json: bool,
     },
     Status {
         json: bool,
     },
+    DeprecatedPr,
 }
 
 pub fn run(action: WorkAction) -> Result<()> {
@@ -106,28 +111,36 @@ pub fn run(action: WorkAction) -> Result<()> {
             base.as_deref(),
             json,
         ),
-        WorkAction::Pr {
-            title,
-            body,
-            draft,
-            base,
-            json,
-            yes,
+        WorkAction::Commit {
+            message,
+            commit_type,
+            scope,
+            all,
             ai,
             provider,
             model,
-        } => pr(
-            title.as_deref(),
-            body.as_deref(),
-            draft,
-            base.as_deref(),
             json,
-            yes,
+        } => commit(
+            message.as_deref(),
+            commit_type.as_deref(),
+            scope.as_deref(),
+            all,
             ai,
             provider.as_deref(),
             model.as_deref(),
+            json,
         ),
+        WorkAction::Push { force, json } => push(force, json),
         WorkAction::Status { json } => status(json),
+        WorkAction::DeprecatedPr => {
+            eprintln!(
+                "{} `fledge work pr` has been removed.",
+                console::style("⚠").yellow().bold()
+            );
+            eprintln!("  PR creation now lives in fledge-plugin-github. Use `fledge pr` instead.");
+            eprintln!("  Install with: fledge plugins install --defaults");
+            std::process::exit(1);
+        }
     }
 }
 
@@ -297,377 +310,137 @@ fn start(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn pr(
-    title: Option<&str>,
-    body: Option<&str>,
-    draft: bool,
-    base: Option<&str>,
-    json: bool,
-    yes: bool,
+fn commit(
+    message: Option<&str>,
+    commit_type: Option<&str>,
+    scope: Option<&str>,
+    all: bool,
     ai: bool,
     provider_override: Option<&str>,
     model_override: Option<&str>,
+    json: bool,
 ) -> Result<()> {
-    if Command::new("gh").arg("--version").output().is_err() {
-        bail!(
-            "GitHub CLI (gh) is not installed. Install it from https://cli.github.com/ and run `gh auth login`."
-        );
-    }
-
     let branch = current_branch()?;
-    let default = default_branch()?;
+    let config = load_work_config();
 
-    if branch == default || branch.is_empty() {
-        bail!(
-            "Cannot create a PR from the default branch '{}'. Switch to a feature branch first.",
-            default
-        );
+    let inferred_type = commit_type
+        .map(|t| t.to_string())
+        .or_else(|| {
+            VALID_BRANCH_TYPES
+                .iter()
+                .find(|t| branch.starts_with(&format!("{t}/")))
+                .map(|t| t.to_string())
+        })
+        .unwrap_or_else(|| config.default_type.clone());
+
+    if all {
+        git_output(&["add", "-A"])?;
     }
 
-    let base_branch = base.unwrap_or(&default).to_string();
-    let commits_ahead = commits_ahead_of(&branch, &base_branch)?;
-    if commits_ahead == 0 {
-        bail!(
-            "No commits ahead of '{}'. Make some changes first.",
-            base_branch
-        );
+    let staged = git_output(&["diff", "--cached", "--name-only"])?;
+    if staged.is_empty() {
+        let unstaged = git_output(&["status", "--porcelain"])?;
+        if unstaged.is_empty() {
+            bail!("Nothing to commit — working tree is clean.");
+        } else {
+            bail!(
+                "No staged changes. Stage files with `git add` or use `fledge work commit --all`."
+            );
+        }
     }
 
-    let pr_title = match title {
-        Some(t) => t.to_string(),
-        None => generate_title_from_branch(&branch),
-    };
-    let pr_body = match body {
-        Some(b) => b.to_string(),
-        None if ai => generate_body_with_ai(
-            &branch,
-            &base_branch,
+    let commit_msg = if ai {
+        generate_commit_message_with_ai(
+            &inferred_type,
+            scope,
             provider_override,
             model_override,
             json,
-        )?,
-        None => generate_body_from_commits(&branch, &base_branch)?,
-    };
-
-    if !json {
-        print_pr_preview(&pr_title, &pr_body, &branch, &base_branch, draft);
-        if !yes {
-            if !crate::utils::is_interactive() {
-                bail!(
-                    "Refusing to create a PR without confirmation in a non-interactive shell. Re-run with --yes to skip the prompt."
-                );
-            }
-            let confirm =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt("Create this pull request?")
-                    .default(true)
-                    .interact()?;
-            if !confirm {
-                println!("{} Aborted.", style("✋").yellow());
-                return Ok(());
-            }
-        }
-    }
-
-    crate::plugin::run_lifecycle_hook("pre_pr")?;
-
-    let push_sp = if json {
-        None
+        )?
+    } else if let Some(msg) = message {
+        build_commit_message(&inferred_type, scope, msg)
     } else {
-        Some(crate::spinner::Spinner::start(&format!(
-            "Pushing {} to origin:",
-            &branch
-        )))
+        if !crate::utils::is_interactive() {
+            bail!("No commit message provided. Use -m or --ai in non-interactive mode.");
+        }
+        let msg: String = dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!("{}:", inferred_type))
+            .interact_text()?;
+        build_commit_message(&inferred_type, scope, &msg)
     };
-    let push_output = Command::new("git")
-        .args(["push", "-u", "origin", &branch])
+
+    let output = Command::new("git")
+        .args(["commit", "-m", &commit_msg])
         .output()?;
-    if let Some(sp) = push_sp {
-        sp.finish();
-    }
-    if !push_output.status.success() {
-        let stderr = String::from_utf8_lossy(&push_output.stderr);
-        bail!("Failed to push: {}", stderr.trim());
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("git commit failed: {}", stderr.trim());
     }
 
-    if !json {
+    let hash = git_output(&["rev-parse", "--short", "HEAD"])?;
+
+    if json {
+        let payload = serde_json::json!({
+            "schema_version": WORK_COMMIT_SCHEMA,
+            "action": "work_commit",
+            "hash": hash,
+            "message": commit_msg,
+            "branch": branch,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
         println!(
-            "{} Pushed {} to origin",
+            "{} Committed {} on {}",
             style("✅").green().bold(),
+            style(&hash).yellow(),
             style(&branch).cyan()
         );
-    }
-
-    let mut gh_args = vec![
-        "pr".to_string(),
-        "create".to_string(),
-        "--title".to_string(),
-        pr_title.clone(),
-        "--body".to_string(),
-        pr_body.clone(),
-    ];
-
-    if draft {
-        gh_args.push("--draft".to_string());
-    }
-
-    if let Some(b) = base {
-        gh_args.push("--base".to_string());
-        gh_args.push(b.to_string());
-    }
-
-    let create_sp = if json {
-        None
-    } else {
-        Some(crate::spinner::Spinner::start("Creating pull request:"))
-    };
-    let gh_output = Command::new("gh").args(&gh_args).output()?;
-    if let Some(sp) = create_sp {
-        sp.finish();
-    }
-
-    if !gh_output.status.success() {
-        let stderr = String::from_utf8_lossy(&gh_output.stderr);
-        bail!("Failed to create PR: {}", stderr.trim());
-    }
-
-    let pr_url = String::from_utf8_lossy(&gh_output.stdout)
-        .trim()
-        .to_string();
-    let pr_number = extract_pr_number(&pr_url);
-
-    if json {
-        let payload = serde_json::json!({
-            "schema_version": WORK_PR_SCHEMA,
-            "action": "work_pr",
-            "url": pr_url,
-            "number": pr_number,
-            "title": pr_title,
-            "head": branch,
-            "base": base_branch,
-            "draft": draft,
-        });
-        println!("{}", serde_json::to_string_pretty(&payload)?);
-    } else {
-        let draft_label = if draft { "draft " } else { "" };
-        println!(
-            "{} Created {}PR: \"{}\"",
-            style("✅").green().bold(),
-            draft_label,
-            style(&pr_title).green()
-        );
-        println!("  {}", style(&pr_url).dim());
+        println!("  {}", style(&commit_msg).dim());
     }
 
     Ok(())
 }
 
-fn status(json: bool) -> Result<()> {
-    let branch = current_branch()?;
-    if branch.is_empty() {
-        bail!("Detached HEAD — not on any branch.");
-    }
-
-    let default = default_branch()?;
-    let ahead = commits_ahead_of(&branch, &default)?;
-    // `behind` needs the remote-tracking base; returns None if the base hasn't
-    // been fetched. That's distinct from "actually 0 behind" and agents need
-    // to tell them apart.
-    let behind: Option<usize> = commits_behind_of(&branch, &default).ok();
-
-    let pr_info = if Command::new("gh").arg("--version").output().is_ok() {
-        let gh_output = Command::new("gh")
-            .args([
-                "pr",
-                "view",
-                "--json",
-                "number,state,url",
-                "--jq",
-                ".number,.state,.url",
-            ])
-            .output();
-
-        match gh_output {
-            Ok(output) if output.status.success() => {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let lines: Vec<&str> = stdout.trim().lines().collect();
-                if lines.len() >= 3 {
-                    let number: Option<u64> = lines[0].parse().ok();
-                    Some((number, lines[1].to_lowercase(), lines[2].to_string()))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    } else {
-        None
-    };
-
-    if json {
-        let pr_payload = match &pr_info {
-            Some((number, state, url)) => serde_json::json!({
-                "number": number,
-                "state": state,
-                "url": url,
-            }),
-            None => serde_json::Value::Null,
-        };
-        let payload = serde_json::json!({
-            "schema_version": WORK_STATUS_SCHEMA,
-            "action": "work_status",
-            "branch": branch,
-            "default": default,
-            "ahead": ahead,
-            "behind": behind,  // null when rev-list fails (e.g. base not fetched)
-            "pr": pr_payload,
-        });
-        println!("{}", serde_json::to_string_pretty(&payload)?);
-    } else {
-        let behind_display = match behind {
-            Some(n) if n > 0 => format!(", {} behind", n),
-            _ => String::new(),
-        };
-        println!(
-            "  Branch: {} ({} {} ahead of {}{})",
-            style(&branch).cyan(),
-            ahead,
-            if ahead == 1 { "commit" } else { "commits" },
-            style(&default).dim(),
-            behind_display,
-        );
-        match &pr_info {
-            Some((number, state, url)) => {
-                let number_display = number
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| "?".to_string());
-                println!(
-                    "  PR: #{} ({}) — {}",
-                    style(number_display).green(),
-                    state,
-                    style(url).dim()
-                );
-            }
-            None => {
-                println!("  PR: {}", style("none").dim());
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn commits_behind_of(branch: &str, base: &str) -> Result<usize> {
-    let range = format!("{branch}..{base}");
-    let output = git_output(&["rev-list", "--count", &range])?;
-    Ok(output.parse().unwrap_or(0))
-}
-
-fn extract_pr_number(url: &str) -> Option<u64> {
-    // GitHub PR URLs always contain `/pull/<n>`. Anchor on that rather than
-    // the last path segment so trailing `/`, `?query`, or `#fragment` don't
-    // silently turn into `None`.
-    let after_pull = url.rsplit_once("/pull/")?.1;
-    let end = after_pull.find(['/', '?', '#']).unwrap_or(after_pull.len());
-    after_pull[..end].parse().ok()
-}
-
-fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
-    let range = format!("{base}..{branch}");
-    let output = git_output(&["rev-list", "--count", &range])?;
-    Ok(output.parse().unwrap_or(0))
-}
-
-/// Build a Markdown PR body from commit subjects between `base..branch`.
-///
-/// Format: `## Summary` heading + one bullet per commit (newest first), with
-/// any `type:` conventional-commit prefix stripped and the leading char
-/// upper-cased so bullets read like sentences. Falls back to a placeholder if
-/// the rev-list call returns nothing.
-pub fn generate_body_from_commits(branch: &str, base: &str) -> Result<String> {
-    let range = format!("{base}..{branch}");
-    let raw = git_output(&["log", "--pretty=format:%s", &range]).unwrap_or_default();
-
-    let bullets: Vec<String> = raw
-        .lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .map(format_commit_subject_as_bullet)
-        .collect();
-
-    let body = if bullets.is_empty() {
-        "## Summary\n\n- (describe the change)\n".to_string()
-    } else {
-        let mut out = String::from("## Summary\n\n");
-        for bullet in &bullets {
-            out.push_str("- ");
-            out.push_str(bullet);
-            out.push('\n');
-        }
-        out
-    };
-
-    Ok(body)
-}
-
-/// Build a richer PR body by handing the branch context to the configured
-/// LLM (`fledge ai use ...` / `--provider` / `--model`). Includes the full
-/// commit log, file-level diffstat, and a truncated unified diff so the
-/// model has enough context to write a real description, not just a list
-/// of subjects.
-fn generate_body_with_ai(
-    branch: &str,
-    base: &str,
+fn generate_commit_message_with_ai(
+    commit_type: &str,
+    scope: Option<&str>,
     provider_override: Option<&str>,
     model_override: Option<&str>,
     json: bool,
 ) -> Result<String> {
-    let range = format!("{base}..{branch}");
-    let commits =
-        git_output(&["log", "--pretty=format:%h %s%n%b%n---", &range]).unwrap_or_default();
-    let diffstat = git_output(&["diff", "--stat", &range]).unwrap_or_default();
-
-    // Truncate the diff to keep small/local models inside their context
-    // window. 600 lines is enough for most PRs to convey shape; reviewers
-    // see the full diff on GitHub regardless.
-    let diff_full = git_output(&["diff", &range]).unwrap_or_default();
-    let mut diff_lines: Vec<&str> = diff_full.lines().collect();
-    let truncated = diff_lines.len() > 600;
-    if truncated {
-        diff_lines.truncate(600);
+    let diff = git_output(&["diff", "--cached"])?;
+    if diff.is_empty() {
+        bail!("No staged diff for AI to analyze.");
     }
-    let diff = diff_lines.join("\n");
+
+    let mut diff_lines: Vec<&str> = diff.lines().collect();
+    let truncated = diff_lines.len() > 400;
+    if truncated {
+        diff_lines.truncate(400);
+    }
+    let diff_text = diff_lines.join("\n");
     let truncation_note = if truncated {
-        "\n\n[diff truncated to 600 lines for context]"
+        "\n\n[diff truncated to 400 lines]"
     } else {
         ""
     };
 
+    let scope_instruction = match scope {
+        Some(s) => format!("The scope is '{s}', so the format is: {commit_type}({s}): <message>"),
+        None => format!("The format is: {commit_type}: <message>"),
+    };
+
     let prompt = format!(
-        "You are writing a GitHub pull request description.\n\
+        "You are writing a git commit message in conventional-commit format.\n\
          \n\
-         Branch: {branch} → {base}\n\
+         {scope_instruction}\n\
          \n\
-         Commits:\n\
-         {commits}\n\
+         Staged diff:\n\
+         {diff_text}{truncation_note}\n\
          \n\
-         Files changed:\n\
-         {diffstat}\n\
-         \n\
-         Diff:\n\
-         {diff}{truncation_note}\n\
-         \n\
-         Write a Markdown PR description with:\n\
-         \n\
-         ## Summary\n\
-         - 2 to 5 bullets describing what changed and why\n\
-         \n\
-         ## Test plan\n\
-         - [ ] checklist items the reviewer should verify\n\
-         \n\
-         Be concrete. Reference specific files or functions when relevant. \
-         Do not invent features that aren't in the diff. \
-         Do not include any preamble or sign-off — output ONLY the Markdown body."
+         Write ONLY the commit message (one line). Be specific and concise. \
+         Describe WHAT changed, not HOW. Do not include any explanation or preamble."
     );
 
     let config = crate::config::Config::load().context("loading config")?;
@@ -683,7 +456,7 @@ fn generate_body_with_ai(
         None
     } else {
         Some(crate::spinner::Spinner::start(&format!(
-            "Drafting PR body [{}]:",
+            "Generating commit message [{}]:",
             crate::llm::describe(&*provider)
         )))
     };
@@ -691,9 +464,139 @@ fn generate_body_with_ai(
     if let Some(sp) = sp {
         sp.finish();
     }
-    Ok(answer?.trim().to_string())
+
+    let raw = answer?.trim().to_string();
+    let cleaned = raw
+        .trim_start_matches('`')
+        .trim_end_matches('`')
+        .trim_start_matches('"')
+        .trim_end_matches('"')
+        .trim()
+        .to_string();
+
+    Ok(cleaned)
 }
 
+fn push(force: bool, json: bool) -> Result<()> {
+    let branch = current_branch()?;
+    let default = default_branch()?;
+
+    if branch == default || branch.is_empty() {
+        bail!(
+            "Refusing to push the default branch '{}'. Switch to a feature branch first.",
+            default
+        );
+    }
+
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Pushing {} to origin:",
+            &branch
+        )))
+    };
+
+    let mut args = vec!["push", "-u", "origin", &branch];
+    if force {
+        args.insert(1, "--force-with-lease");
+    }
+
+    let output = Command::new("git").args(&args).output()?;
+    if let Some(sp) = sp {
+        sp.finish();
+    }
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("Failed to push: {}", stderr.trim());
+    }
+
+    if json {
+        let payload = serde_json::json!({
+            "schema_version": WORK_PUSH_SCHEMA,
+            "action": "work_push",
+            "branch": branch,
+            "remote": "origin",
+            "force": force,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        println!(
+            "{} Pushed {} to origin",
+            style("✅").green().bold(),
+            style(&branch).cyan()
+        );
+    }
+
+    Ok(())
+}
+
+fn status(json: bool) -> Result<()> {
+    let branch = current_branch()?;
+    if branch.is_empty() {
+        bail!("Detached HEAD — not on any branch.");
+    }
+
+    let default = default_branch()?;
+    let ahead = commits_ahead_of(&branch, &default)?;
+    let behind: Option<usize> = commits_behind_of(&branch, &default).ok();
+    let dirty_count = git_output(&["status", "--porcelain"])?
+        .lines()
+        .filter(|l| !l.is_empty())
+        .count();
+
+    if json {
+        let payload = serde_json::json!({
+            "schema_version": WORK_STATUS_SCHEMA,
+            "action": "work_status",
+            "branch": branch,
+            "default": default,
+            "ahead": ahead,
+            "behind": behind,
+            "dirty": dirty_count,
+        });
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    } else {
+        let behind_display = match behind {
+            Some(n) if n > 0 => format!(", {} behind", n),
+            _ => String::new(),
+        };
+        let dirty_display = if dirty_count > 0 {
+            format!(
+                "\n  Dirty: {} uncommitted {}",
+                dirty_count,
+                if dirty_count == 1 { "file" } else { "files" }
+            )
+        } else {
+            String::new()
+        };
+        println!(
+            "  Branch: {} ({} {} ahead of {}{}){dirty_display}",
+            style(&branch).cyan(),
+            ahead,
+            if ahead == 1 { "commit" } else { "commits" },
+            style(&default).dim(),
+            behind_display,
+        );
+    }
+
+    Ok(())
+}
+
+fn commits_behind_of(branch: &str, base: &str) -> Result<usize> {
+    let range = format!("{branch}..{base}");
+    let output = git_output(&["rev-list", "--count", &range])?;
+    Ok(output.parse().unwrap_or(0))
+}
+
+fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
+    let range = format!("{base}..{branch}");
+    let output = git_output(&["rev-list", "--count", &range])?;
+    Ok(output.parse().unwrap_or(0))
+}
+
+#[allow(dead_code)]
 fn format_commit_subject_as_bullet(subject: &str) -> String {
     // Strip a leading conventional-commit prefix like "feat: ", "fix(scope): ".
     let stripped = match subject.find(": ") {
@@ -718,32 +621,18 @@ fn format_commit_subject_as_bullet(subject: &str) -> String {
     }
 }
 
-fn print_pr_preview(title: &str, body: &str, head: &str, base: &str, draft: bool) {
-    let bar = style("─".repeat(60)).dim();
-    println!();
-    println!("{}", bar);
-    println!("{} {}", style("Title:").bold(), style(title).green());
-    println!(
-        "{}  {} → {}{}",
-        style("Branch:").bold(),
-        style(head).cyan(),
-        style(base).dim(),
-        if draft {
-            style(" (draft)").yellow().to_string()
-        } else {
-            String::new()
-        },
-    );
-    println!();
-    for line in body.lines() {
-        println!("  {}", line);
+pub fn build_commit_message(commit_type: &str, scope: Option<&str>, message: &str) -> String {
+    let lowered = match message.chars().next() {
+        Some(first) => first.to_lowercase().collect::<String>() + &message[first.len_utf8()..],
+        None => message.to_string(),
+    };
+    match scope {
+        Some(s) => format!("{commit_type}({s}): {lowered}"),
+        None => format!("{commit_type}: {lowered}"),
     }
-    if !body.ends_with('\n') {
-        println!();
-    }
-    println!("{}", bar);
 }
 
+#[allow(dead_code)]
 pub fn generate_title_from_branch(branch: &str) -> String {
     let name = VALID_BRANCH_TYPES
         .iter()
@@ -1050,46 +939,6 @@ test = "cargo test"
     }
 
     #[test]
-    fn extract_pr_number_basic() {
-        assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/pull/42"),
-            Some(42)
-        );
-    }
-
-    #[test]
-    fn extract_pr_number_trailing_slash() {
-        assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/pull/42/"),
-            Some(42)
-        );
-    }
-
-    #[test]
-    fn extract_pr_number_with_query() {
-        assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/pull/42?q=1"),
-            Some(42)
-        );
-    }
-
-    #[test]
-    fn extract_pr_number_with_fragment() {
-        assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/pull/42#comment"),
-            Some(42)
-        );
-    }
-
-    #[test]
-    fn extract_pr_number_subpath() {
-        assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/pull/42/files"),
-            Some(42)
-        );
-    }
-
-    #[test]
     fn format_commit_strips_feat_prefix() {
         assert_eq!(
             format_commit_subject_as_bullet("feat: add search command"),
@@ -1134,15 +983,31 @@ test = "cargo test"
     }
 
     #[test]
-    fn extract_pr_number_no_pull_segment() {
+    fn test_build_commit_message_basic() {
         assert_eq!(
-            extract_pr_number("https://github.com/owner/repo/issues/42"),
-            None
+            build_commit_message("feat", None, "add search command"),
+            "feat: add search command"
         );
     }
 
     #[test]
-    fn extract_pr_number_not_a_url() {
-        assert_eq!(extract_pr_number("not-a-url"), None);
+    fn test_build_commit_message_with_scope() {
+        assert_eq!(
+            build_commit_message("fix", Some("work"), "null pointer on empty branch"),
+            "fix(work): null pointer on empty branch"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_lowercases_first_char() {
+        assert_eq!(
+            build_commit_message("feat", None, "Add search"),
+            "feat: add search"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_empty_message() {
+        assert_eq!(build_commit_message("chore", None, ""), "chore: ");
     }
 }
