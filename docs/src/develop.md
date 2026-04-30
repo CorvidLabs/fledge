@@ -2,7 +2,9 @@
 
 Keep your specs in sync with the code. Specs are the source of truth for module design — write the spec first, then write the code to match.
 
-> **Tip:** For branch and PR workflows, see [Ship: Branch, PR, Release](./ship.md).
+## Why spec-sync?
+
+Design docs rot. They get written once, then drift as the code evolves. Spec-sync solves this by making specs machine-checkable: `fledge spec check` validates that the code matches the spec, and CI catches drift before it lands. AI commands (`fledge ask`, `fledge review`) automatically inject relevant specs as context, so the model knows *why* the code is shaped the way it is, not just *what* it does.
 
 ## Spec-sync with `fledge spec`
 

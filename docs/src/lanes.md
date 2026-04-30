@@ -1,8 +1,63 @@
-# Lanes & Pipelines
+# Run: Tasks and Lanes
 
-Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lanes run ci`. All lane commands live under `fledge lanes`. They support parallel groups and configurable failure behavior.
+The Run pillar covers three commands: `fledge run` (task runner), `fledge watch` (file watcher), and `fledge lanes` (pipelines).
 
-## Quick Start
+## Running Tasks
+
+`fledge run` works immediately in any project — no config needed. It detects your stack from marker files and provides sensible defaults:
+
+```bash
+fledge run test     # auto-detects Rust/Node/Go/Python/Ruby/Java/Swift
+fledge run build
+fledge run lint
+fledge run --list   # see what's available
+```
+
+### Auto-Detection
+
+| Project | Detected by | Default tasks |
+|---------|------------|---------------|
+| Rust | `Cargo.toml` | build, test, lint, fmt |
+| Node.js | `package.json` | test, build, lint, dev (if scripts exist) |
+| Go | `go.mod` | build, test, lint |
+| Python | `pyproject.toml` / `setup.py` | test, lint, fmt |
+| Ruby | `Gemfile` | test, lint |
+| Swift | `Package.swift` | build, test |
+| Gradle | `build.gradle` | build, test |
+| Maven | `pom.xml` | build, test |
+
+For Node.js projects, fledge also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
+
+### Config Mode
+
+When you want full control, generate a `fledge.toml`:
+
+```bash
+fledge run --init
+```
+
+This creates a config file pre-filled with detected tasks. Once `fledge.toml` exists, it takes full precedence — no mixing with auto-detection. You can also override the detected language with `--lang`:
+
+```bash
+fledge run test --lang swift
+```
+
+## Watching for Changes
+
+`fledge watch` re-runs a task automatically when files change:
+
+```bash
+fledge watch test            # re-run tests on save
+fledge watch build           # rebuild on change
+```
+
+It watches the project directory, ignoring `.git/`, `target/`, `node_modules/`, and other common build directories. The debounce interval defaults to 500ms and can be changed with `--debounce <MS>`.
+
+## Lanes
+
+Lanes let you chain tasks into named pipelines. Define them in `fledge.toml`, run them with `fledge lanes run ci`. They support parallel groups and configurable failure behavior.
+
+### Quick Start
 
 Already have tasks in `fledge.toml`? Generate lanes automatically:
 
@@ -16,7 +71,7 @@ This looks at your project type and creates sensible defaults. Then just run one
 fledge lanes run ci
 ```
 
-## Defining Lanes
+### Defining Lanes
 
 Lanes go in `fledge.toml` alongside your tasks:
 
@@ -39,7 +94,7 @@ steps = [
 ]
 ```
 
-### Lane Options
+#### Lane Options
 
 | Field | Type | Default | What it does |
 |-------|------|---------|-------------|
@@ -47,11 +102,11 @@ steps = [
 | `steps` | array | required | Ordered list of steps |
 | `fail_fast` | bool | `true` | Stop on first failure vs. run everything and report |
 
-## Step Types
+### Step Types
 
 You can mix these freely in a lane:
 
-### Task References
+#### Task References
 
 Just name a task from your `[tasks]` section. Dependencies (`deps`) get resolved automatically.
 
@@ -59,7 +114,7 @@ Just name a task from your `[tasks]` section. Dependencies (`deps`) get resolved
 steps = ["lint", "test", "build"]
 ```
 
-### Inline Commands
+#### Inline Commands
 
 One-off shell commands without cluttering your task list:
 
@@ -71,7 +126,7 @@ steps = [
 ]
 ```
 
-### Parallel Groups
+#### Parallel Groups
 
 Run multiple items at the same time. Everything in the group finishes before the next step starts. Items can be task references or inline commands.
 
@@ -94,7 +149,7 @@ steps = [
 ]
 ```
 
-## Failure Behavior
+### Failure Behavior
 
 Default is `fail_fast = true`. Pipeline stops on the first failure.
 
@@ -113,7 +168,7 @@ fail_fast = false
 steps = ["lint", "test", "security-check", "license-check"]
 ```
 
-## Step Timing
+### Step Timing
 
 Every step prints its elapsed time, and the lane summary shows total time:
 
@@ -158,9 +213,9 @@ dir = "crates/core"
 | `env` | table | Environment variables for this task |
 | `dir` | string | Working directory (relative to project root) |
 
-## Examples
+### Examples
 
-### CI Pipeline
+#### CI Pipeline
 
 ```toml
 [lanes.ci]
@@ -172,7 +227,7 @@ steps = [
 ]
 ```
 
-### Release
+#### Release
 
 ```toml
 [lanes.release]
@@ -185,7 +240,7 @@ steps = [
 ]
 ```
 
-### Full Audit
+#### Full Audit
 
 ```toml
 [lanes.audit]
@@ -199,7 +254,7 @@ steps = [
 ]
 ```
 
-## Auto-Generated Defaults
+### Auto-Generated Defaults
 
 `fledge lanes init` detects your project type:
 
@@ -210,7 +265,7 @@ steps = [
 | Go | `go.mod` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Python | `pyproject.toml` | `ci` (fmt, lint, test), `check` (parallel fmt+lint, test) |
 
-## CLI
+### CLI
 
 ```bash
 fledge lanes run ci                   # run a lane
@@ -229,11 +284,11 @@ fledge lanes validate --strict        # treat warnings as errors
 fledge lanes validate --json          # machine-readable output
 ```
 
-## Community Lane Registry
+### Community Lane Registry
 
 Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are discoverable through `fledge lanes search`.
 
-### Official Examples
+#### Official Examples
 
 [CorvidLabs/fledge-lanes](https://github.com/CorvidLabs/fledge-lanes) is the official collection of language-specific lane examples. Each subdirectory contains a fully-documented `fledge.toml`.
 
@@ -244,7 +299,7 @@ Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are disc
 | Node/TypeScript | `fledge lanes import CorvidLabs/fledge-lanes/node-typescript` |
 | Go | `fledge lanes import CorvidLabs/fledge-lanes/go` |
 
-### Creating Lanes
+#### Creating Lanes
 
 Use `fledge lanes create` to scaffold a ready-to-publish lane repo:
 
@@ -259,14 +314,14 @@ fledge lanes validate ./my-lanes     # check for errors
 fledge lanes publish ./my-lanes      # push to GitHub (validates first)
 ```
 
-### Publishing Lanes
+#### Publishing Lanes
 
 1. Create a repo with a `fledge.toml` containing your lanes and tasks (or use `fledge lanes create`)
 2. Validate with `fledge lanes validate` (publish does this automatically)
 3. Publish with `fledge lanes publish` (sets the `fledge-lane` topic automatically)
 4. Others can find it with `fledge lanes search` and import it
 
-### Importing Lanes
+#### Importing Lanes
 
 ```bash
 fledge lanes import CorvidLabs/fledge-lanes
@@ -280,14 +335,14 @@ You can pin to a specific branch or tag:
 fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 ```
 
-## Related
+### Related
 
 - [Configuration](./configuration.md), global config, GitHub tokens
 - [Extend: Plugins](./plugins.md), community commands, use plugins in lanes
 - [CLI Reference](./cli-reference.md), full `fledge lanes` subcommand reference
 - [Example Lanes](https://github.com/CorvidLabs/fledge-lanes), official community lane collection
 
-## Tips
+### Tips
 
 - Start with `fledge lanes init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.

@@ -62,8 +62,11 @@ fledge templates init my-tool --template rust-cli --author "Leif" --org CorvidLa
 Show all available templates (built-in, configured repos, and local paths).
 
 ```text
-fledge templates list
+fledge templates list [OPTIONS]
 ```
+
+**Options:**
+- `--json` - JSON output
 
 ---
 
@@ -165,6 +168,7 @@ fledge run [task] [OPTIONS]
 - `--init` - Generate `fledge.toml` with detected defaults
 - `-l, --list` - List available tasks
 - `--lang <LANG>` - Override detected project language (swift, python, rust, node, go, ruby, java-gradle, java-maven)
+- `--json` - JSON output (works with `--list` and when running a task)
 
 **Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 
@@ -203,7 +207,7 @@ fledge lanes <run|list|init|search|import|publish|create|validate>
 
 **Subcommands:**
 
-- `run <name>` - Run a lane by name (`--dry-run` to preview)
+- `run <name>` - Run a lane by name (`--dry-run` to preview, `--json` for JSON output)
 - `list` - List available lanes (`--json` for JSON output)
 - `init` - Add default lanes to `fledge.toml`
 - `search [query]` - Search GitHub for community lanes (`--author`, `--json`)
@@ -275,7 +279,7 @@ fledge watch [task] [OPTIONS]
 - `[task]` - Task to re-run on changes [default: the last `fledge run` task]
 
 **Options:**
-- `--debounce <MS>` - Debounce interval in milliseconds [default: `300`]
+- `--debounce <MS>` - Debounce interval in milliseconds [default: `500`]
 
 Watches the project directory for file changes and re-runs the specified task. Ignores `.git/`, `target/`, `node_modules/`, and other common build directories.
 
@@ -410,9 +414,9 @@ fledge work <start|pr|status> [OPTIONS]
 
 **Subcommands:**
 
-- `start <name>`: Create a work branch
+- `start <name>`: Create a work branch (`--json` for JSON output)
 - `pr`: Open a PR with auto-generated title + body, styled preview, and y/n confirm. See options below.
-- `status`: Current branch + PR status
+- `status`: Current branch + PR status (`--json` for JSON output)
 
 **Options for `work start`:**
 
@@ -570,7 +574,7 @@ fledge checks [OPTIONS]
 Install, manage, and run community plugins.
 
 ```text
-fledge plugins <install|remove|update|list|search|run|publish|create|validate> [OPTIONS]
+fledge plugins <install|remove|update|list|search|run|publish|create|validate|audit> [OPTIONS]
 ```
 
 **Subcommands:**
@@ -584,8 +588,9 @@ fledge plugins <install|remove|update|list|search|run|publish|create|validate> [
 - `publish [path]`: Publish a plugin to GitHub (`--org`, `--private`, `--description`)
 - `create <name>`: Scaffold a new plugin (`--output`, `--description`, `--yes`)
 - `validate [path]`: Validate a plugin manifest (`--strict`, `--json`)
+- `audit`: Security audit of installed plugins (trust tier, source, capabilities)
 
-`--json` works with `list` and `search`.
+`--json` works with `list`, `search`, and `audit`.
 
 **Default plugins** (installed by `--defaults`):
 

@@ -109,11 +109,7 @@ REVIEW=$(fledge review --json)
 # Parse findings, fix issues, re-run
 ```
 
-## Related plugins
+## Related
 
-The default plugin set adds two commands that complement AI review:
-
-- **`fledge metrics`** ([`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics)) — LOC summary, most-changed files, test/source ratio
-- **`fledge deps`** ([`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps)) — dependency outdated/audit checks, auto-detected from lockfiles
-
-Install with `fledge plugins install --defaults`. See the [CLI Reference](./cli-reference.md#fledge-deps-plugin) for full options and supported ecosystems.
+- [Extend: Plugins](./plugins.md) — `fledge metrics` and `fledge deps` complement AI review (install with `fledge plugins install --defaults`)
+- [CLI Reference](./cli-reference.md#ai-ask-and-review) — full flag reference for `ai`, `ask`, and `review`

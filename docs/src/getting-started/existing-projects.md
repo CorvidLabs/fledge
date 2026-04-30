@@ -43,25 +43,7 @@ Once `fledge.toml` exists, it takes full precedence over auto-detection.
 
 ## Everything Else Works Too
 
-These commands work in any git repo regardless of how the project was created:
-
-| Command | What it does | Where it lives |
-|---------|-------------|----------------|
-| `fledge run` | Task runner (zero-config or from fledge.toml) | core |
-| `fledge lanes` | Workflow pipelines | core |
-| `fledge review` | AI code review of your current branch | core |
-| `fledge ask` | Ask questions about your codebase | core |
-| `fledge work` | Feature branch and PR workflow | core |
-| `fledge changelog` | Changelog from git tags | core |
-| `fledge doctor` | Environment diagnostics (incl. Toolchains) | core |
-| `fledge templates search`/`publish` | Browse / push community templates | core |
-| `fledge checks` | CI/CD status | `fledge-plugin-github` |
-| `fledge issues` | GitHub issues | `fledge-plugin-github` |
-| `fledge prs` | Pull requests | `fledge-plugin-github` |
-| `fledge metrics` | Code stats (LOC, churn, test ratio) | `fledge-plugin-metrics` |
-| `fledge deps` | Dependency health | `fledge-plugin-deps` |
-
-Plugin commands require `fledge plugins install --defaults` once.
+Every command in the [six pillars](../pillars.md) works in any git repo — AI review, work branches, changelog, doctor, plugins, and more. See the sidebar for the full list.
 
 ## Turn Your Project into a Template
 
@@ -83,10 +65,6 @@ Or publish it for others:
 fledge templates publish ./my-stack
 ```
 
-## Typical Workflow
+## What's Next
 
-1. **Start using fledge today**: `cd your-project && fledge run test`
-2. **Optionally lock in config**: `fledge run --init` to generate `fledge.toml`
-3. **Set up lanes**: `fledge lanes init` for CI pipelines
-4. **Use the full toolkit**: `fledge review`, `fledge work start feature-x`, `fledge checks` (plugin)
-5. **Create templates**: Once you have a setup you like, `fledge templates create` to reuse it
+Once you're running tasks, the rest of the dev loop is available immediately — see [Quick Start: What's Next](./quick-start.md#whats-next) for the full list.

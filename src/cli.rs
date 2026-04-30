@@ -643,7 +643,7 @@ pub enum PluginSubcommand {
         /// Skip all confirmation prompts (accept defaults)
         #[arg(short, long)]
         yes: bool,
-        /// Install fledge's curated set of default plugins (github, deps, metrics, templates-remote, doctor)
+        /// Install fledge's curated set of default plugins (github, deps, metrics)
         #[arg(long, conflicts_with = "source")]
         defaults: bool,
     },
