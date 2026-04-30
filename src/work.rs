@@ -488,6 +488,16 @@ fn push(force: bool, json: bool) -> Result<()> {
         );
     }
 
+    // Check if there's anything to push
+    let tracking = format!("origin/{branch}");
+    let has_tracking = git_output(&["rev-parse", "--verify", &tracking]).is_ok();
+    if has_tracking {
+        let ahead = commits_ahead_of(&branch, &tracking)?;
+        if ahead == 0 {
+            bail!("No commits ahead of '{}'. Nothing to push.", tracking);
+        }
+    }
+
     let sp = if json {
         None
     } else {
