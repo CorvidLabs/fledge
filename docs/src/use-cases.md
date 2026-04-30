@@ -6,20 +6,7 @@ fledge works for solo devs, teams, and AI agents. This page covers real workflow
 
 ### Zero-config task runner
 
-Drop into any project and run tasks without writing config:
-
-```bash
-cd my-rust-project
-fledge run test       # detects Cargo.toml, runs cargo test
-fledge run lint       # runs cargo clippy
-fledge run build      # runs cargo build
-```
-
-Works for Rust, Node, Go, Python, Ruby, Java, and Swift out of the box.
-
-### Consistent workflow across projects
-
-Stop remembering which project uses `npm test` vs `cargo test` vs `go test`:
+`fledge run test` works immediately in any project — it auto-detects your stack from marker files. No config file needed. See [Existing Projects](./getting-started/existing-projects.md) for details.
 
 ```bash
 fledge run test    # always works, regardless of language

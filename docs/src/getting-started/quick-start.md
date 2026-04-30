@@ -58,6 +58,9 @@ See [Existing Projects](./existing-projects.md) for the full guide.
 Once your project exists, here's the rest of the dev loop:
 
 ```bash
+# File watcher
+fledge watch test                    # re-run tests on every save
+
 # Workflow pipelines
 fledge lanes init                    # generate default lanes for your project type
 fledge lanes run ci                  # run the full pipeline

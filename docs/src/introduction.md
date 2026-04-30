@@ -1,6 +1,6 @@
 # Introduction
 
-One CLI for the dev loop. Any language. JSON by default. Read the docs and go.
+One CLI for the entire dev lifecycle — scaffold, run tasks, sync specs, AI review, ship PRs, and release. Works with any language, outputs JSON for automation, and extends through plugins.
 
 ## Why I built this
 
