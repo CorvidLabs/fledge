@@ -9,7 +9,7 @@
 - [Scaffold: Templates](./templates.md)
   - [Template Authoring Guide](./template-authoring.md)
 - [Run: Tasks and Lanes](./lanes.md)
-- [Spec: Spec-sync](./develop.md)
+- [Spec: Spec-sync](./spec.md)
 - [AI: Ask and Review](./review.md)
 - [Ship: Branch, PR, Release](./ship.md)
   - [GitHub Integration (plugin)](./github-integration.md)

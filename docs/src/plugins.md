@@ -253,7 +253,7 @@ steps = [
 ]
 ```
 
-See [Lanes & Pipelines](./lanes.md) for full step type documentation.
+See [Run: Tasks and Lanes](./lanes.md) for full step type documentation.
 
 ## Plugin Protocol (fledge-v1)
 

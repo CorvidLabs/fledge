@@ -187,6 +187,8 @@ This helps identify slow steps in your pipeline without any extra tooling.
 
 ## Task Configuration
 
+Tasks are the building blocks that lanes and `fledge run` execute. Define them in `fledge.toml`.
+
 ### Short Form
 
 ```toml
@@ -213,9 +215,9 @@ dir = "crates/core"
 | `env` | table | Environment variables for this task |
 | `dir` | string | Working directory (relative to project root) |
 
-### Examples
+## Lane Examples
 
-#### CI Pipeline
+### CI Pipeline
 
 ```toml
 [lanes.ci]
@@ -227,7 +229,7 @@ steps = [
 ]
 ```
 
-#### Release
+### Release
 
 ```toml
 [lanes.release]
@@ -240,7 +242,7 @@ steps = [
 ]
 ```
 
-#### Full Audit
+### Full Audit
 
 ```toml
 [lanes.audit]
@@ -254,7 +256,7 @@ steps = [
 ]
 ```
 
-### Auto-Generated Defaults
+## Auto-Generated Defaults
 
 `fledge lanes init` detects your project type:
 
@@ -265,7 +267,7 @@ steps = [
 | Go | `go.mod` | `ci` (fmt, lint, test, build), `check` (parallel fmt+lint, test) |
 | Python | `pyproject.toml` | `ci` (fmt, lint, test), `check` (parallel fmt+lint, test) |
 
-### CLI
+## Lanes CLI
 
 ```bash
 fledge lanes run ci                   # run a lane
@@ -284,11 +286,11 @@ fledge lanes validate --strict        # treat warnings as errors
 fledge lanes validate --json          # machine-readable output
 ```
 
-### Community Lane Registry
+## Community Lane Registry
 
 Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are discoverable through `fledge lanes search`.
 
-#### Official Examples
+### Official Examples
 
 [CorvidLabs/fledge-lanes](https://github.com/CorvidLabs/fledge-lanes) is the official collection of language-specific lane examples. Each subdirectory contains a fully-documented `fledge.toml`.
 
@@ -299,7 +301,7 @@ Share and discover lanes via GitHub. Repos with the `fledge-lane` topic are disc
 | Node/TypeScript | `fledge lanes import CorvidLabs/fledge-lanes/node-typescript` |
 | Go | `fledge lanes import CorvidLabs/fledge-lanes/go` |
 
-#### Creating Lanes
+### Creating Lanes
 
 Use `fledge lanes create` to scaffold a ready-to-publish lane repo:
 
@@ -314,14 +316,14 @@ fledge lanes validate ./my-lanes     # check for errors
 fledge lanes publish ./my-lanes      # push to GitHub (validates first)
 ```
 
-#### Publishing Lanes
+### Publishing Lanes
 
 1. Create a repo with a `fledge.toml` containing your lanes and tasks (or use `fledge lanes create`)
 2. Validate with `fledge lanes validate` (publish does this automatically)
 3. Publish with `fledge lanes publish` (sets the `fledge-lane` topic automatically)
 4. Others can find it with `fledge lanes search` and import it
 
-#### Importing Lanes
+### Importing Lanes
 
 ```bash
 fledge lanes import CorvidLabs/fledge-lanes
@@ -335,14 +337,14 @@ You can pin to a specific branch or tag:
 fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 ```
 
-### Related
+## Related
 
-- [Configuration](./configuration.md), global config, GitHub tokens
-- [Extend: Plugins](./plugins.md), community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md), full `fledge lanes` subcommand reference
-- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes), official community lane collection
+- [Configuration](./configuration.md) — global config, GitHub tokens
+- [Extend: Plugins](./plugins.md) — community commands, use plugins in lanes
+- [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
+- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
 
-### Tips
+## Tips
 
 - Start with `fledge lanes init` and customize from there.
 - Use parallel groups for independent checks. Linting and formatting don't need to wait for each other.

@@ -50,32 +50,13 @@ Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. Nothing i
 
 ## GitHub browsing (plugin)
 
-Read-only views of issues, PRs, and CI status live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). PR *creation* stays in core via `fledge work pr` above.
+Read-only views of issues, PRs, and CI status live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). PR *creation* stays in core via `fledge work pr` above. Install with `fledge plugins install --defaults`.
 
-```bash
-fledge plugins install --defaults
-```
-
-```bash
-fledge issues                          # GitHub issues (open by default)
-fledge issues view 42 --json
-fledge prs                             # GitHub PRs
-fledge prs view 256 --json
-fledge checks                          # CI status for current branch
-fledge checks --branch main --json
-```
+See [GitHub Integration](./github-integration.md) for the full command reference and setup instructions.
 
 ## Changelogs with `fledge changelog`
 
-Generate a changelog from git tags and conventional commits.
-
-```bash
-fledge changelog
-fledge changelog --unreleased     # changes since last tag
-fledge changelog --tag v0.15.0    # specific release
-fledge changelog --limit 5        # last 5 releases
-fledge changelog --json
-```
+Generate a changelog from git tags and conventional commits. See [Changelog](./changelog.md) for the commit format reference and full options.
 
 ## Releases with `fledge release`
 
