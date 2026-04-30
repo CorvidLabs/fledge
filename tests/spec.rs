@@ -191,8 +191,15 @@ fn cli_work_start_help_shows_json_flag() {
 }
 
 #[test]
-fn cli_work_pr_help_shows_json_flag() {
-    let output = run_fledge(&["work", "pr", "--help"]);
+fn cli_work_commit_help_shows_json_flag() {
+    let output = run_fledge(&["work", "commit", "--help"]);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("--json"));
+}
+
+#[test]
+fn cli_work_push_help_shows_json_flag() {
+    let output = run_fledge(&["work", "push", "--help"]);
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("--json"));
 }
@@ -249,8 +256,8 @@ fn cli_work_status_json_in_repo() {
     assert!(parsed["ahead"].is_number());
     // behind is either a number or null (base-not-fetched sentinel)
     assert!(parsed["behind"].is_number() || parsed["behind"].is_null());
-    // pr is either null or an object — both are valid
-    assert!(parsed.get("pr").is_some());
+    // dirty is a count of uncommitted files
+    assert!(parsed["dirty"].is_number());
 }
 
 // ──────────────────────────────────────────────────────────
