@@ -567,7 +567,7 @@ version = "0.1.0"
 [hooks]
 pre_init = "scripts/pre-init.sh"
 post_work_start = "scripts/setup-hooks.sh"
-pre_pr = "scripts/lint-all.sh"
+pre_push = "scripts/lint-all.sh"
 "#;
     let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
     assert_eq!(
@@ -579,7 +579,7 @@ pre_pr = "scripts/lint-all.sh"
         Some("scripts/setup-hooks.sh")
     );
     assert_eq!(
-        manifest.hooks.pre_pr.as_deref(),
+        manifest.hooks.pre_push.as_deref(),
         Some("scripts/lint-all.sh")
     );
 }
@@ -594,7 +594,7 @@ version = "0.1.0"
     let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
     assert!(manifest.hooks.pre_init.is_none());
     assert!(manifest.hooks.post_work_start.is_none());
-    assert!(manifest.hooks.pre_pr.is_none());
+    assert!(manifest.hooks.pre_push.is_none());
 }
 
 #[test]
@@ -816,7 +816,7 @@ fn hooks_has_any_detects_build() {
 #[test]
 fn hooks_has_any_detects_lifecycle() {
     let hooks = PluginHooks {
-        pre_pr: Some("./check.sh".into()),
+        pre_push: Some("./check.sh".into()),
         ..Default::default()
     };
     assert!(hooks.has_any());
@@ -832,14 +832,14 @@ fn hooks_has_any_false_when_empty() {
 fn hooks_iter_defined_returns_all_set_hooks() {
     let hooks = PluginHooks {
         build: Some("make".into()),
-        pre_pr: Some("lint".into()),
+        pre_push: Some("lint".into()),
         post_install: Some("setup.sh".into()),
         ..Default::default()
     };
     let items = hooks.iter_defined();
     assert_eq!(items.len(), 3);
     assert!(items.contains(&("build", "make")));
-    assert!(items.contains(&("pre_pr", "lint")));
+    assert!(items.contains(&("pre_push", "lint")));
     assert!(items.contains(&("post_install", "setup.sh")));
 }
 
@@ -859,7 +859,7 @@ version = "1.0.0"
 [hooks]
 build = "cargo build --release"
 post_install = "scripts/setup.sh"
-pre_pr = "./lint.sh"
+pre_push = "./lint.sh"
 "#;
     let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
     assert!(manifest.hooks.has_any());
@@ -871,7 +871,7 @@ pre_pr = "./lint.sh"
         manifest.hooks.post_install.as_deref(),
         Some("scripts/setup.sh")
     );
-    assert_eq!(manifest.hooks.pre_pr.as_deref(), Some("./lint.sh"));
+    assert_eq!(manifest.hooks.pre_push.as_deref(), Some("./lint.sh"));
     assert!(manifest.hooks.post_work_start.is_none());
 }
 

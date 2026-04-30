@@ -1,6 +1,6 @@
 ---
 module: work
-version: 10
+version: 11
 status: active
 files:
   - src/work.rs
@@ -15,7 +15,7 @@ depends_on:
 
 ## Purpose
 
-Provides opinionated git workflow commands for feature branch development. `fledge work start` creates a branch following configurable naming conventions (type, issue linking, custom prefix), and `fledge work pr` creates a pull request from the current branch with automatic title/body generation.
+Provides opinionated git workflow commands for feature branch development. `fledge work start` creates a branch following configurable naming conventions (type, issue linking, custom prefix), `fledge work commit` creates conventional-commit formatted commits with optional AI message generation, and `fledge work push` pushes the current branch to origin with safety guards. PR creation has been extracted to `fledge-plugin-github`; `fledge work pr` prints a deprecation notice directing users there.
 
 ## Public API
 
@@ -24,17 +24,17 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate work subcommand |
-| `WorkAction` | Enum of subcommands: Start, Pr, Status |
+| `WorkAction` | Enum of subcommands: Start, Commit, Push, Status, DeprecatedPr |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
-| `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces |
-| `generate_body_from_commits` | Generates a Markdown PR body from `git log base..branch` — `## Summary` heading + one bullet per commit subject (conventional-commit prefix stripped) |
+| `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces (retained for plugin use, `#[allow(dead_code)]`) |
+| `build_commit_message` | Builds a conventional-commit message string from type, optional scope, and message body |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base, json), Pr (title, body, draft, base, json, yes, ai, provider, model), Status (json) |
+| `WorkAction` | Enum of subcommands: Start (name, branch_type, issue, prefix, base, json), Commit (message, commit_type, scope, all, ai, provider, model, json), Push (force, json), Status (json), DeprecatedPr |
 | `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 
 ### Traits
@@ -46,20 +46,20 @@ Provides opinionated git workflow commands for feature branch development. `fled
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(WorkAction) -> Result<()>` | Dispatches to start, pr, or status |
+| `run` | `(WorkAction) -> Result<()>` | Dispatches to start, commit, push, status, or deprecated-pr notice |
 | `start` | `(name, branch_type, issue, prefix, base, json) -> Result<()>` | Creates and checks out a branch with configurable type and naming |
-| `pr` | `(title, body, draft, base, json, yes, ai, provider, model) -> Result<()>` | Creates a PR via `gh` CLI; auto-generates title/body and shows a preview + confirmation unless `--yes` or `--json`. `--ai` switches the body generator to the configured LLM provider |
-| `status` | `(json: bool) -> Result<()>` | Shows current branch, commits ahead/behind, and PR status |
+| `commit` | `(message, commit_type, scope, all, ai, provider, model, json) -> Result<()>` | Stages (with `--all`), builds a conventional-commit message, and runs `git commit`. Infers type from branch prefix or config default |
+| `push` | `(force, json) -> Result<()>` | Pushes current branch to origin with `-u`. `--force` uses `--force-with-lease`. Refuses to push default branch or when nothing to push |
+| `status` | `(json: bool) -> Result<()>` | Shows current branch, commits ahead/behind, and dirty file count |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
 | `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
-| `generate_body_from_commits` | `(branch, base) -> Result<String>` | Build `## Summary` body from `base..branch` commit subjects; strips conventional-commit prefixes |
+| `build_commit_message` | `(commit_type, scope, message) -> String` | Formats `type(scope): message` or `type: message`; lowercases the first character of the message |
 | `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
 
 **Internal (not exported):**
 - `load_work_config() -> WorkConfig` — Reads `[work]` section from `fledge.toml`, falls back to defaults
+- `generate_commit_message_with_ai(commit_type, scope, provider, model, json) -> Result<String>` — Sends the staged diff (truncated to 400 lines) to the configured LLM to generate a conventional-commit message
 - `format_commit_subject_as_bullet(&str) -> String` — Strips a leading conventional-commit prefix and upper-cases the first letter
-- `print_pr_preview(title, body, head, base, draft)` — Renders the boxed preview block
-- `generate_body_with_ai(branch, base, provider, model, json) -> Result<String>` — Builds a context bundle (commit log + diffstat + truncated diff) and asks the configured LLM for a Markdown PR body
 
 ## Invariants
 
@@ -69,24 +69,27 @@ Provides opinionated git workflow commands for feature branch development. `fled
 4. Default branch type is `feat` — configurable via `[work] default_type` in `fledge.toml`
 5. `{author}` resolves from global config `defaults.author` or `git config user.name`
 6. `start` refuses to create a branch if there are uncommitted changes
-7. `pr` requires `gh` CLI to be installed and authenticated
-8. `pr` pushes the current branch to origin before creating the PR
-9. `status` works without `gh` (gracefully degrades if not available)
-10. `--prefix` bypasses type validation and format template, using raw `prefix/name`
-11. `--issue N` prepends the issue number to the branch name segment: `N-name`
-12. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
-13. Plugin lifecycle hook `post_work_start` runs after branch creation (errors silently ignored via `.ok()`)
-14. Plugin lifecycle hook `pre_pr` runs before PR creation (errors propagate and abort the PR)
-15. `--json` on `start` emits `{branch, base, type, prefix, issue}` and suppresses the pretty ✅ output
-16. `--json` on `pr` emits `{url, number, title, head, base, draft}` and suppresses spinner + pretty output
-17. `--json` on `status` emits `{branch, default, ahead, behind, pr: {number, state, url} | null}`. `behind` is `null` when `git rev-list` can't compute it (e.g. the base hasn't been fetched) — this is distinct from `0` (up-to-date) so agents can detect "needs fetch" vs "up to date"
-18. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
-19. `pr` auto-generates the body from `git log base..branch` when `--body` is omitted; conventional-commit prefixes (`feat:`, `fix(scope):`, etc.) are stripped and bullets read as sentences. If no commits between base and branch, falls back to a `(describe the change)` placeholder
-20. `pr` shows a styled preview of the title, branch flow, and full body before invoking `gh pr create`; the preview is suppressed in `--json` mode
-21. `pr` prompts `Create this pull request?` with default Yes after the preview. `--yes` / `-y` skips the prompt; `--json` skips it as well (assumes agent intent). In a non-interactive shell without `--yes` or `--json`, `pr` bails rather than hanging
-22. Choosing "No" at the confirmation prompt aborts cleanly with a `✋ Aborted.` message and exits 0 without pushing or calling `gh`
-23. `--ai` replaces heuristic body generation with an LLM call via `crate::llm::build_provider`; the prompt includes the full commit log, `git diff --stat`, and the diff itself (truncated to 600 lines so small/local models stay in context). `--provider` / `--model` override the active selection for this single call. `--body <text>` always wins over `--ai` (literal beats generated)
-24. The AI body generation shows a "Drafting PR body [provider (model)]:" spinner unless `--json` is set; the resulting body still flows through the same preview + confirmation gate, so the user always sees what will be posted before it goes
+7. Plugin lifecycle hook `post_work_start` runs after branch creation (errors silently ignored via `.ok()`)
+8. Plugin lifecycle hook `pre_push` runs before `fledge work push` pushes to origin (errors propagate and abort the push)
+9. `--prefix` bypasses type validation and format template, using raw `prefix/name`
+10. `--issue N` prepends the issue number to the branch name segment: `N-name`
+11. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
+12. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
+13. `commit --all` runs `git add -A` before committing
+14. `commit` requires staged changes; bails if nothing is staged (separate message if working tree is clean vs unstaged)
+15. `commit` without `-m` or `--ai` prompts interactively via `dialoguer::Input`; non-interactive shells must provide `-m` or `--ai`
+16. `commit --ai` sends the staged diff (truncated to 400 lines) to the configured LLM to generate the message; `--provider` / `--model` override for this single call
+17. `push` refuses to push the default branch (main/master)
+18. `push` checks commits ahead of `origin/<branch>` and refuses when there is nothing to push
+19. `push` uses `--force-with-lease` (not `--force`) when the `--force` flag is passed
+20. `push` always sets `-u origin` to establish tracking
+21. `work pr` prints a deprecation notice directing users to `fledge pr` (plugin-based) and exits with code 1
+22. `--json` on `start` emits `{schema_version, action, branch, base, type, prefix, issue}` and suppresses the pretty output
+23. `--json` on `commit` emits `{schema_version, action, hash, message, branch}` and suppresses the pretty output
+24. `--json` on `push` emits `{schema_version, action, branch, remote, force}` and suppresses the spinner + pretty output
+25. `--json` on `status` emits `{schema_version, action, branch, default, ahead, behind, dirty}`. `behind` is `null` when `git rev-list` can't compute it. `dirty` is the count of files with uncommitted changes
+26. `--json` never silences errors — error messages still go to stderr; exit code is still non-zero on failure
+27. Status no longer reports PR info — that responsibility moved to the GitHub plugin
 
 ## Behavioral Examples
 
@@ -137,79 +140,70 @@ $ fledge work start foo --type yolo
 error: Unknown branch type 'yolo'. Valid types: feat, feature, fix, bug, chore, task, docs, hotfix, refactor
 ```
 
-### work pr — create pull request (with preview + confirmation)
+### work commit — with message
 ```
-$ fledge work pr
-
-────────────────────────────────────────────────────────────
-Title: Add search command
-Branch:  leif/feat/add-search → main
-
-  ## Summary
-
-  - Add search command
-  - Wire up search index
-
-────────────────────────────────────────────────────────────
-? Create this pull request? (Y/n) y
-✓ Pushed leif/feat/add-search to origin
-✓ Created PR #42: "Add search command"
-  https://github.com/owner/repo/pull/42
+$ fledge work commit -m "add search index"
+✅ Committed a1b2c3d on leif/feat/add-search
+  feat: add search index
 ```
 
-### work pr — skip the prompt
+### work commit — with all flag
 ```
-$ fledge work pr --yes
-… preview …
-✓ Pushed leif/feat/add-search to origin
-✓ Created PR #42: "Add search command"
-  https://github.com/owner/repo/pull/42
+$ fledge work commit --all -m "wire up search"
+✅ Committed d4e5f6a on leif/feat/add-search
+  feat: wire up search
 ```
 
-### work pr — with title and draft
+### work commit — AI-generated message
 ```
-$ fledge work pr --title "WIP: search command" --draft --yes
-✓ Pushed leif/feat/add-search to origin
-✓ Created draft PR #42: "WIP: search command"
-  https://github.com/owner/repo/pull/42
-```
-
-### work pr — AI-generated body
-```
-$ fledge work pr --ai
-✓ Drafting PR body [ollama (qwen3-coder:480b-cloud)]: 6.2s
-
-────────────────────────────────────────────────────────────
-Title: Add search command
-Branch:  leif/feat/add-search → main
-
-  ## Summary
-  - Adds a `fledge search` subcommand backed by a new `SearchIndex` …
-  - Wires the index into the existing `init` flow so templates …
-
-  ## Test plan
-  - [ ] `fledge search "hello"` returns the expected hits
-  - [ ] Empty index does not panic on lookup
-
-────────────────────────────────────────────────────────────
-? Create this pull request? (Y/n) y
-✓ Pushed leif/feat/add-search to origin
-✓ Created PR #42: "Add search command"
+$ fledge work commit --ai
+✅ Committed b7c8d9e on leif/feat/add-search
+  feat: implement search index with fuzzy matching
 ```
 
-### work pr — pin a specific provider/model just for this PR
+### work commit — nothing staged
 ```
-$ fledge work pr --ai --provider ollama --model gpt-oss:120b-cloud --yes
-… preview …
-✓ Pushed leif/feat/add-search to origin
-✓ Created PR #43: "Add search command"
+$ fledge work commit -m "oops"
+error: No staged changes. Stage files with `git add` or use `fledge work commit --all`.
+```
+
+### work push
+```
+$ fledge work push
+✅ Pushed leif/feat/add-search to origin
+```
+
+### work push — nothing to push
+```
+$ fledge work push
+error: No commits ahead of 'origin/leif/feat/add-search'. Nothing to push.
+```
+
+### work push — from default branch
+```
+$ fledge work push
+error: Refusing to push the default branch 'main'. Switch to a feature branch first.
 ```
 
 ### work status — on feature branch
 ```
 $ fledge work status
   Branch: leif/feat/add-search (3 commits ahead of main)
-  PR: #42 (open) — https://github.com/owner/repo/pull/42
+```
+
+### work status — with dirty files
+```
+$ fledge work status
+  Branch: leif/feat/add-search (3 commits ahead of main)
+  Dirty: 2 uncommitted files
+```
+
+### work pr — deprecated
+```
+$ fledge work pr
+⚠ `fledge work pr` has been removed.
+  PR creation now lives in fledge-plugin-github. Use `fledge pr` instead.
+  Install with: fledge plugins install --defaults
 ```
 
 ### work start --json
@@ -226,18 +220,27 @@ $ fledge work start add-search --json
 }
 ```
 
-### work pr --json
+### work commit --json
 ```
-$ fledge work pr --json
+$ fledge work commit --all -m "add search" --json
 {
   "schema_version": 1,
-  "action": "work_pr",
-  "url": "https://github.com/owner/repo/pull/42",
-  "number": 42,
-  "title": "Add search command",
-  "head": "leif/feat/add-search",
-  "base": "main",
-  "draft": false
+  "action": "work_commit",
+  "hash": "a1b2c3d",
+  "message": "feat: add search",
+  "branch": "leif/feat/add-search"
+}
+```
+
+### work push --json
+```
+$ fledge work push --json
+{
+  "schema_version": 1,
+  "action": "work_push",
+  "branch": "leif/feat/add-search",
+  "remote": "origin",
+  "force": false
 }
 ```
 
@@ -245,17 +248,13 @@ $ fledge work pr --json
 ```
 $ fledge work status --json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "action": "work_status",
   "branch": "leif/feat/add-search",
   "default": "main",
   "ahead": 3,
   "behind": 0,
-  "pr": {
-    "number": 42,
-    "state": "open",
-    "url": "https://github.com/owner/repo/pull/42"
-  }
+  "dirty": 0
 }
 ```
 
@@ -263,13 +262,13 @@ $ fledge work status --json
 ```
 $ fledge work status --json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "action": "work_status",
   "branch": "leif/feat/add-search",
   "default": "main",
   "ahead": 3,
   "behind": null,
-  "pr": null
+  "dirty": 0
 }
 ```
 
@@ -281,29 +280,32 @@ $ fledge work status --json
 | Uncommitted changes | `work start` with dirty tree | Bail with message |
 | Branch already exists | `work start` with existing branch name | Bail with message |
 | Unknown branch type | `work start --branch-type <invalid>` without `--prefix` | Bail with valid types list |
-| On main/master | `work pr` from default branch | Bail with message |
-| `gh` not installed | `work pr` | Bail with install instructions |
-| No commits ahead | `work pr` with no new commits | Bail with message |
-| Non-interactive without --yes | `work pr` in a non-TTY shell without `--yes` or `--json` | Bail asking for `--yes` rather than hanging on the prompt |
-| User declines confirmation | `work pr` and answers "n" at the prompt | Print `✋ Aborted.` and exit 0 without pushing |
-| AI body generation fails | `--ai` with provider unreachable or model timeout | Bubble up the provider error verbatim (same surface as `fledge ask`) so the user can fix the config and retry |
+| Nothing to commit (clean) | `work commit` with clean working tree | Bail: "Nothing to commit — working tree is clean." |
+| Nothing staged | `work commit` with unstaged changes but nothing in index | Bail: "No staged changes. Stage files with `git add` or use `fledge work commit --all`." |
+| No message in non-interactive | `work commit` without `-m` or `--ai` in non-TTY | Bail asking for `-m` or `--ai` |
+| AI with no staged diff | `work commit --ai` with empty staged diff | Bail: "No staged diff for AI to analyze." |
+| On default branch | `work push` from main/master | Bail with message |
+| Nothing to push | `work push` with no commits ahead of tracking branch | Bail with message |
+| `fledge work pr` | Any invocation | Print deprecation notice, exit 1 |
+| AI generation fails | `--ai` with provider unreachable or model timeout | Bubble up the provider error verbatim |
 
 ## Dependencies
 
 - `console` — styled terminal output
-- `dialoguer` — `Confirm` prompt for the PR preview confirmation
+- `dialoguer` — `Input` prompt for interactive commit messages
 - `serde` / `toml` — config deserialization for `[work]` section in `fledge.toml`
 - `crate::config::Config` — global config for author resolution
-- `crate::utils::is_interactive` — TTY gate for the confirmation prompt
-- `crate::llm::{build_provider, ProviderOverride, describe}` — `--ai` body generation
-- `crate::spinner::Spinner` — progress indicator during the AI call
-- Git CLI — branch operations
-- `gh` CLI — PR creation (optional for `status`)
+- `crate::utils::is_interactive` — TTY gate for the interactive commit prompt
+- `crate::llm::{build_provider, ProviderOverride, describe}` — `--ai` commit message generation
+- `crate::spinner::Spinner` — progress indicator during AI calls and push
+- `crate::github::ensure_git_repo` — validates git repository context
+- Git CLI — branch and commit operations
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11 | 2026-04-30 | Pure git split: removed `pr` subcommand (moved to `fledge-plugin-github`), added `commit` and `push` subcommands with `--ai` support and conventional-commit formatting. `status` drops PR info, adds `dirty` count, bumps schema to v2. `generate_body_from_commits` removed; `build_commit_message` added |
 | 10 | 2026-04-26 | Doc sync, behavioral examples for `work start/pr/status --json` updated to show the post-tier-D envelope shapes (with `schema_version` and `action`). No code change |
 | 9 | 2026-04-26 | Tier-D 1.0 envelope: `work start --json`, `work pr --json`, `work status --json` now include `schema_version: 1` and `action: "work_start"|"work_pr"|"work_status"` at the top level. Field shapes otherwise unchanged. Closes the gap where tier C (#274) only migrated plugins/lanes/templates and missed the cross-cutting commands |
 | 8 | 2026-04-24 | `work pr --ai` generates a richer Markdown body via the configured LLM (`fledge ai use`-aware), with `--provider` / `--model` per-call overrides. Prompt includes commit log, diffstat, and truncated diff; spinner shown unless `--json` |

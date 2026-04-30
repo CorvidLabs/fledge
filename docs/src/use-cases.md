@@ -55,7 +55,7 @@ Install plugins that enforce standards before code ships:
 
 ```bash
 fledge plugins install your-org/fledge-plugin-lint-config
-# Now pre_pr hook runs your org's lint rules before every PR
+# Now pre_push hook runs your org's lint rules before every push
 ```
 
 ### Dependency auditing across the stack

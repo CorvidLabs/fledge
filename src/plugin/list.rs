@@ -258,8 +258,8 @@ pub(crate) fn get_lifecycle_hooks(plugin_name: &str) -> Vec<(String, String)> {
     if let Some(ref h) = manifest.hooks.post_work_start {
         hooks.push(("post_work_start".to_string(), h.clone()));
     }
-    if let Some(ref h) = manifest.hooks.pre_pr {
-        hooks.push(("pre_pr".to_string(), h.clone()));
+    if let Some(ref h) = manifest.hooks.pre_push {
+        hooks.push(("pre_push".to_string(), h.clone()));
     }
     if let Some(ref h) = manifest.hooks.post_install {
         hooks.push(("post_install".to_string(), h.clone()));

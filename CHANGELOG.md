@@ -389,7 +389,7 @@ The following commands and their modules left core. Some will return as plugins;
 - `fledge.toml` in the repo root — fledge now dogfoods its own CLI for development workflows
 - "Using Fledge with Existing Projects" documentation guide
 - Step timing for lanes — each step shows elapsed time, lane summary shows total time
-- Plugin lifecycle hooks — `pre_init`, `post_work_start`, `pre_pr` fire at fledge lifecycle events
+- Plugin lifecycle hooks — `pre_init`, `post_work_start`, `pre_push` fire at fledge lifecycle events
 - Parallel lane steps accept inline commands alongside task references
 - SECURITY.md — vulnerability reporting policy and security model documentation
 - CONTRIBUTING.md — development setup, workflow, code guidelines, and contribution process

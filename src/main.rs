@@ -88,28 +88,28 @@ fn run() -> Result<()> {
                     base,
                     json,
                 },
-                WorkSubcommand::Pr {
-                    title,
-                    body,
-                    draft,
-                    base,
-                    json,
-                    yes,
+                WorkSubcommand::Commit {
+                    message,
+                    commit_type,
+                    scope,
+                    all,
                     ai,
                     provider,
                     model,
-                } => work::WorkAction::Pr {
-                    title,
-                    body,
-                    draft,
-                    base,
                     json,
-                    yes,
+                } => work::WorkAction::Commit {
+                    message,
+                    commit_type,
+                    scope,
+                    all,
                     ai,
                     provider,
                     model,
+                    json,
                 },
+                WorkSubcommand::Push { force, json } => work::WorkAction::Push { force, json },
                 WorkSubcommand::Status { json } => work::WorkAction::Status { json },
+                WorkSubcommand::Pr { _args: _ } => work::WorkAction::DeprecatedPr,
             };
             work::run(action)?;
         }

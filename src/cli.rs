@@ -413,27 +413,21 @@ pub enum WorkSubcommand {
         #[arg(long)]
         json: bool,
     },
-    /// Create a pull request from the current branch
-    Pr {
-        /// PR title (auto-generated from branch name if omitted)
+    /// Stage changes and create a conventional commit
+    Commit {
+        /// Commit message (prompted interactively if omitted)
         #[arg(short, long)]
-        title: Option<String>,
-        /// PR body (auto-generated from commits if omitted)
+        message: Option<String>,
+        /// Commit type: feat, fix, chore, docs, refactor, etc. (default: from branch or "feat")
+        #[arg(short = 't', long = "type", value_name = "TYPE")]
+        commit_type: Option<String>,
+        /// Scope for conventional commit (e.g. "work", "cli")
         #[arg(short, long)]
-        body: Option<String>,
-        /// Create as a draft PR
-        #[arg(long)]
-        draft: bool,
-        /// Target base branch for the PR
-        #[arg(long)]
-        base: Option<String>,
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-        /// Skip the preview/confirmation prompt
-        #[arg(short = 'y', long)]
-        yes: bool,
-        /// Generate the PR body via the configured AI provider (uses commit log + diff as context)
+        scope: Option<String>,
+        /// Stage all changes (including untracked) before committing
+        #[arg(short, long)]
+        all: bool,
+        /// Generate commit message via AI from the staged diff
         #[arg(long)]
         ai: bool,
         /// Override AI provider for --ai (claude or ollama)
@@ -442,12 +436,30 @@ pub enum WorkSubcommand {
         /// Override AI model for --ai
         #[arg(long)]
         model: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
-    /// Show current branch and PR status
+    /// Push the current branch to origin
+    Push {
+        /// Force push (--force-with-lease for safety)
+        #[arg(short, long)]
+        force: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show current branch status (pure git, no GitHub dependency)
     Status {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+    },
+    /// [Deprecated] Use `fledge pr` from fledge-plugin-github instead
+    #[command(hide = true)]
+    Pr {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _args: Vec<String>,
     },
 }
 
