@@ -17,6 +17,8 @@ Shared helpers for GitHub API interactions: authenticated REST API calls and env
 
 In v0.15 this module shrank from a generic GitHub client into a small set of "hard prerequisites" — repo detection and relative-time formatting moved out with the deleted `checks`/`issues`/`prs` commands (they live in `fledge-plugin-github` now).
 
+As of v0.17, `fledge work pr` was removed from core — PR creation now lives entirely in `fledge-plugin-github`. The core `github.rs` module is no longer used by the work module.
+
 ## Public API
 
 ### Exported Functions
