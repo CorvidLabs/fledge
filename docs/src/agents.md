@@ -59,16 +59,16 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 | `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps, failures}` |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` |
-| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}` |
+| `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}` |
 | `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}` |
 
 ### Plugin commands with `--json` (after `plugins install --defaults`)
 
 | Command | Plugin |
 |---------|--------|
-| `fledge checks --json` | `fledge-plugin-github`. Raw GitHub API `check-runs` response |
-| `fledge issues --json` / `issues view <n> --json` | `fledge-plugin-github` |
-| `fledge prs --json` / `prs view <n> --json` | `fledge-plugin-github` |
+| `fledge github checks --json` | `fledge-plugin-github`. Raw GitHub API `check-runs` response |
+| `fledge github issues --json` / `github issues view <n> --json` | `fledge-plugin-github` |
+| `fledge github prs --json` / `github prs view <n> --json` | `fledge-plugin-github` |
 | `fledge deps --json` | `fledge-plugin-deps`. Ecosystem tool's native output |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics`. LOC summary (tokei linked as a library), per-file churn, test/source ratio |
 
@@ -78,7 +78,7 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 
 Set `FLEDGE_NON_INTERACTIVE=1` in your environment, or pass `--non-interactive` (alias `--ni`) per invocation. Both flip a global flag that every prompt site observes. Every `--yes`/`--force` is auto-promoted, and prompts that need user input bail cleanly instead of hanging.
 
-Commands covered: `fledge templates init`, `fledge templates create`, `fledge templates publish`, `fledge work pr` (preview/confirm), `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`.
+Commands covered: `fledge templates init`, `fledge templates create`, `fledge templates publish`, `fledge work push`, `fledge ai use`, `fledge plugins install`, `fledge plugins publish`, `fledge plugins create`, `fledge lanes publish`.
 
 ### AI-powered commands
 
@@ -122,9 +122,10 @@ fledge lanes run pre-commit
 # 4. Review (multi-model for high-confidence findings)
 fledge review --with-model ollama --json
 
-# 5. Open PR with AI-drafted body
-fledge work pr --ai --yes --json
+# 5. Push and open PR
+fledge work push --json
+gh pr create --title "fix: issue 42"
 
 # 6. Wait for CI
-fledge checks --json    # via fledge-plugin-github
+fledge github checks --json    # via fledge-plugin-github
 ```

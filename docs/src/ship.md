@@ -1,56 +1,55 @@
-# Ship: Branch, PR, Release
+# Ship: Branch, Commit, Push, Release
 
-The Ship pillar takes a clean working tree to a tagged release. Branch, draft a PR (with the LLM if you want), preview, push, then bump version and tag.
+The Ship pillar takes a clean working tree to a tagged release. Branch, commit (with optional AI-generated messages), push, then bump version and tag. PR creation lives in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) (not yet released; use `gh pr create` in the meantime).
 
-## Branch and PR with `fledge work`
+## Git workflow with `fledge work`
 
 ```bash
 fledge work start add-auth                       # creates leif/feat/add-auth
 fledge work start fix-crash --branch-type fix    # leif/fix/fix-crash
 fledge work start login --issue 42 --branch-type fix  # leif/fix/42-login
 fledge work start v0.16 --branch-type chore      # leif/chore/v0.16
-fledge work status                               # current branch + PR + ahead/behind
+fledge work status                               # current branch + ahead/behind + dirty count
+```
+
+### Commit changes
+
+`fledge work commit` stages and commits with conventional-commit formatting. The commit type is inferred from the branch prefix (e.g. `feat/` → `feat`). With `--ai` it sends the staged diff to the configured LLM to generate the message.
+
+```bash
+fledge work commit -m "add search index"         # explicit message
+fledge work commit --all -m "wire up search"     # git add -A first
+fledge work commit --ai                          # AI-generated message
+fledge work commit --ai --provider ollama --model llama3.2:latest
+fledge work commit -t fix -m "handle nil case"   # override commit type
+fledge work commit --json                        # {schema_version, action, hash, message, branch}
+```
+
+### Push to remote
+
+`fledge work push` pushes the current branch to origin with `-u` tracking. It refuses to push the default branch or when there is nothing to push. The `pre_push` plugin lifecycle hook runs before the push.
+
+```bash
+fledge work push                                 # push current branch
+fledge work push --force                         # --force-with-lease for safety
+fledge work push --json                          # {schema_version, action, branch, remote, force}
 ```
 
 ### Open a PR
 
-`fledge work pr` auto-generates the body from your commits, shows a styled preview (title, head→base, draft tag, full body), and prompts y/n before pushing. With `--ai` it hands the diff to the configured LLM and gets back a Markdown body with `## Summary` + `## Test plan` sections.
+PR creation is not in core fledge. Use the `gh` CLI:
 
 ```bash
-fledge work pr                                   # heuristic body, preview + confirm
-fledge work pr --ai                              # AI-drafted body, preview + confirm
-fledge work pr --yes --ai                        # skip the prompt (agent-friendly)
-fledge work pr --title "..." --body "..."        # explicit overrides
-fledge work pr --draft
-fledge work pr --base develop
-fledge work pr --json                            # {url, number, title, head, base, draft}
-
-# Per-call AI provider/model overrides
-fledge work pr --ai --provider ollama --model llama3.2:latest --yes
+gh pr create                                     # interactive
+gh pr create --title "..." --body "..." --draft  # scripted
+gh pr create --base develop
 ```
 
-The preview reads:
+`fledge github pr` is planned for `fledge-plugin-github` but not yet released.
 
-```text
-────────────────────────────────────────────────────────────
-Title: feat: work pr, auto body + preview + confirm
-Branch:  0xleif/feat/pr-preview-and-body → main
+## GitHub integration (plugin)
 
-  ## Summary
-  - Add styled preview block before any push or gh call
-  - Add yes/no confirmation prompt with default Yes
-  - Add --ai flag for LLM-drafted body
-  ...
-
-────────────────────────────────────────────────────────────
-? Create this pull request? (Y/n)
-```
-
-Choosing **n** prints `✋ Aborted.` and exits 0 with no side effects. Nothing is pushed.
-
-## GitHub browsing (plugin)
-
-Read-only views of issues, PRs, and CI status live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). PR *creation* stays in core via `fledge work pr` above. Install with `fledge plugins install --defaults`.
+Issues, PRs, and CI checks live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). Install with `fledge plugins install --defaults`.
 
 See [GitHub Integration](./github-integration.md) for the full command reference and setup instructions.
 
@@ -86,12 +85,14 @@ fledge release minor --allow-dirty            # release even with uncommitted ch
 
 ```bash
 fledge work start add-feature        # 1. branch
-# ... code, commit ...
-fledge lanes run pre-commit          # 2. fmt + lint + test + spec-check
-fledge work pr --ai                  # 3. AI-drafted PR with preview/confirm
-fledge checks                        # 4. wait for CI (plugin)
-gh pr merge <num> --squash           # 5. merge (or via fledge work pr's URL on GitHub)
+# ... code ...
+fledge work commit --ai --all        # 2. AI-drafted conventional commit
+fledge lanes run pre-commit          # 3. fmt + lint + test + spec-check
+fledge work push                     # 4. push to remote
+gh pr create --title "..." --draft   # 5. open PR (or via GitHub web UI)
+fledge github checks                 # 6. wait for CI (fledge-plugin-github)
+gh pr merge <num> --squash           # 7. merge
 git checkout main && git pull
-fledge release minor --push          # 6. version bump + changelog + tag
-gh release create v<X.Y.Z> --notes-file ...   # 7. GitHub Release object (manual)
+fledge release minor --push          # 8. version bump + changelog + tag
+gh release create v<X.Y.Z> --notes-file ...   # 9. GitHub Release object
 ```

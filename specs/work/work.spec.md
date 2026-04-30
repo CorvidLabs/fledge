@@ -83,7 +83,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 18. `push` checks commits ahead of `origin/<branch>` and refuses when there is nothing to push
 19. `push` uses `--force-with-lease` (not `--force`) when the `--force` flag is passed
 20. `push` always sets `-u origin` to establish tracking
-21. `work pr` prints a deprecation notice directing users to `fledge pr` (plugin-based) and exits with code 1
+21. `work pr` prints a deprecation notice directing users to `gh pr create` and exits with code 1
 22. `--json` on `start` emits `{schema_version, action, branch, base, type, prefix, issue}` and suppresses the pretty output
 23. `--json` on `commit` emits `{schema_version, action, hash, message, branch}` and suppresses the pretty output
 24. `--json` on `push` emits `{schema_version, action, branch, remote, force}` and suppresses the spinner + pretty output
@@ -202,8 +202,8 @@ $ fledge work status
 ```
 $ fledge work pr
 ⚠ `fledge work pr` has been removed.
-  PR creation now lives in fledge-plugin-github. Use `fledge pr` instead.
-  Install with: fledge plugins install --defaults
+  Use `gh pr create` to open a pull request until `fledge github pr` ships.
+  See: https://cli.github.com/manual/gh_pr_create
 ```
 
 ### work start --json

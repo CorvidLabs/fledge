@@ -23,7 +23,7 @@ Fledge is evolving from scaffolding to a project lifecycle tool. `fledge work` p
 - `generate_title_from_branch` dynamically strips any known type prefix rather than hardcoding a few
 - **v6: `--json` added to all subcommands** so agents can drive the workflow without parsing human-formatted output. Each JSON payload is a single top-level object with a `schema_version` field.
 - In JSON mode, spinners and emoji output are suppressed entirely so the only stdout content is the JSON payload. Errors still go to stderr, and the process still exits non-zero on failure.
-- **v7: Pure git split** — `fledge work` owns only git operations (start, commit, push, status). PR creation moved to `fledge-plugin-github` which uses the GitHub REST API directly with the configured token. The `gh` CLI is no longer required by core fledge. `fledge work pr` was removed (prints deprecation notice pointing to `fledge pr`).
+- **v7: Pure git split** — `fledge work` owns only git operations (start, commit, push, status). PR creation moved to `fledge-plugin-github` (not yet shipped; use `gh pr create` in the meantime). The `gh` CLI is no longer required by core fledge. `fledge work pr` was removed (prints deprecation notice directing to `gh pr create`).
 - `commit` uses conventional-commit format (`type: message`). The `--ai` flag generates the message from the staged diff using the configured LLM provider.
 - `push` uses `git push -u origin <branch>` to set up tracking. Refuses to push the default branch to prevent accidental main pushes.
 - `status` reports branch name, ahead/behind counts, and uncommitted changes count — no GitHub API calls.

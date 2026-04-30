@@ -90,16 +90,17 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates create --json` | `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` | Creating a new template skeleton |
 | `fledge templates publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines a confirmation | Publishing a template repo |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. `issue` is `null` when no `--issue` flag was passed; all other fields always present | Branch scripting |
-| `fledge work pr --json` | `{schema_version: 1, action: "work_pr", url, number, title, head, base, draft}`. PR URL to report back | After agent finishes a task |
-| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}`. Current state of the branch | Pre-action sanity check |
+| `fledge work commit --json` | `{schema_version: 2, action: "work_commit", hash, message, branch}`. Commit hash to report back | After writing code |
+| `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}`. Confirms the push | After committing |
+| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field | Pre-action sanity check |
 
 ### Plugin commands (after `plugins install --defaults`)
 
 | Command | Plugin | What you get |
 |---------|--------|-------------|
-| `fledge checks --json` | `fledge-plugin-github` | Raw GitHub API response of CI check-runs for a branch |
-| `fledge issues --json` / `fledge issues view <n> --json` | `fledge-plugin-github` | GitHub issues, list or one |
-| `fledge prs --json` / `fledge prs view <n> --json` | `fledge-plugin-github` | GitHub PRs, list or one |
+| `fledge github checks --json` | `fledge-plugin-github` | Raw GitHub API response of CI check-runs for a branch |
+| `fledge github issues --json` / `fledge github issues view <n> --json` | `fledge-plugin-github` | GitHub issues, list or one |
+| `fledge github prs --json` / `fledge github prs view <n> --json` | `fledge-plugin-github` | GitHub PRs, list or one |
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, ...) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
@@ -131,7 +132,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 | `fledge templates init` | Skip template-variable prompts (uses detected defaults) |
 | `fledge templates create` | Skip name/description/type prompts |
 | `fledge ai use` | Errors with a clear "pass provider+model" message. No hang |
-| `fledge work pr` | Skip the preview/confirm prompt (treat as --yes) |
+| `fledge work commit` | Skip the interactive message prompt (requires `-m` or `--ai`) |
 | `fledge plugins install` | Skip trust-tier and capability-grant prompts |
 | `fledge plugins publish` | Skip confirmations |
 | `fledge plugins create` | Skip scaffolding prompts |
@@ -212,17 +213,18 @@ fledge spec show <module> --json                           # dig into one area
 fledge work start my-change -t feat                        # branch
 ```
 
-### Open a PR with an AI-drafted body
+### Commit and push changes
 ```bash
-# fledge work pr will:
-#   1. Generate the body from commits (or via --ai for an LLM-drafted one)
-#   2. Show a preview block (title, head→base, draft, body)
-#   3. Prompt y/n  (skipped under FLEDGE_NON_INTERACTIVE or --yes)
-#   4. Push and call gh pr create
+fledge work commit --ai --all --json                       # AI-drafted commit, stage everything
+fledge work commit -m "feat: add search index" --json      # explicit message
+fledge work push --json                                    # push to origin
+```
 
-fledge work pr --yes --json                                # heuristic body, scripted
-fledge work pr --ai --yes --json                           # LLM-drafted body, scripted
-fledge work pr --ai --provider ollama --model gpt-oss:120b-cloud --yes
+### Open a PR
+```bash
+# PR creation is not in core fledge. Use the gh CLI:
+gh pr create --title "feat: add search index" --draft
+# fledge github pr is planned for fledge-plugin-github but not yet released.
 ```
 
 ### Before reporting a task done
@@ -234,7 +236,7 @@ fledge lanes run ci
 
 ### Verify CI is green (requires `fledge-plugin-github`)
 ```bash
-fledge checks --json | jq '.check_runs[] | {name, conclusion}'
+fledge github checks --json | jq '.check_runs[] | {name, conclusion}'
 ```
 
 ### Inspect a spec's deeper context as part of planning
@@ -265,7 +267,7 @@ This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 - **A command hung**: you probably skipped `--yes` or `--force`. Cancel, re-run with the bypass flag (or set `FLEDGE_NON_INTERACTIVE=1` once).
 - **`fledge ask` / `review` errored with auth**: the host's `claude` CLI isn't set up, or your Ollama config is wrong. Run `fledge ai status` to see what fledge thinks is active, then `fledge doctor` to verify the provider is reachable.
 - **`fledge spec check` fails**: read the error. Almost always a missing section, missing source file, or unknown status. Don't "fix" it by editing the validator.
-- **`fledge work pr` fails on push**: you're probably not on a remote-tracking branch. Re-run after `git push -u origin HEAD` or debug with `fledge work status`.
+- **`fledge work push` fails**: check `fledge work status --json` for ahead/dirty counts. If there's nothing to push (ahead=0), commit first. If you're not on a tracking branch, `fledge work push` sets `-u origin` automatically.
 - **`fledge checks` (or any command) says "unrecognized subcommand"**: the corresponding plugin isn't installed. Run `fledge plugins install --defaults` for the curated set.
 - **A multi-model `fledge review` panel had one slot fail**: that slot's `error` field has the cause, the other slots' reviews are still valid. `--with-model` is fault-tolerant by design.
 
