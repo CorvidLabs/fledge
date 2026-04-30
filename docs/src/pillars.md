@@ -2,7 +2,7 @@
 
 fledge organizes the dev workflow into six pillars. They cover the whole lifecycle from project creation to release, and they're explicitly the *only* things core ships. Anything else is a plugin.
 
-```
+```text
 Scaffold --> Run --> Spec --> AI --> Ship
                                        \
                   Extend (the protocol that lets plugins add the rest)
@@ -53,5 +53,3 @@ Plugins, configuration, command-tree introspection, environment diagnostics, she
 - [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) adds `metrics` (Rust binary linking `tokei` as a library)
 
 Why these are plugins and not core: each one bakes an ecosystem assumption (GitHub-only, polyglot lockfile parsers, niche metrics) that not every fledge user needs. Plugins keep the binary small and let each capability evolve independently.
-
-(Through v0.15.1, `--defaults` also installed `fledge-plugin-templates-remote` and `fledge-plugin-doctor`. Both were re-absorbed into core in v0.15.2. Their commands now ship as `fledge templates search`/`publish` and the `Toolchains` section of `fledge doctor`.)

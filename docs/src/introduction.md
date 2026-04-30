@@ -6,7 +6,7 @@ One CLI for the dev loop. Any language. JSON by default. Read the docs and go.
 
 I kept setting up the same boilerplate across projects. CI workflows, linters, task runners, the works. Every new repo meant copy-pasting from the last one and fixing whatever broke. fledge started as a scaffolding tool and grew into a full dev lifecycle CLI because once you have a tool that understands your project structure, it makes sense to keep going.
 
-In v0.15 the tool got smaller. Anything ecosystem-specific (lockfile parsers, GitHub clients, language toolchain probes) moved out to plugins. The core stays tight, you opt in to what you need.
+The core stays tight. Anything ecosystem-specific (lockfile parsers, GitHub clients, language toolchain probes) lives in [plugins](./plugins.md). You opt in to what you need.
 
 ## The six pillars
 
@@ -29,7 +29,7 @@ Three plugins extend fledge with commands that don't belong in every install. On
 fledge plugins install --defaults
 ```
 
-That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See the [Plugins page](./plugins.md) for the full set.
+That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See [Plugins](./plugins.md) for the full list and how to build your own.
 
 ## Zero-config
 

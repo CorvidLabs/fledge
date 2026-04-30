@@ -275,32 +275,15 @@ See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/sp
 
 ## Authentication
 
-Plugin install, update, and search operations use your GitHub token when available. This enables installing plugins from private repositories.
+Plugin install, update, and search operations use your GitHub token when available. This enables installing plugins from private repositories. See [Configuration: GitHub](./configuration.md#github) for the full token resolution order and required scopes.
 
-The token is resolved in order:
-1. `FLEDGE_GITHUB_TOKEN` environment variable
-2. `GITHUB_TOKEN` environment variable
-3. `github.token` in `~/.config/fledge/config.toml`
-4. `gh auth token` (GitHub CLI fallback)
-
-If you have the GitHub CLI (`gh`) installed and authenticated, fledge will use it automatically. No extra config needed.
-
-```bash
-# Set via config
-fledge config set github.token ghp_your_token_here
-
-# Or via environment
-export GITHUB_TOKEN=ghp_your_token_here
-
-# Or just use gh (zero config)
-gh auth login
-```
-
-The token is injected via git's `http.extraheader` mechanism. It is never embedded in remote URLs or persisted to disk.
+The easiest setup is `gh auth login` — fledge uses it automatically as a fallback. The token is injected via git's `http.extraheader` mechanism and is never embedded in remote URLs or persisted to disk.
 
 ## Security Model
 
-Plugins run arbitrary code. Fledge has several safeguards:
+> **Warning:** Plugins run arbitrary code on your machine. Review plugin source before installing, especially from unknown authors.
+
+Fledge has several safeguards:
 
 - **Install confirmation**: before cloning, fledge warns that plugins can execute arbitrary code and asks for confirmation. Pass `--force` to skip (CI/scripts).
 - **Plugin name validation**: repo names are checked for path traversal (`..`, `/`, `\`, leading `.`)

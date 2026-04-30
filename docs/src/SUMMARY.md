@@ -11,7 +11,7 @@
 - [Run: Tasks and Lanes](./lanes.md)
   - [Configuration](./configuration.md)
   - [Doctor: Environment Diagnostics](./doctor.md)
-- [Spec: Develop with spec-sync](./develop.md)
+- [Spec: Develop with Spec-sync](./develop.md)
 - [AI: Ask and Review](./review.md)
 - [Ship: Branch, PR, Release](./ship.md)
 - [Extend: Plugins](./plugins.md)

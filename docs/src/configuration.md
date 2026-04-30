@@ -16,7 +16,7 @@ fledge config init
 
 Lives at:
 
-```
+```text
 ~/.config/fledge/config.toml
 ```
 
@@ -63,21 +63,23 @@ AI provider and model settings. Written by `fledge ai use` or `fledge config set
 provider = "ollama"             # "claude" or "ollama"
 
 [ai.claude]
-model = "opus-4.7"             # model name passed to claude CLI
+model = "sonnet"               # model name passed to claude CLI
 
 [ai.ollama]
 host = "http://localhost:11434" # Ollama API endpoint (always normalized to include scheme)
-model = "qwen3-coder:480b-cloud"
+model = "llama3.2:latest"       # use `fledge ai models --provider ollama` to list available models
 api_key = "sk-..."             # for Ollama Cloud / authenticated endpoints
 timeout_seconds = 600          # request timeout (default: 600)
 ```
+
+> **Tip:** Run `fledge ai models --provider ollama` or `fledge ai models --provider claude` to see available models. Use `fledge ai use` for an interactive picker.
 
 | Key | What it does | Default |
 |-----|-------------|---------|
 | `ai.provider` | Active LLM backend | `claude` |
 | `ai.claude.model` | Model name for Claude CLI | Claude CLI default |
 | `ai.ollama.host` | Ollama API endpoint URL | `http://localhost:11434` |
-| `ai.ollama.model` | Ollama model name | `llama3.2:latest` |
+| `ai.ollama.model` | Ollama model name | first available |
 | `ai.ollama.api_key` | Bearer token for authenticated endpoints | (none) |
 | `ai.ollama.timeout_seconds` | Request timeout in seconds | `600` |
 
@@ -118,18 +120,17 @@ paths = ["~/.fledge/templates", "~/projects/templates"]
 repos = ["CorvidLabs/fledge-templates", "my-org/my-templates"]
 
 [github]
-token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+token = "ghp_..."
 
 [ai]
-provider = "ollama"
+provider = "claude"
 
 [ai.claude]
-model = "opus-4.7"
+model = "sonnet"
 
 [ai.ollama]
-host = "https://ollama.com"
-model = "qwen3-coder:480b-cloud"
-api_key = "sk-your-key"
+host = "http://localhost:11434"
+model = "llama3.2:latest"
 timeout_seconds = 600
 ```
 

@@ -1,13 +1,13 @@
 # AI: Ask and Review
 
-The AI pillar is the daily-driver path for asking questions about your code and reviewing diffs before they land. Provider-agnostic (Claude or any Ollama-speaking endpoint), spec-aware, and (in v0.15+) capable of running multiple models in parallel against the same diff.
+The AI pillar is the daily-driver path for asking questions about your code and reviewing diffs before they land. Provider-agnostic (Claude or any Ollama-speaking endpoint), spec-aware, and capable of running multiple models in parallel against the same diff.
 
 ## Pick your provider and model
 
 ```bash
 fledge ai use                                  # interactive picker
-fledge ai use ollama qwen3-coder:480b-cloud    # scriptable
-fledge ai use claude opus-4.7
+fledge ai use ollama llama3.2:latest           # scriptable
+fledge ai use claude sonnet
 fledge ai status                               # shows provider, model, host, and where each value came from
 fledge ai models --provider ollama             # live list of installed/cloud models
 fledge ai models --provider ollama --search cloud
@@ -27,19 +27,19 @@ fledge review --file src/auth.rs    # review a single file
 fledge review --json                # machine-readable output
 ```
 
-### Multi-model review (v0.15+)
+### Multi-model review
 
 Pass `--with-model <provider[:model]>` to add another slot to the panel. All slots run in parallel against the same diff and spec context. Per-slot failures don't abort the panel, you still get reviews from the models that succeeded.
 
 ```bash
-# Active config + two cloud models
-fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud
+# Active config + another model
+fledge review --with-model ollama
 
 # Comma-separated, exclude active config
-fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud
+fledge review --no-active --with-model claude:sonnet,ollama:llama3.2:latest
 
 # JSON output gains a reviews[] array; legacy fields preserved when panel size is 1
-fledge review --with-model ollama:gpt-oss:120b-cloud --json
+fledge review --with-model ollama --json
 ```
 
 The text output prints cyan banner headers between model slots and includes per-slot elapsed seconds. JSON output's `reviews[]` array has one entry per slot with `provider`, `model`, `elapsed_seconds`, and either `review` or `error`.
@@ -109,33 +109,11 @@ REVIEW=$(fledge review --json)
 # Parse findings, fix issues, re-run
 ```
 
-## Plugin: code metrics
+## Related plugins
 
-`fledge metrics` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics). v0.15.2 rewrote the plugin in Rust, it now links `tokei` as a library (no separate `cargo install tokei` step) and emits stable plugin-owned JSON shapes. Install:
+The default plugin set adds two commands that complement AI review:
 
-```bash
-fledge plugins install --defaults
-fledge metrics                   # LOC summary by language (tokei)
-fledge metrics --churn           # most-changed files
-fledge metrics --tests           # test/source ratio
-```
+- **`fledge metrics`** ([`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics)) — LOC summary, most-changed files, test/source ratio
+- **`fledge deps`** ([`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps)) — dependency outdated/audit checks, auto-detected from lockfiles
 
-## Plugin: dependency health
-
-`fledge deps` lived in core through v0.14. In v0.15 it moved to [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps), auto-detects the ecosystem from lockfiles and shells out to the canonical tool. Install:
-
-```bash
-fledge plugins install --defaults
-fledge deps --outdated           # ecosystem's outdated checker (cargo outdated, npm outdated, …)
-fledge deps --audit              # ecosystem's security audit (cargo audit, npm audit, …)
-```
-
-| Lockfile | Ecosystem | Tool |
-|----------|-----------|------|
-| `Cargo.lock` | Rust | `cargo outdated` / `cargo audit` |
-| `bun.lockb` | Node (Bun) | `bun outdated` / `bun audit` |
-| `pnpm-lock.yaml` | Node (pnpm) | `pnpm outdated` / `pnpm audit` |
-| `package-lock.json` | Node (npm) | `npm outdated` / `npm audit` |
-| `yarn.lock` | Node (Yarn) | `yarn outdated` / `yarn npm audit` |
-| `poetry.lock` | Python (Poetry) | `poetry show --outdated` |
-| `uv.lock` | Python (uv) | `uv pip list --outdated` |
+Install with `fledge plugins install --defaults`. See the [CLI Reference](./cli-reference.md#fledge-deps-plugin) for full options and supported ecosystems.

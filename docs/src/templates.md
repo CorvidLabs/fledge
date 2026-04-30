@@ -97,13 +97,9 @@ fledge templates search --author CorvidLabs
 
 Templates on GitHub use the `fledge-template` topic, that's what `templates search` filters on. Add `--json` for an array of `{owner, name, description, stars, url, topics, trust_tier}`.
 
-(Through v0.15.1, this lived in `fledge-plugin-templates-remote` as `fledge templates-search`. It was re-absorbed into core in v0.15.2 as a proper `templates` subcommand.)
-
 ## Project Metadata
 
-`fledge templates init` writes `.fledge/meta.toml` to your project root: template source, variable values used during scaffolding, and per-file SHA hashes. This metadata is informational, fledge no longer ships a built-in re-application command (the v0.14 `fledge update` was removed in v0.15 because bidirectional template sync is a known complexity trap; see the [v0.15 changelog](./changelog.md)).
-
-A community plugin can ingest the same `.fledge/meta.toml` if you want template-update tooling.
+`fledge templates init` writes `.fledge/meta.toml` to your project root: template source, variable values used during scaffolding, and per-file SHA hashes. This metadata is informational — a community plugin can ingest it if you want template-update tooling.
 
 ## Publishing Your Own
 
@@ -158,4 +154,6 @@ When you run `fledge templates init --template <name>`, fledge looks in this ord
 
 ## Security
 
-Hooks from remote templates (`post_create` commands) always ask for confirmation before running. This way random templates can't execute whatever they want on your machine. Pass `--yes` if you trust the source and want to skip the prompt.
+> **Warning:** Remote template hooks execute shell commands on your machine. Always review what a template's `post_create` hooks will run before confirming.
+
+Hooks from remote templates always ask for confirmation before running. Pass `--yes` if you trust the source and want to skip the prompt.

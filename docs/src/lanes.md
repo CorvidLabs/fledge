@@ -117,7 +117,7 @@ steps = ["lint", "test", "security-check", "license-check"]
 
 Every step prints its elapsed time, and the lane summary shows total time:
 
-```
+```text
 ▶️ Lane: ci, Full CI pipeline
   ▶️ Running parallel: fmt, lint
   ✔ Step 1 done (245ms)
