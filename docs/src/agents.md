@@ -59,8 +59,9 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 | `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps, failures}` |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` |
+| `fledge work commit --json` | `{schema_version: 1, action: "work_commit", hash, message, branch}` |
 | `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}` |
-| `fledge work status --json` | `{schema_version: 1, action: "work_status", branch, default, ahead, behind, pr?}` |
+| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}` |
 
 ### Plugin commands with `--json` (after `plugins install --defaults`)
 
