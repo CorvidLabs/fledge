@@ -1,0 +1,1857 @@
+---
+source: src/introspect.rs
+assertion_line: 259
+expression: output
+---
+{
+  "schema_version": 1,
+  "name": "fledge",
+  "about": "Dev-lifecycle CLI — get your projects ready to fly.",
+  "aliases": [],
+  "args": [
+    {
+      "name": "non_interactive",
+      "long": "non-interactive",
+      "aliases": [
+        "ni"
+      ],
+      "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+      "required": false,
+      "takes_value": false,
+      "global": true
+    }
+  ],
+  "subcommands": [
+    {
+      "name": "ai",
+      "about": "Manage AI provider and model selection",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "status",
+          "about": "Show the active AI provider, model, and host",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "models",
+          "about": "List available models for the active (or specified) provider",
+          "aliases": [],
+          "args": [
+            {
+              "name": "provider",
+              "long": "provider",
+              "help": "Provider: claude or ollama (default: active provider)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "search",
+              "long": "search",
+              "help": "Filter models by substring (case-insensitive)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "use",
+          "about": "Select the active provider (and optionally model); interactive if args are omitted",
+          "aliases": [],
+          "args": [
+            {
+              "name": "provider",
+              "help": "Provider: claude or ollama",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "model",
+              "help": "Model name (e.g. qwen3-coder:480b-cloud)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "ask",
+      "about": "Ask a question about your codebase",
+      "aliases": [],
+      "args": [
+        {
+          "name": "question",
+          "help": "The question to ask",
+          "required": false,
+          "takes_value": true,
+          "value_name": "QUESTION",
+          "global": false
+        },
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "with_specs",
+          "long": "with-specs",
+          "help": "Include full spec + companions for these modules in the prompt (comma-separated, repeatable, use \"all\" for every spec)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_spec_index",
+          "long": "no-spec-index",
+          "help": "Omit the compact spec index from the prompt (saves tokens)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "provider",
+          "long": "provider",
+          "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "model",
+          "long": "model",
+          "help": "Model name. Overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "changelog",
+      "about": "Generate a changelog from git tags and commits",
+      "aliases": [],
+      "args": [
+        {
+          "name": "limit",
+          "long": "limit",
+          "short": "l",
+          "help": "Number of releases to show",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "tag",
+          "long": "tag",
+          "short": "t",
+          "help": "Show a specific tag only",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "unreleased",
+          "long": "unreleased",
+          "help": "Show unreleased changes since the latest tag",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "completions",
+      "about": "Generate shell completions",
+      "aliases": [],
+      "args": [
+        {
+          "name": "shell",
+          "help": "Shell to generate completions for (auto-detects if omitted with --install)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "install",
+          "long": "install",
+          "help": "Install completions to the standard location for your shell",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "config",
+      "about": "Manage global configuration",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "get",
+          "about": "Get a config value",
+          "aliases": [],
+          "args": [
+            {
+              "name": "key",
+              "help": "Config key (e.g. defaults.github_org)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "set",
+          "about": "Set a config value",
+          "aliases": [],
+          "args": [
+            {
+              "name": "key",
+              "help": "Config key (e.g. defaults.github_org)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "value",
+              "help": "Value to set",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "unset",
+          "about": "Remove a config value",
+          "aliases": [],
+          "args": [
+            {
+              "name": "key",
+              "help": "Config key (e.g. defaults.github_org)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "add",
+          "about": "Add a value to a list config key (templates.paths, templates.repos)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "key",
+              "help": "Config key (templates.paths or templates.repos)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "value",
+              "help": "Value to add",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "remove",
+          "about": "Remove a value from a list config key (templates.paths, templates.repos)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "key",
+              "help": "Config key (templates.paths or templates.repos)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "value",
+              "help": "Value to remove",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "edit",
+          "about": "Interactively edit config values",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "list",
+          "about": "Show all config values",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "path",
+          "about": "Show config file path",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "init",
+          "about": "Initialize config with a preset (e.g. corvidlabs)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "preset",
+              "long": "preset",
+              "help": "Preset name (available: corvidlabs)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "doctor",
+      "about": "Diagnose project environment health",
+      "aliases": [],
+      "args": [
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "introspect",
+      "about": "Dump the full command tree (for agents and tooling)",
+      "aliases": [],
+      "args": [
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON (default: pretty tree)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "lanes",
+      "about": "Manage and run composable workflow pipelines",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "run",
+          "about": "Run a lane by name",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Lane name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "dry_run",
+              "long": "dry-run",
+              "help": "Show execution plan without running",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output results as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "list",
+          "about": "List available lanes",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "init",
+          "about": "Add default lanes to fledge.toml",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "search",
+          "about": "Search GitHub for community lanes",
+          "aliases": [],
+          "args": [
+            {
+              "name": "query",
+              "help": "Keyword to filter results",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "author",
+              "long": "author",
+              "short": "a",
+              "help": "Filter by author/owner",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "import",
+          "about": "Import lanes from a GitHub repo (owner/repo)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "source",
+              "help": "GitHub repo (owner/repo) or full URL, optionally with @ref",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "publish",
+          "about": "Publish lanes to GitHub",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to the directory containing fledge.toml with lanes",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "org",
+              "long": "org",
+              "help": "Publish under a GitHub organization",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "private",
+              "long": "private",
+              "help": "Create as a private repository",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "help": "Override the repository description",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "create",
+          "about": "Scaffold a new lane repo",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Lane repo name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "output",
+              "long": "output",
+              "short": "o",
+              "help": "Parent directory",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "short": "d",
+              "help": "Description (bypasses prompt)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all interactive prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "validate",
+          "about": "Validate lane definitions in fledge.toml",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to a directory containing fledge.toml",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "strict",
+              "long": "strict",
+              "help": "Treat warnings as errors",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "plugins",
+      "about": "Manage plugins (install, remove, list, search)",
+      "aliases": [],
+      "args": [
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
+      "subcommands": [
+        {
+          "name": "install",
+          "about": "Install a plugin from GitHub",
+          "aliases": [],
+          "args": [
+            {
+              "name": "source",
+              "help": "GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version. Omit when using --defaults",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "force",
+              "long": "force",
+              "help": "Reinstall if already present",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts (accept defaults)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "defaults",
+              "long": "defaults",
+              "help": "Install fledge's curated set of default plugins (github, deps, metrics)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "remove",
+          "about": "Remove an installed plugin",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Plugin name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "update",
+          "about": "Update installed plugins (git pull + rebuild)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Plugin name (omit to update all)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "defaults",
+              "long": "defaults",
+              "help": "Update only fledge's curated default plugins (skip community plugins)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "list",
+          "about": "List installed plugins",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "audit",
+          "about": "Audit installed plugins — show trust tiers, capabilities, and hooks",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "search",
+          "about": "Search for plugins on GitHub",
+          "aliases": [],
+          "args": [
+            {
+              "name": "query",
+              "help": "Search query",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "author",
+              "long": "author",
+              "short": "a",
+              "help": "Filter by author/owner",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "limit",
+              "long": "limit",
+              "short": "l",
+              "help": "Maximum results",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "run",
+          "about": "Run a plugin command",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Plugin command name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "args",
+              "help": "Arguments to pass to the plugin",
+              "required": false,
+              "takes_value": true,
+              "value_name": "ARGS",
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "publish",
+          "about": "Publish a plugin to GitHub",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to the plugin directory",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "org",
+              "long": "org",
+              "help": "Publish under a GitHub organization",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "private",
+              "long": "private",
+              "help": "Create as a private repository",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "help": "Override the repository description",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "create",
+          "about": "Scaffold a new plugin",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Plugin name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "output",
+              "long": "output",
+              "short": "o",
+              "help": "Parent directory",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "short": "d",
+              "help": "Description (bypasses prompt)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all interactive prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "validate",
+          "about": "Validate a plugin manifest",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to a directory containing plugin.toml",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "strict",
+              "long": "strict",
+              "help": "Treat warnings as errors",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "about": "Cut a release: bump version, changelog, tag, and optionally push",
+      "aliases": [],
+      "args": [
+        {
+          "name": "bump",
+          "help": "Version bump: major, minor, patch, or explicit version (e.g. \"1.0.0\")",
+          "required": true,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "dry_run",
+          "long": "dry-run",
+          "help": "Show what would happen without making changes",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_tag",
+          "long": "no-tag",
+          "help": "Skip creating a git tag",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_changelog",
+          "long": "no-changelog",
+          "help": "Skip changelog generation",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_bump",
+          "long": "no-bump",
+          "help": "Skip bumping any version files. Tag-only release, useful when the canonical version lives outside the tree (e.g. the GitHub Release tag itself is the source of truth)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "push",
+          "long": "push",
+          "help": "Push commit and tag to remote after release",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "pre_lane",
+          "long": "pre-lane",
+          "help": "Run a lane before releasing (e.g. \"ci\")",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "allow_dirty",
+          "long": "allow-dirty",
+          "help": "Allow releasing with uncommitted changes",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "review",
+      "about": "AI-powered code review of current changes",
+      "aliases": [],
+      "args": [
+        {
+          "name": "base",
+          "long": "base",
+          "short": "b",
+          "help": "Base branch to diff against (default: auto-detect)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "file",
+          "long": "file",
+          "short": "f",
+          "help": "Review only a specific file",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "model",
+          "long": "model",
+          "short": "m",
+          "help": "Model name for the active provider (overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "prompt",
+          "long": "prompt",
+          "short": "p",
+          "help": "Custom review focus prompt (appended to default instructions)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "format",
+          "long": "format",
+          "help": "Output format: summary (default), checklist, inline",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "with_specs",
+          "long": "with-specs",
+          "help": "Include full spec + companions for these modules in the review context (comma-separated, repeatable). Appended to any auto-detected specs",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_auto_specs",
+          "long": "no-auto-specs",
+          "help": "Disable auto-detection of specs based on files in the diff",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "provider",
+          "long": "provider",
+          "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "with_model",
+          "long": "with-model",
+          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: provider[:model], e.g. `ollama:gpt-oss:120b-cloud` or just `claude` to use the active claude config. Repeatable and comma-separated",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "no_active",
+          "long": "no-active",
+          "help": "Drop the active config (--provider/--model or `fledge ai use`) from the panel. Only the explicit --with-model entries will run. Useful for \"compare exactly these N models\"",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "run",
+      "about": "Run a project task defined in fledge.toml",
+      "aliases": [],
+      "args": [
+        {
+          "name": "task",
+          "help": "Task name to run (lists tasks if omitted)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "init",
+          "long": "init",
+          "help": "Create a starter fledge.toml",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "list",
+          "long": "list",
+          "short": "l",
+          "help": "List available tasks",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "lang",
+          "long": "lang",
+          "help": "Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "json",
+          "long": "json",
+          "help": "Output results as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "spec",
+      "about": "Manage specs (check, init, new)",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "check",
+          "about": "Validate specs against source code",
+          "aliases": [],
+          "args": [
+            {
+              "name": "strict",
+              "long": "strict",
+              "help": "Treat warnings as errors",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "init",
+          "about": "Initialize spec-sync configuration",
+          "aliases": [],
+          "args": [],
+          "subcommands": []
+        },
+        {
+          "name": "list",
+          "about": "List all specs in the project",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "new",
+          "about": "Scaffold a new spec module",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Module name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "show",
+          "about": "Show a single spec's frontmatter, sections, and companions",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Module name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "templates",
+      "about": "Manage templates (init, create, validate, list, search, publish)",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "init",
+          "about": "Create a new project from a template",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Project name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "template",
+              "long": "template",
+              "short": "t",
+              "help": "Template to use (skip interactive selection)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "output",
+              "long": "output",
+              "short": "o",
+              "help": "Parent directory for the project",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "author",
+              "long": "author",
+              "help": "Author name (bypasses prompt; overrides config)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "org",
+              "long": "org",
+              "help": "GitHub organization (bypasses prompt; overrides config)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "no_git",
+              "long": "no-git",
+              "help": "Skip git init and initial commit",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "no_install",
+              "long": "no-install",
+              "help": "Skip dependency installation (post-create hooks)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "refresh",
+              "long": "refresh",
+              "help": "Force re-clone of cached remote templates",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "dry_run",
+              "long": "dry-run",
+              "help": "Show what would be created without writing anything",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts (accept defaults)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "create",
+          "about": "Scaffold a new fledge template",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Template name",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "output",
+              "long": "output",
+              "short": "o",
+              "help": "Parent directory for the template",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "short": "d",
+              "help": "Template description (bypasses prompt)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "render_patterns",
+              "long": "render-patterns",
+              "help": "Comma-separated file patterns to render through Tera (bypasses prompt)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "hooks",
+              "long": "hooks",
+              "help": "Include post-create hooks scaffold (bypasses prompt)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "HOOKS",
+              "global": false
+            },
+            {
+              "name": "prompts",
+              "long": "prompts",
+              "help": "Include custom prompts scaffold (bypasses prompt)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "PROMPTS",
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all interactive prompts (accept defaults)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "validate",
+          "about": "Validate a template or directory of templates",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to a template or directory of templates",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "strict",
+              "long": "strict",
+              "help": "Treat warnings as errors",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "list",
+          "about": "List available templates",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "search",
+          "about": "Search GitHub for community templates (fledge-template topic)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "query",
+              "help": "Keyword to filter results",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "author",
+              "long": "author",
+              "short": "a",
+              "help": "Filter by author/owner",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "limit",
+              "long": "limit",
+              "short": "l",
+              "help": "Maximum number of results",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "publish",
+          "about": "Publish a template directory to GitHub",
+          "aliases": [],
+          "args": [
+            {
+              "name": "path",
+              "help": "Path to the template directory",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "org",
+              "long": "org",
+              "help": "Publish under a GitHub organization",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "private",
+              "long": "private",
+              "help": "Create as a private repository",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "description",
+              "long": "description",
+              "help": "Override the repository description",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "yes",
+              "long": "yes",
+              "short": "y",
+              "help": "Skip all confirmation prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    },
+    {
+      "name": "watch",
+      "about": "Watch for file changes and re-run a task or lane",
+      "aliases": [],
+      "args": [
+        {
+          "name": "name",
+          "help": "Task name to re-run on changes (use --lane for lanes)",
+          "required": true,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "lane",
+          "long": "lane",
+          "help": "Watch and re-run a lane instead of a task",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "path",
+          "long": "path",
+          "short": "p",
+          "help": "Only watch a specific directory (default: current directory)",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "ext",
+          "long": "ext",
+          "short": "e",
+          "help": "Only trigger on specific file extensions (comma-separated, e.g. \"rs,toml\")",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "debounce",
+          "long": "debounce",
+          "short": "d",
+          "help": "Debounce interval in milliseconds",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "clear",
+          "long": "clear",
+          "help": "Clear terminal before each run",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        }
+      ],
+      "subcommands": []
+    },
+    {
+      "name": "work",
+      "about": "Feature branch and PR workflow",
+      "aliases": [],
+      "args": [],
+      "subcommands": [
+        {
+          "name": "start",
+          "about": "Start a new work branch",
+          "aliases": [],
+          "args": [
+            {
+              "name": "name",
+              "help": "Branch name (will be sanitized for git)",
+              "required": true,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "branch_type",
+              "long": "branch-type",
+              "short": "t",
+              "help": "Branch type: feat, fix, chore, docs, hotfix, refactor (default: feat)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "issue",
+              "long": "issue",
+              "short": "i",
+              "help": "Link to GitHub issue (prefixes branch name with issue number)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "prefix",
+              "long": "prefix",
+              "help": "Override branch prefix entirely (e.g. \"user/leif\")",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "base",
+              "long": "base",
+              "help": "Base branch to branch from (default: main)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "commit",
+          "about": "Stage changes and create a conventional commit",
+          "aliases": [],
+          "args": [
+            {
+              "name": "message",
+              "long": "message",
+              "short": "m",
+              "help": "Commit message (prompted interactively if omitted)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "commit_type",
+              "long": "type",
+              "short": "t",
+              "help": "Commit type: feat, fix, chore, docs, refactor, etc. (default: from branch or \"feat\")",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "scope",
+              "long": "scope",
+              "short": "s",
+              "help": "Scope for conventional commit (e.g. \"work\", \"cli\")",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "all",
+              "long": "all",
+              "short": "a",
+              "help": "Stage all changes (including untracked) before committing",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "ai",
+              "long": "ai",
+              "help": "Generate commit message via AI from the staged diff",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "provider",
+              "long": "provider",
+              "help": "Override AI provider for --ai (claude or ollama)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "model",
+              "long": "model",
+              "help": "Override AI model for --ai",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "push",
+          "about": "Push the current branch to origin",
+          "aliases": [],
+          "args": [
+            {
+              "name": "force",
+              "long": "force",
+              "short": "f",
+              "help": "Force push (--force-with-lease for safety)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "status",
+          "about": "Show current branch status (pure git, no GitHub dependency)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "pr",
+          "about": "[Deprecated] Use `fledge github prs create` (fledge-plugin-github) to open pull requests",
+          "aliases": [],
+          "args": [
+            {
+              "name": "_args",
+              "required": false,
+              "takes_value": true,
+              "value_name": "ARGS",
+              "global": false
+            }
+          ],
+          "subcommands": []
+        }
+      ]
+    }
+  ]
+}

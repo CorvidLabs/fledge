@@ -34,6 +34,7 @@ base64 = "0.22"
 notify = "7"
 
 [dev-dependencies]
+insta = { version = "1.47.2", features = ["json"] }
 tempfile = "3"
 
 [target."cfg(unix)".dependencies]

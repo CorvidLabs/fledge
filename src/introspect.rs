@@ -248,6 +248,18 @@ mod tests {
     }
 
     #[test]
+    fn introspect_json_schema_snapshot() {
+        use crate::cli::Cli;
+        let cmd = Cli::command();
+        let tree = build_tree(&cmd);
+        let output = IntrospectOutput {
+            schema_version: INTROSPECT_SCHEMA_VERSION,
+            root: tree,
+        };
+        insta::assert_json_snapshot!("introspect_schema", output);
+    }
+
+    #[test]
     fn build_arg_surfaces_long_and_short_aliases() {
         let cmd = AliasCli::command();
         let tree = build_tree(&cmd);
