@@ -1,6 +1,6 @@
 ---
 module: config
-version: 9
+version: 10
 status: active
 files:
   - src/config.rs
@@ -32,6 +32,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `config_path` | Returns the platform-appropriate path to the config file |
 | `save` | Serializes config to TOML and writes to disk, creating parent directories if needed |
 | `get` | Returns a config value by dotted key (e.g. `defaults.author`), or `None` if unset/unknown. List keys return newline-separated values |
+| `is_secret_key` | Returns whether a dotted key holds a secret value (e.g. `github.token`, `ai.ollama.api_key`) that should be redacted in display |
 | `is_valid_key` | Returns whether a dotted key is recognized (scalar or list) |
 | `valid_keys_hint` | Returns a static string listing all valid config keys for use in error messages |
 | `set` | Sets a scalar config value by dotted key; errors on list keys or unknown keys |
@@ -71,6 +72,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `Config::config_path` | `() -> PathBuf` | Returns path to config file |
 | `Config::save` | `(&self) -> Result<()>` | Serialize config to TOML and write to disk, creating parent dirs if needed |
 | `Config::get` | `(&self, key: &str) -> Option<String>` | Get a config value by dotted key. List keys return newline-separated values |
+| `Config::is_secret_key` | `(key: &str) -> bool` | Returns true for keys that hold secrets (e.g. `github.token`, `ai.ollama.api_key`), used by `config get` to redact output |
 | `Config::is_valid_key` | `(key: &str) -> bool` | Check whether a dotted key is recognized |
 | `Config::valid_keys_hint` | `() -> &'static str` | Returns a static hint string listing all valid config keys |
 | `Config::set` | `(&mut self, key: &str, value: &str) -> Result<()>` | Set a scalar config value, errors on list or unknown keys |
@@ -205,6 +207,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-04-30 | Add `Config::is_secret_key(key) -> bool` — identifies keys whose values should be redacted in display (e.g. `github.token`, `ai.ollama.api_key`). Used by `config get` to avoid printing plaintext secrets to stdout |
 | 9 | 2026-04-26 | Document `valid_keys_hint()`, returns a static string listing all valid config keys, used by `handle_config` in main.rs for error messages |
 | 8 | 2026-04-24 | Add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default |
 | 7 | 2026-04-23 | Add `[ai]` section, `ai.provider` (scalar, `claude`/`ollama` only), `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`. Defaults preserve pre-v0.13 Claude-only behavior. `add_to_list`/`remove_from_list` now route through `is_valid_key` so new scalar keys get the right error message |
