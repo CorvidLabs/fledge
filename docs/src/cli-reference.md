@@ -574,6 +574,7 @@ fledge github prs create [OPTIONS]
 - `--base <BRANCH>`: Base branch [default: repo default]
 - `--draft`: Open as draft
 - `--fill`: Infer title/body from commits
+- `--ai`: Generate title and body via AI (`fledge ask`) with interactive preview/edit
 - `--json`: Returns `{number, url, title}`
 
 ---

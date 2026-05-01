@@ -37,6 +37,8 @@ fledge github prs --state closed
 fledge github prs view 256
 fledge github prs --json
 fledge github prs create --fill         # infer title/body from commits
+fledge github prs create --ai          # AI-generated title + body (via fledge ask) with preview
+fledge github prs create --ai --draft  # AI-generated, open as draft
 fledge github prs create --title "feat: new thing" --draft --json
 ```
 

@@ -41,6 +41,8 @@ Use `fledge github prs create` (from `fledge-plugin-github`) or the `gh` CLI dir
 
 ```bash
 fledge github prs create --fill                              # infer title/body from commits
+fledge github prs create --ai                                # AI-generated title/body with preview
+fledge github prs create --ai --draft                        # AI-generated, open as draft
 fledge github prs create --title "..." --body "..." --draft  # scripted
 fledge github prs create --base develop
 ```
