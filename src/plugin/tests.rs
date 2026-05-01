@@ -897,3 +897,37 @@ store = false
     assert!(!manifest.capabilities.store);
     assert_eq!(manifest.hooks.iter_defined().len(), 2);
 }
+
+#[test]
+fn run_hook_handles_quoted_args_with_spaces() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let script = tmp.path().join("check.sh");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\n[ \"$1\" = \"hello world\" ] || exit 1\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let hook = format!("{} 'hello world'", script.display());
+    let result = run_hook(tmp.path(), &hook, "test");
+    assert!(
+        result.is_ok(),
+        "hook with quoted args should succeed: {result:?}"
+    );
+}
+
+#[test]
+fn run_hook_rejects_mismatched_quotes() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let result = run_hook(tmp.path(), "echo 'unclosed", "test");
+    assert!(result.is_err(), "mismatched quotes should produce an error");
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("parsing"),
+        "error should mention parsing: {msg}"
+    );
+}

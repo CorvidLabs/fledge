@@ -95,11 +95,12 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
             .status()
             .with_context(|| format!("running {event} hook"))?
     } else {
-        let parts: Vec<&str> = hook.split_whitespace().collect();
+        let parts = shell_words::split(hook)
+            .with_context(|| format!("parsing {event} hook command: {hook}"))?;
         if parts.is_empty() {
             bail!("Empty hook command for {event}");
         }
-        Command::new(parts[0])
+        Command::new(&parts[0])
             .args(&parts[1..])
             .current_dir(plugin_dir)
             .env("FLEDGE_PLUGIN_DIR", plugin_dir)
