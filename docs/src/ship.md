@@ -1,6 +1,6 @@
 # Ship: Branch, Commit, Push, Release
 
-The Ship pillar takes a clean working tree to a tagged release. Branch, commit (with optional AI-generated messages), push, then bump version and tag. PR creation lives in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) (not yet released; use `gh pr create` in the meantime).
+The Ship pillar takes a clean working tree to a tagged release. Branch, commit (with optional AI-generated messages), push, then bump version and tag. PR creation is via [`fledge github prs create`](./github-integration.md) (from `fledge-plugin-github`) or directly with `gh pr create`.
 
 ## Git workflow with `fledge work`
 
@@ -37,15 +37,13 @@ fledge work push --json                          # {schema_version, action, bran
 
 ### Open a PR
 
-PR creation is not in core fledge. Use the `gh` CLI:
+Use `fledge github prs create` (from `fledge-plugin-github`) or the `gh` CLI directly:
 
 ```bash
-gh pr create                                     # interactive
-gh pr create --title "..." --body "..." --draft  # scripted
-gh pr create --base develop
+fledge github prs create --fill                              # infer title/body from commits
+fledge github prs create --title "..." --body "..." --draft  # scripted
+fledge github prs create --base develop
 ```
-
-`fledge github pr` is planned for `fledge-plugin-github` but not yet released.
 
 ## GitHub integration (plugin)
 
@@ -89,7 +87,7 @@ fledge work start add-feature        # 1. branch
 fledge work commit --ai --all        # 2. AI-drafted conventional commit
 fledge lanes run pre-commit          # 3. fmt + lint + test + spec-check
 fledge work push                     # 4. push to remote
-gh pr create --title "..." --draft   # 5. open PR (or via GitHub web UI)
+fledge github prs create --fill --draft  # 5. open PR (or fledge-plugin-github)
 fledge github checks                 # 6. wait for CI (fledge-plugin-github)
 gh pr merge <num> --squash           # 7. merge
 git checkout main && git pull

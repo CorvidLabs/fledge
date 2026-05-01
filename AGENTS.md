@@ -6,7 +6,7 @@ This page is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc
 
 `fledge` is a dev-lifecycle CLI. One tool for the dev loop, any language. Scaffold (`templates`), run (`run`/`lanes`/`watch`), spec (`spec`), AI (`ai`/`ask`/`review`), ship (`work`/`release`/`changelog`), extend (`plugins`/`config`/`introspect`/`completions`/`doctor`). Anything ecosystem-specific is a plugin. Run `fledge plugins install --defaults` once for the curated set.
 
-If you're about to run `npm`, `cargo`, `make`, `git checkout -b`, or `gh pr create`, check first whether fledge has a wrapper. It usually does, and the wrapper has `--json` and guardrails.
+If you're about to run `npm`, `cargo`, `make`, or `git checkout -b`, check first whether fledge has a wrapper. It usually does, and the wrapper has `--json` and guardrails. For PRs, use `fledge github prs create` from `fledge-plugin-github`.
 
 ## First-time setup
 
@@ -100,7 +100,9 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 |---------|--------|-------------|
 | `fledge github checks --json` | `fledge-plugin-github` | Raw GitHub API response of CI check-runs for a branch |
 | `fledge github issues --json` / `fledge github issues view <n> --json` | `fledge-plugin-github` | GitHub issues, list or one |
+| `fledge github issues create --title "..." --json` | `fledge-plugin-github` | Create an issue; returns `{number, url, title}` |
 | `fledge github prs --json` / `fledge github prs view <n> --json` | `fledge-plugin-github` | GitHub PRs, list or one |
+| `fledge github prs create --fill --json` | `fledge-plugin-github` | Create PR (infer from commits); returns `{number, url, title}` |
 | `fledge deps --json` | `fledge-plugin-deps` | Dependency report from the ecosystem tool (`cargo outdated`, `npm audit`, ...) |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics` | LOC summary (tokei), per-file churn, test/source ratio |
 
@@ -222,9 +224,10 @@ fledge work push --json                                    # push to origin
 
 ### Open a PR
 ```bash
-# PR creation is not in core fledge. Use the gh CLI:
-gh pr create --title "feat: add search index" --draft
-# fledge github pr is planned for fledge-plugin-github but not yet released.
+# Via fledge-plugin-github (structured output):
+fledge github prs create --title "feat: add search index" --draft --json
+# Or infer title/body from commits:
+fledge github prs create --fill --json
 ```
 
 ### Before reporting a task done

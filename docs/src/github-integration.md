@@ -1,6 +1,6 @@
 # GitHub Integration
 
-GitHub-specific commands (CI checks, issues, PRs) live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. Branch creation is in core via `fledge work start`. PR creation uses `gh pr create` until `fledge github pr` ships.
+GitHub-specific commands (CI checks, issues, PRs) live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. Branch creation is in core via `fledge work start`.
 
 ```bash
 fledge plugins install --defaults
@@ -25,6 +25,8 @@ fledge github issues --label bug        # filter by label
 fledge github issues view 42            # specific issue
 fledge github issues --limit 50
 fledge github issues --json
+fledge github issues create --title "bug: something broke"
+fledge github issues create --title "..." --body "..." --label bug --json
 ```
 
 ### Pull Requests
@@ -34,6 +36,8 @@ fledge github prs                       # open PRs
 fledge github prs --state closed
 fledge github prs view 256
 fledge github prs --json
+fledge github prs create --fill         # infer title/body from commits
+fledge github prs create --title "feat: new thing" --draft --json
 ```
 
 ### CI Status

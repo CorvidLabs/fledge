@@ -67,8 +67,10 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 | Command | Plugin |
 |---------|--------|
 | `fledge github checks --json` | `fledge-plugin-github`. Raw GitHub API `check-runs` response |
-| `fledge github issues --json` / `github issues view <n> --json` | `fledge-plugin-github` |
-| `fledge github prs --json` / `github prs view <n> --json` | `fledge-plugin-github` |
+| `fledge github issues --json` / `fledge github issues view <n> --json` | `fledge-plugin-github` |
+| `fledge github prs --json` / `fledge github prs view <n> --json` | `fledge-plugin-github` |
+| `fledge github prs create --fill --json` | `fledge-plugin-github`. Returns `{number, url, title}` |
+| `fledge github issues create --title "..." --json` | `fledge-plugin-github`. Returns `{number, url, title}` |
 | `fledge deps --json` | `fledge-plugin-deps`. Ecosystem tool's native output |
 | `fledge metrics --json` / `--churn --json` / `--tests --json` | `fledge-plugin-metrics`. LOC summary (tokei linked as a library), per-file churn, test/source ratio |
 
@@ -124,7 +126,7 @@ fledge review --with-model ollama --json
 
 # 5. Push and open PR
 fledge work push --json
-gh pr create --title "fix: issue 42"
+fledge github prs create --title "fix: issue 42" --json
 
 # 6. Wait for CI
 fledge github checks --json    # via fledge-plugin-github
