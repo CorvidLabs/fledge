@@ -91,9 +91,14 @@ fn clone_repo(
         let credentials = format!("x-access-token:{}", t);
         let encoded = base64::engine::general_purpose::STANDARD.encode(&credentials);
         let header_value = format!("Authorization: Basic {}", encoded);
-        cmd.env("GIT_CONFIG_COUNT", "1")
-            .env("GIT_CONFIG_KEY_0", "http.extraheader")
-            .env("GIT_CONFIG_VALUE_0", &header_value);
+        let existing_count: u32 = std::env::var("GIT_CONFIG_COUNT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let idx = existing_count;
+        cmd.env("GIT_CONFIG_COUNT", (existing_count + 1).to_string())
+            .env(format!("GIT_CONFIG_KEY_{idx}"), "http.extraheader")
+            .env(format!("GIT_CONFIG_VALUE_{idx}"), &header_value);
     }
 
     let output = cmd.output().context("running git clone")?;

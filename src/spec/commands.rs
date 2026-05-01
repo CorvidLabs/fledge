@@ -155,7 +155,11 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
         });
         println!("{}", serde_json::to_string_pretty(&payload)?);
         if total_errors > 0 || (strict && total_warnings > 0) {
-            std::process::exit(1);
+            bail!(
+                "spec check failed: {} error(s), {} warning(s)",
+                total_errors,
+                total_warnings
+            );
         }
         return Ok(());
     }
@@ -229,7 +233,11 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
                 style("(warnings treated as errors in strict mode)").dim()
             );
         }
-        std::process::exit(1);
+        bail!(
+            "spec check failed: {} error(s), {} warning(s)",
+            total_errors,
+            total_warnings
+        );
     }
 
     Ok(())

@@ -16,9 +16,16 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
                     config::Config::valid_keys_hint()
                 );
             }
-            match config.get(&key) {
-                Some(value) if !value.is_empty() => println!("{}", value),
-                _ => println!("{} {} is not set", style("*").cyan().bold(), key),
+            if config::Config::is_secret_key(&key) {
+                match config.get(&key) {
+                    Some(v) if !v.is_empty() => println!("***"),
+                    _ => println!("{} {} is not set", style("*").cyan().bold(), key),
+                }
+            } else {
+                match config.get(&key) {
+                    Some(value) if !value.is_empty() => println!("{}", value),
+                    _ => println!("{} {} is not set", style("*").cyan().bold(), key),
+                }
             }
         }
         ConfigAction::Set { key, value } => {

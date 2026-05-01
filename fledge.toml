@@ -12,7 +12,7 @@ docs-build = "mdbook build docs"
 docs-serve = "mdbook serve docs --open"
 
 [tasks.validate-templates]
-cmd = "cargo run -- validate-template templates/"
+cmd = "cargo run -- templates validate templates/"
 description = "Validate all built-in templates"
 
 [lanes.ci]

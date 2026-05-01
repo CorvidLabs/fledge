@@ -280,11 +280,10 @@ pub fn run(opts: PluginOptions) -> Result<()> {
 pub fn run_lifecycle_hook(event: &str) -> Result<()> {
     let registry = load_registry()?;
     for entry in &registry.plugins {
-        // Protocol plugins need exec capability to run hooks
-        if let Some(ref caps) = entry.capabilities {
-            if !caps.exec {
-                continue;
-            }
+        // Require explicit exec = true; plugins without capabilities declared cannot run hooks
+        match &entry.capabilities {
+            Some(caps) if caps.exec => {}
+            _ => continue,
         }
 
         let plugin_dir = plugins_dir().join(&entry.name);
