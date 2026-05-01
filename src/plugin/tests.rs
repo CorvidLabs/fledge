@@ -899,7 +899,9 @@ store = false
 }
 
 #[test]
+#[cfg(unix)]
 fn run_hook_handles_quoted_args_with_spaces() {
+    use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::TempDir::new().unwrap();
     let script = tmp.path().join("check.sh");
     std::fs::write(
@@ -907,11 +909,7 @@ fn run_hook_handles_quoted_args_with_spaces() {
         "#!/bin/sh\n[ \"$1\" = \"hello world\" ] || exit 1\n",
     )
     .unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
     let hook = format!("{} 'hello world'", script.display());
     let result = run_hook(tmp.path(), &hook, "test");
     assert!(
