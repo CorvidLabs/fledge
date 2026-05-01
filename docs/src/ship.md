@@ -45,8 +45,6 @@ gh pr create --title "..." --body "..." --draft  # scripted
 gh pr create --base develop
 ```
 
-`fledge github pr` is planned for `fledge-plugin-github` but not yet released.
-
 ## GitHub integration (plugin)
 
 Issues, PRs, and CI checks live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). Install with `fledge plugins install --defaults`.

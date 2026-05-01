@@ -202,7 +202,7 @@ $ fledge work status
 ```
 $ fledge work pr
 ⚠ `fledge work pr` has been removed.
-  Use `gh pr create` to open a pull request until `fledge github pr` ships.
+  Use `gh pr create` to open a pull request.
   See: https://cli.github.com/manual/gh_pr_create
 ```
 

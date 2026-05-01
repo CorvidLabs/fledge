@@ -1,6 +1,6 @@
 # GitHub Integration
 
-GitHub-specific commands (CI checks, issues, PRs) live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. Branch creation is in core via `fledge work start`. PR creation uses `gh pr create` until `fledge github pr` ships.
+GitHub-specific commands (CI checks, issues, PRs) live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github), one of the default plugins. Branch creation is in core via `fledge work start`. PR creation uses `gh pr create`.
 
 ```bash
 fledge plugins install --defaults

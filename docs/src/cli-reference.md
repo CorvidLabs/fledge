@@ -406,7 +406,7 @@ fledge ask --with-specs all "which modules touch GitHub?"
 
 ### fledge work `<action>`
 
-Git workflow for feature branches. Supports any branch type, not just features. PR creation uses `gh pr create` or the GitHub web UI (`fledge github pr` is planned but not yet released).
+Git workflow for feature branches. Supports any branch type, not just features. PR creation uses `gh pr create` or the GitHub web UI.
 
 ```text
 fledge work <start|commit|push|status> [OPTIONS]
