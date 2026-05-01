@@ -32,18 +32,8 @@ use search::search_plugins;
 use update::update_plugins;
 use validate::validate_plugin;
 
-// ─── Imports needed only in tests ───────────────────────────────────────────
-
-#[cfg(test)]
-use install::{install_defaults, install_plugin};
-#[cfg(test)]
-use list::{get_lifecycle_hooks, has_lifecycle_hooks};
 #[cfg(test)]
 use run_plugin::{resolve_plugin_source_dir, which_fledge_plugin};
-#[cfg(test)]
-use update::find_latest_tag;
-#[cfg(test)]
-use validate::{print_plugin_report, PluginValidationReport};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
