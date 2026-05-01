@@ -72,7 +72,7 @@ fledge ask "how does X work?"        # ask about the codebase
 # Branch and PR workflow
 fledge work start add-logging        # create a work branch
 fledge work push                     # commit staged changes and push to origin
-gh pr create                         # open PR via gh CLI
+fledge github prs create --fill      # open PR (fledge-plugin-github)
 
 # Environment health
 fledge doctor                        # anything broken in your env?

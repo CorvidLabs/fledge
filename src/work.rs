@@ -137,8 +137,10 @@ pub fn run(action: WorkAction) -> Result<()> {
                 "{} `fledge work pr` has been removed.",
                 console::style("⚠").yellow().bold()
             );
-            eprintln!("  Use `gh pr create` to open a pull request.");
-            eprintln!("  See: https://cli.github.com/manual/gh_pr_create");
+            eprintln!(
+                "  Use `fledge github prs create` (fledge-plugin-github) to open a pull request."
+            );
+            eprintln!("  Or directly: `gh pr create` — https://cli.github.com/manual/gh_pr_create");
             std::process::exit(1);
         }
     }

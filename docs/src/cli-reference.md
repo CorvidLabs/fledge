@@ -406,7 +406,7 @@ fledge ask --with-specs all "which modules touch GitHub?"
 
 ### fledge work `<action>`
 
-Git workflow for feature branches. Supports any branch type, not just features. PR creation uses `gh pr create` or the GitHub web UI.
+Git workflow for feature branches. Supports any branch type, not just features. PR creation is via `fledge github prs create` (`fledge-plugin-github`) or directly with `gh pr create`.
 
 ```text
 fledge work <start|commit|push|status> [OPTIONS]
@@ -528,36 +528,53 @@ fledge release patch --no-tag --no-changelog  # just bump version
 
 ---
 
-### fledge github issues `[view <number>]` (plugin)
+### fledge github issues `[view <number> | create]` (plugin)
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view GitHub issues.
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List, view, and create GitHub issues.
 
 ```text
 fledge github issues [list] [OPTIONS]
 fledge github issues view <number> [OPTIONS]
+fledge github issues create [OPTIONS]
 ```
 
-**Options:**
+**List/view options:**
 - `-s, --state <STATE>`: `open`, `closed`, `all` [default: `open`]
 - `-l, --limit <N>`: Max results [default: `20`]
 - `--label <LABEL>`: Filter by label
 - `--json`
 
+**Create options:**
+- `-t, --title <TITLE>`: Issue title
+- `-b, --body <BODY>`: Issue body
+- `--label <LABEL>`: Add a label
+- `--assignee <LOGIN>`: Assign to user
+- `--json`: Returns `{number, url, title}`
+
 ---
 
-### fledge github prs `[view <number>]` (plugin)
+### fledge github prs `[view <number> | create]` (plugin)
 
-Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List and view pull requests. Use `gh pr create` or the GitHub web UI to open new PRs.
+Provided by [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). List, view, and create pull requests.
 
 ```text
 fledge github prs [list] [OPTIONS]
 fledge github prs view <number> [OPTIONS]
+fledge github prs create [OPTIONS]
 ```
 
-**Options:**
+**List/view options:**
 - `-s, --state <STATE>`: `open`, `closed`, `merged`, `all` [default: `open`]
 - `-l, --limit <N>`: Max results [default: `20`]
 - `--json`
+
+**Create options:**
+- `-t, --title <TITLE>`: PR title
+- `-b, --body <BODY>`: PR body
+- `--base <BRANCH>`: Base branch [default: repo default]
+- `--draft`: Open as draft
+- `--fill`: Infer title/body from commits
+- `--json`: Returns `{number, url, title}`
 
 ---
 

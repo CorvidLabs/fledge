@@ -27,9 +27,9 @@ fledge review --with-model ollama                       # multi-model panel, par
 
 ```bash
 fledge work start fix-login      # creates author/fix/fix-login, pushes
-fledge work push                 # commit and push to origin
-gh pr create                     # open PR via gh CLI
-fledge github checks             # watch CI status (via fledge-plugin-github)
+fledge work push                        # commit and push to origin
+fledge github prs create --fill         # open PR (fledge-plugin-github)
+fledge github checks                    # watch CI status (via fledge-plugin-github)
 ```
 
 ## For Teams
@@ -93,7 +93,7 @@ An AI agent can:
 3. `fledge lanes run ci`, run the full pipeline
 4. `fledge review --with-model ollama --json`, multi-model review for higher-confidence findings
 5. Fix issues that multiple models agree on
-6. `fledge work push --json`, push branch; then `gh pr create` to open PR
+6. `fledge work push --json`, push branch; then `fledge github prs create --fill --json` to open PR
 
 ### Plugin protocol for agent tooling
 
