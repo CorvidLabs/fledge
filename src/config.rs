@@ -174,6 +174,10 @@ impl Config {
         }
     }
 
+    pub fn is_secret_key(key: &str) -> bool {
+        matches!(key, "github.token" | "ai.ollama.api_key")
+    }
+
     pub fn is_valid_key(key: &str) -> bool {
         matches!(
             key,

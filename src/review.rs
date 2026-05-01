@@ -236,8 +236,19 @@ pub fn run(options: ReviewOptions) -> Result<()> {
     }
     let mut indexed: Vec<(usize, PanelResult)> = handles
         .into_iter()
-        .map(|h| h.join().expect("review thread panicked"))
-        .collect();
+        .map(|h| {
+            h.join().map_err(|e| {
+                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                anyhow::anyhow!("review thread panicked: {}", msg)
+            })
+        })
+        .collect::<Result<_>>()?;
     indexed.sort_by_key(|(i, _)| *i);
     let results: Vec<PanelResult> = indexed.into_iter().map(|(_, r)| r).collect();
 
