@@ -1,5 +1,18 @@
 use anyhow::{bail, Result};
 use std::process::Command;
+use std::time::Duration;
+
+/// Default timeout for GitHub API requests. Without this, a wedged endpoint
+/// or network drop hangs `lanes search`, `templates search`, `plugins search`,
+/// `lanes import`, and the publish flows indefinitely.
+const GITHUB_API_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn github_api_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(GITHUB_API_TIMEOUT))
+        .build()
+        .into()
+}
 
 #[cfg(test)]
 fn parse_repo_url(url: &str) -> Result<(String, String)> {
@@ -61,7 +74,9 @@ pub fn github_api_get(
         }
     }
 
-    let mut request = ureq::get(&url)
+    let agent = github_api_agent();
+    let mut request = agent
+        .get(&url)
         .header("Accept", "application/vnd.github.v3+json")
         .header("User-Agent", "fledge-cli");
 

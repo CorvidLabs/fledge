@@ -107,7 +107,7 @@ pub(crate) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bo
     Ok(())
 }
 
-pub(crate) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
+pub(crate) fn import_lanes(source: &str, yes: bool, json: bool) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let local_path = cwd.join("fledge.toml");
 
@@ -154,6 +154,22 @@ pub(crate) fn import_lanes(source: &str, _yes: bool, json: bool) -> Result<()> {
                 "  {} Only import lanes from sources you trust.\n",
                 style("*").yellow()
             );
+        }
+    }
+
+    if !yes && tier != crate::trust::TrustTier::Official {
+        if !crate::utils::is_interactive() {
+            bail!(
+                "Importing community lanes requires confirmation in non-interactive mode.\n  \
+                 Use --yes to acknowledge that lanes can execute arbitrary commands."
+            );
+        }
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt(format!("Import lanes from '{display_source}'?"))
+            .default(false)
+            .interact()?;
+        if !confirm {
+            bail!("Lane import cancelled.");
         }
     }
 

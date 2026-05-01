@@ -97,7 +97,7 @@ Not every fledge user is on GitHub or runs a polyglot project. The core stays ti
 
 ## Built-in templates
 
-`rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`
+`rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`, `kotlin-kmp`, `kotlin-ktor-api`
 
 Browse community templates: `fledge templates search <keyword>`
 

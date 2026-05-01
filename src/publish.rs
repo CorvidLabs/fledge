@@ -2,9 +2,23 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use serde_json::json;
 use std::path::Path;
+use std::time::Duration;
+
+/// Default timeout for GitHub publish API requests. Without this, a wedged
+/// endpoint hangs the publish flows indefinitely.
+const PUBLISH_TIMEOUT: Duration = Duration::from_secs(30);
+
+fn publish_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(PUBLISH_TIMEOUT))
+        .build()
+        .into()
+}
 
 pub fn get_authenticated_user(token: &str) -> Result<String> {
-    let text = ureq::get("https://api.github.com/user")
+    let agent = publish_agent();
+    let text = agent
+        .get("https://api.github.com/user")
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")
@@ -25,7 +39,9 @@ pub fn get_authenticated_user(token: &str) -> Result<String> {
 
 pub fn check_repo_exists(owner: &str, repo: &str, token: &str) -> Result<bool> {
     let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
-    let result = ureq::get(&url)
+    let agent = publish_agent();
+    let result = agent
+        .get(&url)
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")
@@ -59,7 +75,9 @@ pub fn create_github_repo(
 
     let json_body = serde_json::to_string(&body).context("serializing request body")?;
 
-    let result = ureq::post(&url)
+    let agent = publish_agent();
+    let result = agent
+        .post(&url)
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")
@@ -81,7 +99,9 @@ pub fn create_github_repo(
 pub fn set_repo_topic(owner: &str, repo: &str, topic: &str, token: &str) -> Result<()> {
     let url = format!("https://api.github.com/repos/{}/{}/topics", owner, repo);
 
-    let text = ureq::get(&url)
+    let agent = publish_agent();
+    let text = agent
+        .get(&url)
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")
@@ -111,7 +131,8 @@ pub fn set_repo_topic(owner: &str, repo: &str, topic: &str, token: &str) -> Resu
 
     let json_body = serde_json::to_string(&body).context("serializing topics")?;
 
-    ureq::put(&url)
+    agent
+        .put(&url)
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")

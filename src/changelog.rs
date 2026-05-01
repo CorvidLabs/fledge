@@ -36,6 +36,15 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
     let tags = list_tags()?;
 
     if tags.is_empty() {
+        if opts.json {
+            let envelope = serde_json::json!({
+                "schema_version": CHANGELOG_SCHEMA,
+                "action": "changelog",
+                "releases": [],
+            });
+            println!("{}", serde_json::to_string_pretty(&envelope)?);
+            return Ok(());
+        }
         println!(
             "{} No tags found. Tag a release first: {}",
             style("*").cyan().bold(),

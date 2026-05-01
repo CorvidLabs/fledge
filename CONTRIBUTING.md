@@ -69,7 +69,13 @@ All checks in the `pre-commit` lane must pass before submitting a PR.
 ### 5. Submit a Pull Request
 
 ```bash
-fledge work pr --title "Add my feature"
+# Push your branch first
+fledge work push
+
+# Open a PR (requires fledge-plugin-github)
+fledge github prs create --title "Add my feature"
+# or infer title and body from your commits:
+fledge github prs create --fill
 ```
 
 In your PR description:
@@ -85,7 +91,7 @@ Look for issues labeled [`good first issue`](https://github.com/CorvidLabs/fledg
 
 ### Templates
 
-Create new templates and publish them with `fledge publish`! See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for the full format.
+Create new templates and publish them with `fledge templates publish`! See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for the full format.
 
 ### Plugins
 
@@ -146,11 +152,13 @@ Every module has a spec in `specs/<module>/`. The spec is the source of truth fo
 
 ### Dependencies
 
-Check dependency health with:
+Dependency commands ship in `fledge-plugin-deps` (part of the default plugin
+set). Install once, then check dependency health:
 
 ```bash
-fledge deps              # list all dependencies
-fledge deps --outdated   # check for outdated deps
+fledge plugins install --defaults   # one-time, gets github/deps/metrics
+fledge deps                         # report dependency status
+fledge deps --outdated              # show outdated entries
 ```
 
 ## Release Process

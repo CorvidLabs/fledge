@@ -4,7 +4,7 @@
 [tasks]
 build = "cargo build"
 test = "cargo test"
-lint = "cargo clippy -- -D warnings"
+lint = "cargo clippy --all-targets -- -D warnings"
 fmt = "cargo fmt --check"
 fmt-fix = "cargo fmt"
 spec-check = "cargo run -- spec check"
