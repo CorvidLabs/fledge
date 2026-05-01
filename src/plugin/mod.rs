@@ -33,7 +33,7 @@ use update::update_plugins;
 use validate::validate_plugin;
 
 #[cfg(test)]
-use run_plugin::{resolve_plugin_source_dir, which_fledge_plugin};
+use run_plugin::{apply_protocol, resolve_plugin_source_dir, which_fledge_plugin};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

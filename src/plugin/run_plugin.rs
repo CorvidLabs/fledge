@@ -25,7 +25,7 @@ pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
         })?;
 
     if let Some((plugin_name, plugin_version, plugin_dir, capabilities)) =
-        resolve_protocol_info(name)
+        resolve_protocol_info(name)?
     {
         return crate::protocol::run_protocol_plugin(
             &bin_path,
@@ -134,41 +134,65 @@ fn find_commands_for_plugin(plugin_name: &str) -> Option<Vec<String>> {
         .map(|p| p.commands.clone())
 }
 
-fn resolve_protocol_info(name: &str) -> Option<(String, String, PathBuf, PluginCapabilities)> {
-    let registry = load_registry().ok()?;
-    let entry = registry.plugins.iter().find(|p| {
+/// Check whether `protocol` is a known/supported value and return the protocol
+/// info tuple, `Ok(None)` for "no protocol declared" (legacy fallback), or
+/// `Err` when the plugin explicitly targets an unsupported protocol version.
+pub(super) fn apply_protocol(
+    protocol: Option<&str>,
+    plugin_name: String,
+    plugin_version: String,
+    plugin_dir: PathBuf,
+    caps: PluginCapabilities,
+) -> Result<Option<(String, String, PathBuf, PluginCapabilities)>> {
+    match protocol {
+        Some("fledge-v1") => Ok(Some((plugin_name, plugin_version, plugin_dir, caps))),
+        Some(unsupported) => bail!(
+            "Plugin '{}' requires protocol '{}' which is not supported by this version of fledge.\n  \
+             Update fledge to use this plugin: cargo install fledge",
+            plugin_name,
+            unsupported
+        ),
+        None => Ok(None),
+    }
+}
+
+fn resolve_protocol_info(
+    name: &str,
+) -> Result<Option<(String, String, PathBuf, PluginCapabilities)>> {
+    let registry = match load_registry() {
+        Ok(r) => r,
+        Err(_) => return Ok(None),
+    };
+    let entry = match registry.plugins.iter().find(|p| {
         p.name == name || p.name == format!("fledge-{name}") || p.commands.iter().any(|c| c == name)
-    })?;
+    }) {
+        Some(e) => e,
+        None => return Ok(None),
+    };
 
     let plugin_dir = plugins_dir().join(&entry.name);
     let manifest_path = plugin_dir.join("plugin.toml");
-    let content = std::fs::read_to_string(&manifest_path).ok()?;
-    let manifest: PluginManifest = toml::from_str(&content).ok()?;
+    let content = match std::fs::read_to_string(&manifest_path) {
+        Ok(c) => c,
+        Err(_) => return Ok(None),
+    };
+    let manifest: PluginManifest = match toml::from_str(&content) {
+        Ok(m) => m,
+        Err(_) => return Ok(None),
+    };
 
     let caps = entry
         .capabilities
         .clone()
         .unwrap_or_else(|| manifest.capabilities.clone());
 
-    match &manifest.plugin.protocol {
-        Some(proto) if proto == "fledge-v1" => Some((
-            manifest.plugin.name,
-            manifest.plugin.version,
-            plugin_dir,
-            caps,
-        )),
-        Some(proto) => {
-            eprintln!(
-                "{} Plugin '{}' requires protocol '{}' which is not supported.\n  Try updating fledge: {}",
-                style("Error:").red().bold(),
-                entry.name,
-                proto,
-                style("cargo install fledge").cyan()
-            );
-            None
-        }
-        None => None,
-    }
+    apply_protocol(
+        manifest.plugin.protocol.as_deref(),
+        manifest.plugin.name,
+        manifest.plugin.version,
+        plugin_dir,
+        caps,
+    )
 }
 
 pub(super) fn which_fledge_plugin(name: &str) -> Option<PathBuf> {

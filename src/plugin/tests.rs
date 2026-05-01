@@ -2,6 +2,56 @@ use super::*;
 use crate::trust::parse_source_ref;
 
 #[test]
+fn unsupported_protocol_version_returns_error() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let result = apply_protocol(
+        Some("fledge-v2"),
+        "my-plugin".to_string(),
+        "1.0.0".to_string(),
+        tmp.path().to_path_buf(),
+        PluginCapabilities::default(),
+    );
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("fledge-v2"),
+        "error should mention the protocol: {msg}"
+    );
+    assert!(
+        msg.contains("my-plugin"),
+        "error should mention the plugin: {msg}"
+    );
+}
+
+#[test]
+fn supported_protocol_fledge_v1_returns_info() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let result = apply_protocol(
+        Some("fledge-v1"),
+        "my-plugin".to_string(),
+        "1.0.0".to_string(),
+        tmp.path().to_path_buf(),
+        PluginCapabilities::default(),
+    );
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_some());
+}
+
+#[test]
+fn no_protocol_declared_returns_none_for_legacy_fallback() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let result = apply_protocol(
+        None,
+        "legacy-plugin".to_string(),
+        "1.0.0".to_string(),
+        tmp.path().to_path_buf(),
+        PluginCapabilities::default(),
+    );
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_none());
+}
+
+#[test]
 fn resolve_plugin_source_dir_walks_symlink_to_plugin_root() {
     // Mirror the post-install layout:
     //   <root>/plugins/my-plugin/bin/fledge-my-plugin     ← real binary
