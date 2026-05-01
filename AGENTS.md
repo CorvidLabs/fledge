@@ -90,7 +90,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge templates create --json` | `{schema_version: 1, action: "create", path, name, description, render_patterns, include_hooks, include_prompts, files_created}` | Creating a new template skeleton |
 | `fledge templates publish --json` | `{schema_version: 1, action: "publish", cancelled, repo: {owner, name, url, created, private}, template: {description}, topic, use_hint}`. Same key set on success and cancelled paths; `cancelled: true` when the user declines a confirmation | Publishing a template repo |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. `issue` is `null` when no `--issue` flag was passed; all other fields always present | Branch scripting |
-| `fledge work commit --json` | `{schema_version: 2, action: "work_commit", hash, message, branch}`. Commit hash to report back | After writing code |
+| `fledge work commit --json` | `{schema_version: 1, action: "work_commit", hash, message, branch}`. Commit hash to report back | After writing code |
 | `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}`. Confirms the push | After committing |
 | `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field | Pre-action sanity check |
 
