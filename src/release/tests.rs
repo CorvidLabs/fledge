@@ -151,6 +151,81 @@ fn detect_version_files_multiple() {
 }
 
 #[test]
+fn detect_version_files_includes_release_files_extras() {
+    // Locks the dry-run-accuracy contract: the `--dry-run --json`
+    // `files_to_bump` array must match what a real release would write,
+    // including `[release].files` extras like `flake.nix`. Without this, the
+    // dry-run envelope lies — it reports only the language-detected files
+    // while a real run also bumps the extras.
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("flake.nix"),
+        "{ pname = \"x\"; version = \"0.1.0\"; }\n",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[release]\nfiles = [\"flake.nix\"]\n",
+    )
+    .unwrap();
+
+    let files = bump::detect_version_files(tmp.path());
+    assert!(files.iter().any(|f| f == "Cargo.toml"));
+    assert!(
+        files.iter().any(|f| f == "flake.nix"),
+        "[release].files extras must show up in dry-run preview, got: {files:?}"
+    );
+}
+
+#[test]
+fn detect_version_files_skips_release_extras_without_version_line() {
+    // A `[release].files` entry that exists but has no parseable version line
+    // should NOT be reported by dry-run, because the real bumper wouldn't
+    // touch it either. This keeps dry-run honest about which files actually
+    // change.
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(tmp.path().join("notes.txt"), "no version line here\n").unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[release]\nfiles = [\"notes.txt\"]\n",
+    )
+    .unwrap();
+
+    let files = bump::detect_version_files(tmp.path());
+    assert!(!files.iter().any(|f| f == "notes.txt"));
+}
+
+#[test]
+fn detect_version_files_skips_missing_release_extras() {
+    // A `[release].files` entry that doesn't exist on disk shouldn't be
+    // reported (it can't be bumped).
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[release]\nfiles = [\"does-not-exist.nix\"]\n",
+    )
+    .unwrap();
+
+    let files = bump::detect_version_files(tmp.path());
+    assert!(!files.iter().any(|f| f == "does-not-exist.nix"));
+}
+
+#[test]
 fn classify_conventional_commits() {
     assert_eq!(
         changelog::classify_for_changelog("feat: add release"),

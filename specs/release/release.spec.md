@@ -1,6 +1,6 @@
 ---
 module: release
-version: 4
+version: 5
 status: active
 files:
   - src/release/mod.rs
@@ -134,7 +134,7 @@ Then version.txt is bumped alongside auto-detected files
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4 | 2026-04-26 | Pre-release lane no longer pollutes `--json` stdout. When `--json` is set, `run_pre_lane` calls a new silent path `crate::lanes::run_for_pre_release(name, dry_run)` that runs steps with subprocess output suppressed and emits no envelope of its own. Fixes a double-envelope regression where `release --json --pre-lane <lane>` previously emitted lane and release envelopes back-to-back on stdout. Failure path unchanged: lane bails with a plain stderr error and exit code 1 |
+| 5 | 2026-05-01 | **1.0 contract finalize, last-mile fix:** `release --dry-run --json` `files_to_bump` array now includes `[release].files` extras (e.g. `flake.nix`) so the dry-run envelope accurately previews what a real run writes. Previously, `detect_version_files` only looked at the hardcoded language candidates while `bump_version_files` (the real write path) also processed `[release].files` from `fledge.toml` — so dry-run reported `["Cargo.toml"]` while a real run also bumped `flake.nix`. Mirrored the bumper's existence + version-line-regex check in the detection path. Three new tests pin the contract. Caught in independent third-pass review pre-tag |
 | 3 | 2026-04-26 | Add `--json` flag. `release X.Y.Z --dry-run --json` emits `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}`. `release X.Y.Z --json` (real run) emits `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` and suppresses prose output. Helper functions (`generate_changelog_entry`, `create_release_commit`, `create_tag`, `push_release`) gained a `quiet` param threaded from `opts.json`. New integration tests `cli_release_dry_run_json_emits_envelope` and `cli_release_dry_run_json_no_bump_flag` |
 | 2 | 2026-04-25 | Recognize `plugin.toml` (`[plugin].version`) as a first-class fledge-ecosystem version source. Added `--no-bump` flag for tag-only releases. The plugin.toml bumper is section-scoped so other tables' `version` keys (e.g. on `[[commands]]`) aren't touched. Rust plugins with both `Cargo.toml` and `plugin.toml` get both bumped together. (#264) |
 | 1 | 2026-04-21 | Initial spec for the full release workflow with multi-language support |
