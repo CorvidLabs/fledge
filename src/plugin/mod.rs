@@ -87,6 +87,10 @@ pub struct PluginCapabilities {
     pub store: bool,
     #[serde(default)]
     pub metadata: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filesystem: Option<String>,
+    #[serde(default)]
+    pub network: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,6 +101,15 @@ struct PluginMeta {
     pub(super) description: Option<String>,
     pub(super) author: Option<String>,
     pub(super) protocol: Option<String>,
+    #[serde(default)]
+    pub(super) runtime: Option<String>,
+}
+
+impl PluginMeta {
+    #[allow(dead_code)]
+    fn is_wasm(&self) -> bool {
+        self.runtime.as_deref() == Some("wasm")
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -169,6 +182,8 @@ struct PluginEntry {
     pub(super) pinned_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) capabilities: Option<PluginCapabilities>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) runtime: Option<String>,
 }
 
 pub struct PluginOptions {

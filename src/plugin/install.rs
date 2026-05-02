@@ -360,6 +360,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         commands: command_names.clone(),
         pinned_ref: git_ref.map(String::from),
         capabilities: granted_caps,
+        runtime: manifest.plugin.runtime.clone(),
     };
 
     if let Some(idx) = existing {

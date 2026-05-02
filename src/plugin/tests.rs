@@ -254,6 +254,7 @@ fn registry_roundtrip() {
             commands: vec!["test-cmd".to_string()],
             pinned_ref: None,
             capabilities: None,
+            runtime: None,
         }],
     };
     let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -276,6 +277,7 @@ fn registry_roundtrip_with_pinned_ref() {
             commands: vec!["test-cmd".to_string()],
             pinned_ref: Some("v1.0.0".to_string()),
             capabilities: None,
+            runtime: None,
         }],
     };
     let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -300,7 +302,9 @@ fn registry_roundtrip_with_capabilities() {
                 exec: true,
                 store: true,
                 metadata: false,
+                ..Default::default()
             }),
+            runtime: None,
         }],
     };
     let serialized = toml::to_string_pretty(&registry).unwrap();
@@ -978,4 +982,104 @@ fn run_hook_rejects_mismatched_quotes() {
         msg.contains("parsing"),
         "error should mention parsing: {msg}"
     );
+}
+
+#[test]
+fn parse_manifest_with_runtime_wasm() {
+    let toml_str = r#"
+[plugin]
+name = "test-wasm"
+version = "1.0.0"
+protocol = "fledge-v1"
+runtime = "wasm"
+
+[[commands]]
+name = "test"
+binary = "target/wasm32-wasip2/release/test.wasm"
+
+[capabilities]
+exec = false
+store = true
+metadata = false
+filesystem = "project"
+network = false
+"#;
+    let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
+    assert_eq!(manifest.plugin.runtime.as_deref(), Some("wasm"));
+    assert!(manifest.plugin.is_wasm());
+    assert_eq!(manifest.capabilities.filesystem.as_deref(), Some("project"));
+    assert!(!manifest.capabilities.network);
+}
+
+#[test]
+fn parse_manifest_without_runtime_defaults_to_none() {
+    let toml_str = r#"
+[plugin]
+name = "legacy"
+version = "1.0.0"
+
+[[commands]]
+name = "legacy"
+binary = "bin/legacy"
+
+[capabilities]
+exec = true
+store = false
+metadata = false
+"#;
+    let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
+    assert!(manifest.plugin.runtime.is_none());
+    assert!(!manifest.plugin.is_wasm());
+    assert!(manifest.capabilities.filesystem.is_none());
+    assert!(!manifest.capabilities.network);
+}
+
+#[test]
+fn plugin_capabilities_default_has_no_filesystem_or_network() {
+    let caps = PluginCapabilities::default();
+    assert!(!caps.exec);
+    assert!(!caps.store);
+    assert!(!caps.metadata);
+    assert!(caps.filesystem.is_none());
+    assert!(!caps.network);
+}
+
+#[test]
+fn is_wasm_returns_false_for_native_runtime() {
+    let toml_str = r#"
+[plugin]
+name = "native-plugin"
+version = "1.0.0"
+runtime = "native"
+"#;
+    let manifest: PluginManifest = toml::from_str(toml_str).unwrap();
+    assert!(!manifest.plugin.is_wasm());
+}
+
+#[test]
+fn registry_roundtrip_with_runtime() {
+    let registry = PluginsRegistry {
+        plugins: vec![PluginEntry {
+            name: "fledge-wasm-test".to_string(),
+            source: "someone/fledge-wasm-test".to_string(),
+            version: "1.0.0".to_string(),
+            installed: "2026-05-02".to_string(),
+            commands: vec!["wasm-test".to_string()],
+            pinned_ref: None,
+            capabilities: Some(PluginCapabilities {
+                exec: false,
+                store: true,
+                metadata: false,
+                filesystem: Some("project".to_string()),
+                network: false,
+            }),
+            runtime: Some("wasm".to_string()),
+        }],
+    };
+    let serialized = toml::to_string_pretty(&registry).unwrap();
+    let deserialized: PluginsRegistry = toml::from_str(&serialized).unwrap();
+    assert_eq!(deserialized.plugins[0].runtime.as_deref(), Some("wasm"));
+    let caps = deserialized.plugins[0].capabilities.as_ref().unwrap();
+    assert_eq!(caps.filesystem.as_deref(), Some("project"));
+    assert!(!caps.network);
 }
