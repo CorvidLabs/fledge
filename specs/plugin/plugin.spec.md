@@ -156,7 +156,7 @@ Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin insta
 ### Plugin Discovery
 
 Plugins are discovered via:
-1. `<config_dir>/fledge/plugins/` directory (installed plugins; `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux)
+1. `<config_dir>/fledge/plugins/` directory (installed plugins; `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux, `%APPDATA%\` on Windows)
 2. `PATH` lookup for `fledge-<name>` executables (git-style)
 3. GitHub search with `fledge-plugin` topic (for `plugin install`)
 

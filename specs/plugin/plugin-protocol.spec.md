@@ -357,7 +357,7 @@ Persist a key-value pair in plugin-local storage. No response expected.
 }
 ```
 
-Storage is scoped to the plugin and persisted at `<config_dir>/fledge/plugins/<name>/state.json` (where `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux). Values must be JSON-serializable strings.
+Storage is scoped to the plugin and persisted at `<config_dir>/fledge/plugins/<name>/state.json` (where `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux, `%APPDATA%\` on Windows). Values must be JSON-serializable strings.
 
 ### load
 

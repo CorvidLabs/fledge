@@ -83,7 +83,7 @@ Plugin storage uses the platform config directory (`dirs::config_dir()`):
 |----------|-----------|
 | macOS    | `~/Library/Application Support/fledge/` |
 | Linux    | `~/.config/fledge/` |
-| Windows  | `{FOLDERPATH:RoamingAppData}\fledge\` |
+| Windows  | `%APPDATA%\fledge\` |
 
 Under that base:
 - `plugins/` — installed plugin directories
