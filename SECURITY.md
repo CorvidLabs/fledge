@@ -30,7 +30,19 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 
 - Templates are rendered through Tera (Jinja2-style) in a sandboxed context
 - Path traversal is blocked — templates cannot write outside the project directory
-- Remote template hooks (`post_create` commands) always require user confirmation before execution, unless `--yes` is explicitly passed
+- **Local** templates (built-in or under a configured `extra_paths`) are
+  presumed user-authored. `--yes` (or `FLEDGE_NON_INTERACTIVE=1`) auto-confirms
+  their `post_create` hooks, on the same trust footing as the rest of the
+  template content
+- **Remote** templates fetched from GitHub get a stricter consent rule.
+  `--yes` does **not** authorize their hooks — `--yes` skips routine prompts
+  (template-variable defaults, etc.), but arbitrary shell execution from a
+  third-party source needs explicit consent. Pass `--trust-hooks` (or set
+  `FLEDGE_TRUST_HOOKS=1`) to authorize hook execution for the run; otherwise
+  the prompt fires interactively, or hooks are skipped in non-interactive
+  mode with a hint pointing at the right flag
+- The dry-run path always lists the hooks that would run (regardless of
+  trust) so the user can audit before consenting
 
 ### GitHub Integration
 

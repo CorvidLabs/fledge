@@ -36,6 +36,13 @@ fn is_truthy(s: &str) -> bool {
     )
 }
 
+/// Public wrapper for the same truthy-string parser used by
+/// `FLEDGE_NON_INTERACTIVE`. Other env vars (e.g. `FLEDGE_TRUST_HOOKS`)
+/// can use this so the accepted spellings stay consistent across the CLI.
+pub fn is_truthy_env(s: &str) -> bool {
+    is_truthy(s)
+}
+
 /// A run is "interactive" if stdin is a TTY **and** the non-interactive flag
 /// is not set. This means `require_interactive` and any code gating on this
 /// helper will correctly refuse to prompt when the user asked for a scripted
@@ -336,34 +343,10 @@ mod tests {
         }
     }
 
-    // The global atomic is process-wide. `cargo test` runs tests in parallel
-    // threads by default, so every test that mutates the flag serializes on
-    // this mutex. A Drop guard restores the previous value even if a test
-    // panics mid-body.
-    use std::sync::Mutex;
-    static NON_INTERACTIVE_TEST_LOCK: Mutex<()> = Mutex::new(());
-
-    struct NonInteractiveGuard<'a> {
-        _lock: std::sync::MutexGuard<'a, ()>,
-        prev: bool,
-    }
-
-    impl NonInteractiveGuard<'_> {
-        fn new(set_to: bool) -> Self {
-            let lock = NON_INTERACTIVE_TEST_LOCK
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let prev = is_non_interactive();
-            set_non_interactive(set_to);
-            Self { _lock: lock, prev }
-        }
-    }
-
-    impl Drop for NonInteractiveGuard<'_> {
-        fn drop(&mut self) {
-            set_non_interactive(self.prev);
-        }
-    }
+    // The global non-interactive flag is process-wide. Tests that flip it
+    // share `crate::test_support::NonInteractiveGuard`, which serializes on
+    // a single mutex so concurrent tests don't race on the atomic.
+    use crate::test_support::NonInteractiveGuard;
 
     #[test]
     fn test_set_and_is_non_interactive() {
@@ -440,36 +423,55 @@ mod tests {
         assert!(validate_commit_scope(&ok).is_ok());
     }
 
+    // Fixtures below intentionally use obviously-fake placeholder strings
+    // (`FIXTURE_*_PLACEHOLDER`) instead of realistic-looking dummy secrets.
+    // Real-looking dummies (`Basic dXNlcjpwYXNzd29yZA==`, `ghp_…`, JWT-shaped
+    // payloads) trip GitHub's secret-scanning push protection on the test
+    // file itself, even though they're not real credentials. The regex under
+    // test matches any non-empty value after the marker, so the placeholder
+    // form exercises the contract identically.
+
     #[test]
     fn redact_secrets_strips_authorization_header() {
-        let input = "fatal: unable to access\nAuthorization: Basic dXNlcjpwYXNzd29yZA==\n";
+        let input =
+            "fatal: unable to access\nAuthorization: Basic FIXTURE_AUTH_VALUE_PLACEHOLDER\n";
         let out = redact_secrets(input);
-        assert!(!out.contains("dXNlcjpwYXNzd29yZA"), "got: {out}");
+        assert!(
+            !out.contains("FIXTURE_AUTH_VALUE_PLACEHOLDER"),
+            "got: {out}"
+        );
         assert!(out.contains("Authorization: [REDACTED]"));
     }
 
     #[test]
     fn redact_secrets_strips_x_access_token() {
-        let input = "x-access-token:ghp_supersecrettoken123";
+        let input = "x-access-token:FIXTURE_PAT_PLACEHOLDER_NOT_A_SECRET";
         let out = redact_secrets(input);
-        assert!(!out.contains("ghp_supersecrettoken"), "got: {out}");
+        assert!(
+            !out.contains("FIXTURE_PAT_PLACEHOLDER_NOT_A_SECRET"),
+            "got: {out}"
+        );
         assert!(out.contains("x-access-token:[REDACTED]"));
     }
 
     #[test]
     fn redact_secrets_strips_url_credentials() {
-        let input = "fatal: clone failed: https://user:ghp_token123@github.com/owner/repo";
+        let input =
+            "fatal: clone failed: https://FIXTURE_USER:FIXTURE_PAT_PLACEHOLDER@github.com/owner/repo";
         let out = redact_secrets(input);
-        assert!(!out.contains("ghp_token123"), "got: {out}");
-        assert!(!out.contains("user:"), "got: {out}");
+        assert!(!out.contains("FIXTURE_PAT_PLACEHOLDER"), "got: {out}");
+        assert!(!out.contains("FIXTURE_USER:"), "got: {out}");
         assert!(out.contains("https://[REDACTED]@github.com"));
     }
 
     #[test]
     fn redact_secrets_strips_bearer_token() {
-        let input = "Authorization failed (Bearer eyJhbGciOiJIUzI1NiJ9.foo.bar)";
+        let input = "Authorization failed (Bearer FIXTURE_JWT_PLACEHOLDER_NOT_A_SECRET)";
         let out = redact_secrets(input);
-        assert!(!out.contains("eyJhbGciOiJIUzI1NiJ9"), "got: {out}");
+        assert!(
+            !out.contains("FIXTURE_JWT_PLACEHOLDER_NOT_A_SECRET"),
+            "got: {out}"
+        );
     }
 
     #[test]
@@ -480,9 +482,10 @@ mod tests {
 
     #[test]
     fn redact_secrets_handles_case_insensitive_headers() {
-        let input = "AUTHORIZATION: Basic xyz\nauthorization: token abc";
+        let input =
+            "AUTHORIZATION: Basic FIXTURE_VALUE_ONE\nauthorization: token FIXTURE_VALUE_TWO";
         let out = redact_secrets(input);
-        assert!(!out.contains("xyz"), "got: {out}");
-        assert!(!out.contains("abc"), "got: {out}");
+        assert!(!out.contains("FIXTURE_VALUE_ONE"), "got: {out}");
+        assert!(!out.contains("FIXTURE_VALUE_TWO"), "got: {out}");
     }
 }

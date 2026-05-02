@@ -1981,7 +1981,15 @@ expression: output
               "name": "yes",
               "long": "yes",
               "short": "y",
-              "help": "Skip all confirmation prompts (accept defaults)",
+              "help": "Skip all confirmation prompts (accept defaults). For **local** templates this also auto-confirms post-create hooks. For **remote** templates it does NOT — use `--trust-hooks` to authorize hook execution from a remote source",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "trust_hooks",
+              "long": "trust-hooks",
+              "help": "Authorize post-create hook execution for remote templates without an interactive prompt. Hooks run arbitrary shell commands — only pass this for remote templates from sources you trust. For local templates, `--yes` already authorizes hooks (they're authored by you). Also settable via `FLEDGE_TRUST_HOOKS=1`",
               "required": false,
               "takes_value": false,
               "global": false

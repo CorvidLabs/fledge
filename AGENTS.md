@@ -131,7 +131,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 
 | Command | Effect |
 |---------|--------|
-| `fledge templates init` | Skip template-variable prompts (uses detected defaults) |
+| `fledge templates init` | Skip template-variable prompts (uses detected defaults). For **local** templates this also auto-confirms `post_create` hooks. For **remote** templates it does **not** — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize hooks from a third-party source. Without it, hooks are skipped in non-interactive mode and the rest of init still succeeds (`hooks_run: false` in the JSON envelope) |
 | `fledge templates create` | Skip name/description/type prompts |
 | `fledge ai use` | Errors with a clear "pass provider+model" message. No hang |
 | `fledge work commit` | Skip the interactive message prompt (requires `-m` or `--ai`) |

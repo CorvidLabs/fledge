@@ -23,12 +23,24 @@ pub struct InitOptions {
     pub refresh: bool,
     pub dry_run: bool,
     pub yes: bool,
+    /// Authorize post-create hook execution for **remote** templates without
+    /// an interactive prompt. For local templates `yes` already covers this;
+    /// remote templates require explicit hook trust because hooks run
+    /// arbitrary shell commands from a third-party source.
+    pub trust_hooks: bool,
     pub json: bool,
 }
 
 pub fn run(mut opts: InitOptions) -> Result<()> {
     if crate::utils::is_non_interactive() || opts.json {
         opts.yes = true;
+    }
+    if !opts.trust_hooks
+        && std::env::var("FLEDGE_TRUST_HOOKS")
+            .ok()
+            .is_some_and(|v| crate::utils::is_truthy_env(&v))
+    {
+        opts.trust_hooks = true;
     }
     crate::plugin::run_lifecycle_hook("pre_init").ok();
     let config = Config::load().context("loading config")?;
@@ -138,13 +150,17 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
     }
 
     let hooks_run = !opts.no_install && reqs_ok && !template.manifest.hooks.post_create.is_empty();
-    // Post-create hooks (local templates are trusted); skip if required tools missing
+    // Post-create hooks for **local** templates: `--yes` is sufficient consent
+    // because the template was authored by the user (or someone they pulled
+    // into their own filesystem). Remote-template hooks take a different path
+    // through `run_remote` with stricter consent rules.
     if !opts.no_install && reqs_ok {
         run_post_create_hooks(
             &template.manifest.hooks.post_create,
             &target_dir,
             opts.yes,
             opts.json,
+            HookSource::Local,
         )?;
     }
 
@@ -164,6 +180,19 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Provenance of a template being rendered. Drives the consent rule used by
+/// `run_post_create_hooks` and the hint text shown when hooks are skipped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HookSource {
+    /// Template lives on the user's filesystem (built-in starter or under a
+    /// configured `extra_paths`). The user is presumed to have authored or
+    /// vetted it.
+    Local,
+    /// Template was fetched from a remote GitHub repo. Hooks require explicit
+    /// trust via `--trust-hooks` / `FLEDGE_TRUST_HOOKS`, **not** `--yes`.
+    Remote,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -334,14 +363,19 @@ fn run_remote(
         init_git(&target_dir)?;
     }
 
+    // Remote templates: `--yes` alone is **not** consent for arbitrary shell
+    // execution from a third-party source. Require `--trust-hooks` (or
+    // `FLEDGE_TRUST_HOOKS=1`) explicitly. In interactive mode the prompt
+    // still fires as the fallback.
+    let auto_yes_for_hooks = opts.trust_hooks;
     let hooks_run = !opts.no_install && reqs_ok && !template.manifest.hooks.post_create.is_empty();
-    // Remote templates require confirmation before running hooks; skip if required tools missing
     if !opts.no_install && reqs_ok {
         run_post_create_hooks(
             &template.manifest.hooks.post_create,
             &target_dir,
-            opts.yes,
+            auto_yes_for_hooks,
             opts.json,
+            HookSource::Remote,
         )?;
     }
 
@@ -389,20 +423,36 @@ fn run_post_create_hooks(
     project_dir: &Path,
     auto_yes: bool,
     quiet: bool,
+    source: HookSource,
 ) -> Result<()> {
     if hooks.is_empty() {
         return Ok(());
     }
 
+    let consent_flag = match source {
+        HookSource::Local => "--yes",
+        HookSource::Remote => "--trust-hooks",
+    };
+
     if !auto_yes {
         if !quiet {
             println!();
-            println!(
-                "{} This template wants to run the following post-create hooks:",
-                style("!").yellow().bold()
-            );
+            let header = match source {
+                HookSource::Local => "This template wants to run the following post-create hooks:",
+                HookSource::Remote => {
+                    "This REMOTE template wants to run the following post-create hooks:"
+                }
+            };
+            println!("{} {}", style("!").yellow().bold(), header);
             for cmd in hooks {
                 println!("  {} {}", style("$").yellow(), cmd);
+            }
+            if source == HookSource::Remote {
+                println!();
+                println!(
+                    "  {} These commands run with your shell privileges. Only allow if you trust the source.",
+                    style("*").yellow()
+                );
             }
             println!();
         }
@@ -410,8 +460,9 @@ fn run_post_create_hooks(
         if !crate::utils::is_interactive() {
             if !quiet {
                 println!(
-                    "{} Skipped hooks (non-interactive). Re-run with --yes to allow.",
-                    style("*").cyan().bold()
+                    "{} Skipped hooks (non-interactive). Re-run with {} to allow.",
+                    style("*").cyan().bold(),
+                    style(consent_flag).cyan()
                 );
             }
             return Ok(());
@@ -425,8 +476,9 @@ fn run_post_create_hooks(
         if !confirm {
             if !quiet {
                 println!(
-                    "{} Skipped hooks. Run them manually or re-run with --yes.",
-                    style("*").cyan().bold()
+                    "{} Skipped hooks. Run them manually or re-run with {}.",
+                    style("*").cyan().bold(),
+                    style(consent_flag).cyan()
                 );
             }
             return Ok(());
@@ -811,7 +863,7 @@ ignore = ["template.toml"]
         fs::create_dir(&dir).unwrap();
 
         let hooks = vec!["touch hook-ran.txt".to_string()];
-        run_post_create_hooks(&hooks, &dir, true, false).unwrap();
+        run_post_create_hooks(&hooks, &dir, true, false, HookSource::Local).unwrap();
 
         assert!(dir.join("hook-ran.txt").exists());
     }
@@ -819,7 +871,7 @@ ignore = ["template.toml"]
     #[test]
     fn run_post_create_hooks_empty_is_noop() {
         let tmp = TempDir::new().unwrap();
-        let result = run_post_create_hooks(&[], tmp.path(), true, false);
+        let result = run_post_create_hooks(&[], tmp.path(), true, false, HookSource::Local);
         assert!(result.is_ok());
     }
 
@@ -827,7 +879,7 @@ ignore = ["template.toml"]
     fn run_post_create_hooks_failing_command_errors() {
         let tmp = TempDir::new().unwrap();
         let hooks = vec!["false".to_string()];
-        let result = run_post_create_hooks(&hooks, tmp.path(), true, false);
+        let result = run_post_create_hooks(&hooks, tmp.path(), true, false, HookSource::Local);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -842,8 +894,43 @@ ignore = ["template.toml"]
         fs::create_dir(&dir).unwrap();
 
         let hooks = vec!["touch hook-ran.txt".to_string()];
-        run_post_create_hooks(&hooks, &dir, true, false).unwrap();
+        run_post_create_hooks(&hooks, &dir, true, false, HookSource::Local).unwrap();
 
+        assert!(dir.join("hook-ran.txt").exists());
+    }
+
+    #[test]
+    fn run_post_create_hooks_remote_skipped_when_not_trusted_in_non_interactive() {
+        // Locks the D4 contract: a remote-template hook with `auto_yes: false`
+        // (i.e. `--trust-hooks` not passed) is skipped in non-interactive mode,
+        // not auto-run. The hint text guides the user to `--trust-hooks` rather
+        // than `--yes`.
+        let _guard = crate::test_support::NonInteractiveGuard::new(true);
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("project");
+        fs::create_dir(&dir).unwrap();
+
+        let hooks = vec!["touch hook-ran.txt".to_string()];
+        // auto_yes = false simulates a user who passed `--yes` (which doesn't
+        // grant remote hooks) but not `--trust-hooks`. The remote call site in
+        // `run_remote` would compute auto_yes = opts.trust_hooks = false here.
+        let result = run_post_create_hooks(&hooks, &dir, false, true, HookSource::Remote);
+        assert!(result.is_ok(), "should skip cleanly, not error");
+        assert!(
+            !dir.join("hook-ran.txt").exists(),
+            "remote hook should NOT execute without --trust-hooks in non-interactive mode"
+        );
+    }
+
+    #[test]
+    fn run_post_create_hooks_remote_runs_with_trust_hooks() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("project");
+        fs::create_dir(&dir).unwrap();
+
+        let hooks = vec!["touch hook-ran.txt".to_string()];
+        // auto_yes = true simulates `--trust-hooks` having been passed.
+        run_post_create_hooks(&hooks, &dir, true, true, HookSource::Remote).unwrap();
         assert!(dir.join("hook-ran.txt").exists());
     }
 }
