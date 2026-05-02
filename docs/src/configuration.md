@@ -14,11 +14,13 @@ fledge config init
 
 ## Config File
 
-Lives at:
+Lives under the platform config directory:
 
-```text
-~/.config/fledge/config.toml
-```
+| Platform | Path |
+|----------|------|
+| macOS    | `~/Library/Application Support/fledge/config.toml` |
+| Linux    | `~/.config/fledge/config.toml` |
+| Windows  | `%APPDATA%\fledge\config.toml` |
 
 ## Sections
 

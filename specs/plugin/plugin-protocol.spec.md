@@ -1,6 +1,6 @@
 ---
 module: plugin-protocol
-version: 5
+version: 6
 status: active
 files:
   - src/protocol/mod.rs
@@ -28,11 +28,20 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 
 ### Exported Functions
 
+Public API (visible outside the crate):
+
 | Export | Description |
 |--------|-------------|
 | `run_protocol_plugin` | Spawn a plugin in protocol mode, handling JSON-lines communication |
 | `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
 | `PluginContext` | Project info, git state, args, fledge version, capabilities — sent in `init` message |
+
+### Internal Functions
+
+Crate-internal (`pub(crate)`) — used within fledge but not part of the external API:
+
+| Export | Description |
+|--------|-------------|
 | `CapabilitiesInfo` | Struct tracking whether plugin has exec, store, and metadata capabilities |
 | `ProjectContext` | Struct containing project name, root path, detected language, and optional git context |
 | `GitContext` | Struct describing git branch, dirty status, remote name, and sanitized remote URL |
@@ -355,7 +364,7 @@ Persist a key-value pair in plugin-local storage. No response expected.
 }
 ```
 
-Storage is scoped to the plugin and persisted at `~/.config/fledge/plugins/<name>/state.json`. Values must be JSON-serializable strings.
+Storage is scoped to the plugin and persisted at `<config_dir>/fledge/plugins/<name>/state.json` (where `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux). Values must be JSON-serializable strings.
 
 ### load
 
@@ -454,7 +463,7 @@ Fledge ignores outbound messages with unknown `type` values (forward-compatible)
 3. Every outbound message with an `id` field gets exactly one inbound `response` or `cancel`
 4. `init` is always the first message sent to the plugin
 5. Stderr is never captured — always goes to terminal
-6. Plugin-local storage is scoped to `~/.config/fledge/plugins/<name>/state.json`
+6. Plugin-local storage is scoped to `<config_dir>/fledge/plugins/<name>/state.json`
 7. `exec` commands are sandboxed to project root and plugin directory
 8. Unknown message types are ignored in both directions (forward-compatible)
 9. Malformed JSON lines are logged and skipped, not fatal
@@ -602,6 +611,7 @@ These are not part of v1 but are designed to be additive under the policy above:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-05-02 | Fix exports table: split into public API (3 items: `run_protocol_plugin`, `OutboundMessage`, `PluginContext`) and internal `pub(crate)` items. Previous version falsely documented all items as public |
 | 5 | 2026-04-29 | Fix spec-sync: consolidate all exports into standard `Exported Functions` table (custom subsection headers were not parsed by spec-sync) |
 | 4 | 2026-04-29 | Document all public exports from protocol submodules (ui, store, exec, metadata, detect) after module split |
 | 3 | 2026-04-27 | Security: exec command stdout/stderr capped at 10 MB each (`MAX_EXEC_OUTPUT_SIZE`) to prevent OOM from unbounded plugin output. Invariant 14 added |

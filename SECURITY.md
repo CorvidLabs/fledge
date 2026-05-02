@@ -54,8 +54,14 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 
 - Plugins are external executables installed from GitHub repos
 - Plugin installation requires explicit user action (`fledge plugins install`)
-- Plugin binaries are symlinked to `~/.config/fledge/plugins/bin/`
-- Plugins run with the same permissions as the user
+- Plugin binaries are symlinked to the platform config directory (see
+  [File Locations](#file-locations) below)
+- **Plugins run as unsandboxed processes with the same permissions as the
+  user.** A plugin binary can read any file the user can read, write to any
+  directory the user can write to, and make network requests — regardless of
+  its declared capabilities. Capabilities gate the fledge-v1 *protocol*
+  (exec/store/metadata RPC messages), not the process itself. Treat
+  installing a plugin as equivalent to running arbitrary code
 - The `fledge-v1` plugin protocol exposes three opt-in capabilities — `exec`,
   `store`, and `metadata` — that default to `false`. Each is presented for
   explicit user approval at install time and persisted in `plugins.toml`
@@ -67,6 +73,22 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
   Treat granting `exec` as equivalent to running the plugin's code directly
 - Stdout/stderr from `exec` are each capped at 10 MB; plugin state at 1 MB
   total / 64 KB per value / 256 keys; prompt/cancel timeouts at 5 minutes
+
+### File Locations
+
+Plugin storage uses the platform config directory (`dirs::config_dir()`):
+
+| Platform | Base path |
+|----------|-----------|
+| macOS    | `~/Library/Application Support/fledge/` |
+| Linux    | `~/.config/fledge/` |
+| Windows  | `{FOLDERPATH:RoamingAppData}\fledge\` |
+
+Under that base:
+- `plugins/` — installed plugin directories
+- `plugins/bin/` — symlinked binaries
+- `plugins.toml` — plugin registry
+- `config.toml` — global fledge config
 
 ### Dependencies
 

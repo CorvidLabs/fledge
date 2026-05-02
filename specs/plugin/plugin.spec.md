@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 20
+version: 21
 status: active
 files:
   - src/plugin/mod.rs
@@ -156,13 +156,13 @@ Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin insta
 ### Plugin Discovery
 
 Plugins are discovered via:
-1. `~/.config/fledge/plugins/` directory (installed plugins)
+1. `<config_dir>/fledge/plugins/` directory (installed plugins; `<config_dir>` is the platform config directory — `~/Library/Application Support/` on macOS, `~/.config/` on Linux)
 2. `PATH` lookup for `fledge-<name>` executables (git-style)
 3. GitHub search with `fledge-plugin` topic (for `plugin install`)
 
 ### Plugin Installation
 
-`fledge plugins install <repo>[@ref]` clones the repo to `~/.config/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+`fledge plugins install <repo>[@ref]` clones the repo to `<config_dir>/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
 
 ### Plugin Runtime Environment
 
@@ -170,7 +170,7 @@ When fledge invokes a plugin command (or runs any of its lifecycle/build hooks, 
 
 | Variable | Value | Why it exists |
 |----------|-------|---------------|
-| `FLEDGE_PLUGIN_DIR` | Absolute path to the plugin's source directory (the cloned repo, e.g. `~/.config/fledge/plugins/fledge-plugin-foo`) | The declared `[[commands]].binary` is symlinked into a shared `plugins/bin/` dir, so `dirname "$0"` in a shell plugin resolves to the shared dir, not the plugin's source. `FLEDGE_PLUGIN_DIR` lets a plugin reach sibling helpers, hooks, and fixtures regardless of how it was invoked. |
+| `FLEDGE_PLUGIN_DIR` | Absolute path to the plugin's source directory (the cloned repo, e.g. `<config_dir>/fledge/plugins/fledge-plugin-foo`) | The declared `[[commands]].binary` is symlinked into a shared `plugins/bin/` dir, so `dirname "$0"` in a shell plugin resolves to the shared dir, not the plugin's source. `FLEDGE_PLUGIN_DIR` lets a plugin reach sibling helpers, hooks, and fixtures regardless of how it was invoked. |
 
 Plugin authors writing multi-file shell plugins should reference siblings via `"$FLEDGE_PLUGIN_DIR/bin/<helper>"`, not `"$(dirname "$0")/<helper>"`. The `fledge plugins create` scaffold ships a comment + dispatcher example that uses `$FLEDGE_PLUGIN_DIR`.
 
@@ -180,7 +180,7 @@ Install a specific version with `@ref` syntax: `fledge plugins install owner/rep
 
 ## Config Format
 
-Plugins are tracked in `~/.config/fledge/plugins.toml`:
+Plugins are tracked in `<config_dir>/fledge/plugins.toml`:
 
 ```toml
 [[plugins]]
@@ -199,8 +199,8 @@ pinned_ref = "v0.2.0"
 
 ## Invariants
 
-1. Plugins are installed to `~/.config/fledge/plugins/<name>/`
-2. Plugin binaries are symlinked to `~/.config/fledge/plugins/bin/`
+1. Plugins are installed to `<config_dir>/fledge/plugins/<name>/` (where `<config_dir>` = `dirs::config_dir()`)
+2. Plugin binaries are symlinked to `<config_dir>/fledge/plugins/bin/`
 3. `resolve_plugin_command` checks `plugins/bin/` then PATH for `fledge-<name>`
 4. `plugin install` clones the repo, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
 5. `plugin remove` deletes the plugin directory and its symlinks
@@ -333,6 +333,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 21 | 2026-05-02 | Fix plugin storage paths: replace hardcoded `~/.config/fledge/` with `<config_dir>/fledge/` to reflect platform-specific paths (macOS uses `~/Library/Application Support/`) |
 | 20 | 2026-04-29 | Document all submodule exports (`install.rs`, `list.rs`, `remove.rs`, `create.rs`, `publish.rs`, `update.rs`, `validate.rs`, `search.rs`, `run_plugin.rs`) now listed in spec frontmatter. No API changes |
 | 19 | 2026-04-29 | Refactor: split `plugin.rs` into `plugin/` module (11 submodules). Spec files list narrowed to `mod.rs` only — internal items use module-private visibility so spec-sync sees exactly the 7 public API exports. No API changes |
 | 17 | 2026-04-27 | Security: protocol plugins now require `exec` capability to run lifecycle hooks (previously hooks bypassed the capability gate). Install prompt displays hooks alongside capabilities for user approval. Invariants 15-16 added |
