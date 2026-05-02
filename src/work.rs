@@ -322,6 +322,10 @@ fn commit(
     model_override: Option<&str>,
     json: bool,
 ) -> Result<()> {
+    if let Some(s) = scope {
+        crate::utils::validate_commit_scope(s)?;
+    }
+
     let branch = current_branch()?;
     let config = load_work_config();
 

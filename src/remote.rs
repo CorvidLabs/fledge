@@ -104,7 +104,8 @@ fn clone_repo(
     let output = cmd.output().context("running git clone")?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let raw_stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = crate::utils::redact_secrets(&raw_stderr);
         let detail = if stderr.trim().is_empty() {
             String::new()
         } else {

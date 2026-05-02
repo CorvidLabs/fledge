@@ -1,6 +1,6 @@
 ---
 module: work
-version: 11
+version: 12
 status: active
 files:
   - src/work.rs
@@ -305,6 +305,7 @@ $ fledge work status --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12 | 2026-05-01 | **Security:** `commit --ai --scope <s>` now validates `<s>` against `[A-Za-z0-9_-]{1,64}` before interpolating it into the LLM prompt or commit message. Scopes containing whitespace, shell metacharacters, template syntax, or anything that could be read as instructions to the model are rejected at the boundary with a clear error |
 | 11 | 2026-04-30 | Pure git split: removed `pr` subcommand (moved to `fledge-plugin-github`), added `commit` and `push` subcommands with `--ai` support and conventional-commit formatting. `status` drops PR info, adds `dirty` count, bumps schema to v2. `generate_body_from_commits` removed; `build_commit_message` added |
 | 10 | 2026-04-26 | Doc sync, behavioral examples for `work start/pr/status --json` updated to show the post-tier-D envelope shapes (with `schema_version` and `action`). No code change |
 | 9 | 2026-04-26 | Tier-D 1.0 envelope: `work start --json`, `work pr --json`, `work status --json` now include `schema_version: 1` and `action: "work_start"|"work_pr"|"work_status"` at the top level. Field shapes otherwise unchanged. Closes the gap where tier C (#274) only migrated plugins/lanes/templates and missed the cross-cutting commands |

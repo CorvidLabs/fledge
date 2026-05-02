@@ -92,7 +92,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. `issue` is `null` when no `--issue` flag was passed; all other fields always present | Branch scripting |
 | `fledge work commit --json` | `{schema_version: 1, action: "work_commit", hash, message, branch}`. Commit hash to report back | After writing code |
 | `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}`. Confirms the push | After committing |
-| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field | Pre-action sanity check |
+| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field. **Migrated from v1 in 0.16:** v1 emitted a `pr` field (number-or-null) inferred from GitHub; v2 drops it (PR data lives in `fledge github prs view --json` from the github plugin) and adds `dirty`. Pin to fledge ≥ 0.16 to rely on v2 | Pre-action sanity check |
 
 ### Plugin commands (after `plugins install --defaults`)
 
