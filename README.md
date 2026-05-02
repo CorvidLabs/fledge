@@ -70,7 +70,7 @@ fledge ai status                               # show active provider/model and 
 |--------|----------|-------------|
 | Scaffold | `templates` (`init`, `create`, `list`, `search`, `validate`, `publish`) | Start a project from a template, local or remote |
 | Run | `run`, `lanes`, `watch` | Task runner, composable pipelines, file-watch reruns |
-| Spec | `spec` | spec-sync. Modules declare their contract, AI uses it as context |
+| Spec | `spec` | [spec-sync](https://github.com/CorvidLabs/spec-sync). Modules declare their contract, AI uses it as context |
 | AI | `ai`, `ask`, `review` | Provider/model selection, spec-aware Q&A, single and multi-model code review |
 | Ship | `work`, `release`, `changelog` | Branch and PR flow with AI-drafted bodies, version bump, tag, push |
 | Extend | `plugins`, `config`, `introspect`, `completions`, `doctor` | Plugin protocol, global config, command-tree introspection, env health |
