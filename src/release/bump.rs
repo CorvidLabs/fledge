@@ -21,11 +21,48 @@ pub(super) fn detect_version_files(dir: &Path) -> Vec<String> {
         ("build.gradle.kts", "java-gradle"),
     ];
 
-    candidates
+    let mut files: Vec<String> = candidates
         .iter()
         .filter(|(name, _)| dir.join(name).exists())
         .map(|(name, _)| name.to_string())
-        .collect()
+        .collect();
+
+    // Mirror `bump_version_files`'s `[release].files` handling so the dry-run
+    // envelope reports the same set the real release would write. Without this,
+    // `release --dry-run --json` says `files_to_bump: ["Cargo.toml"]` while a
+    // subsequent real run also bumps `flake.nix` (or whatever else is listed),
+    // breaking the contract that dry-run accurately previews the release.
+    if let Ok(content) = std::fs::read_to_string(dir.join("fledge.toml")) {
+        if let Ok(parsed) = content.parse::<toml::Value>() {
+            if let Some(extras) = parsed
+                .get("release")
+                .and_then(|r| r.get("files"))
+                .and_then(|f| f.as_array())
+            {
+                // Same regex `bump_version_files` uses for extras — reporting
+                // only files that actually have a parseable version line keeps
+                // dry-run honest.
+                let re = Regex::new(r#"(?m)(version\s*[=:]\s*["']?)(\d+\.\d+\.\d+)"#).unwrap();
+                for entry in extras {
+                    let Some(name) = entry.as_str() else { continue };
+                    if files.iter().any(|f| f == name) {
+                        continue;
+                    }
+                    let path = dir.join(name);
+                    if !path.exists() {
+                        continue;
+                    }
+                    if let Ok(file_content) = std::fs::read_to_string(&path) {
+                        if re.is_match(&file_content) {
+                            files.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    files
 }
 
 pub(super) fn bump_version_files(dir: &Path, new_version: &Version) -> Result<BumpResult> {
