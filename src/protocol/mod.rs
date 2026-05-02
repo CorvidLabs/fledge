@@ -6,25 +6,27 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
-pub(crate) mod detect;
-pub(crate) mod exec;
-pub(crate) mod metadata;
-pub(crate) mod store;
-pub(crate) mod ui;
+mod detect;
+mod exec;
+mod metadata;
+mod store;
+mod ui;
 
 #[cfg(test)]
 mod tests;
 
-// Re-export submodule items needed by tests (via `use super::*`)
+// Re-export handler functions for WASM runtime and plugin dispatch
+pub(crate) use detect::detect_project_context;
+pub(crate) use exec::handle_exec;
+pub(crate) use metadata::handle_metadata;
+pub(crate) use store::{handle_load, handle_store};
+pub(crate) use ui::handle_log;
+
+// Re-export items needed only by tests
 #[cfg(test)]
 pub(crate) use detect::sanitize_remote_url;
 #[cfg(test)]
-pub(crate) use exec::{handle_exec, MAX_EXEC_OUTPUT_SIZE};
-#[cfg(test)]
-pub(crate) use metadata::handle_metadata;
-#[cfg(test)]
-pub(crate) use store::{handle_load, handle_store};
-// Re-export std::io::Read so tests can call .read_to_end() via `use super::*`
+pub(crate) use exec::MAX_EXEC_OUTPUT_SIZE;
 #[cfg(test)]
 pub(crate) use std::io::Read;
 

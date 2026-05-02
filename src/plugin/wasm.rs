@@ -177,7 +177,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let plugin_dir = caller.data().plugin_dir.clone();
 
                 let result =
-                    crate::protocol::exec::handle_exec(command, cwd, timeout, &plugin_dir)?;
+                    crate::protocol::handle_exec(command, cwd, timeout, &plugin_dir)?;
                 let result_bytes = serde_json::to_vec(&result)?;
                 let result_len = result_bytes.len();
                 caller.data_mut().pending_response = Some(result_bytes);
@@ -201,7 +201,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let key = request["key"].as_str().unwrap_or_default();
                 let value = request["value"].as_str().unwrap_or_default();
                 let plugin_dir = caller.data().plugin_dir.clone();
-                crate::protocol::store::handle_store(&plugin_dir, key, value)?;
+                crate::protocol::handle_store(&plugin_dir, key, value)?;
                 Ok(())
             },
         )?;
@@ -217,7 +217,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let data = memory.data(&caller);
                 let key = std::str::from_utf8(&data[ptr as usize..(ptr as usize + len as usize)])?;
                 let plugin_dir = caller.data().plugin_dir.clone();
-                let value = crate::protocol::store::handle_load(&plugin_dir, key)?;
+                let value = crate::protocol::handle_load(&plugin_dir, key)?;
                 let value_bytes = serde_json::to_vec(&value)?;
                 let value_len = value_bytes.len();
                 caller.data_mut().pending_response = Some(value_bytes);
@@ -246,7 +246,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                             .collect()
                     })
                     .unwrap_or_default();
-                let result = crate::protocol::metadata::handle_metadata(&keys)?;
+                let result = crate::protocol::handle_metadata(&keys)?;
                 let result_bytes = serde_json::to_vec(&result)?;
                 let result_len = result_bytes.len();
                 caller.data_mut().pending_response = Some(result_bytes);
@@ -269,7 +269,7 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
             print!("{}", text);
         }
         crate::protocol::OutboundMessage::Log { level, message } => {
-            crate::protocol::ui::handle_log(plugin_name, &level, &message);
+            crate::protocol::handle_log(plugin_name, &level, &message);
         }
         _ => {}
     }
@@ -316,7 +316,7 @@ pub(super) fn run_wasm_plugin(
         style(plugin_name).cyan()
     );
 
-    let project_ctx = crate::protocol::detect::detect_project_context();
+    let project_ctx = crate::protocol::detect_project_context();
     let init_msg = crate::protocol::PluginContext {
         msg_type: "init",
         protocol: "fledge-v1",
