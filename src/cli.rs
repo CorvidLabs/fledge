@@ -170,7 +170,7 @@ pub enum Commands {
         #[arg(long, value_name = "NAME", value_parser = ["claude", "ollama"])]
         provider: Option<String>,
         /// Add another model to the review panel — runs in parallel against
-        /// the same diff + spec context. Format: provider[:model], e.g.
+        /// the same diff + spec context. Format: `provider[:model]`, e.g.
         /// `ollama:gpt-oss:120b-cloud` or just `claude` to use the active
         /// claude config. Repeatable and comma-separated.
         #[arg(long, value_name = "REF")]
@@ -465,7 +465,7 @@ pub enum WorkSubcommand {
         #[arg(long)]
         json: bool,
     },
-    /// [Deprecated] Use `fledge github prs create` (fledge-plugin-github) to open pull requests
+    /// `[Deprecated]` Use `fledge github prs create` (fledge-plugin-github) to open pull requests
     #[command(hide = true)]
     Pr {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -657,7 +657,7 @@ pub enum LaneSubcommand {
 pub enum PluginSubcommand {
     /// Install a plugin from GitHub
     Install {
-        /// GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version. Omit when using --defaults.
+        /// GitHub repo (`owner/repo[@ref]`) or full URL — use `@tag` to pin a version. Omit when using `--defaults`.
         source: Option<String>,
         /// Reinstall if already present
         #[arg(long)]
