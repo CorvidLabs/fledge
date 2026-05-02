@@ -15,14 +15,12 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
-// Re-export handler functions for WASM runtime and plugin dispatch
 pub(crate) use detect::detect_project_context;
 pub(crate) use exec::handle_exec;
 pub(crate) use metadata::handle_metadata;
 pub(crate) use store::{handle_load, handle_store};
 pub(crate) use ui::handle_log;
 
-// Re-export items needed only by tests
 #[cfg(test)]
 pub(crate) use detect::sanitize_remote_url;
 #[cfg(test)]

@@ -3,7 +3,7 @@ use console::style;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use wasmtime::*;
-use wasmtime_wasi::preview1::WasiP1Ctx;
+use wasmtime_wasi::p1::WasiP1Ctx;
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
 
 use crate::plugin::PluginCapabilities;
@@ -24,17 +24,15 @@ fn create_engine() -> Result<Engine> {
     let mut config = Config::new();
     config.consume_fuel(true);
     config.epoch_interruption(true);
-    Engine::new(&config).context("creating Wasmtime engine")
+    Ok(Engine::new(&config)?)
 }
 
 pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     let cwasm_path = wasm_path.with_extension("cwasm");
     if cwasm_path.exists() && is_cache_valid(wasm_path, &cwasm_path)? {
-        unsafe {
-            Module::deserialize_file(engine, &cwasm_path).context("loading cached WASM module")
-        }
+        Ok(unsafe { Module::deserialize_file(engine, &cwasm_path)? })
     } else {
-        Module::from_file(engine, wasm_path).context("compiling WASM module")
+        Ok(Module::from_file(engine, wasm_path)?)
     }
 }
 
@@ -58,10 +56,10 @@ pub(super) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
     let wasm_bytes = std::fs::read(wasm_path)
         .with_context(|| format!("reading WASM binary: {}", wasm_path.display()))?;
     let module = Module::new(&engine, &wasm_bytes)
-        .with_context(|| format!("compiling WASM module: {}", wasm_path.display()))?;
+        .map_err(|e| anyhow::anyhow!("compiling WASM module {}: {e}", wasm_path.display()))?;
 
     let cwasm_path = wasm_path.with_extension("cwasm");
-    let serialized = module.serialize().context("serializing compiled module")?;
+    let serialized = module.serialize()?;
     std::fs::write(&cwasm_path, &serialized)
         .with_context(|| format!("writing cached module: {}", cwasm_path.display()))?;
 
@@ -104,23 +102,30 @@ fn build_wasi_p1(
     Ok(builder.build_p1())
 }
 
+fn get_memory(caller: &mut Caller<'_, HostState>) -> std::result::Result<Memory, wasmtime::Error> {
+    caller
+        .get_export("memory")
+        .and_then(|e| e.into_memory())
+        .ok_or_else(|| wasmtime::Error::msg("plugin has no memory export"))
+}
+
 fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Linker<HostState>> {
     let mut linker = Linker::new(engine);
-    wasmtime_wasi::preview1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
+    wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
 
     linker.func_wrap(
         "fledge",
         "send",
-        |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<()> {
-            let memory = caller
-                .get_export("memory")
-                .and_then(|e| e.into_memory())
-                .context("plugin has no memory export")?;
+        |mut caller: Caller<'_, HostState>,
+         ptr: i32,
+         len: i32|
+         -> std::result::Result<(), wasmtime::Error> {
+            let memory = get_memory(&mut caller)?;
             let data = memory.data(&caller);
             let start = ptr as usize;
             let end = start + len as usize;
             if end > data.len() {
-                bail!("send: out-of-bounds memory access");
+                return Err(wasmtime::Error::msg("send: out-of-bounds memory access"));
             }
             let msg_bytes = data[start..end].to_vec();
             handle_outbound_json(&caller, &msg_bytes);
@@ -131,17 +136,17 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
     linker.func_wrap(
         "fledge",
         "recv",
-        |mut caller: Caller<'_, HostState>, ptr: i32, max_len: i32| -> Result<i32> {
+        |mut caller: Caller<'_, HostState>,
+         ptr: i32,
+         max_len: i32|
+         -> std::result::Result<i32, wasmtime::Error> {
             let response = caller
                 .data_mut()
                 .pending_response
                 .take()
                 .unwrap_or_default();
             let len = response.len().min(max_len as usize);
-            let memory = caller
-                .get_export("memory")
-                .and_then(|e| e.into_memory())
-                .context("plugin has no memory export")?;
+            let memory = get_memory(&mut caller)?;
             memory.write(&mut caller, ptr as usize, &response[..len])?;
             Ok(len as i32)
         },
@@ -150,11 +155,14 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
     linker.func_wrap(
         "fledge",
         "exit",
-        |_caller: Caller<'_, HostState>, code: i32| -> Result<()> {
+        |_caller: Caller<'_, HostState>, code: i32| -> std::result::Result<(), wasmtime::Error> {
             if code == 0 {
-                bail!("__fledge_exit_ok__");
+                return Err(wasmtime::Error::msg("__fledge_exit_ok__"));
             }
-            bail!("plugin exited with code {}", code);
+            Err(wasmtime::Error::msg(format!(
+                "plugin exited with code {}",
+                code
+            )))
         },
     )?;
 
@@ -162,11 +170,11 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
         linker.func_wrap(
             "fledge",
             "exec",
-            |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<i32> {
-                let memory = caller
-                    .get_export("memory")
-                    .and_then(|e| e.into_memory())
-                    .context("plugin has no memory export")?;
+            |mut caller: Caller<'_, HostState>,
+             ptr: i32,
+             len: i32|
+             -> std::result::Result<i32, wasmtime::Error> {
+                let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let request: serde_json::Value =
                     serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
@@ -176,8 +184,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let timeout = request["timeout"].as_u64();
                 let plugin_dir = caller.data().plugin_dir.clone();
 
-                let result =
-                    crate::protocol::handle_exec(command, cwd, timeout, &plugin_dir)?;
+                let result = crate::protocol::handle_exec(command, cwd, timeout, &plugin_dir)
+                    .map_err(wasmtime::Error::from_anyhow)?;
                 let result_bytes = serde_json::to_vec(&result)?;
                 let result_len = result_bytes.len();
                 caller.data_mut().pending_response = Some(result_bytes);
@@ -190,18 +198,19 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
         linker.func_wrap(
             "fledge",
             "store_set",
-            |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<()> {
-                let memory = caller
-                    .get_export("memory")
-                    .and_then(|e| e.into_memory())
-                    .context("plugin has no memory export")?;
+            |mut caller: Caller<'_, HostState>,
+             ptr: i32,
+             len: i32|
+             -> std::result::Result<(), wasmtime::Error> {
+                let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let request: serde_json::Value =
                     serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
                 let key = request["key"].as_str().unwrap_or_default();
                 let value = request["value"].as_str().unwrap_or_default();
                 let plugin_dir = caller.data().plugin_dir.clone();
-                crate::protocol::handle_store(&plugin_dir, key, value)?;
+                crate::protocol::handle_store(&plugin_dir, key, value)
+                    .map_err(wasmtime::Error::from_anyhow)?;
                 Ok(())
             },
         )?;
@@ -209,15 +218,16 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
         linker.func_wrap(
             "fledge",
             "store_get",
-            |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<i32> {
-                let memory = caller
-                    .get_export("memory")
-                    .and_then(|e| e.into_memory())
-                    .context("plugin has no memory export")?;
+            |mut caller: Caller<'_, HostState>,
+             ptr: i32,
+             len: i32|
+             -> std::result::Result<i32, wasmtime::Error> {
+                let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let key = std::str::from_utf8(&data[ptr as usize..(ptr as usize + len as usize)])?;
                 let plugin_dir = caller.data().plugin_dir.clone();
-                let value = crate::protocol::handle_load(&plugin_dir, key)?;
+                let value = crate::protocol::handle_load(&plugin_dir, key)
+                    .map_err(wasmtime::Error::from_anyhow)?;
                 let value_bytes = serde_json::to_vec(&value)?;
                 let value_len = value_bytes.len();
                 caller.data_mut().pending_response = Some(value_bytes);
@@ -230,11 +240,11 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
         linker.func_wrap(
             "fledge",
             "metadata",
-            |mut caller: Caller<'_, HostState>, ptr: i32, len: i32| -> Result<i32> {
-                let memory = caller
-                    .get_export("memory")
-                    .and_then(|e| e.into_memory())
-                    .context("plugin has no memory export")?;
+            |mut caller: Caller<'_, HostState>,
+             ptr: i32,
+             len: i32|
+             -> std::result::Result<i32, wasmtime::Error> {
+                let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let request: serde_json::Value =
                     serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
@@ -246,7 +256,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                             .collect()
                     })
                     .unwrap_or_default();
-                let result = crate::protocol::handle_metadata(&keys)?;
+                let result = crate::protocol::handle_metadata(&keys)
+                    .map_err(wasmtime::Error::from_anyhow)?;
                 let result_bytes = serde_json::to_vec(&result)?;
                 let result_len = result_bytes.len();
                 caller.data_mut().pending_response = Some(result_bytes);
@@ -345,13 +356,13 @@ pub(super) fn run_wasm_plugin(
     let init_bytes = serde_json::to_vec(&init_msg)?;
     store.data_mut().pending_response = Some(init_bytes);
 
-    let instance = linker.instantiate(&mut store, &module).context(
-        "instantiating WASM plugin — the plugin may import functions for capabilities it wasn't granted",
-    )?;
+    let instance = linker.instantiate(&mut store, &module).map_err(|e| {
+        anyhow::anyhow!("instantiating WASM plugin — the plugin may import functions for capabilities it wasn't granted: {e}")
+    })?;
 
     let start = instance
         .get_typed_func::<(), ()>(&mut store, "_start")
-        .context("WASM module has no _start export")?;
+        .map_err(|e| anyhow::anyhow!("WASM module has no _start export: {e}"))?;
 
     match start.call(&mut store, ()) {
         Ok(()) => Ok(()),
