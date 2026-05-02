@@ -28,20 +28,13 @@ Structured JSON-lines protocol between fledge and plugins. Gives plugins access 
 
 ### Exported Functions
 
-Public API (visible outside the crate):
+Public API — `run_protocol_plugin`, `OutboundMessage`, and `PluginContext` are the external entry points. All other exports are crate-internal (`pub(crate)`) implementation details.
 
 | Export | Description |
 |--------|-------------|
 | `run_protocol_plugin` | Spawn a plugin in protocol mode, handling JSON-lines communication |
 | `OutboundMessage` | Enum: Prompt, Confirm, Select, MultiSelect, Progress, Log, Output, Store, Load, Exec, Metadata |
 | `PluginContext` | Project info, git state, args, fledge version, capabilities — sent in `init` message |
-
-### Internal Functions
-
-Crate-internal (`pub(crate)`) — used within fledge but not part of the external API:
-
-| Export | Description |
-|--------|-------------|
 | `CapabilitiesInfo` | Struct tracking whether plugin has exec, store, and metadata capabilities |
 | `ProjectContext` | Struct containing project name, root path, detected language, and optional git context |
 | `GitContext` | Struct describing git branch, dirty status, remote name, and sanitized remote URL |
@@ -611,7 +604,7 @@ These are not part of v1 but are designed to be additive under the policy above:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 6 | 2026-05-02 | Fix exports table: split into public API (3 items: `run_protocol_plugin`, `OutboundMessage`, `PluginContext`) and internal `pub(crate)` items. Previous version falsely documented all items as public |
+| 6 | 2026-05-02 | Clarify public vs internal exports in single table (spec-sync requires all exports in one `Exported Functions` table). Add platform-correct storage paths using `<config_dir>` notation |
 | 5 | 2026-04-29 | Fix spec-sync: consolidate all exports into standard `Exported Functions` table (custom subsection headers were not parsed by spec-sync) |
 | 4 | 2026-04-29 | Document all public exports from protocol submodules (ui, store, exec, metadata, detect) after module split |
 | 3 | 2026-04-27 | Security: exec command stdout/stderr capped at 10 MB each (`MAX_EXEC_OUTPUT_SIZE`) to prevent OOM from unbounded plugin output. Invariant 14 added |
