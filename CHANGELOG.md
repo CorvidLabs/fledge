@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.0.0] - 2026-05-01
+
+### Chores
+
+- final 1.0 polish — clean rustdoc warnings, add documentation URL (#328) (3ca99a1)
+- update Homebrew formula to v0.17.0 (#309) (f640209)
+
+### Documentation
+
+- restore release.spec.md v4 and templates.spec.md v7 entries (#332) (dab85de)
+- top up CHANGELOG Unreleased with #327–#330; fix release spec typo (#331) (84fbd08)
+- 1.0.0 prep — accuracy sweep across README, mdBook, CONTRIBUTING, CHANGELOG (#327) (05bff21)
+- fix work --json schema errors in AGENTS.md and agents.md (#318) (a6b7fcf)
+- add --ai flag to fledge github prs create docs (#317) (687854f)
+- update all references to use fledge github prs/issues create (#316) (5e7ef90)
+- audit and fix all fledge work pr references after pure-git split (#315) (abd3549)
+- clean up mdbook — deduplicate, fix hierarchy, add Run content (#313) (8bad4cf)
+- deduplicate mdbook, add Run pillar page, fix accuracy (#312) (762a01f)
+- fix section structure — align chapters with six pillars (#311) (cdc5f11)
+- deduplicate content, strip version history, add code block tags (#310) (0138349)
+
+### Features
+
+- pure git workflow — add commit/push, remove pr (#314) (d29ad6c)
+
+### Fixes
+
+- dry-run files_to_bump must include [release].files extras (#330) (617a81c)
+- correct takes_value detection — third-review last-mile blocker (#329) (11e8956)
+- third-review pre-1.0 polish (security docs, scope validation, stderr redaction) (#326) (b701b48)
+- propagate inherited global args to descendant subcommands (#325) (b731aea)
+- implement copy glob, lock prompt order, add v1 compat policies (#324) (17f57f4)
+- assorted post-review fixes (clippy, flaky tests, lanes import, timeouts) (#322) (5fa3f84)
+- error on unsupported protocol version instead of silent fallback (#323) (96a3c93)
+- use shell-words for hook command parsing (#321) (9d6636b)
+- pre-1.0 blocking bugs and security issues (#319) (87704d1)
+
+### Tests
+
+- add snapshot test for introspect --json schema stability (#320) (947a4c1)
+
 ## [Unreleased]
 
 > **Targeting 1.0.0.** This section collects the contract-locking work since v0.17.0. When 1.0.0 tags, this becomes the v1.0.0 entry.
