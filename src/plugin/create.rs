@@ -178,7 +178,6 @@ fn create_wasm_plugin(target: &Path, name: &str, desc: &str, json: bool) -> Resu
     std::fs::create_dir_all(target.join("src"))
         .with_context(|| format!("creating {}/src", target.display()))?;
 
-    let underscored = name.replace('-', "_");
     let plugin_toml = format!(
         r#"[plugin]
 name = {name:?}
@@ -190,7 +189,7 @@ runtime = "wasm"
 [[commands]]
 name = {name:?}
 description = {desc:?}
-binary = "target/wasm32-wasip1/release/{underscored}.wasm"
+binary = "target/wasm32-wasip1/release/{name}.wasm"
 
 [hooks]
 build = "cargo build --target wasm32-wasip1 --release"
