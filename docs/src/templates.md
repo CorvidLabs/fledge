@@ -149,7 +149,7 @@ For the full format reference, see the [Template Authoring Guide](./template-aut
 When you run `fledge templates init --template <name>`, fledge looks in this order:
 
 1. **Exact path** - starts with `.` or `/`
-2. **Built-in templates** - the 6 bundled ones
+2. **Built-in templates** - the 8 bundled ones (`go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`)
 3. **Configured repos** - `templates.repos` in your config
 4. **Local paths** - `templates.paths` in your config
 5. **GitHub shorthand** - treats it as `owner/repo` and fetches it

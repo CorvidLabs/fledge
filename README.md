@@ -85,15 +85,13 @@ Three plugins extend fledge with commands that don't belong in every install. On
 fledge plugins install --defaults
 ```
 
-| Plugin | Adds | Replaces (pre-v0.15) |
-|--------|------|----------------------|
-| [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` | the GitHub-specific browsing trio |
-| [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` | polyglot lockfile audits |
-| [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` | LOC, churn, test/source ratio (via `tokei` + `git`) |
+| Plugin | Adds |
+|--------|------|
+| [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` — GitHub PR/issue/CI flow |
+| [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` — polyglot lockfile audits |
+| [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` — LOC, churn, test/source ratio (via `tokei` + `git`) |
 
 Not every fledge user is on GitHub or runs a polyglot project. The core stays tight, you opt in to what you need.
-
-(`fledge-plugin-templates-remote` and `fledge-plugin-doctor` were dropped from the default set in v0.15.2 and re-absorbed into core. They're now `fledge templates search`/`publish` and the `Toolchains` section of `fledge doctor`. The standalone plugin repos still exist but are no longer part of `--defaults`.)
 
 ## Built-in templates
 
@@ -103,7 +101,7 @@ Browse community templates: `fledge templates search <keyword>`
 
 ## Examples
 
-- [Community templates](https://github.com/CorvidLabs/fledge-templates). 18 ready-to-use templates (angular-app, bun-api, deno-cli, mcp-server, rust-workspace, swift-pkg, and more)
+- [Community templates](https://github.com/CorvidLabs/fledge-templates). A growing collection covering Angular, Bun APIs, Deno CLIs, MCP servers, Rust workspaces, Swift packages, and more
 - [Example lanes](https://github.com/CorvidLabs/fledge-lanes). Language-specific CI/CD pipelines
 - [Example plugin](https://github.com/CorvidLabs/fledge-plugin-deploy). Deploy/rollback plugin reference
 

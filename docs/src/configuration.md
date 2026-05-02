@@ -138,6 +138,7 @@ timeout_seconds = 600
 
 | Variable | What it does |
 |----------|-------------|
+| `FLEDGE_NON_INTERACTIVE` | Truthy (`1`, `true`, `yes`, `y`, `on`) silences every prompt — same effect as passing `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts behave as `--yes`; prompts with no default bail with a clear error instead of hanging |
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
 | `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
 | `FLEDGE_AI_PROVIDER` | AI provider override (`claude` or `ollama`) |

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+> **Targeting 1.0.0.** This section collects the contract-locking work since v0.17.0. When 1.0.0 tags, this becomes the v1.0.0 entry.
+
+### Added
+
+- **Compatibility Policies** locking the v1 contracts for templates, lanes, and the introspect schema, mirroring the existing `fledge-v1` plugin protocol policy (#324). Additive-only sections, no field removal/retyping, locked precedence rules, locked iteration order. Future `Step` variants in lanes must use unique discriminator keys; future templates manifest sections are tolerated as unknown fields.
+- **`[files] copy` glob** in template manifests (#324). Was documented and present in built-in templates but silently dropped at parse time. Now fully implemented with explicit precedence: `ignore` → `.tera` → `copy` → `render` → default-copy. A copy-matched file bypasses Tera even when a `render` glob would otherwise catch it.
+- **`--trust-hooks` flag** for `fledge templates init` (#326). Authorizes `post_create` hook execution from **remote** templates without an interactive prompt. Also settable via `FLEDGE_TRUST_HOOKS=1`. Local-template hooks are still gated by `--yes` (the user authored them); remote-template hooks need explicit hook-trust because they run arbitrary shell commands from a third-party source.
+- **Stderr secret redaction** (#326). `redact_secrets()` strips `Authorization:`, `x-access-token:`, `Bearer`, and credentialed URLs from raw subprocess stderr before it lands in user-facing error messages. Wired into `remote.rs` (the only authenticated-git site).
+
+### Changed
+
+- **`fledge introspect --json`** now propagates inherited `global = true` flags down to every descendant subcommand's `args` array, marked `global: true` (#325). Previously, agents reading `plugins.list.args` saw an empty array even though `--json` (a `Plugins`-level global) and `--non-interactive` (a root-level global) both work there. Each node's `args` is now the complete set of flags accepted at that level. The wire format and `INTROSPECT_SCHEMA_VERSION` are unchanged — `global: true` was always part of the v1 shape; this fix uses it as intended. Child redeclaration of an inherited arg by name keeps the local copy (no duplicates).
+- **`prompts` iteration order in `template.toml`** is now alphabetical-by-key (#324). Was random across runs (`HashMap`); now `BTreeMap`. Multi-prompt templates ask questions in a stable order. Single-prompt templates are unaffected.
+
+### Security
+
+- **`--scope` validation in `fledge work commit --ai`** (#326). Scope strings are validated against `[A-Za-z0-9_-]{1,64}` before being interpolated into the LLM prompt or commit message. Whitespace, shell metacharacters, template syntax, or anything that could be read as instructions to the model is rejected at the boundary.
+- **`SECURITY.md` updates** (#326): explicit note that granting a plugin's `exec` capability is equivalent to full shell access within the sandbox; supported-versions table no longer claims 1.0 support before 1.0 exists; resource caps documented.
+
+### Documentation
+
+- README, mdBook docs, AGENTS.md, CONTRIBUTING.md and module specs synchronized for 1.0.
+
+### Spec bumps
+
+- `templates` v7 → v8 (Compatibility Policy, locked precedence, prompt ordering)
+- `lanes` v19 → v20 (Compatibility Policy)
+- `introspect` v2 → v3 (invariant 5 flipped: globals propagate)
+- `init` v8 → v9 (`--trust-hooks` consent split)
+- `work` v11 → v12 (`--scope` validation)
+
 ## [v0.17.0] - 2026-04-29
 
 ### Chores
@@ -67,42 +100,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - address 1.0 readiness blockers from multi-model review (#282) (6b1234b)
 - honor --json on dry-run path (1.0 contract) (#277) (b781561)
 - tighten lanes import + templates list envelopes (#271 followups) (#276) (3d9799d)
-
-## [Unreleased]
-
-### Added
-
-- **Schema-versioned `--json` envelope** across every public-surface JSON output in plugins, lanes, and templates. Each output is now a JSON object with a top-level `schema_version: 1` field. Tier B (#271) added `--json` to commands that didn't have it; this entry tracks tier C (#272), the breaking migration for the ones that did.
-
-### Changed (BREAKING)
-
-- **`--json` outputs in plugins/lanes/templates wrapped in `schema_version` envelope** (#272). The following commands previously returned a top-level JSON array; they now return a JSON object with the array under a named key. **Update any `jq` paths in your scripts.**
-
-  | Command | Before | After |
-  |---|---|---|
-  | `fledge plugins list --json` | `[…]` | `{schema_version: 1, plugins: […]}` |
-  | `fledge plugins audit --json` | `[…]` | `{schema_version: 1, audit: […]}` |
-  | `fledge plugins search --json` | `[…]` | `{schema_version: 1, results: […]}` |
-  | `fledge plugins validate --json` | `{path, plugin_name, errors, warnings}` | adds `schema_version: 1` (additive) |
-  | `fledge lanes list --json` | `[…]` | `{schema_version: 1, lanes: […]}` |
-  | `fledge lanes search --json` | `[…]` | `{schema_version: 1, results: […]}` |
-  | `fledge lanes run --json` | `{lane, success, …}` | adds `schema_version: 1` (additive) |
-  | `fledge lanes validate --json` | `{path, lane_count, errors, warnings}` | adds `schema_version: 1` (additive) |
-  | `fledge templates search --json` | `[…]` | `{schema_version: 1, results: […]}` |
-  | `fledge templates validate --json` | `[{report}, …]` | `{schema_version: 1, reports: […]}` |
-
-  **Migration:** scripts using `jq '.[]'` against any of the above need to update to `jq '.<resource>[]'` — `.plugins[]`, `.audit[]`, `.results[]`, `.lanes[]`, `.reports[]`. The named key is fully discoverable from the command-to-resource mapping above.
-
-  **Why now.** `schema_version` cannot be added to a top-level array additively. Doing this in 0.x is the *last* time it's free; once 1.0 ships, the top-level shape is frozen and a future migration would require a major version bump. The matching `schema_version: 1` field on already-object outputs (validate / lane run) is purely additive — no script breakage there.
-
-  **Future evolution.** Within `schema_version: 1`, new fields are additive — consumers must ignore unknown keys. Removing or retyping a field bumps `schema_version` to `2`.
-
-### Spec bumps
-
-- `plugin` v14 → v15
-- `lanes` v11 → v12
-- `main` v7 → v8
-- `validate` v1 → v2
 
 ## [v0.15.3] - 2026-04-25
 

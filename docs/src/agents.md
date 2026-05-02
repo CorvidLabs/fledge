@@ -35,7 +35,7 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 
 | Command | Payload shape |
 |---------|---------------|
-| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args, subcommands}` recursively |
+| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args, subcommands}` recursively. Each node's `args` is the **complete set of flags accepted at that level**, including inherited globals from ancestors (marked `global: true`) — no need to walk up the parent chain |
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [...]}` |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {...}}` |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs, totals, strict}` |
