@@ -1012,7 +1012,7 @@ expression: output
           "args": [
             {
               "name": "source",
-              "help": "GitHub repo (owner/repo[@ref]) or full URL — use @tag to pin a version. Omit when using --defaults",
+              "help": "GitHub repo (`owner/repo[@ref]`) or full URL — use `@tag` to pin a version. Omit when using `--defaults`",
               "required": false,
               "takes_value": false,
               "global": false
@@ -1634,7 +1634,7 @@ expression: output
         {
           "name": "with_model",
           "long": "with-model",
-          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: provider[:model], e.g. `ollama:gpt-oss:120b-cloud` or just `claude` to use the active claude config. Repeatable and comma-separated",
+          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `claude` to use the active claude config. Repeatable and comma-separated",
           "required": false,
           "takes_value": false,
           "global": false
@@ -2600,7 +2600,7 @@ expression: output
         },
         {
           "name": "pr",
-          "about": "[Deprecated] Use `fledge github prs create` (fledge-plugin-github) to open pull requests",
+          "about": "`[Deprecated]` Use `fledge github prs create` (fledge-plugin-github) to open pull requests",
           "aliases": [],
           "args": [
             {
