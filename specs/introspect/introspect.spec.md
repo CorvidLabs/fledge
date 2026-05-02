@@ -1,6 +1,6 @@
 ---
 module: introspect
-version: 2
+version: 3
 status: active
 files:
   - src/introspect.rs
@@ -47,7 +47,7 @@ depends_on: []
 2. The top-level object includes a `schema_version: <integer>` field. The current value is `1`. The field is emitted at the same level as `name`, `about`, `args`, and `subcommands` (not nested) so existing consumers that read those keys continue to work — only consumers that need to gate on schema changes read `schema_version`
 3. The tree excludes clap's auto-generated `--help` and `--version` args and the `help` subcommand — they're uniform across all commands and would just add noise
 4. `value_name` is omitted for boolean flags (args where `takes_value == false`) so agents don't try to pass values where none is expected
-5. Global args (clap `global = true`) are emitted only on the command that declared them, with `global: true` to flag their scope — they are NOT mirrored onto every subcommand that inherits them
+5. Global args (clap `global = true`) propagate to every descendant subcommand's `args` array, retaining `global: true` on each appearance. An agent reading any node's `args` therefore sees the **complete set of flags accepted at that level**, including inherited ones, without having to walk up the parent chain. A child redeclaring an inherited arg by the same name keeps its own copy (no duplicates) — the local declaration wins
 6. Subcommand aliases (e.g. `plugin` for `plugins`) are surfaced in the `CommandNode.aliases` field; arg-level aliases (both long via `visible_alias` and short via `visible_short_alias`) are surfaced in `ArgNode.aliases`. Agents can therefore recognize both subcommand and flag shorthands (e.g. `--ni` for `--non-interactive`)
 7. Without `--json`, the output is a human-readable indented tree: each subcommand nested one level deeper, each arg on its own line with the flag form it takes (`-s, --long` or `<positional>`). Required args are prefixed with `*` as a visual marker
 8. `introspect` never touches the filesystem, network, git, or any external tool — it is a pure function of the compiled binary's clap configuration
@@ -125,5 +125,6 @@ $ fledge introspect --json | jq '.subcommands[] | select(.aliases | length > 0) 
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-05-01 | **1.0 contract finalize:** invariant 5 flipped — global args (clap `global = true`) now propagate to every descendant subcommand's `args` array, marked `global: true` so agents can distinguish inherited from locally-declared. Previously, an agent reading `plugins.list.args` saw an empty array even though `--json` and `--non-interactive` are accepted there. Each node's `args` now reflects the **complete set of flags accepted at that level**. The wire format and `schema_version` are unchanged — `global: true` was always part of the v1 shape; this fix uses it as intended. Child redeclaration takes precedence over an inherited arg with the same name (no duplicates) |
 | 2 | 2026-04-25 | Add `schema_version: 1` to `--json` output (additive, emitted alongside existing top-level keys, not nested). Locks the agent-facing JSON shape for 1.0 |
 | 1 | 2026-04-23 | Initial spec, `fledge introspect` with pretty and JSON output for agent discoverability |

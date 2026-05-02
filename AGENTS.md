@@ -49,7 +49,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 
 | Command | What you get | Use when |
 |---------|-------------|----------|
-| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args: [...], subcommands: [...]}`. Each subcommand recursively has the same shape; each arg has `name, long?, short?, aliases, help, required, takes_value, value_name, global?` | First contact with fledge |
+| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args: [...], subcommands: [...]}`. Each subcommand recursively has the same shape; each arg has `name, long?, short?, aliases, help, required, takes_value, value_name, global?`. Each node's `args` is the **complete set of flags accepted at that level**, including inherited globals from ancestors (marked `global: true`) — no need to walk up the parent chain | First contact with fledge |
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |

@@ -1,6 +1,5 @@
 ---
 source: src/introspect.rs
-assertion_line: 259
 expression: output
 ---
 {
@@ -26,7 +25,19 @@ expression: output
       "name": "ai",
       "about": "Manage AI provider and model selection",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "status",
@@ -40,6 +51,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -72,6 +94,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -94,6 +127,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -152,6 +196,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -194,6 +249,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -217,6 +283,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -225,7 +302,19 @@ expression: output
       "name": "config",
       "about": "Manage global configuration",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "get",
@@ -238,6 +327,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -260,6 +360,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -275,6 +386,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -297,6 +419,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -319,6 +452,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -327,21 +471,57 @@ expression: output
           "name": "edit",
           "about": "Interactively edit config values",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
           "name": "list",
           "about": "Show all config values",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
           "name": "path",
           "about": "Show config file path",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
@@ -356,6 +536,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -374,6 +565,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -390,6 +592,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -398,7 +611,19 @@ expression: output
       "name": "lanes",
       "about": "Manage and run composable workflow pipelines",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "run",
@@ -427,6 +652,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -443,6 +679,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -459,6 +706,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -491,6 +749,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -523,6 +792,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -579,6 +859,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -629,6 +920,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -660,6 +962,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -675,6 +988,17 @@ expression: output
           "name": "json",
           "long": "json",
           "help": "Output as JSON",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
           "required": false,
           "takes_value": false,
           "global": true
@@ -717,6 +1041,25 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -732,6 +1075,25 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -755,6 +1117,25 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -763,14 +1144,54 @@ expression: output
           "name": "list",
           "about": "List installed plugins",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
           "name": "audit",
           "about": "Audit installed plugins — show trust tiers, capabilities, and hooks",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
@@ -802,6 +1223,25 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -825,6 +1265,25 @@ expression: output
               "takes_value": true,
               "value_name": "ARGS",
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -873,6 +1332,25 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -915,6 +1393,25 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -946,6 +1443,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1027,6 +1535,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -1127,6 +1646,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -1175,6 +1705,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -1183,7 +1724,19 @@ expression: output
       "name": "spec",
       "about": "Manage specs (check, init, new)",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "check",
@@ -1205,6 +1758,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1213,7 +1777,19 @@ expression: output
           "name": "init",
           "about": "Initialize spec-sync configuration",
           "aliases": [],
-          "args": [],
+          "args": [
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
           "subcommands": []
         },
         {
@@ -1228,6 +1804,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1243,6 +1830,17 @@ expression: output
               "required": true,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1266,6 +1864,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1276,7 +1885,19 @@ expression: output
       "name": "templates",
       "about": "Manage templates (init, create, validate, list, search, publish)",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "init",
@@ -1372,6 +1993,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1448,6 +2080,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1479,6 +2122,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1495,6 +2149,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1536,6 +2201,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1592,6 +2268,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1652,6 +2339,17 @@ expression: output
           "required": false,
           "takes_value": false,
           "global": false
+        },
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
         }
       ],
       "subcommands": []
@@ -1660,7 +2358,19 @@ expression: output
       "name": "work",
       "about": "Feature branch and PR workflow",
       "aliases": [],
-      "args": [],
+      "args": [
+        {
+          "name": "non_interactive",
+          "long": "non-interactive",
+          "aliases": [
+            "ni"
+          ],
+          "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+          "required": false,
+          "takes_value": false,
+          "global": true
+        }
+      ],
       "subcommands": [
         {
           "name": "start",
@@ -1715,6 +2425,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1791,6 +2512,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1816,6 +2548,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1832,6 +2575,17 @@ expression: output
               "required": false,
               "takes_value": false,
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
@@ -1847,6 +2601,17 @@ expression: output
               "takes_value": true,
               "value_name": "ARGS",
               "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
             }
           ],
           "subcommands": []
