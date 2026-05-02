@@ -2,7 +2,8 @@
 module: plugin-wasm
 version: 1
 status: draft
-files: []
+files:
+  - src/plugin/wasm.rs
 db_tables: []
 depends_on:
   - plugin
