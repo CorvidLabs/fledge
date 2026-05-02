@@ -46,47 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add snapshot test for introspect --json schema stability (#320) (947a4c1)
 
-## [Unreleased]
-
-> **Targeting 1.0.0.** This section collects the contract-locking work since v0.17.0. When 1.0.0 tags, this becomes the v1.0.0 entry.
-
-### Added
-
-- **Compatibility Policies** locking the v1 contracts for templates, lanes, and the introspect schema, mirroring the existing `fledge-v1` plugin protocol policy (#324). Additive-only sections, no field removal/retyping, locked precedence rules, locked iteration order. Future `Step` variants in lanes must use unique discriminator keys; future templates manifest sections are tolerated as unknown fields.
-- **`[files] copy` glob** in template manifests (#324). Was documented and present in built-in templates but silently dropped at parse time. Now fully implemented with explicit precedence: `ignore` → `.tera` → `copy` → `render` → default-copy. A copy-matched file bypasses Tera even when a `render` glob would otherwise catch it.
-- **`--trust-hooks` flag** for `fledge templates init` (#326). Authorizes `post_create` hook execution from **ad-hoc remote** templates (`--template owner/repo` not in config) without an interactive prompt. Also settable via `FLEDGE_TRUST_HOOKS=1`. Curated-path templates — built-ins, `templates.paths`, and configured `templates.repos` — still take `--yes` consent because the trust decision happened when the source was added to config (#327 sharpened the boundary documentation).
-- **Stderr secret redaction** (#326). `redact_secrets()` strips `Authorization:`, `x-access-token:`, `Bearer`, and credentialed URLs from raw subprocess stderr before it lands in user-facing error messages. Wired into `remote.rs` (the only authenticated-git site).
-- **`documentation` field in `Cargo.toml`** (#328) — crates.io now shows the GitHub Pages URL (`https://corvidlabs.github.io/fledge/`) alongside the existing repo and homepage links.
-
-### Changed
-
-- **`fledge introspect --json`** now propagates inherited `global = true` flags down to every descendant subcommand's `args` array, marked `global: true` (#325). Previously, agents reading `plugins.list.args` saw an empty array even though `--json` (a `Plugins`-level global) and `--non-interactive` (a root-level global) both work there. Each node's `args` is now the complete set of flags accepted at that level. The wire format and `INTROSPECT_SCHEMA_VERSION` are unchanged — `global: true` was always part of the v1 shape; this fix uses it as intended. Child redeclaration of an inherited arg by name keeps the local copy (no duplicates).
-- **`introspect` `takes_value` field is now correct for value-taking flags** (#329). The previous probe (`arg.get_num_args().map(|n| n.takes_values()).unwrap_or(false)`) returned `None` for the vast majority of clap-derive args, so every `Option<String>`, `PathBuf`, and `Vec<String>` flag (e.g. `--template <TEMPLATE>`, `--scope <SCOPE>`, `--with-specs <NAMES>`) was wrongly reported as a boolean. `value_name` was suppressed by the dependent guard. Switched to positive-matching on `ArgAction::Set | Append` — boolean flags correctly stay `false`, value-takers correctly report `true` with their `value_name`. Wire format and `schema_version` unchanged. Caught by independent third-pass review pre-tag.
-- **`fledge release --dry-run --json` `files_to_bump` is now accurate** (#330). Previously the dry-run reported only language-detected candidates (e.g. `["Cargo.toml"]`) while the real release also processed `[release].files` from `fledge.toml` (e.g. `flake.nix`), so the preview lied about which files would change. The detection path now mirrors the bumper's logic.
-- **`prompts` iteration order in `template.toml`** is now alphabetical-by-key (#324). Was random across runs (`HashMap`); now `BTreeMap`. Multi-prompt templates ask questions in a stable order. Single-prompt templates are unaffected.
-
-### Security
-
-- **`--scope` validation in `fledge work commit --ai`** (#326). Scope strings are validated against `[A-Za-z0-9_-]{1,64}` before being interpolated into the LLM prompt or commit message. Whitespace, shell metacharacters, template syntax, or anything that could be read as instructions to the model is rejected at the boundary.
-- **`SECURITY.md` updates** (#326): explicit note that granting a plugin's `exec` capability is equivalent to full shell access within the sandbox; supported-versions table no longer claims 1.0 support before 1.0 exists; resource caps documented.
-
-### Documentation
-
-- **README, mdBook docs (`docs/src/`), AGENTS.md, CONTRIBUTING.md, and module specs** synchronized for 1.0 (#327). Highest-impact fixes: `[files]` precedence in `template-authoring.md` (was "first match wins / default renders" — both wrong), bundled-template count (6 → 8 with names listed), `FLEDGE_NON_INTERACTIVE` added to env vars table, Ship pillar `work` subcommands updated (`pr` removed, `commit`/`push` added), CONTRIBUTING.md release process replaced with `fledge release` workflow, CHANGELOG.md misplaced stale `[Unreleased]` block removed.
-- **Local vs Remote hook-consent boundary clarified** (#327 follow-up). The split is "how you reached the template", not "where its bytes live": curated path (built-ins, `templates.paths`, `templates.repos`) takes `--yes`; ad-hoc remote (`--template owner/repo` not in config) takes `--trust-hooks`.
-- **Three rustdoc warnings cleaned** (#328). Bracket pairs in clap doc comments (`provider[:model]`, `[Deprecated]`, `owner/repo[@ref]`) were misread as intra-doc-link syntax. Wrapped in backticks; `cargo doc` now produces zero warnings.
-
-### Spec bumps
-
-- `templates` v7 → v8 (Compatibility Policy, locked precedence, prompt ordering) — #324
-- `lanes` v19 → v20 (Compatibility Policy) — #324
-- `introspect` v2 → v3 (invariant 5 flipped: globals propagate) — #325
-- `introspect` v3 → v4 (`takes_value` now accurate for value-taking flags) — #329
-- `init` v8 → v9 (`--trust-hooks` consent split, `trust_hooks: bool` on `InitOptions`) — #326
-- `init` v9 → v10 (Local/Remote consent boundary documentation sharpening) — #327
-- `work` v11 → v12 (`--scope` validation) — #326
-- `release` v4 → v5 (dry-run `files_to_bump` accuracy) — #330
-
 ## [v0.17.0] - 2026-04-29
 
 ### Chores
