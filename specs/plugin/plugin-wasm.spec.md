@@ -7,6 +7,7 @@ files:
 db_tables: []
 depends_on:
   - plugin
+  - specs/plugin/plugin-protocol.spec.md
   - trust
   - config
 ---
