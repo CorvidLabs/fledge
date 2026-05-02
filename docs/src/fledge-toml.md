@@ -215,7 +215,7 @@ Currently parsed but unused. Reserved for future breaking-change migrations. Saf
 
 ## Imported lanes (`.fledge/lanes/*.toml`)
 
-`fledge lanes import <source>` writes imported lane definitions to `.fledge/lanes/<source>.toml`. These files are auto-loaded by `fledge lanes run` after your top-level `fledge.toml`. Your local definitions win on name collisions.
+`fledge lanes import <source>` writes imported lane definitions to a generated file under `.fledge/lanes/`. The filename is derived from the source ref as `<owner>-<repo>[-<subpath>].toml` (lowercased, with `/` in subpaths replaced by `-`) — for example, `fledge lanes import CorvidLabs/fledge-lanes/rust` writes to `.fledge/lanes/corvidlabs-fledge-lanes-rust.toml`. These files are auto-loaded by `fledge lanes run` after your top-level `fledge.toml`. Your local definitions win on name collisions.
 
 Each imported file has the same shape as `fledge.toml` but typically contains only `[tasks]` and `[lanes]` from the upstream source:
 
@@ -309,7 +309,7 @@ A few subtle but documented behaviors worth knowing:
 - **Empty `[lanes]` is an error for `fledge lanes run`.** The error tells you to add lanes, import them, or run `fledge lanes init`.
 - **Unknown fields are ignored.** TOML keys not in the schema are silently accepted (forward-compatible) but have no effect.
 - **`description` is optional everywhere.** Tasks fall back to showing `cmd`, lanes fall back to `(no description)`.
-- **Working directories cannot escape the project.** Both `dir` (in tasks) and `[release].files` paths are canonicalized and rejected if they resolve outside the project root.
+- **Path handling differs by field.** Task `dir` is joined to the project root as configured and is *not* currently canonicalized — values like `"../sibling"` are accepted and will resolve outside the project. `[release].files` paths *are* canonicalized and rejected if they escape the project root.
 
 ## Related
 
