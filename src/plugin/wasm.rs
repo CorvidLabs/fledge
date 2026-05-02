@@ -383,6 +383,9 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
                 plugin_name
             );
         }
+        // Load, Exec, and Metadata messages are handled via dedicated host
+        // imports in WASM mode, not through fledge::send(). If a plugin
+        // sends them via send() anyway, ignore them silently.
         _ => {}
     }
 }
