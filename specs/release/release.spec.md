@@ -62,8 +62,7 @@ Provides a unified release workflow: version bumping across language ecosystems,
 ```
 Given a Cargo.toml with version = "0.8.0"
 When fledge release patch
-Then Cargo.toml is updated to version = "0.9.0" (wait, patch)
-Actually: version = "0.8.1"
+Then Cargo.toml is updated to version = "0.8.1"
 And CHANGELOG.md is created/updated with commits since last tag
 And a commit "chore: release v0.8.1" is created
 And an annotated tag v0.8.1 is created
