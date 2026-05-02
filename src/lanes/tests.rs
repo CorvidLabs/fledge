@@ -972,6 +972,7 @@ fn imported_lanes_get_source_tracked() {
     )
     .unwrap();
 
+    let _guard = crate::test_support::cwd_lock();
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(tmp.path()).unwrap();
     let config = load_lane_config().unwrap();

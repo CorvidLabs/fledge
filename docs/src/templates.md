@@ -14,6 +14,8 @@ These ship with the binary. Always there, no setup needed:
 | `go-cli` | Go CLI with Cobra |
 | `ts-node` | TypeScript on Node with tsx and Biome |
 | `static-site` | Vanilla HTML/CSS/JS, no dependencies |
+| `kotlin-kmp` | Kotlin Multiplatform library |
+| `kotlin-ktor-api` | Kotlin Ktor HTTP API |
 
 For Angular, MCP server, Deno, Swift, monorepo, and more, check the [official template repo](https://github.com/CorvidLabs/fledge-templates):
 

@@ -36,6 +36,9 @@ mod versioning;
 mod watch;
 mod work;
 
+#[cfg(test)]
+mod test_support;
+
 use cli::*;
 
 fn main() {
