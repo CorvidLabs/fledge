@@ -1,6 +1,6 @@
 ---
 module: init
-version: 9
+version: 10
 status: active
 files:
   - src/init.rs
@@ -92,18 +92,18 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 - **When** `--no-install` flag is set
 - **Then** hooks are skipped entirely
 
-### Scenario: Remote template hooks require explicit trust
+### Scenario: Ad-hoc remote-template hooks require explicit trust
 
-- **Given** template fetched from a GitHub repo has `[hooks] post_create = ["npm install"]`
+- **Given** the user passes `--template owner/repo` directly on the command line (an ad-hoc remote ref, not present in `templates.repos`) and that template has `[hooks] post_create = ["npm install"]`
 - **When** `run()` is called with `--yes` but **not** `--trust-hooks`, in non-interactive mode
 - **Then** the project is created and files are rendered, but hooks are skipped with a hint pointing at `--trust-hooks`. `hooks_run: false` in the JSON envelope. Exit code is 0 — skipping hooks is not a failure
 - **And** with `--trust-hooks` (or `FLEDGE_TRUST_HOOKS=1`), the hooks execute without prompting
 
-### Scenario: Local template hooks gated only by --yes
+### Scenario: Curated-path template hooks gated only by --yes
 
-- **Given** built-in or user-authored template has post-create hooks
+- **Given** a template reached through any of the curated paths — built-in starter, `templates.paths`, or `templates.repos` (the configured-repos discovery path) — has `[hooks] post_create = [...]`
 - **When** `run()` is called with `--yes`
-- **Then** hooks execute without prompting. `--trust-hooks` is not required for local templates because the user authored or vetted them
+- **Then** hooks execute without prompting. `--trust-hooks` is not required because the user already granted trust at config time (or the template ships with fledge). Only **ad-hoc** remote refs (`--template owner/repo` not in config) take the stricter consent path
 
 ### Scenario: Refresh remote cache
 
@@ -149,6 +149,7 @@ Orchestrates project creation from a template. Resolves the template, prompts fo
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-05-01 | Clarify the hook-consent split: the `Local` vs `Remote` boundary is **how the template was reached**, not where its files live. Templates discovered through `templates.repos` (which the user opted into at config time) follow the `Local` path with `--yes` consent, even though they're physically fetched from GitHub. Only **ad-hoc** remote refs — `--template owner/repo` passed on the command line with no prior config entry — take the stricter `Remote` path requiring `--trust-hooks`. No code change; the implementation already worked this way. Doc-only sharpening of the v9 contract |
 | 9 | 2026-05-01 | **Security:** split hook-execution consent for remote templates from `--yes`. Local templates: `--yes` still authorizes `post_create` hooks (user-authored, trusted). Remote templates: `--yes` no longer authorizes hooks — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`). In non-interactive mode without `--trust-hooks`, remote-template hooks are skipped (not failed) with a hint. Adds `trust_hooks: bool` to `InitOptions` |
 | 8 | 2026-04-25 | `--json` emits structured envelope (`schema_version: 1`) for `templates init`; prose suppressed, JSON mode implies non-interactive, failure paths still exit non-zero |
 | 7 | 2026-04-21 | Add author/org fields to `InitOptions`, document plugin `pre_init` hook and versioning check |
