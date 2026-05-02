@@ -159,12 +159,19 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
 
         let rel_string = rel_str.to_string();
         let is_tera_ext = rel_string.ends_with(".tera");
-        let should_render = is_tera_ext
-            || manifest
+        let force_copy = !is_tera_ext
+            && manifest
                 .files
-                .render
+                .copy
                 .iter()
                 .any(|g| matches_glob_pub(g, &rel_string));
+        let should_render = is_tera_ext
+            || (!force_copy
+                && manifest
+                    .files
+                    .render
+                    .iter()
+                    .any(|g| matches_glob_pub(g, &rel_string)));
 
         if should_render {
             let file_content = match std::fs::read_to_string(entry.path()) {
