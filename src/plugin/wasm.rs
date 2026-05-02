@@ -361,18 +361,19 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
                 done_mark
             );
         }
-        crate::protocol::OutboundMessage::Store { key, value } => {
-            if capabilities.store {
-                if let Err(e) = crate::protocol::handle_store(plugin_dir, &key, &value) {
-                    eprintln!(
-                        "  {} [{}] store rejected: {}",
-                        style("⚠").yellow(),
-                        plugin_name,
-                        e
-                    );
-                }
+        crate::protocol::OutboundMessage::Store { key, value }
+            if capabilities.store =>
+        {
+            if let Err(e) = crate::protocol::handle_store(plugin_dir, &key, &value) {
+                eprintln!(
+                    "  {} [{}] store rejected: {}",
+                    style("⚠").yellow(),
+                    plugin_name,
+                    e
+                );
             }
         }
+        crate::protocol::OutboundMessage::Store { .. } => {}
         crate::protocol::OutboundMessage::Prompt { .. }
         | crate::protocol::OutboundMessage::Confirm { .. }
         | crate::protocol::OutboundMessage::Select { .. }
