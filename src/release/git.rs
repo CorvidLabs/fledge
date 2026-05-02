@@ -17,6 +17,22 @@ pub(super) fn create_release_commit(
         files_to_add.push("CHANGELOG.md".to_string());
     }
 
+    // Filter out gitignored files to avoid staging failures (e.g. Cargo.lock)
+    let ignored = Command::new("git")
+        .arg("check-ignore")
+        .args(&files_to_add)
+        .current_dir(dir)
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(String::from)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    files_to_add.retain(|f| !ignored.contains(f));
+
     if !files_to_add.is_empty() {
         let mut cmd = Command::new("git");
         cmd.arg("add").current_dir(dir);
