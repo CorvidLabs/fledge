@@ -158,4 +158,9 @@ When you run `fledge templates init --template <name>`, fledge looks in this ord
 
 > **Warning:** Remote template hooks execute shell commands on your machine. Always review what a template's `post_create` hooks will run before confirming.
 
-Hooks from remote templates always ask for confirmation before running. Pass `--yes` if you trust the source and want to skip the prompt.
+Hook consent is split by template provenance:
+
+- **Local templates** (built-in starters and anything under `templates.paths` in your config) are presumed user-authored. `--yes` (or `FLEDGE_NON_INTERACTIVE=1`) auto-confirms their `post_create` hooks.
+- **Remote templates** fetched from GitHub require an explicit trust grant. `--yes` does **not** authorize their hooks — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize hook execution for the run. Without it, the prompt fires interactively, or hooks are skipped in non-interactive mode with a hint pointing at the right flag (the rest of init still succeeds; `hooks_run: false` in the JSON envelope).
+
+The `--dry-run` path always lists the hooks that would run regardless of trust, so you can audit before consenting.

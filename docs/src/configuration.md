@@ -138,7 +138,8 @@ timeout_seconds = 600
 
 | Variable | What it does |
 |----------|-------------|
-| `FLEDGE_NON_INTERACTIVE` | Truthy (`1`, `true`, `yes`, `y`, `on`) silences every prompt — same effect as passing `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts behave as `--yes`; prompts with no default bail with a clear error instead of hanging |
+| `FLEDGE_NON_INTERACTIVE` | Truthy (`1`, `true`, `yes`, `y`, `on`) silences prompts — same effect as passing `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts behave as `--yes`; prompts with no default bail with a clear error instead of hanging. **Exception:** remote-template `post_create` hooks during `templates init` are skipped unless trust is granted explicitly via `--trust-hooks` or `FLEDGE_TRUST_HOOKS` (see below). Local-template hooks are still gated by `--yes`. |
+| `FLEDGE_TRUST_HOOKS` | Truthy authorizes `post_create` hook execution from **remote** templates without an interactive prompt — same as passing `--trust-hooks` to `fledge templates init`. Hooks run arbitrary shell commands; only set this for sources you trust. Local templates do **not** require this |
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
 | `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
 | `FLEDGE_AI_PROVIDER` | AI provider override (`claude` or `ollama`) |

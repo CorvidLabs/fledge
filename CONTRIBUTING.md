@@ -119,8 +119,8 @@ fledge run docs-serve
 
 - `src/cli.rs` defines the clap derive types for every command and flag
 - `src/main.rs` dispatches parsed args to the appropriate handler
-- Single-file modules cover the simple commands (`src/init.rs`, `src/run.rs`, `src/watch.rs`, `src/work.rs`, `src/changelog.rs`, `src/review.rs`, `src/ask.rs`, `src/ai.rs`, `src/doctor.rs`, `src/introspect.rs`)
-- Folder modules with `mod.rs` cover the bigger surfaces — `src/plugin/`, `src/lanes/`, `src/protocol/`, `src/spec/`, `src/release/`
+- Folder modules (`mod.rs`) cover the bigger surfaces: `src/plugin/`, `src/lanes/`, `src/protocol/`, `src/spec/`, `src/release/`
+- Single-file modules cover smaller commands and command-support code. Examples: `src/init.rs`, `src/run.rs`, `src/watch.rs`, `src/work.rs`, `src/changelog.rs`, `src/review.rs`, `src/ask.rs`, `src/ai.rs`, `src/doctor.rs`, `src/introspect.rs`, `src/templates.rs`, `src/template_cmds.rs`, `src/config_cmds.rs`, `src/search.rs`, `src/publish.rs`, `src/validate.rs` — non-exhaustive; `src/` is the source of truth for where any given handler lives
 - Shared infra: `src/trust.rs`, `src/config.rs`, `src/prompts.rs`, `src/spinner.rs`, `src/llm.rs`, `src/github.rs`, `src/versioning.rs`, `src/meta.rs`, `src/utils.rs`
 - Specs in `specs/<module>/` define how each module should work — read them before modifying code. The `files:` frontmatter list ties each spec to its source files
 
@@ -175,7 +175,7 @@ fledge release --dry-run patch     # or minor / major / 1.2.3
 fledge release patch               # or minor / major / 1.2.3
 ```
 
-`fledge release` does the version bump (`Cargo.toml`, `flake.nix`, and `Formula/fledge.rb` together — see `[release].files` in `fledge.toml`), regenerates `CHANGELOG.md` from git history, creates the bump commit, tags `v<version>`, and pushes the tag. The `release.yml` workflow then builds the multi-platform binaries and publishes to crates.io and GitHub Releases. The Homebrew formula's URL/sha256 lines are bumped post-release by `post-release-formula.yml` once the release artifacts (and their `.sha256` sidecars) exist.
+`fledge release` does the version bump (`Cargo.toml` plus any extras listed in `[release].files` in `fledge.toml` — currently just `flake.nix`), regenerates `CHANGELOG.md` from git history, creates the bump commit, and tags `v<version>` locally. Pass `--push` to also push the commit and tag to `origin` in the same step; without it, the command prints the exact `git push` invocation to run when you're ready. The `release.yml` workflow (triggered by the pushed tag) then builds the multi-platform binaries and publishes to crates.io and GitHub Releases. `Formula/fledge.rb` is intentionally **not** in `[release].files` — Homebrew formulae need both a version and fresh `sha256`s that don't exist until release artifacts are uploaded. `post-release-formula.yml` opens a follow-up PR that bumps version + shas together once the artifacts and their `.sha256` sidecars exist.
 
 For the JSON contract (e.g. for scripting), `fledge release --dry-run --json` and `fledge release --json` emit `{schema_version: 1, action: "release", ...}`.
 
