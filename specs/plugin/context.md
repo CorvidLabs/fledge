@@ -8,7 +8,7 @@ The plugin system lets the community extend fledge without forking. It follows t
 
 ## Related Modules
 
-- `config` — plugin directory paths under `~/.config/fledge/`
+- `config` — plugin directory paths under the platform config directory (`dirs::config_dir()`)
 - `github` — GitHub API for search and clone operations
 
 ## Design Decisions

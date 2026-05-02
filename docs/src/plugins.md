@@ -24,12 +24,12 @@ fledge plugins install someone/fledge-deploy@v2.0.0 --force
 ```
 
 What happens when you install:
-1. Repo gets cloned to `~/.config/fledge/plugins/<name>/`
+1. Repo gets cloned to the platform plugin directory (e.g. `~/Library/Application Support/fledge/plugins/<name>/` on macOS, `~/.config/fledge/plugins/<name>/` on Linux)
 2. If `@ref` was specified, that tag/branch/commit is checked out
 3. fledge reads `plugin.toml`
 4. Build hook runs (or auto-detects Rust/Swift/Go/Node)
-5. Command binaries get symlinked to `~/.config/fledge/plugins/bin/`
-6. Plugin is registered in `~/.config/fledge/plugins.toml` (with `pinned_ref` if pinned)
+5. Command binaries get symlinked to the `plugins/bin/` directory
+6. Plugin is registered in `plugins.toml` (with `pinned_ref` if pinned)
 
 ## Using Plugins
 
@@ -290,7 +290,7 @@ The easiest setup is `gh auth login` — fledge uses it automatically as a fallb
 
 ## Security Model
 
-> **Warning:** Plugins run arbitrary code on your machine. Review plugin source before installing, especially from unknown authors.
+> **Warning:** Plugins run as unsandboxed processes with your full user permissions. A plugin can read any file you can read, write to any directory you can write to, and make network requests — regardless of its declared capabilities. Capabilities gate the fledge-v1 *protocol* (exec/store/metadata RPC messages), not the process itself. Review plugin source before installing, especially from unknown authors.
 
 Fledge has several safeguards:
 
@@ -311,8 +311,18 @@ Without these flags, interactive prompts will cause CI pipelines to hang.
 
 ## File Locations
 
+Plugin storage uses the platform config directory:
+
+| Platform | Base path |
+|----------|-----------|
+| macOS    | `~/Library/Application Support/fledge/` |
+| Linux    | `~/.config/fledge/` |
+| Windows  | `%APPDATA%\fledge\` |
+
+Under that base:
+
 | Path | What's there |
 |------|-------------|
-| `~/.config/fledge/plugins/` | Installed plugin directories |
-| `~/.config/fledge/plugins/bin/` | Symlinked binaries |
-| `~/.config/fledge/plugins.toml` | Plugin registry |
+| `plugins/` | Installed plugin directories |
+| `plugins/bin/` | Symlinked binaries |
+| `plugins.toml` | Plugin registry |
