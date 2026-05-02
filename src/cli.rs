@@ -268,9 +268,19 @@ pub enum TemplatesSubcommand {
         /// Show what would be created without writing anything
         #[arg(long)]
         dry_run: bool,
-        /// Skip all confirmation prompts (accept defaults)
+        /// Skip all confirmation prompts (accept defaults). For **local**
+        /// templates this also auto-confirms post-create hooks. For
+        /// **remote** templates it does NOT — use `--trust-hooks` to
+        /// authorize hook execution from a remote source.
         #[arg(short, long)]
         yes: bool,
+        /// Authorize post-create hook execution for remote templates without
+        /// an interactive prompt. Hooks run arbitrary shell commands — only
+        /// pass this for remote templates from sources you trust. For local
+        /// templates, `--yes` already authorizes hooks (they're authored by
+        /// you). Also settable via `FLEDGE_TRUST_HOOKS=1`.
+        #[arg(long)]
+        trust_hooks: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,

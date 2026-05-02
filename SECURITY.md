@@ -4,8 +4,12 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x   | Yes       |
-| < 1.0   | No        |
+| 1.0.x   | Yes              |
+| 0.17.x  | Best effort      |
+| < 0.17  | No               |
+
+Once 1.0 ships, only 1.0.x receives security fixes. Until then, the latest
+0.x release is the supported line.
 
 ## Reporting a Vulnerability
 
@@ -26,7 +30,19 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 
 - Templates are rendered through Tera (Jinja2-style) in a sandboxed context
 - Path traversal is blocked — templates cannot write outside the project directory
-- Remote template hooks (`post_create` commands) always require user confirmation before execution, unless `--yes` is explicitly passed
+- **Local** templates (built-in or under a configured `extra_paths`) are
+  presumed user-authored. `--yes` (or `FLEDGE_NON_INTERACTIVE=1`) auto-confirms
+  their `post_create` hooks, on the same trust footing as the rest of the
+  template content
+- **Remote** templates fetched from GitHub get a stricter consent rule.
+  `--yes` does **not** authorize their hooks — `--yes` skips routine prompts
+  (template-variable defaults, etc.), but arbitrary shell execution from a
+  third-party source needs explicit consent. Pass `--trust-hooks` (or set
+  `FLEDGE_TRUST_HOOKS=1`) to authorize hook execution for the run; otherwise
+  the prompt fires interactively, or hooks are skipped in non-interactive
+  mode with a hint pointing at the right flag
+- The dry-run path always lists the hooks that would run (regardless of
+  trust) so the user can audit before consenting
 
 ### GitHub Integration
 
@@ -40,6 +56,17 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 - Plugin installation requires explicit user action (`fledge plugins install`)
 - Plugin binaries are symlinked to `~/.config/fledge/plugins/bin/`
 - Plugins run with the same permissions as the user
+- The `fledge-v1` plugin protocol exposes three opt-in capabilities — `exec`,
+  `store`, and `metadata` — that default to `false`. Each is presented for
+  explicit user approval at install time and persisted in `plugins.toml`
+- **`exec` grants full shell access within the sandbox.** A plugin with
+  `exec = true` can run any shell command via `sh -c <command>` (Unix) or
+  `cmd /C <command>` (Windows). The cwd is restricted to the project root
+  and the plugin's own directory, but the command string itself is the
+  plugin's verbatim input — there is no shell-metacharacter filtering.
+  Treat granting `exec` as equivalent to running the plugin's code directly
+- Stdout/stderr from `exec` are each capped at 10 MB; plugin state at 1 MB
+  total / 64 KB per value / 256 keys; prompt/cancel timeouts at 5 minutes
 
 ### Dependencies
 

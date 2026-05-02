@@ -27,6 +27,7 @@ pub fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
             refresh,
             dry_run,
             yes,
+            trust_hooks,
             json,
         } => {
             init::run(init::InitOptions {
@@ -40,6 +41,7 @@ pub fn handle_templates(action: TemplatesSubcommand) -> Result<()> {
                 refresh,
                 dry_run,
                 yes,
+                trust_hooks,
                 json,
             })?;
         }

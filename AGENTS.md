@@ -92,7 +92,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}`. `issue` is `null` when no `--issue` flag was passed; all other fields always present | Branch scripting |
 | `fledge work commit --json` | `{schema_version: 1, action: "work_commit", hash, message, branch}`. Commit hash to report back | After writing code |
 | `fledge work push --json` | `{schema_version: 1, action: "work_push", branch, remote, force}`. Confirms the push | After committing |
-| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field | Pre-action sanity check |
+| `fledge work status --json` | `{schema_version: 2, action: "work_status", branch, default, ahead, behind, dirty}`. `dirty` is uncommitted file count; no PR field. **Migrated from v1 in 0.16:** v1 emitted a `pr` field (number-or-null) inferred from GitHub; v2 drops it (PR data lives in `fledge github prs view --json` from the github plugin) and adds `dirty`. Pin to fledge ≥ 0.16 to rely on v2 | Pre-action sanity check |
 
 ### Plugin commands (after `plugins install --defaults`)
 
@@ -131,7 +131,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 
 | Command | Effect |
 |---------|--------|
-| `fledge templates init` | Skip template-variable prompts (uses detected defaults) |
+| `fledge templates init` | Skip template-variable prompts (uses detected defaults). For **local** templates this also auto-confirms `post_create` hooks. For **remote** templates it does **not** — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize hooks from a third-party source. Without it, hooks are skipped in non-interactive mode and the rest of init still succeeds (`hooks_run: false` in the JSON envelope) |
 | `fledge templates create` | Skip name/description/type prompts |
 | `fledge ai use` | Errors with a clear "pass provider+model" message. No hang |
 | `fledge work commit` | Skip the interactive message prompt (requires `-m` or `--ai`) |
