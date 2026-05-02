@@ -76,7 +76,8 @@ expression: output
               "long": "provider",
               "help": "Provider: claude or ollama (default: active provider)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -84,7 +85,8 @@ expression: output
               "long": "search",
               "help": "Filter models by substring (case-insensitive)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "QUERY",
               "global": false
             },
             {
@@ -118,14 +120,16 @@ expression: output
               "name": "provider",
               "help": "Provider: claude or ollama",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PROVIDER",
               "global": false
             },
             {
               "name": "model",
               "help": "Model name (e.g. qwen3-coder:480b-cloud)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "MODEL",
               "global": false
             },
             {
@@ -170,7 +174,8 @@ expression: output
           "long": "with-specs",
           "help": "Include full spec + companions for these modules in the prompt (comma-separated, repeatable, use \"all\" for every spec)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "NAMES",
           "global": false
         },
         {
@@ -186,7 +191,8 @@ expression: output
           "long": "provider",
           "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "NAME",
           "global": false
         },
         {
@@ -194,7 +200,8 @@ expression: output
           "long": "model",
           "help": "Model name. Overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "MODEL",
           "global": false
         },
         {
@@ -222,7 +229,8 @@ expression: output
           "short": "l",
           "help": "Number of releases to show",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "LIMIT",
           "global": false
         },
         {
@@ -231,7 +239,8 @@ expression: output
           "short": "t",
           "help": "Show a specific tag only",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "TAG",
           "global": false
         },
         {
@@ -273,7 +282,8 @@ expression: output
           "name": "shell",
           "help": "Shell to generate completions for (auto-detects if omitted with --install)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "SHELL",
           "global": false
         },
         {
@@ -325,7 +335,8 @@ expression: output
               "name": "key",
               "help": "Config key (e.g. defaults.github_org)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "KEY",
               "global": false
             },
             {
@@ -351,14 +362,16 @@ expression: output
               "name": "key",
               "help": "Config key (e.g. defaults.github_org)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "KEY",
               "global": false
             },
             {
               "name": "value",
               "help": "Value to set",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "VALUE",
               "global": false
             },
             {
@@ -384,7 +397,8 @@ expression: output
               "name": "key",
               "help": "Config key (e.g. defaults.github_org)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "KEY",
               "global": false
             },
             {
@@ -410,14 +424,16 @@ expression: output
               "name": "key",
               "help": "Config key (templates.paths or templates.repos)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "KEY",
               "global": false
             },
             {
               "name": "value",
               "help": "Value to add",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "VALUE",
               "global": false
             },
             {
@@ -443,14 +459,16 @@ expression: output
               "name": "key",
               "help": "Config key (templates.paths or templates.repos)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "KEY",
               "global": false
             },
             {
               "name": "value",
               "help": "Value to remove",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "VALUE",
               "global": false
             },
             {
@@ -534,7 +552,8 @@ expression: output
               "long": "preset",
               "help": "Preset name (available: corvidlabs)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PRESET",
               "global": false
             },
             {
@@ -634,7 +653,8 @@ expression: output
               "name": "name",
               "help": "Lane name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -730,7 +750,8 @@ expression: output
               "name": "query",
               "help": "Keyword to filter results",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "QUERY",
               "global": false
             },
             {
@@ -739,7 +760,8 @@ expression: output
               "short": "a",
               "help": "Filter by author/owner",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "AUTHOR",
               "global": false
             },
             {
@@ -773,7 +795,8 @@ expression: output
               "name": "source",
               "help": "GitHub repo (owner/repo) or full URL, optionally with @ref",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "SOURCE",
               "global": false
             },
             {
@@ -816,7 +839,8 @@ expression: output
               "name": "path",
               "help": "Path to the directory containing fledge.toml with lanes",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -824,7 +848,8 @@ expression: output
               "long": "org",
               "help": "Publish under a GitHub organization",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "ORG",
               "global": false
             },
             {
@@ -840,7 +865,8 @@ expression: output
               "long": "description",
               "help": "Override the repository description",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -883,7 +909,8 @@ expression: output
               "name": "name",
               "help": "Lane repo name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -892,7 +919,8 @@ expression: output
               "short": "o",
               "help": "Parent directory",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "OUTPUT",
               "global": false
             },
             {
@@ -901,7 +929,8 @@ expression: output
               "short": "d",
               "help": "Description (bypasses prompt)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -944,7 +973,8 @@ expression: output
               "name": "path",
               "help": "Path to a directory containing fledge.toml",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -1014,7 +1044,8 @@ expression: output
               "name": "source",
               "help": "GitHub repo (`owner/repo[@ref]`) or full URL — use `@tag` to pin a version. Omit when using `--defaults`",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "SOURCE",
               "global": false
             },
             {
@@ -1073,7 +1104,8 @@ expression: output
               "name": "name",
               "help": "Plugin name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1107,7 +1139,8 @@ expression: output
               "name": "name",
               "help": "Plugin name (omit to update all)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1203,7 +1236,8 @@ expression: output
               "name": "query",
               "help": "Search query",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "QUERY",
               "global": false
             },
             {
@@ -1212,7 +1246,8 @@ expression: output
               "short": "a",
               "help": "Filter by author/owner",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "AUTHOR",
               "global": false
             },
             {
@@ -1221,7 +1256,8 @@ expression: output
               "short": "l",
               "help": "Maximum results",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "LIMIT",
               "global": false
             },
             {
@@ -1255,7 +1291,8 @@ expression: output
               "name": "name",
               "help": "Plugin command name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1297,7 +1334,8 @@ expression: output
               "name": "path",
               "help": "Path to the plugin directory",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -1305,7 +1343,8 @@ expression: output
               "long": "org",
               "help": "Publish under a GitHub organization",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "ORG",
               "global": false
             },
             {
@@ -1321,7 +1360,8 @@ expression: output
               "long": "description",
               "help": "Override the repository description",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -1364,7 +1404,8 @@ expression: output
               "name": "name",
               "help": "Plugin name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1373,7 +1414,8 @@ expression: output
               "short": "o",
               "help": "Parent directory",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "OUTPUT",
               "global": false
             },
             {
@@ -1382,7 +1424,8 @@ expression: output
               "short": "d",
               "help": "Description (bypasses prompt)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -1425,7 +1468,8 @@ expression: output
               "name": "path",
               "help": "Path to a directory containing plugin.toml",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -1469,7 +1513,8 @@ expression: output
           "name": "bump",
           "help": "Version bump: major, minor, patch, or explicit version (e.g. \"1.0.0\")",
           "required": true,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "BUMP",
           "global": false
         },
         {
@@ -1517,7 +1562,8 @@ expression: output
           "long": "pre-lane",
           "help": "Run a lane before releasing (e.g. \"ci\")",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "PRE_LANE",
           "global": false
         },
         {
@@ -1561,7 +1607,8 @@ expression: output
           "short": "b",
           "help": "Base branch to diff against (default: auto-detect)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "BASE",
           "global": false
         },
         {
@@ -1570,7 +1617,8 @@ expression: output
           "short": "f",
           "help": "Review only a specific file",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "FILE",
           "global": false
         },
         {
@@ -1587,7 +1635,8 @@ expression: output
           "short": "m",
           "help": "Model name for the active provider (overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "MODEL",
           "global": false
         },
         {
@@ -1596,7 +1645,8 @@ expression: output
           "short": "p",
           "help": "Custom review focus prompt (appended to default instructions)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "PROMPT",
           "global": false
         },
         {
@@ -1604,7 +1654,8 @@ expression: output
           "long": "format",
           "help": "Output format: summary (default), checklist, inline",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "FORMAT",
           "global": false
         },
         {
@@ -1612,7 +1663,8 @@ expression: output
           "long": "with-specs",
           "help": "Include full spec + companions for these modules in the review context (comma-separated, repeatable). Appended to any auto-detected specs",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "NAMES",
           "global": false
         },
         {
@@ -1628,7 +1680,8 @@ expression: output
           "long": "provider",
           "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "NAME",
           "global": false
         },
         {
@@ -1636,7 +1689,8 @@ expression: output
           "long": "with-model",
           "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `claude` to use the active claude config. Repeatable and comma-separated",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "REF",
           "global": false
         },
         {
@@ -1670,7 +1724,8 @@ expression: output
           "name": "task",
           "help": "Task name to run (lists tasks if omitted)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "TASK",
           "global": false
         },
         {
@@ -1695,7 +1750,8 @@ expression: output
           "long": "lang",
           "help": "Override detected project language (e.g. rust, node, go, python, swift, ruby, java-gradle, java-maven)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "LANG",
           "global": false
         },
         {
@@ -1828,7 +1884,8 @@ expression: output
               "name": "name",
               "help": "Module name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1854,7 +1911,8 @@ expression: output
               "name": "name",
               "help": "Module name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1908,7 +1966,8 @@ expression: output
               "name": "name",
               "help": "Project name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -1917,7 +1976,8 @@ expression: output
               "short": "t",
               "help": "Template to use (skip interactive selection)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "TEMPLATE",
               "global": false
             },
             {
@@ -1926,7 +1986,8 @@ expression: output
               "short": "o",
               "help": "Parent directory for the project",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "OUTPUT",
               "global": false
             },
             {
@@ -1934,7 +1995,8 @@ expression: output
               "long": "author",
               "help": "Author name (bypasses prompt; overrides config)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "AUTHOR",
               "global": false
             },
             {
@@ -1942,7 +2004,8 @@ expression: output
               "long": "org",
               "help": "GitHub organization (bypasses prompt; overrides config)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "ORG",
               "global": false
             },
             {
@@ -2025,7 +2088,8 @@ expression: output
               "name": "name",
               "help": "Template name",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -2034,7 +2098,8 @@ expression: output
               "short": "o",
               "help": "Parent directory for the template",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "OUTPUT",
               "global": false
             },
             {
@@ -2043,7 +2108,8 @@ expression: output
               "short": "d",
               "help": "Template description (bypasses prompt)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -2051,7 +2117,8 @@ expression: output
               "long": "render-patterns",
               "help": "Comma-separated file patterns to render through Tera (bypasses prompt)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "RENDER_PATTERNS",
               "global": false
             },
             {
@@ -2112,7 +2179,8 @@ expression: output
               "name": "path",
               "help": "Path to a template or directory of templates",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -2181,7 +2249,8 @@ expression: output
               "name": "query",
               "help": "Keyword to filter results",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "QUERY",
               "global": false
             },
             {
@@ -2190,7 +2259,8 @@ expression: output
               "short": "a",
               "help": "Filter by author/owner",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "AUTHOR",
               "global": false
             },
             {
@@ -2199,7 +2269,8 @@ expression: output
               "short": "l",
               "help": "Maximum number of results",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "LIMIT",
               "global": false
             },
             {
@@ -2233,7 +2304,8 @@ expression: output
               "name": "path",
               "help": "Path to the template directory",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PATH",
               "global": false
             },
             {
@@ -2241,7 +2313,8 @@ expression: output
               "long": "org",
               "help": "Publish under a GitHub organization",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "ORG",
               "global": false
             },
             {
@@ -2257,7 +2330,8 @@ expression: output
               "long": "description",
               "help": "Override the repository description",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "DESCRIPTION",
               "global": false
             },
             {
@@ -2302,7 +2376,8 @@ expression: output
           "name": "name",
           "help": "Task name to re-run on changes (use --lane for lanes)",
           "required": true,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "NAME",
           "global": false
         },
         {
@@ -2319,7 +2394,8 @@ expression: output
           "short": "p",
           "help": "Only watch a specific directory (default: current directory)",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "PATH",
           "global": false
         },
         {
@@ -2328,7 +2404,8 @@ expression: output
           "short": "e",
           "help": "Only trigger on specific file extensions (comma-separated, e.g. \"rs,toml\")",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "EXT",
           "global": false
         },
         {
@@ -2337,7 +2414,8 @@ expression: output
           "short": "d",
           "help": "Debounce interval in milliseconds",
           "required": false,
-          "takes_value": false,
+          "takes_value": true,
+          "value_name": "DEBOUNCE",
           "global": false
         },
         {
@@ -2389,7 +2467,8 @@ expression: output
               "name": "name",
               "help": "Branch name (will be sanitized for git)",
               "required": true,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NAME",
               "global": false
             },
             {
@@ -2398,7 +2477,8 @@ expression: output
               "short": "t",
               "help": "Branch type: feat, fix, chore, docs, hotfix, refactor (default: feat)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "TYPE",
               "global": false
             },
             {
@@ -2407,7 +2487,8 @@ expression: output
               "short": "i",
               "help": "Link to GitHub issue (prefixes branch name with issue number)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "NUMBER",
               "global": false
             },
             {
@@ -2415,7 +2496,8 @@ expression: output
               "long": "prefix",
               "help": "Override branch prefix entirely (e.g. \"user/leif\")",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PREFIX",
               "global": false
             },
             {
@@ -2423,7 +2505,8 @@ expression: output
               "long": "base",
               "help": "Base branch to branch from (default: main)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "BASE",
               "global": false
             },
             {
@@ -2459,7 +2542,8 @@ expression: output
               "short": "m",
               "help": "Commit message (prompted interactively if omitted)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "MESSAGE",
               "global": false
             },
             {
@@ -2468,7 +2552,8 @@ expression: output
               "short": "t",
               "help": "Commit type: feat, fix, chore, docs, refactor, etc. (default: from branch or \"feat\")",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "TYPE",
               "global": false
             },
             {
@@ -2477,7 +2562,8 @@ expression: output
               "short": "s",
               "help": "Scope for conventional commit (e.g. \"work\", \"cli\")",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "SCOPE",
               "global": false
             },
             {
@@ -2502,7 +2588,8 @@ expression: output
               "long": "provider",
               "help": "Override AI provider for --ai (claude or ollama)",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "PROVIDER",
               "global": false
             },
             {
@@ -2510,7 +2597,8 @@ expression: output
               "long": "model",
               "help": "Override AI model for --ai",
               "required": false,
-              "takes_value": false,
+              "takes_value": true,
+              "value_name": "MODEL",
               "global": false
             },
             {

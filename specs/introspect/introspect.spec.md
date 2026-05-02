@@ -1,6 +1,6 @@
 ---
 module: introspect
-version: 3
+version: 4
 status: active
 files:
   - src/introspect.rs
@@ -125,6 +125,7 @@ $ fledge introspect --json | jq '.subcommands[] | select(.aliases | length > 0) 
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-05-01 | **1.0 contract finalize, last-mile fix:** `takes_value` was `false` for nearly every value-taking arg. The previous probe (`arg.get_num_args().map(\|n\| n.takes_values()).unwrap_or(false)`) returned `None` for the majority of clap-derive args (it's only set when the spec explicitly writes `#[arg(num_args = ...)]`), so `--template <TEMPLATE>`, `--scope <SCOPE>`, `--with-specs <NAMES>`, every `Option<String>` / `PathBuf` flag reported `takes_value: false` and an agent reading the introspect tree could not distinguish them from boolean flags. `value_name` was also suppressed by the same path. Switched to positive matching on `ArgAction::Set | Append`, which is the correct probe and is conservative against future `ArgAction` variants (a new variant defaults to "doesn't take a value" rather than silently flipping the contract). The wire format and `schema_version` are unchanged — same fields, same shape, just correct values. Snapshot regenerated. Field-shape contract per invariant 4 is unchanged: `takes_value: false` still means "boolean flag, no value to pass". Caught in independent third-pass review pre-tag |
 | 3 | 2026-05-01 | **1.0 contract finalize:** invariant 5 flipped — global args (clap `global = true`) now propagate to every descendant subcommand's `args` array, marked `global: true` so agents can distinguish inherited from locally-declared. Previously, an agent reading `plugins.list.args` saw an empty array even though `--json` and `--non-interactive` are accepted there. Each node's `args` now reflects the **complete set of flags accepted at that level**. The wire format and `schema_version` are unchanged — `global: true` was always part of the v1 shape; this fix uses it as intended. Child redeclaration takes precedence over an inherited arg with the same name (no duplicates) |
 | 2 | 2026-04-25 | Add `schema_version: 1` to `--json` output (additive, emitted alongside existing top-level keys, not nested). Locks the agent-facing JSON shape for 1.0 |
 | 1 | 2026-04-23 | Initial spec, `fledge introspect` with pretty and JSON output for agent discoverability |

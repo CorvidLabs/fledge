@@ -106,10 +106,18 @@ fn build_tree_with_inherited(cmd: &Command, inherited: &[ArgNode]) -> CommandNod
 }
 
 fn build_arg(arg: &Arg) -> ArgNode {
-    let takes_value = arg
-        .get_num_args()
-        .map(|n| n.takes_values())
-        .unwrap_or(false);
+    // Detect value-taking args via the explicit `ArgAction`. `get_num_args()`
+    // returns `None` for the vast majority of clap-derive args (it's only set
+    // when the user wrote `#[arg(num_args = ...)]` themselves), so the
+    // previous `unwrap_or(false)` made every `Option<String>` / `PathBuf` /
+    // `Vec<String>` flag look like a boolean. Positive-matching on `Set` and
+    // `Append` is the correct probe and is conservative against future
+    // `ArgAction` variants — a new variant would default to "doesn't take a
+    // value" rather than silently flipping the contract.
+    let takes_value = matches!(
+        arg.get_action(),
+        clap::ArgAction::Set | clap::ArgAction::Append
+    );
     let mut aliases: Vec<String> = arg
         .get_visible_aliases()
         .map(|v| v.into_iter().map(|s| s.to_string()).collect())
