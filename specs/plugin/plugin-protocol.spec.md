@@ -1,6 +1,6 @@
 ---
 module: plugin-protocol
-version: 6
+version: 7
 status: active
 files:
   - src/protocol/mod.rs
@@ -404,11 +404,11 @@ Response:
 }
 ```
 
-**Security:** Commands run in a sandboxed context:
-- Working directory restricted to project root and plugin directory
-- No access to fledge config directory (except the plugin's own dir)
-- Inherits the user's PATH but not fledge's internal state
-- Network access is allowed (plugins may need to call APIs)
+**Security:** The `cwd` parameter is validated to stay within the project root or
+plugin directory, but the command string itself is unfiltered — absolute paths,
+`cd /`, and arbitrary binaries all work. Exec runs as an unsandboxed child
+process with the user's full permissions. Granting `exec` is equivalent to
+granting the plugin full access to the system.
 
 ### metadata
 
@@ -457,7 +457,7 @@ Fledge ignores outbound messages with unknown `type` values (forward-compatible)
 4. `init` is always the first message sent to the plugin
 5. Stderr is never captured — always goes to terminal
 6. Plugin-local storage is scoped to `<config_dir>/fledge/plugins/<name>/state.json`
-7. `exec` commands are sandboxed to project root and plugin directory
+7. `exec` cwd is validated to stay within the project root or plugin directory, but the command itself is unfiltered (not a sandbox)
 8. Unknown message types are ignored in both directions (forward-compatible)
 9. Malformed JSON lines are logged and skipped, not fatal
 10. Fledge sends SIGTERM 5 seconds after `cancel` if plugin hasn't exited
@@ -597,13 +597,14 @@ These are not part of v1 but are designed to be additive under the policy above:
 - **Streaming output** (`output` with `stream: true`) — for long-running commands that emit output over time
 - **Plugin-to-plugin calls** (`invoke` type) — let plugins call other plugins through fledge
 - **UI widgets** (`table`, `tree`, `diff`) — rich terminal rendering via fledge's formatters
-- **File operations** (`read_file`, `write_file`) — sandboxed file access through fledge
+- **File operations** (`read_file`, `write_file`) — path-validated file access through fledge
 - **Event subscriptions** — plugins subscribe to fledge events (file changes, git operations)
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-05-02 | Remove misleading "sandboxed" language from exec security notes; clarify that cwd is validated but command string is unfiltered. Change future file_operations wording from "sandboxed" to "path-validated" |
 | 6 | 2026-05-02 | Clarify public vs internal exports in single table (spec-sync requires all exports in one `Exported Functions` table). Add platform-correct storage paths using `<config_dir>` notation |
 | 5 | 2026-04-29 | Fix spec-sync: consolidate all exports into standard `Exported Functions` table (custom subsection headers were not parsed by spec-sync) |
 | 4 | 2026-04-29 | Document all public exports from protocol submodules (ui, store, exec, metadata, detect) after module split |
