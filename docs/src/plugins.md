@@ -175,8 +175,9 @@ fledge plugins install yourname/fledge-deploy
 |-------|------|----------|-|
 | `name` | string | Yes | Plugin name |
 | `version` | string | Yes | Semver |
-| `description` | string | No | Short description |
+| `description` | string | No | Short description (warned about if missing on `validate`) |
 | `author` | string | No | Who made it |
+| `protocol` | string | No | Set to `"fledge-v1"` to opt into the [structured plugin protocol](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md). Without it, the plugin runs with inherited stdio. |
 
 ### [[commands]]
 
@@ -257,21 +258,29 @@ See [Run: Tasks and Lanes](./lanes.md) for full step type documentation.
 
 ## Plugin Protocol (fledge-v1)
 
-Plugins that declare capabilities communicate with fledge via a JSON-over-stdin/stdout protocol. When a plugin starts, fledge sends an `init` message with the plugin's granted capabilities, then the plugin sends requests and fledge responds.
+Plugins that opt into the protocol (`protocol = "fledge-v1"` in `[plugin]`) communicate with fledge via newline-delimited JSON over stdin/stdout. When a plugin starts, fledge sends an `init` message with project context and granted capabilities, then the plugin sends outbound messages and fledge replies to anything that includes an `id`.
 
-### Message Types
+### Message types at a glance
 
-| Plugin sends | Fledge responds with | Requires |
-|-------------|---------------------|----------|
-| `exec` | `exec_result` (stdout, stderr, exit code) | `exec` capability |
-| `store` | `store_ack` | `store` capability |
-| `load` | `load_result` (value or null) | `store` capability |
-| `metadata` | `metadata_result` (project info) | `metadata` capability |
-| `log` | *(no response)* | *(always allowed)* |
-| `progress` | *(no response)* | *(always allowed)* |
-| `output` | *(terminates plugin)* | *(always allowed)* |
+Outbound (plugin → fledge):
 
-See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md) for full details.
+| Type | Reply | Requires |
+|------|-------|----------|
+| `prompt` | `response` with string | — |
+| `confirm` | `response` with boolean | — |
+| `select` | `response` with selected string | — |
+| `multi_select` | `response` with array of strings | — |
+| `exec` | `response` with `{code, stdout, stderr}` | `exec` |
+| `store` | *(fire-and-forget)* | `store` |
+| `load` | `response` with string or `null` | `store` |
+| `metadata` | `response` with object of requested keys | `metadata` |
+| `progress` | *(fire-and-forget)* | — |
+| `log` | *(fire-and-forget; level: debug/info/warn/error)* | — |
+| `output` | *(fire-and-forget; printed verbatim to stdout)* | — |
+
+Reply messages always have shape `{"type": "response", "id": "<echoed>", "value": <type-specific>}`. There is no `exec_result` / `store_ack` / `load_result` envelope — every reply uses the generic `response` type.
+
+See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md) for full schemas, lifecycle, security model, and worked examples.
 
 ## Authentication
 

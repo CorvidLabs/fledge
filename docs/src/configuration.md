@@ -152,11 +152,13 @@ If neither env var nor config is set, fledge falls back to `gh auth token` (GitH
 
 ## Project Configuration (fledge.toml)
 
-Per-project settings live in `fledge.toml` in your project root. This file defines tasks, lanes, and project metadata. It's created by `fledge run --init` or `fledge templates init`.
+Per-project settings live in `fledge.toml` in your project root. This file defines tasks, lanes, and release behavior. It's created by `fledge run --init`, `fledge lanes init`, or `fledge templates init`.
 
-For task and lane configuration, see:
-- [Run: Tasks and Lanes](./lanes.md) — defining lanes, step types, parallel groups, importing community lanes
-- [Extend: Plugins](./plugins.md) — extending fledge with community plugins
+For the full schema (every section, every key, every default), see the [`fledge.toml` Reference](./fledge-toml.md).
+
+Topical guides:
+- [Run: Tasks and Lanes](./lanes.md) — defining tasks/lanes, step types, parallel groups, importing community lanes
+- [Extend: Plugins](./plugins.md) — `plugin.toml` and the plugin ecosystem
 
 ## Priority Order
 

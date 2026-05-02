@@ -339,6 +339,7 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 ### Related
 
+- [`fledge.toml` Reference](./fledge-toml.md) — full schema for tasks, lanes, release, and imported lanes
 - [Configuration](./configuration.md) — global config, GitHub tokens
 - [Extend: Plugins](./plugins.md) — community commands, use plugins in lanes
 - [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
