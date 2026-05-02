@@ -298,6 +298,8 @@ fn init_message_serializes() {
             exec: true,
             store: true,
             metadata: false,
+            filesystem: None,
+            network: None,
         },
     };
     let json = serde_json::to_string(&ctx).unwrap();

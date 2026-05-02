@@ -53,7 +53,6 @@ fn compute_hash(data: &[u8]) -> String {
     result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-#[allow(dead_code)]
 pub(super) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
     let engine = create_engine()?;
     let wasm_bytes = std::fs::read(wasm_path)
@@ -335,6 +334,12 @@ pub(super) fn run_wasm_plugin(
             exec: capabilities.exec,
             store: capabilities.store,
             metadata: capabilities.metadata,
+            filesystem: capabilities.filesystem.clone(),
+            network: if capabilities.network {
+                Some(true)
+            } else {
+                None
+            },
         },
     };
     let init_bytes = serde_json::to_vec(&init_msg)?;

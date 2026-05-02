@@ -230,6 +230,7 @@ pub enum PluginAction {
         output: PathBuf,
         description: Option<String>,
         yes: bool,
+        wasm: bool,
     },
     Validate {
         path: PathBuf,
@@ -278,7 +279,8 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             output,
             description,
             yes,
-        } => create_plugin(&name, &output, description.as_deref(), yes, opts.json),
+            wasm,
+        } => create_plugin(&name, &output, description.as_deref(), yes, wasm, opts.json),
         PluginAction::Validate { path, strict, json } => validate_plugin(&path, strict, json),
     }
 }

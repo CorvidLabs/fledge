@@ -45,6 +45,10 @@ pub(crate) struct CapabilitiesInfo {
     pub(crate) exec: bool,
     pub(crate) store: bool,
     pub(crate) metadata: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) filesystem: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) network: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,6 +192,12 @@ pub fn run_protocol_plugin(
             exec: capabilities.exec,
             store: capabilities.store,
             metadata: capabilities.metadata,
+            filesystem: capabilities.filesystem.clone(),
+            network: if capabilities.network {
+                Some(true)
+            } else {
+                None
+            },
         },
     };
 

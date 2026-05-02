@@ -736,6 +736,9 @@ pub enum PluginSubcommand {
         /// Skip all interactive prompts
         #[arg(short, long)]
         yes: bool,
+        /// Create a WASM plugin (Rust + wasm32-wasip1)
+        #[arg(long)]
+        wasm: bool,
     },
     /// Validate a plugin manifest
     Validate {

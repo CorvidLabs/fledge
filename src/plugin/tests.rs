@@ -677,7 +677,15 @@ version = "0.1.0"
 fn create_plugin_scaffolds_files() {
     use std::fs;
     let tmp = tempfile::TempDir::new().unwrap();
-    create_plugin("my-plugin", tmp.path(), Some("Test plugin"), true, false).unwrap();
+    create_plugin(
+        "my-plugin",
+        tmp.path(),
+        Some("Test plugin"),
+        true,
+        false,
+        false,
+    )
+    .unwrap();
 
     let target = tmp.path().join("my-plugin");
     assert!(target.join("plugin.toml").exists());
@@ -698,7 +706,7 @@ fn create_plugin_fails_if_exists() {
     use std::fs;
     let tmp = tempfile::TempDir::new().unwrap();
     fs::create_dir(tmp.path().join("existing")).unwrap();
-    let result = create_plugin("existing", tmp.path(), None, true, false);
+    let result = create_plugin("existing", tmp.path(), None, true, false, false);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("already exists"));
 }
@@ -706,7 +714,7 @@ fn create_plugin_fails_if_exists() {
 #[test]
 fn validate_valid_plugin() {
     let tmp = tempfile::TempDir::new().unwrap();
-    create_plugin("test-plugin", tmp.path(), Some("Test"), true, false).unwrap();
+    create_plugin("test-plugin", tmp.path(), Some("Test"), true, false, false).unwrap();
 
     let result = validate_plugin(&tmp.path().join("test-plugin"), false, false);
     assert!(result.is_ok());
@@ -797,7 +805,7 @@ build = "cargo build --release"
 #[test]
 fn validate_json_output() {
     let tmp = tempfile::TempDir::new().unwrap();
-    create_plugin("json-test", tmp.path(), Some("Test"), true, false).unwrap();
+    create_plugin("json-test", tmp.path(), Some("Test"), true, false, false).unwrap();
 
     let result = validate_plugin(&tmp.path().join("json-test"), false, true);
     assert!(result.is_ok());
@@ -1104,4 +1112,150 @@ fn registry_roundtrip_with_runtime() {
     let caps = deserialized.plugins[0].capabilities.as_ref().unwrap();
     assert_eq!(caps.filesystem.as_deref(), Some("project"));
     assert!(!caps.network);
+}
+
+#[test]
+fn validate_rejects_invalid_runtime_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = r#"
+[plugin]
+name = "bad-runtime"
+version = "0.1.0"
+runtime = "python"
+
+[[commands]]
+name = "bad-runtime"
+binary = "bin/bad-runtime"
+
+[capabilities]
+"#;
+    std::fs::write(dir.path().join("plugin.toml"), manifest).unwrap();
+    std::fs::create_dir_all(dir.path().join("bin")).unwrap();
+    std::fs::write(dir.path().join("bin/bad-runtime"), "#!/bin/sh\n").unwrap();
+    let result = super::validate::validate_plugin(dir.path(), false, false);
+    assert!(result.is_err());
+}
+
+#[test]
+fn validate_rejects_invalid_filesystem_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = r#"
+[plugin]
+name = "bad-fs"
+version = "0.1.0"
+
+[[commands]]
+name = "bad-fs"
+binary = "bin/bad-fs"
+
+[capabilities]
+filesystem = "all"
+"#;
+    std::fs::write(dir.path().join("plugin.toml"), manifest).unwrap();
+    std::fs::create_dir_all(dir.path().join("bin")).unwrap();
+    std::fs::write(dir.path().join("bin/bad-fs"), "#!/bin/sh\n").unwrap();
+    let result = super::validate::validate_plugin(dir.path(), false, false);
+    assert!(result.is_err());
+}
+
+#[test]
+fn validate_wasm_requires_protocol() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = r#"
+[plugin]
+name = "no-proto"
+version = "0.1.0"
+runtime = "wasm"
+
+[[commands]]
+name = "no-proto"
+binary = "target/wasm32-wasip1/release/no_proto.wasm"
+
+[hooks]
+build = "cargo build --target wasm32-wasip1 --release"
+
+[capabilities]
+"#;
+    std::fs::write(dir.path().join("plugin.toml"), manifest).unwrap();
+    let result = super::validate::validate_plugin(dir.path(), false, false);
+    assert!(result.is_err());
+}
+
+#[test]
+fn validate_wasm_warns_non_wasm_binary() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = r#"
+[plugin]
+name = "bad-ext"
+version = "0.1.0"
+runtime = "wasm"
+protocol = "fledge-v1"
+
+[[commands]]
+name = "bad-ext"
+binary = "bin/bad-ext"
+
+[hooks]
+build = "cargo build"
+
+[capabilities]
+"#;
+    std::fs::write(dir.path().join("plugin.toml"), manifest).unwrap();
+    let result = super::validate::validate_plugin(dir.path(), true, false);
+    assert!(result.is_err());
+}
+
+#[test]
+fn validate_valid_wasm_plugin_passes() {
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = r#"
+[plugin]
+name = "good-wasm"
+version = "0.1.0"
+runtime = "wasm"
+protocol = "fledge-v1"
+
+[[commands]]
+name = "good-wasm"
+binary = "target/wasm32-wasip1/release/good_wasm.wasm"
+
+[hooks]
+build = "cargo build --target wasm32-wasip1 --release"
+
+[capabilities]
+filesystem = "plugin"
+network = false
+"#;
+    std::fs::write(dir.path().join("plugin.toml"), manifest).unwrap();
+    let result = super::validate::validate_plugin(dir.path(), false, false);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn capabilities_info_omits_none_fields_in_json() {
+    let info = crate::protocol::CapabilitiesInfo {
+        exec: true,
+        store: false,
+        metadata: false,
+        filesystem: None,
+        network: None,
+    };
+    let json = serde_json::to_string(&info).unwrap();
+    assert!(!json.contains("filesystem"));
+    assert!(!json.contains("network"));
+}
+
+#[test]
+fn capabilities_info_includes_fields_when_set() {
+    let info = crate::protocol::CapabilitiesInfo {
+        exec: false,
+        store: false,
+        metadata: false,
+        filesystem: Some("project".to_string()),
+        network: Some(true),
+    };
+    let json = serde_json::to_string(&info).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["filesystem"], "project");
+    assert_eq!(parsed["network"], true);
 }

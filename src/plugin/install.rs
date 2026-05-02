@@ -342,6 +342,19 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
 
     run_build(&plugin_dir, &manifest)?;
 
+    if manifest.plugin.is_wasm() {
+        for cmd in &manifest.commands {
+            let wasm_path = plugin_dir.join(&cmd.binary);
+            if wasm_path.exists() {
+                println!(
+                    "  {} Pre-compiling WASM module...",
+                    style("▶").cyan().bold()
+                );
+                super::wasm::compile_and_cache(&wasm_path)?;
+            }
+        }
+    }
+
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
         fs::remove_dir_all(&plugin_dir).ok();
     })?;

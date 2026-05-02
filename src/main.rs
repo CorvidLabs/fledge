@@ -313,11 +313,13 @@ fn run() -> Result<()> {
                     output,
                     description,
                     yes,
+                    wasm,
                 } => plugin::PluginAction::Create {
                     name,
                     output,
                     description,
                     yes,
+                    wasm,
                 },
                 PluginSubcommand::Validate { path, strict, json } => {
                     plugin::PluginAction::Validate { path, strict, json }
