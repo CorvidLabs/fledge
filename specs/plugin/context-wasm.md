@@ -15,7 +15,7 @@ The canary plugin audit (fledge-plugin-canary v0.5.x) proved that the current pl
 
 ## Design Decisions
 
-- **Wasmtime with WASI P2 (component model)** — battle-tested runtime used by Cloudflare Workers, Fastly, Fermyon. WASI P2 gives us filesystem preopens and sockets without custom APIs.
+- **Wasmtime with WASI P1** — battle-tested runtime used by Cloudflare Workers, Fastly, Fermyon. WASI P1 gives us filesystem preopens and sockets with broad language ecosystem support. A future migration to WASI P2 (component model) is possible once the ecosystem matures.
 - **Capabilities as link-time enforcement** — ungranted capabilities mean the host import is never linked. If the plugin tries to call it, instantiation fails. This is structurally stronger than a runtime permission check.
 - **Two new fine-grained capabilities** — `filesystem` (none/project/plugin) and `network` (bool) fill gaps the native model couldn't express (native always had full fs/network).
 - **Additive in 1.1.0, default in 2.0.0** — no breaking changes for existing plugin authors. WASM is opt-in first, then becomes the encouraged path once the ecosystem matures.

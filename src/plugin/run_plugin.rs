@@ -37,7 +37,9 @@ pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
                 toml::from_str(&content).context("parsing plugin.toml for WASM plugin")?;
             let wasm_binary = manifest
                 .commands
-                .first()
+                .iter()
+                .find(|c| c.name == name)
+                .or_else(|| manifest.commands.first())
                 .map(|c| plugin_dir.join(&c.binary))
                 .ok_or_else(|| anyhow::anyhow!("WASM plugin has no commands defined"))?;
 

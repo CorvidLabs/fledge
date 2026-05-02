@@ -22,6 +22,6 @@
 
 1. Cached WASM module startup must be under 50ms (no JIT compilation on cached path)
 2. WASM host interface must preserve fledge-v1 protocol semantics — same message types, same validation rules
-3. Plugin SDK crate (`fledge-plugin-sdk`) must compile to `wasm32-wasip2` target
+3. Plugin SDK crate (`fledge-plugin-sdk`) must compile to `wasm32-wasip1` target
 4. Native plugins must be completely unaffected — zero behavioral changes for existing installations
 5. `--json` flag must include runtime type in machine-parseable output for list/audit operations

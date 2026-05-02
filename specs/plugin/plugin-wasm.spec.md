@@ -27,7 +27,7 @@ Ships in **fledge 1.1.0** as an additive runtime alongside native. Existing nati
 - `runtime = "wasm"` in `plugin.toml` opts into the WASM executor
 - Native plugins (`runtime = "native"`, the implicit default) continue unchanged
 - WASM plugins are sandboxed — capabilities map to host-provided WASM imports
-- `fledge plugins create --wasm` scaffolds a Rust WASM plugin with `cargo-component`
+- `fledge plugins create --wasm` scaffolds a Rust WASM plugin targeting `wasm32-wasip1`
 - Community plugin registry (future) requires WASM
 
 ### 2.0.0 — Native Becomes Opt-In
@@ -63,7 +63,7 @@ runtime = "wasm"                    # new: "wasm" or "native" (default: "native"
 
 [[commands]]
 name = "deploy"
-binary = "target/wasm32-wasip2/release/fledge_deploy.wasm"  # .wasm file instead of native binary
+binary = "target/wasm32-wasip1/release/fledge_deploy.wasm"  # .wasm file instead of native binary
 
 [capabilities]
 exec = true
@@ -171,7 +171,7 @@ Uses WASI sockets for outbound TCP/UDP connections. No listening sockets (plugin
 
 ### Engine
 
-Wasmtime with the WASI preview 2 (component model) target. Plugins compile to WASI P2 components using `cargo-component` (Rust), TinyGo, or any language that targets `wasm32-wasip2`.
+Wasmtime with the WASI preview 1 target. Plugins compile to WASI P1 modules using `cargo build --target wasm32-wasip1` (Rust), TinyGo, or any language that targets `wasm32-wasip1`.
 
 ### Resource Limits
 
@@ -211,7 +211,7 @@ fledge plugins create my-plugin --wasm
 
 # Build
 cd my-plugin
-cargo component build --release
+cargo build --target wasm32-wasip1 --release
 
 # Test locally
 fledge plugins install ./my-plugin
@@ -219,14 +219,14 @@ fledge my-plugin
 ```
 
 The scaffold generates:
-- `Cargo.toml` with `wasm32-wasip2` target and `fledge-plugin-sdk` dependency
+- `Cargo.toml` with `wasm32-wasip1` target and `fledge-plugin-sdk` dependency
 - `src/lib.rs` with a minimal plugin using the SDK
 - `plugin.toml` with `runtime = "wasm"` and `protocol = "fledge-v1"`
-- `build` hook: `cargo component build --release`
+- `build` hook: `cargo build --target wasm32-wasip1 --release`
 
-### SDK
+### SDK (planned)
 
-`fledge-plugin-sdk` is a Rust crate that wraps the raw WASM imports into ergonomic APIs:
+`fledge-plugin-sdk` is a planned Rust crate that wraps the raw WASM imports into ergonomic APIs:
 
 ```rust
 use fledge_plugin_sdk::prelude::*;
@@ -253,19 +253,18 @@ fn main(ctx: PluginContext) -> Result<()> {
 }
 ```
 
-The SDK is published as a crate. Non-Rust authors use the raw WIT interface directly.
+The SDK will be published as a crate. Non-Rust authors use the raw WASM import interface directly.
 
 ### Other Languages
 
-Any language that compiles to `wasm32-wasip2` can be used:
+Any language that compiles to `wasm32-wasip1` can be used:
 
 | Language | Toolchain | Notes |
 |----------|-----------|-------|
-| Rust | `cargo-component` | First-class support via SDK crate |
-| Go | TinyGo | WASI P2 support in progress |
-| JavaScript | ComponentizeJS (jco) | Via StarlingMonkey or similar |
-| Python | componentize-py | Experimental |
+| Rust | `cargo build --target wasm32-wasip1` | First-class support via SDK crate |
+| Go | TinyGo | WASI P1 supported |
 | C/C++ | wasi-sdk | Low-level, no SDK wrapper |
+| AssemblyScript | asc | Compiles to WASI P1 |
 
 ## Install & Update Flow
 
@@ -325,7 +324,7 @@ Plugin Security Audit
 
 ## Invariants
 
-1. WASM plugins run inside a Wasmtime sandbox with WASI preview 2
+1. WASM plugins run inside a Wasmtime sandbox with WASI preview 1
 2. Capabilities map to WASM imports — ungranted capabilities are not linked, causing instantiation failure if the plugin tries to import them
 3. The fledge-v1 protocol is preserved — same message types, same semantics, different transport (WASM imports vs stdio pipes)
 4. `filesystem = "none"` means zero preopened directories — the plugin cannot read or write any file
@@ -383,7 +382,7 @@ Plugin Security Audit
 | Memory limit | Plugin exceeds 256 MB | Trap with "plugin exceeded memory limit" message |
 | Wall-clock timeout | Plugin exceeds 60 seconds | Kill with timeout error |
 | Invalid WASM | Binary is not valid WebAssembly | Error with validation details |
-| WASI P2 incompatible | Module targets WASI P1 or non-WASI | Error suggesting recompile with `wasm32-wasip2` target |
+| WASI incompatible | Module is not a valid WASI P1 module | Error suggesting recompile with `wasm32-wasip1` target |
 | Path traversal | Plugin attempts `..` escape from preopened dir | WASI denies the open — no host-side check needed |
 | Cache corrupt | `.cwasm` fails to load | Re-compile from `.wasm`, warn user |
 
@@ -411,7 +410,7 @@ Plugin Security Audit
 
 1. Add `runtime = "wasm"` to `plugin.toml`
 2. Set `[[commands]].binary` to the `.wasm` output path
-3. If using Rust: add `fledge-plugin-sdk` dependency, compile with `cargo component build --release`
+3. If using Rust: add `fledge-plugin-sdk` dependency, compile with `cargo build --target wasm32-wasip1 --release`
 4. If using the `exec` capability for file reads: switch to `filesystem = "project"` (faster, no subprocess overhead)
 5. Test: `fledge plugins install ./my-plugin && fledge my-plugin`
 

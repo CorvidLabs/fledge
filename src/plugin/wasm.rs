@@ -2,6 +2,8 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use wasmtime::*;
 use wasmtime_wasi::p1::WasiP1Ctx;
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
@@ -10,14 +12,26 @@ use crate::plugin::PluginCapabilities;
 
 const FUEL_LIMIT: u64 = 10_000_000_000;
 const WALL_CLOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const MAX_MEMORY_BYTES: usize = 256 * 1024 * 1024;
+
+#[derive(Debug)]
+struct FledgeExitOk;
+
+impl std::fmt::Display for FledgeExitOk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "plugin exited successfully")
+    }
+}
+
+impl std::error::Error for FledgeExitOk {}
 
 struct HostState {
     wasi: WasiP1Ctx,
     plugin_name: String,
     plugin_dir: PathBuf,
-    #[allow(dead_code)]
     capabilities: PluginCapabilities,
     pending_response: Option<Vec<u8>>,
+    limits: StoreLimits,
 }
 
 fn create_engine() -> Result<Engine> {
@@ -30,10 +44,23 @@ fn create_engine() -> Result<Engine> {
 pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     let cwasm_path = wasm_path.with_extension("cwasm");
     if cwasm_path.exists() && is_cache_valid(wasm_path, &cwasm_path)? {
-        Ok(unsafe { Module::deserialize_file(engine, &cwasm_path)? })
-    } else {
-        Ok(Module::from_file(engine, wasm_path)?)
+        match unsafe { Module::deserialize_file(engine, &cwasm_path) } {
+            Ok(module) => return Ok(module),
+            Err(_) => {
+                let _ = std::fs::remove_file(&cwasm_path);
+                let _ = std::fs::remove_file(cwasm_path.with_extension("cwasm.sha256"));
+            }
+        }
     }
+    let module = Module::from_file(engine, wasm_path)?;
+    if let Ok(serialized) = module.serialize() {
+        let _ = std::fs::write(&cwasm_path, &serialized);
+        if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
+            let hash = compute_hash(&wasm_bytes);
+            let _ = std::fs::write(cwasm_path.with_extension("cwasm.sha256"), &hash);
+        }
+    }
+    Ok(module)
 }
 
 fn is_cache_valid(wasm_path: &Path, cwasm_path: &Path) -> Result<bool> {
@@ -109,6 +136,34 @@ fn get_memory(caller: &mut Caller<'_, HostState>) -> std::result::Result<Memory,
         .ok_or_else(|| wasmtime::Error::msg("plugin has no memory export"))
 }
 
+fn validate_guest_range(
+    ptr: i32,
+    len: i32,
+) -> std::result::Result<(usize, usize), wasmtime::Error> {
+    if ptr < 0 || len < 0 {
+        return Err(wasmtime::Error::msg(
+            "negative pointer or length from guest",
+        ));
+    }
+    let start = ptr as usize;
+    let end = start
+        .checked_add(len as usize)
+        .ok_or_else(|| wasmtime::Error::msg("guest memory range overflow"))?;
+    Ok((start, end))
+}
+
+fn read_guest_slice(
+    data: &[u8],
+    ptr: i32,
+    len: i32,
+) -> std::result::Result<&[u8], wasmtime::Error> {
+    let (start, end) = validate_guest_range(ptr, len)?;
+    if end > data.len() {
+        return Err(wasmtime::Error::msg("out-of-bounds guest memory access"));
+    }
+    Ok(&data[start..end])
+}
+
 fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Linker<HostState>> {
     let mut linker = Linker::new(engine);
     wasmtime_wasi::p1::add_to_linker_sync(&mut linker, |s: &mut HostState| &mut s.wasi)?;
@@ -122,12 +177,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
          -> std::result::Result<(), wasmtime::Error> {
             let memory = get_memory(&mut caller)?;
             let data = memory.data(&caller);
-            let start = ptr as usize;
-            let end = start + len as usize;
-            if end > data.len() {
-                return Err(wasmtime::Error::msg("send: out-of-bounds memory access"));
-            }
-            let msg_bytes = data[start..end].to_vec();
+            let msg_bytes = read_guest_slice(data, ptr, len)?.to_vec();
             handle_outbound_json(&caller, &msg_bytes);
             Ok(())
         },
@@ -140,6 +190,7 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
          ptr: i32,
          max_len: i32|
          -> std::result::Result<i32, wasmtime::Error> {
+            let (start, _) = validate_guest_range(ptr, max_len)?;
             let response = caller
                 .data_mut()
                 .pending_response
@@ -147,7 +198,10 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 .unwrap_or_default();
             let len = response.len().min(max_len as usize);
             let memory = get_memory(&mut caller)?;
-            memory.write(&mut caller, ptr as usize, &response[..len])?;
+            memory.write(&mut caller, start, &response[..len])?;
+            if response.len() > len {
+                caller.data_mut().pending_response = Some(response[len..].to_vec());
+            }
             Ok(len as i32)
         },
     )?;
@@ -157,7 +211,9 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
         "exit",
         |_caller: Caller<'_, HostState>, code: i32| -> std::result::Result<(), wasmtime::Error> {
             if code == 0 {
-                return Err(wasmtime::Error::msg("__fledge_exit_ok__"));
+                return Err(wasmtime::Error::from_anyhow(anyhow::Error::new(
+                    FledgeExitOk,
+                )));
             }
             Err(wasmtime::Error::msg(format!(
                 "plugin exited with code {}",
@@ -176,8 +232,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
              -> std::result::Result<i32, wasmtime::Error> {
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
-                let request: serde_json::Value =
-                    serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
+                let slice = read_guest_slice(data, ptr, len)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)?;
 
                 let command = request["command"].as_str().unwrap_or_default();
                 let cwd = request["cwd"].as_str();
@@ -204,8 +260,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
              -> std::result::Result<(), wasmtime::Error> {
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
-                let request: serde_json::Value =
-                    serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
+                let slice = read_guest_slice(data, ptr, len)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)?;
                 let key = request["key"].as_str().unwrap_or_default();
                 let value = request["value"].as_str().unwrap_or_default();
                 let plugin_dir = caller.data().plugin_dir.clone();
@@ -224,7 +280,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
              -> std::result::Result<i32, wasmtime::Error> {
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
-                let key = std::str::from_utf8(&data[ptr as usize..(ptr as usize + len as usize)])?;
+                let slice = read_guest_slice(data, ptr, len)?;
+                let key = std::str::from_utf8(slice)?;
                 let plugin_dir = caller.data().plugin_dir.clone();
                 let value = crate::protocol::handle_load(&plugin_dir, key)
                     .map_err(wasmtime::Error::from_anyhow)?;
@@ -246,8 +303,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
              -> std::result::Result<i32, wasmtime::Error> {
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
-                let request: serde_json::Value =
-                    serde_json::from_slice(&data[ptr as usize..(ptr as usize + len as usize)])?;
+                let slice = read_guest_slice(data, ptr, len)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)?;
                 let keys: Vec<String> = request
                     .as_array()
                     .map(|a| {
@@ -271,6 +328,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
 
 fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
     let plugin_name = &caller.data().plugin_name;
+    let plugin_dir = &caller.data().plugin_dir;
+    let capabilities = &caller.data().capabilities;
     let msg: crate::protocol::OutboundMessage = match serde_json::from_slice(msg_bytes) {
         Ok(m) => m,
         Err(_) => return,
@@ -281,6 +340,48 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
         }
         crate::protocol::OutboundMessage::Log { level, message } => {
             crate::protocol::handle_log(plugin_name, &level, &message);
+        }
+        crate::protocol::OutboundMessage::Progress {
+            message: Some(msg),
+            current,
+            total,
+            done,
+        } => {
+            let pct = match (current, total) {
+                (Some(c), Some(t)) if t > 0 => format!(" ({}/{})", c, t),
+                _ => String::new(),
+            };
+            let done_mark = if done.unwrap_or(false) { " done" } else { "" };
+            eprintln!(
+                "  {} [{}] {}{}{}",
+                style("▪").dim(),
+                style(plugin_name).dim(),
+                msg,
+                pct,
+                done_mark
+            );
+        }
+        crate::protocol::OutboundMessage::Store { key, value } => {
+            if capabilities.store {
+                if let Err(e) = crate::protocol::handle_store(plugin_dir, &key, &value) {
+                    eprintln!(
+                        "  {} [{}] store rejected: {}",
+                        style("⚠").yellow(),
+                        plugin_name,
+                        e
+                    );
+                }
+            }
+        }
+        crate::protocol::OutboundMessage::Prompt { .. }
+        | crate::protocol::OutboundMessage::Confirm { .. }
+        | crate::protocol::OutboundMessage::Select { .. }
+        | crate::protocol::OutboundMessage::MultiSelect { .. } => {
+            eprintln!(
+                "  {} [{}] interactive UI messages are not supported in WASM sandbox mode",
+                style("⚠").yellow(),
+                plugin_name
+            );
         }
         _ => {}
     }
@@ -300,21 +401,38 @@ pub(super) fn run_wasm_plugin(
     let project_root = std::env::current_dir().ok();
     let wasi = build_wasi_p1(capabilities, plugin_dir, project_root.as_deref())?;
 
+    let limits = StoreLimitsBuilder::new()
+        .memory_size(MAX_MEMORY_BYTES)
+        .build();
+
     let host_state = HostState {
         wasi,
         plugin_name: plugin_name.to_string(),
         plugin_dir: plugin_dir.to_path_buf(),
         capabilities: capabilities.clone(),
         pending_response: None,
+        limits,
     };
 
     let mut store = Store::new(&engine, host_state);
+    store.limiter(|s| &mut s.limits);
     store.set_fuel(FUEL_LIMIT)?;
 
+    let finished = Arc::new(AtomicBool::new(false));
+    let finished_clone = finished.clone();
     let engine_clone = engine.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(WALL_CLOCK_TIMEOUT);
-        engine_clone.increment_epoch();
+        let deadline = std::time::Instant::now() + WALL_CLOCK_TIMEOUT;
+        loop {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() || finished_clone.load(Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(remaining.min(std::time::Duration::from_millis(250)));
+        }
+        if !finished_clone.load(Ordering::Relaxed) {
+            engine_clone.increment_epoch();
+        }
     });
     store.epoch_deadline_trap();
     store.set_epoch_deadline(1);
@@ -364,25 +482,30 @@ pub(super) fn run_wasm_plugin(
         .get_typed_func::<(), ()>(&mut store, "_start")
         .map_err(|e| anyhow::anyhow!("WASM module has no _start export: {e}"))?;
 
-    match start.call(&mut store, ()) {
+    let result = start.call(&mut store, ());
+    finished.store(true, Ordering::Relaxed);
+
+    match result {
         Ok(()) => Ok(()),
         Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("__fledge_exit_ok__") {
+            if e.downcast_ref::<FledgeExitOk>().is_some() {
                 Ok(())
-            } else if msg.contains("all fuel consumed") {
-                bail!(
-                    "Plugin '{}' exceeded compute limit (fuel exhausted)",
-                    plugin_name
-                )
-            } else if msg.contains("epoch") {
-                bail!(
-                    "Plugin '{}' exceeded time limit ({} seconds)",
-                    plugin_name,
-                    WALL_CLOCK_TIMEOUT.as_secs()
-                )
             } else {
-                bail!("Plugin '{}' trapped: {}", plugin_name, e)
+                let msg = e.to_string();
+                if msg.contains("all fuel consumed") {
+                    bail!(
+                        "Plugin '{}' exceeded compute limit (fuel exhausted)",
+                        plugin_name
+                    )
+                } else if msg.contains("epoch") {
+                    bail!(
+                        "Plugin '{}' exceeded time limit ({} seconds)",
+                        plugin_name,
+                        WALL_CLOCK_TIMEOUT.as_secs()
+                    )
+                } else {
+                    bail!("Plugin '{}' trapped: {}", plugin_name, e)
+                }
             }
         }
     }
