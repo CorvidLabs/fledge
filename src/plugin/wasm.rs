@@ -13,6 +13,8 @@ use crate::plugin::PluginCapabilities;
 const FUEL_LIMIT: u64 = 10_000_000_000;
 const WALL_CLOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 const MAX_MEMORY_BYTES: usize = 256 * 1024 * 1024;
+// Must match the wasmtime version in Cargo.toml — .cwasm cache is invalidated on mismatch
+const WASMTIME_VERSION: &str = "43";
 
 #[derive(Debug)]
 struct FledgeExitOk;
@@ -46,7 +48,12 @@ pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     if cwasm_path.exists() && is_cache_valid(wasm_path, &cwasm_path)? {
         match unsafe { Module::deserialize_file(engine, &cwasm_path) } {
             Ok(module) => return Ok(module),
-            Err(_) => {
+            Err(e) => {
+                eprintln!(
+                    "  {} cached module invalid (recompiling): {}",
+                    style("⚠").yellow(),
+                    e
+                );
                 let _ = std::fs::remove_file(&cwasm_path);
                 let _ = std::fs::remove_file(cwasm_path.with_extension("cwasm.sha256"));
             }
@@ -57,7 +64,8 @@ pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
         let _ = std::fs::write(&cwasm_path, &serialized);
         if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
             let hash = compute_hash(&wasm_bytes);
-            let _ = std::fs::write(cwasm_path.with_extension("cwasm.sha256"), &hash);
+            let stamp = format!("{}\n{}", hash, WASMTIME_VERSION);
+            let _ = std::fs::write(cwasm_path.with_extension("cwasm.sha256"), &stamp);
         }
     }
     Ok(module)
@@ -68,7 +76,12 @@ fn is_cache_valid(wasm_path: &Path, cwasm_path: &Path) -> Result<bool> {
     let expected_hash = compute_hash(&wasm_bytes);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
     match std::fs::read_to_string(&hash_path) {
-        Ok(stored) => Ok(stored.trim() == expected_hash),
+        Ok(stored) => {
+            let mut lines = stored.lines();
+            let hash_ok = lines.next().is_some_and(|h| h.trim() == expected_hash);
+            let version_ok = lines.next().is_some_and(|v| v.trim() == WASMTIME_VERSION);
+            Ok(hash_ok && version_ok)
+        }
         Err(_) => Ok(false),
     }
 }
@@ -92,7 +105,8 @@ pub(super) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
 
     let hash = compute_hash(&wasm_bytes);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
-    std::fs::write(&hash_path, &hash)
+    let stamp = format!("{}\n{}", hash, WASMTIME_VERSION);
+    std::fs::write(&hash_path, &stamp)
         .with_context(|| format!("writing module hash: {}", hash_path.display()))?;
 
     Ok(())
@@ -104,8 +118,6 @@ fn build_wasi_p1(
     project_root: Option<&Path>,
 ) -> Result<WasiP1Ctx> {
     let mut builder = WasiCtxBuilder::new();
-
-    builder.inherit_stderr();
 
     match capabilities.filesystem.as_deref() {
         Some("project") => {
@@ -332,11 +344,20 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
     let capabilities = &caller.data().capabilities;
     let msg: crate::protocol::OutboundMessage = match serde_json::from_slice(msg_bytes) {
         Ok(m) => m,
-        Err(_) => return,
+        Err(e) => {
+            eprintln!(
+                "  {} [{}] malformed message (dropped): {}",
+                style("⚠").yellow(),
+                style(plugin_name).dim(),
+                e
+            );
+            return;
+        }
     };
     match msg {
         crate::protocol::OutboundMessage::Output { text } => {
             print!("{}", text);
+            let _ = std::io::Write::flush(&mut std::io::stdout());
         }
         crate::protocol::OutboundMessage::Log { level, message } => {
             crate::protocol::handle_log(plugin_name, &level, &message);
@@ -377,14 +398,11 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
         | crate::protocol::OutboundMessage::Select { .. }
         | crate::protocol::OutboundMessage::MultiSelect { .. } => {
             eprintln!(
-                "  {} [{}] interactive UI messages are not supported in WASM sandbox mode",
+                "  {} [{}] interactive UI (prompt/confirm/select) not supported in WASM mode",
                 style("⚠").yellow(),
                 plugin_name
             );
         }
-        // Load, Exec, and Metadata messages are handled via dedicated host
-        // imports in WASM mode, not through fledge::send(). If a plugin
-        // sends them via send() anyway, ignore them silently.
         _ => {}
     }
 }
@@ -510,5 +528,128 @@ pub(super) fn run_wasm_plugin(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Minimal WASM module: imports fledge protocol, calls exit(0) immediately
+    const EXIT_OK_WAT: &str = r#"(module
+        (import "fledge" "exit" (func $exit (param i32)))
+        (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+        (import "fledge" "send" (func $send (param i32 i32)))
+        (memory (export "memory") 1)
+        (func (export "_start") (call $exit (i32.const 0)))
+    )"#;
+
+    #[test]
+    fn engine_creates_successfully() {
+        create_engine().unwrap();
+    }
+
+    #[test]
+    fn compute_hash_deterministic() {
+        let h1 = compute_hash(b"hello world");
+        let h2 = compute_hash(b"hello world");
+        assert_eq!(h1, h2);
+        assert_ne!(h1, compute_hash(b"different input"));
+    }
+
+    #[test]
+    fn cache_stores_wasmtime_version_stamp() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+        let contents = std::fs::read_to_string(&hash_path).unwrap();
+        let lines: Vec<&str> = contents.lines().collect();
+        assert_eq!(lines.len(), 2, "hash file should have hash + version");
+        assert_eq!(lines[1], WASMTIME_VERSION);
+    }
+
+    #[test]
+    fn cache_valid_with_matching_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        assert!(cwasm_path.exists());
+        assert!(is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+    }
+
+    #[test]
+    fn cache_invalid_on_version_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+        let contents = std::fs::read_to_string(&hash_path).unwrap();
+        let hash_line = contents.lines().next().unwrap();
+        std::fs::write(&hash_path, format!("{}\n999", hash_line)).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        assert!(!is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+    }
+
+    #[test]
+    fn cache_invalid_on_hash_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        std::fs::write(&wasm_path, format!("{}\n;; modified", EXIT_OK_WAT)).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        assert!(!is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+    }
+
+    #[test]
+    fn load_module_compiles_from_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        let engine = create_engine().unwrap();
+        let module = load_module(&engine, &wasm_path).unwrap();
+        assert!(module.get_export("_start").is_some());
+    }
+
+    #[test]
+    fn load_module_uses_valid_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let engine = create_engine().unwrap();
+        let module = load_module(&engine, &wasm_path).unwrap();
+        assert!(module.get_export("_start").is_some());
+    }
+
+    #[test]
+    fn run_wasm_plugin_exit_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-runtime", "0.0.1", dir.path(), &caps);
+        assert!(result.is_ok(), "run_wasm_plugin should succeed: {result:?}");
     }
 }

@@ -96,8 +96,10 @@ Capabilities in WASM mode map directly to host-provided imports. If a capability
 
 With zero capabilities and `filesystem = "none"`, a WASM plugin can:
 - Receive the `init` message (args, project context, plugin info)
-- Send UI messages (prompt, confirm, select, progress, log, output)
+- Send `output`, `log`, and `progress` messages
 - Exit with a status code
+
+**Limitation:** Interactive UI messages (`prompt`, `confirm`, `select`, `multi_select`) are not supported in WASM mode. The WASM runtime has no mechanism to send responses back to the plugin synchronously. Sending these message types produces a warning and the message is dropped. Plugins requiring user input should use native runtime or pre-collect input via args.
 
 It **cannot**: read any file, write any file, execute any command, make network requests, or access environment variables beyond what `init` provides.
 
@@ -332,10 +334,12 @@ Plugin Security Audit
 6. `filesystem = "plugin"` preopens project root (read-only) and plugin dir (read-write)
 7. `network = false` means no socket imports — the plugin cannot make any network connections
 8. Resource limits (memory, fuel, wall-clock) are enforced by Wasmtime and cannot be disabled by plugins
-9. Compiled WASM modules are cached as `.cwasm` — cache is invalidated by file hash of the source `.wasm`
-10. Native plugins are completely unaffected by the WASM runtime addition (backward-compatible)
-11. The `fledge-plugin-sdk` crate abstracts WASM imports into the same ergonomic API as the native protocol
-12. In 2.0.0, installing a native plugin displays a warning and requires explicit user confirmation
+9. Compiled WASM modules are cached as `.cwasm` — cache is invalidated by file hash of the source `.wasm` or wasmtime version change
+10. WASM plugins do not inherit host stderr — diagnostic output must use `fledge::send` with `Log` messages
+11. Interactive UI messages (prompt/confirm/select) are rejected in WASM mode with a warning
+12. Native plugins are completely unaffected by the WASM runtime addition (backward-compatible)
+13. The `fledge-plugin-sdk` crate abstracts WASM imports into the same ergonomic API as the native protocol
+14. In 2.0.0, installing a native plugin displays a warning and requires explicit user confirmation
 
 ## Behavioral Examples
 
