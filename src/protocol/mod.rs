@@ -6,11 +6,11 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
-mod detect;
-mod exec;
-mod metadata;
-mod store;
-mod ui;
+pub(crate) mod detect;
+pub(crate) mod exec;
+pub(crate) mod metadata;
+pub(crate) mod store;
+pub(crate) mod ui;
 
 #[cfg(test)]
 mod tests;
