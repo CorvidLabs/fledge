@@ -16,6 +16,7 @@ mod run_plugin;
 mod search;
 mod update;
 mod validate;
+mod wasm;
 
 #[cfg(test)]
 mod tests;

@@ -10,6 +10,7 @@ fn unsupported_protocol_version_returns_error() {
         "1.0.0".to_string(),
         tmp.path().to_path_buf(),
         PluginCapabilities::default(),
+        None,
     );
     assert!(result.is_err());
     let msg = result.unwrap_err().to_string();
@@ -32,6 +33,7 @@ fn supported_protocol_fledge_v1_returns_info() {
         "1.0.0".to_string(),
         tmp.path().to_path_buf(),
         PluginCapabilities::default(),
+        None,
     );
     assert!(result.is_ok());
     assert!(result.unwrap().is_some());
@@ -46,9 +48,29 @@ fn no_protocol_declared_returns_none_for_legacy_fallback() {
         "1.0.0".to_string(),
         tmp.path().to_path_buf(),
         PluginCapabilities::default(),
+        None,
     );
     assert!(result.is_ok());
     assert!(result.unwrap().is_none());
+}
+
+#[test]
+fn apply_protocol_with_wasm_runtime_returns_runtime() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let result = apply_protocol(
+        Some("fledge-v1"),
+        "wasm-plugin".to_string(),
+        "1.0.0".to_string(),
+        tmp.path().to_path_buf(),
+        PluginCapabilities {
+            filesystem: Some("project".to_string()),
+            ..Default::default()
+        },
+        Some("wasm"),
+    );
+    assert!(result.is_ok());
+    let info = result.unwrap().unwrap();
+    assert_eq!(info.4.as_deref(), Some("wasm"));
 }
 
 #[test]
