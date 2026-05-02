@@ -308,7 +308,14 @@ fn run_message_loop(
                 if !capabilities.store {
                     continue;
                 }
-                store::handle_store(plugin_dir, &key, &value)?;
+                if let Err(e) = store::handle_store(plugin_dir, &key, &value) {
+                    eprintln!(
+                        "  {} [{}] store rejected: {}",
+                        console::style("⚠️").yellow(),
+                        plugin_name,
+                        e
+                    );
+                }
             }
             OutboundMessage::Load { id, key } => {
                 if !capabilities.store {
