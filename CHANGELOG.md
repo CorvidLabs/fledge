@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 
+- skip gitignored files when staging release commit (#342) (7c8eadf)
 - handle store errors gracefully instead of terminating session (#341) (2100d50)
 
 ### Other
