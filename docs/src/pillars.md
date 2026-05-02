@@ -36,7 +36,7 @@ Provider-agnostic AI in the daily-driver path. Switch between Claude CLI and any
 
 Branch, draft an AI-written PR body, preview, confirm, push. Then bump version, generate changelog, tag, push the tag.
 
-**Commands:** `work` (`start`, `pr`, `status`), `release`, `changelog`
+**Commands:** `work` (`start`, `commit`, `push`, `status`), `release`, `changelog`
 
 For GitHub-specific browsing of the resulting PR, checks, and issues, install [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). Ships in the default plugin set.
 

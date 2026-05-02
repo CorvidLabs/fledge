@@ -146,16 +146,25 @@ For the full format reference, see the [Template Authoring Guide](./template-aut
 
 ## Resolution Order
 
-When you run `fledge templates init --template <name>`, fledge looks in this order:
+When you run `fledge templates init --template <name>`, fledge resolves `<name>` as follows:
 
-1. **Exact path** - starts with `.` or `/`
-2. **Built-in templates** - the 6 bundled ones
-3. **Configured repos** - `templates.repos` in your config
-4. **Local paths** - `templates.paths` in your config
-5. **GitHub shorthand** - treats it as `owner/repo` and fetches it
+1. **GitHub shorthand** — if `<name>` looks like `owner/repo` (or `owner/repo/subpath`, optionally with `@ref`), fledge fetches it directly from GitHub. This is the only path that treats the template as fully untrusted (see *Security* below).
+2. **Discovered name** — otherwise fledge looks up the bare name in the merged set of:
+   - **Built-in templates** — the 8 bundled ones (`go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`)
+   - **Configured repo templates** — anything under `templates.repos` in your config (these are fetched from GitHub but treated as user-curated since you added them to config)
+   - **Local-path templates** — anything under `templates.paths` in your config
+
+If `<name>` is omitted entirely and the run is interactive, fledge shows a picker over the same merged set.
 
 ## Security
 
-> **Warning:** Remote template hooks execute shell commands on your machine. Always review what a template's `post_create` hooks will run before confirming.
+> **Warning:** Template hooks execute shell commands on your machine. Always review what a template's `post_create` hooks will run before confirming.
 
-Hooks from remote templates always ask for confirmation before running. Pass `--yes` if you trust the source and want to skip the prompt.
+Hook consent is split by **how you reached the template**, not where its files physically live:
+
+- **Curated path** — built-in starters, anything under `templates.paths`, and templates discovered through `templates.repos` (which you opted into at config time). `--yes` (or `FLEDGE_NON_INTERACTIVE=1`) auto-confirms their `post_create` hooks. The trust decision happened when you added the source to your config.
+- **Ad-hoc remote** — `--template owner/repo` (or `owner/repo/subpath`, optionally `@ref`) passed directly on the command line, with no prior config entry. `--yes` does **not** authorize hooks here — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize execution for the run. Without it, the prompt fires interactively, or hooks are skipped in non-interactive mode with a hint pointing at the right flag (the rest of init still succeeds; `hooks_run: false` in the JSON envelope).
+
+If you find yourself reaching for `--trust-hooks` on the same source repeatedly, add it to `templates.repos` instead — that's the durable trust grant.
+
+The `--dry-run` path always lists the hooks that would run regardless of trust, so you can audit before consenting.

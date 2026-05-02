@@ -30,7 +30,7 @@ This is where you define metadata, prompts, file rules, and hooks.
 [template]
 name = "my-template"
 description = "A short description"
-min_fledge_version = "0.1.0"          # optional
+min_fledge_version = "1.0.0"          # optional
 
 [prompts]
 description = { message = "Project description", default = "A new project" }
@@ -76,13 +76,23 @@ repo_url = { message = "Repository URL", default = "https://github.com/{{ github
 
 ### [files] section
 
-Controls which files get rendered, copied, or skipped. Rules apply in order, first match wins.
+Controls which files get rendered, copied, or skipped.
 
 - **`render`** - process through Tera
-- **`copy`** - copy as-is (for binary files, images, etc.)
-- **`ignore`** - skip entirely
+- **`copy`** - copy as-is, even if a `render` glob would otherwise match (use this for binary assets, images, fonts — anything you don't want Tera to touch)
+- **`ignore`** - skip entirely (file is not written to the project)
 
-Anything not matching a rule gets rendered by default.
+Files ending in `.tera` are *always* rendered (and the extension stripped) regardless of the globs. That is the explicit "render this" signal.
+
+Precedence — first rule that matches wins:
+
+1. `ignore` glob → skip
+2. `.tera` extension → render, strip extension
+3. `copy` glob → copy bytes verbatim
+4. `render` glob → render through Tera
+5. Default (nothing matched) → copy bytes
+
+So a broad `render = ["**/*"]` is safe as long as binary assets are listed under `copy` — they bypass Tera even though the render glob would catch them.
 
 ```toml
 [files]
