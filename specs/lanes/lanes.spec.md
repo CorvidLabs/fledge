@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 19
+version: 20
 status: active
 files:
   - src/lanes/mod.rs
@@ -265,6 +265,27 @@ $ fledge lanes run ci --json --dry-run
 | Validate empty parallel | Parallel group has no items | Validation error |
 | Validate circular deps | Task deps form a cycle | Validation error |
 
+## Compatibility Policy
+
+`lanes v1` is the stable schema that ships with fledge 1.0. To protect
+project authors and lane-repo publishers from breakage, the following rules
+govern how the lane TOML schema and `LaneDef`/`Step`/`ParallelItem` Rust types
+may evolve within the v1 major version:
+
+1. **Additive-only step kinds.** The current `Step` variants — `TaskRef` (bare string), `Inline` (`{ run = "..." }`), and `Parallel` (`{ parallel = [...] }`) — are locked. New step kinds may be added at any time, but each must use a unique discriminator key in the inline-table form (e.g. `{ matrix = [...] }`, `{ when = "..." }`) so the existing untagged enum continues to deserialize older lanes unchanged.
+2. **No field removal.** Once shipped, every field on `[lanes.<name>]` (`description`, `steps`, `fail_fast`) and on each `[tasks.<name>]` (`cmd`, `deps`, `env`, `dir`) must continue to be parsed. Removing a field is a breaking change and requires a new schema version.
+3. **No field retyping.** A field's TOML type is locked once shipped. The bare-string form of `TaskRef` and the inline-table forms of `Inline`/`Parallel` are part of the wire contract and cannot change shape.
+4. **New optional fields are allowed.** Both fledge and lane consumers must tolerate unknown fields on known sections — additive optional fields do not require a version bump.
+5. **Parallel + fail_fast semantics are locked.** In-flight siblings always finish (no cancellation). `fail_fast` governs only what happens *after* a step or group completes — never mid-execution. Documented in invariant 4.
+6. **`fail_fast` defaults to `true`.** Changing the default is a breaking change.
+7. **Trust-tier classification is part of the contract.** A source string ending in `<owner>/<repo>` (with optional `@<ref>`) is the canonical form. Future variations (multi-host, hashed pins) must classify under the existing `Official | Team | Unverified` tiers.
+8. **`--json` envelope shapes are versioned per-command.** Adding fields is additive within a given command's `schema_version`. Renaming or removing fields bumps that command's `schema_version` (see `LANES_*_SCHEMA` constants).
+9. **Imported lane file naming is locked.** `.fledge/lanes/<safe>.toml` with the `# Imported from <source>` first-line marker is part of the v1 contract — fledge uses both for trust classification and for round-trip integrity.
+
+Any change that cannot be expressed under these rules requires a new schema
+version declared explicitly (e.g. `[fledge] lanes_version = 2`); v1 lane
+files continue to load against v1 semantics indefinitely.
+
 ## Dependencies
 
 - `run` module (reuses task execution, project detection)
@@ -276,6 +297,7 @@ $ fledge lanes run ci --json --dry-run
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 20 | 2026-05-01 | **1.0 contract finalize:** Add Compatibility Policy locking the lanes v1 schema. Future Step variants must use unique discriminator keys in inline-table form so the untagged enum keeps deserializing older lanes. Field removal/retyping bumps schema; parallel + fail_fast semantics, fail_fast default, imported-lane file naming, and trust-tier classification are all locked. No code change |
 | 19 | 2026-04-29 | Document all submodule exports (community, create, defaults, execute, publish, validate) after splitting lanes.rs into lanes/ module folder |
 | 18 | 2026-04-27 | **Breaking (1.0 contract finalize, follow-up):** `lanes publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `lanes_published`, `topic`, `import_hint`); `cancelled: true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Mirrors the same fix landed for `plugins publish` and `templates publish` in the previous commit |
 | 17 | 2026-04-26 | **Breaking (1.0 contract finalize):** (a) `lanes list --json` renames `steps` (integer count) to `step_count`. The bare key `steps` read like an array but emitted a count, surprising consumers, full step detail lives in `lanes run --dry-run --json`. (b) `lanes import --json` renames `tier` to `trust_tier` to match every other plugin/lane envelope. Last-chance shape break before tagging 1.0 |

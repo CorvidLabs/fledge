@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use include_dir::{include_dir, Dir};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 use tera::Tera;
 use walkdir::WalkDir;
@@ -20,8 +20,12 @@ pub(crate) const TEMPLATES_PUBLISH_SCHEMA: u32 = 1;
 #[derive(Debug, Deserialize)]
 pub struct TemplateManifest {
     pub template: TemplateInfo,
+    /// Prompt definitions keyed by variable name. `BTreeMap` so iteration order is
+    /// deterministic (alphabetical by key) — locking this for the templates v1
+    /// contract means multi-prompt templates ask questions in a stable order
+    /// across runs.
     #[serde(default)]
-    pub prompts: HashMap<String, PromptDef>,
+    pub prompts: BTreeMap<String, PromptDef>,
     #[serde(default)]
     pub files: FileRules,
     #[serde(default)]
@@ -86,6 +90,13 @@ pub struct PromptDef {
 pub struct FileRules {
     #[serde(default)]
     pub render: Vec<String>,
+    /// Globs whose matches are copied verbatim (never run through Tera, even when
+    /// they would otherwise match a `render` glob). Use this to mark binary or
+    /// otherwise non-templated assets (`**/*.png`, `**/*.ico`, …) so a broad
+    /// `render = ["**/*"]` cannot accidentally corrupt them. A `.tera`
+    /// extension still wins — that's the explicit "render this" signal.
+    #[serde(default)]
+    pub copy: Vec<String>,
     #[serde(default)]
     pub ignore: Vec<String>,
 }
@@ -326,13 +337,25 @@ pub fn render_template(
             std::fs::create_dir_all(parent)?;
         }
 
-        let should_render = is_tera_ext
-            || template
+        // Precedence: `.tera` extension wins (explicit render signal), then
+        // `copy` (explicit verbatim signal), then `render` globs, then default
+        // (copy as bytes). `ignore` was already short-circuited above.
+        let force_copy = !is_tera_ext
+            && template
                 .manifest
                 .files
-                .render
+                .copy
                 .iter()
                 .any(|g| matches_glob(g, &rel_string));
+
+        let should_render = is_tera_ext
+            || (!force_copy
+                && template
+                    .manifest
+                    .files
+                    .render
+                    .iter()
+                    .any(|g| matches_glob(g, &rel_string)));
 
         if should_render {
             let content = std::fs::read_to_string(entry.path())
@@ -553,6 +576,44 @@ ignore = ["template.toml", "**/*.bak"]
     }
 
     #[test]
+    fn parse_manifest_with_copy_rules() {
+        let toml_str = r#"
+[template]
+name = "test"
+description = "Test"
+
+[files]
+render = ["**/*"]
+copy = ["**/*.png", "**/*.ico"]
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        assert_eq!(manifest.files.copy, vec!["**/*.png", "**/*.ico"]);
+    }
+
+    #[test]
+    fn prompts_iterate_in_deterministic_order() {
+        // Locks the templates v1 contract: prompt iteration is alphabetical
+        // by key, so multi-prompt templates ask questions in a stable order.
+        let toml_str = r#"
+[template]
+name = "test"
+description = "Test"
+
+[prompts.zebra]
+message = "Zebra?"
+
+[prompts.alpha]
+message = "Alpha?"
+
+[prompts.mango]
+message = "Mango?"
+"#;
+        let manifest: TemplateManifest = toml::from_str(toml_str).unwrap();
+        let keys: Vec<&str> = manifest.prompts.keys().map(|s| s.as_str()).collect();
+        assert_eq!(keys, vec!["alpha", "mango", "zebra"]);
+    }
+
+    #[test]
     fn parse_invalid_manifest_errors() {
         let result: Result<TemplateManifest, _> = toml::from_str("not valid toml");
         assert!(result.is_err());
@@ -747,6 +808,84 @@ ignore = ["template.toml"]
 
         let content = fs::read_to_string(target.join("image.png")).unwrap();
         assert_eq!(content, "binary-data-here");
+    }
+
+    #[test]
+    fn copy_glob_overrides_render_glob() {
+        // Locks templates v1 contract: a file matching both render and copy is
+        // copied verbatim. Without this, a broad `render = ["**/*"]` would
+        // corrupt binary assets even when the author explicitly listed them
+        // under `copy`.
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        let raw_bytes = "{{ this_is_not_a_template }}";
+        make_test_template(
+            &tpl_dir,
+            "force-copy",
+            &[("logo.png", raw_bytes)],
+            r#"
+[template]
+name = "force-copy"
+description = "Test"
+
+[files]
+render = ["**/*"]
+copy = ["**/*.png"]
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "force-copy");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let ctx = tera::Context::new();
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("logo.png")));
+
+        let content = fs::read_to_string(target.join("logo.png")).unwrap();
+        assert_eq!(
+            content, raw_bytes,
+            "copy glob should bypass Tera even when render glob matches"
+        );
+    }
+
+    #[test]
+    fn tera_extension_wins_over_copy_glob() {
+        // `.tera` is the explicit "render this" signal — it overrides copy.
+        let tmp = TempDir::new().unwrap();
+        let tpl_dir = tmp.path().join("templates");
+        fs::create_dir(&tpl_dir).unwrap();
+
+        make_test_template(
+            &tpl_dir,
+            "tera-wins",
+            &[("config.toml.tera", "name = \"{{ project_name }}\"")],
+            r#"
+[template]
+name = "tera-wins"
+description = "Test"
+
+[files]
+copy = ["**/*"]
+ignore = ["template.toml"]
+"#,
+        );
+
+        let template = load_test_template(&tpl_dir, "tera-wins");
+        let target = tmp.path().join("output");
+        fs::create_dir(&target).unwrap();
+
+        let mut ctx = tera::Context::new();
+        ctx.insert("project_name", "rendered");
+
+        let files = render_template(&template, &target, &ctx).unwrap();
+        assert!(files.contains(&PathBuf::from("config.toml")));
+
+        let content = fs::read_to_string(target.join("config.toml")).unwrap();
+        assert_eq!(content, "name = \"rendered\"");
     }
 
     #[test]
