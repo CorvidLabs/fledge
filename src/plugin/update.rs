@@ -129,27 +129,75 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             let latest = find_latest_tag(&plugin_dir);
             match latest {
                 Some(ref tag) if tag != pinned => {
-                    if !json {
-                        println!(
-                            "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
-                            style("*").cyan().bold(),
-                            style(&entry.name).cyan(),
-                            style(pinned).dim(),
-                            style(tag).green(),
-                            style(format!(
-                                "fledge plugin install {}@{} --force",
-                                entry.source, tag
-                            ))
-                            .cyan()
-                        );
+                    if defaults {
+                        let sp = if json {
+                            None
+                        } else {
+                            Some(crate::spinner::Spinner::start(&format!(
+                                "Upgrading {} {} → {}:",
+                                &entry.name, pinned, tag
+                            )))
+                        };
+
+                        let checkout = Command::new("git")
+                            .args(["checkout", tag])
+                            .current_dir(&plugin_dir)
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::piped())
+                            .status()
+                            .with_context(|| format!("checking out {} for {}", tag, entry.name))?;
+
+                        if let Some(s) = sp {
+                            s.finish();
+                        }
+
+                        if !checkout.success() {
+                            if !json {
+                                println!(
+                                    "  {} {} — failed to checkout {}, try:\n    {}",
+                                    style("⚠️").yellow(),
+                                    style(&entry.name).yellow(),
+                                    style(tag).dim(),
+                                    style(format!(
+                                        "fledge plugin install {}@{} --force",
+                                        entry.source, tag
+                                    ))
+                                    .cyan()
+                                );
+                            }
+                            results.push(serde_json::json!({
+                                "name": entry.name,
+                                "status": "failed",
+                                "detail": format!("git checkout {tag} failed — reinstall required"),
+                            }));
+                            continue;
+                        }
+
+                        let result = rebuild_after_fetch(entry, &plugin_dir, Some(tag), json)?;
+                        results.push(result);
+                    } else {
+                        if !json {
+                            println!(
+                                "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
+                                style("*").cyan().bold(),
+                                style(&entry.name).cyan(),
+                                style(pinned).dim(),
+                                style(tag).green(),
+                                style(format!(
+                                    "fledge plugin install {}@{} --force",
+                                    entry.source, tag
+                                ))
+                                .cyan()
+                            );
+                        }
+                        results.push(serde_json::json!({
+                            "name": entry.name,
+                            "status": "skipped",
+                            "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
+                            "pinned_ref": pinned,
+                            "latest_tag": tag,
+                        }));
                     }
-                    results.push(serde_json::json!({
-                        "name": entry.name,
-                        "status": "skipped",
-                        "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
-                        "pinned_ref": pinned,
-                        "latest_tag": tag,
-                    }));
                 }
                 _ => {
                     if !json {
@@ -212,117 +260,8 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             continue;
         }
 
-        let manifest_path = plugin_dir.join("plugin.toml");
-        if manifest_path.exists() {
-            let manifest_content =
-                fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
-            let manifest: PluginManifest =
-                toml::from_str(&manifest_content).context("parsing plugin.toml")?;
-
-            let new_caps = &manifest.capabilities;
-            let old_caps = entry.capabilities.as_ref();
-            let added_exec = new_caps.exec && !old_caps.is_some_and(|c| c.exec);
-            let added_store = new_caps.store && !old_caps.is_some_and(|c| c.store);
-            let added_metadata = new_caps.metadata && !old_caps.is_some_and(|c| c.metadata);
-            let has_new_caps = added_exec || added_store || added_metadata;
-
-            if has_new_caps {
-                if !json {
-                    println!(
-                        "\n  {} {} v{} requests new capabilities:",
-                        style("!").yellow().bold(),
-                        style(&entry.name).cyan(),
-                        manifest.plugin.version
-                    );
-                    if added_exec {
-                        println!("    {} exec — run shell commands", style("+").yellow());
-                    }
-                    if added_store {
-                        println!(
-                            "    {} store — persist data between runs",
-                            style("+").yellow()
-                        );
-                    }
-                    if added_metadata {
-                        println!(
-                            "    {} metadata — read project metadata and environment",
-                            style("+").yellow()
-                        );
-                    }
-                    println!();
-                }
-
-                if !crate::utils::is_interactive() {
-                    results.push(serde_json::json!({
-                        "name": entry.name,
-                        "status": "failed",
-                        "detail": "update adds new capabilities — rerun interactively or reinstall with --force",
-                    }));
-                    continue;
-                }
-
-                let confirm =
-                    dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                        .with_prompt("Grant new capabilities?")
-                        .default(false)
-                        .interact()?;
-                if !confirm {
-                    results.push(serde_json::json!({
-                        "name": entry.name,
-                        "status": "skipped",
-                        "detail": "new capabilities declined by user",
-                    }));
-                    continue;
-                }
-            }
-
-            run_build(&plugin_dir, &manifest)?;
-
-            let bin_dir = plugin_bin_dir();
-            for old_cmd in &entry.commands {
-                let old_link = bin_dir.join(format!("fledge-{old_cmd}"));
-                if old_link.exists() || old_link.is_symlink() {
-                    fs::remove_file(&old_link).ok();
-                }
-            }
-            link_commands(&plugin_dir, &bin_dir, &manifest)?;
-
-            let granted_caps = if manifest.plugin.protocol.is_some() {
-                Some(manifest.capabilities.clone())
-            } else {
-                entry.capabilities.clone()
-            };
-
-            let new_cmds: Vec<String> = manifest.commands.iter().map(|c| c.name.clone()).collect();
-            let mut reg = load_registry()?;
-            if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
-                e.version = manifest.plugin.version.clone();
-                e.commands = new_cmds.clone();
-                e.capabilities = granted_caps;
-            }
-            save_registry(&reg)?;
-
-            if !json {
-                println!(
-                    "  {} {} → v{}",
-                    style("✅").green().bold(),
-                    style(&entry.name).green(),
-                    manifest.plugin.version
-                );
-            }
-            results.push(serde_json::json!({
-                "name": entry.name,
-                "status": "updated",
-                "version": manifest.plugin.version,
-                "commands": new_cmds,
-            }));
-        } else {
-            results.push(serde_json::json!({
-                "name": entry.name,
-                "status": "updated",
-                "detail": "no plugin.toml — git pull only",
-            }));
-        }
+        let result = rebuild_after_fetch(entry, &plugin_dir, None, json)?;
+        results.push(result);
     }
 
     if json {
@@ -354,6 +293,147 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
     }
 
     Ok(())
+}
+
+/// Rebuild a plugin after a fetch or checkout. Parses the manifest, checks
+/// for new capabilities, rebuilds, relinks commands, and updates the
+/// registry. When `new_pinned_ref` is `Some`, the registry's `pinned_ref`
+/// is updated to the new tag (used when upgrading pinned defaults).
+fn rebuild_after_fetch(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    new_pinned_ref: Option<&str>,
+    json: bool,
+) -> Result<serde_json::Value> {
+    let manifest_path = plugin_dir.join("plugin.toml");
+    if !manifest_path.exists() {
+        return Ok(serde_json::json!({
+            "name": entry.name,
+            "status": "updated",
+            "detail": "no plugin.toml — update applied",
+        }));
+    }
+
+    let manifest_content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+    let manifest: PluginManifest =
+        toml::from_str(&manifest_content).context("parsing plugin.toml")?;
+
+    let new_caps = &manifest.capabilities;
+    let old_caps = entry.capabilities.as_ref();
+    let added_exec = new_caps.exec && !old_caps.is_some_and(|c| c.exec);
+    let added_store = new_caps.store && !old_caps.is_some_and(|c| c.store);
+    let added_metadata = new_caps.metadata && !old_caps.is_some_and(|c| c.metadata);
+    let has_new_caps = added_exec || added_store || added_metadata;
+
+    if has_new_caps {
+        if !json {
+            println!(
+                "\n  {} {} v{} requests new capabilities:",
+                style("!").yellow().bold(),
+                style(&entry.name).cyan(),
+                manifest.plugin.version
+            );
+            if added_exec {
+                println!("    {} exec — run shell commands", style("+").yellow());
+            }
+            if added_store {
+                println!(
+                    "    {} store — persist data between runs",
+                    style("+").yellow()
+                );
+            }
+            if added_metadata {
+                println!(
+                    "    {} metadata — read project metadata and environment",
+                    style("+").yellow()
+                );
+            }
+            println!();
+        }
+
+        if !crate::utils::is_interactive() {
+            return Ok(serde_json::json!({
+                "name": entry.name,
+                "status": "failed",
+                "detail": "update adds new capabilities — rerun interactively or reinstall with --force",
+            }));
+        }
+
+        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .with_prompt("Grant new capabilities?")
+            .default(false)
+            .interact()?;
+        if !confirm {
+            return Ok(serde_json::json!({
+                "name": entry.name,
+                "status": "skipped",
+                "detail": "new capabilities declined by user",
+            }));
+        }
+    }
+
+    run_build(plugin_dir, &manifest)?;
+
+    let bin_dir = plugin_bin_dir();
+    for old_cmd in &entry.commands {
+        let old_link = bin_dir.join(format!("fledge-{old_cmd}"));
+        if old_link.exists() || old_link.is_symlink() {
+            fs::remove_file(&old_link).ok();
+        }
+    }
+    link_commands(plugin_dir, &bin_dir, &manifest)?;
+
+    let granted_caps = if manifest.plugin.protocol.is_some() {
+        Some(manifest.capabilities.clone())
+    } else {
+        entry.capabilities.clone()
+    };
+
+    let new_cmds: Vec<String> = manifest.commands.iter().map(|c| c.name.clone()).collect();
+    let mut reg = load_registry()?;
+    if let Some(e) = reg.plugins.iter_mut().find(|p| p.name == entry.name) {
+        e.version = manifest.plugin.version.clone();
+        e.commands = new_cmds.clone();
+        e.capabilities = granted_caps;
+        if let Some(ref_tag) = new_pinned_ref {
+            e.pinned_ref = Some(ref_tag.to_string());
+        }
+    }
+    save_registry(&reg)?;
+
+    if !json {
+        if let Some(ref_tag) = new_pinned_ref {
+            let old_ref = entry.pinned_ref.as_deref().unwrap_or("?");
+            println!(
+                "  {} {} {} → {} (v{})",
+                style("✅").green().bold(),
+                style(&entry.name).green(),
+                style(old_ref).dim(),
+                style(ref_tag).green(),
+                manifest.plugin.version
+            );
+        } else {
+            println!(
+                "  {} {} → v{}",
+                style("✅").green().bold(),
+                style(&entry.name).green(),
+                manifest.plugin.version
+            );
+        }
+    }
+
+    let mut result = serde_json::json!({
+        "name": entry.name,
+        "status": "updated",
+        "version": manifest.plugin.version,
+        "commands": new_cmds,
+    });
+    if let Some(ref_tag) = new_pinned_ref {
+        result["previous_ref"] = serde_json::json!(entry.pinned_ref);
+        result["new_ref"] = serde_json::json!(ref_tag);
+    }
+
+    Ok(result)
 }
 
 pub(crate) fn find_latest_tag(repo_dir: &Path) -> Option<String> {
