@@ -51,8 +51,8 @@ use run_plugin::{apply_protocol, resolve_plugin_source_dir, which_fledge_plugin}
 /// Bump the tag here when adopting a new plugin release.
 pub const DEFAULT_PLUGINS: &[&str] = &[
     "CorvidLabs/fledge-plugin-github@v0.4.0",
-    "CorvidLabs/fledge-plugin-deps@v0.1.0",
-    "CorvidLabs/fledge-plugin-metrics@v0.2.0",
+    "CorvidLabs/fledge-plugin-deps@v0.2.0",
+    "CorvidLabs/fledge-plugin-metrics@v0.2.1",
 ];
 
 /// Per-command JSON schema versions. Each constant tracks the wire shape of one
