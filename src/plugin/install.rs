@@ -301,11 +301,16 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     let has_hooks = manifest.hooks.has_any();
 
     if let Err(blocked) = check_tier_capabilities(tier, caps) {
-        fs::remove_dir_all(&plugin_dir).ok();
+        if let Err(e) = fs::remove_dir_all(&plugin_dir) {
+            eprintln!(
+                "Warning: failed to clean up partial install at {}: {e}",
+                plugin_dir.display()
+            );
+        }
         bail!(
             "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
              Only official and team-tier plugins may use exec or network.\n  \
-             If you trust this source, fork it into the CorvidLabs org or a team member's account.",
+             If you trust this source, fork it under an account you control or an org in your team allowlist.",
             repo_name,
             blocked.join(", ")
         );

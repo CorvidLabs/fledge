@@ -1325,7 +1325,9 @@ fn unverified_tier_blocks_exec_and_network() {
     };
     let result = check_tier_capabilities(TrustTier::Unverified, &caps);
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), vec!["exec", "network"]);
+    let mut blocked = result.unwrap_err();
+    blocked.sort();
+    assert_eq!(blocked, vec!["exec", "network"]);
 }
 
 #[test]

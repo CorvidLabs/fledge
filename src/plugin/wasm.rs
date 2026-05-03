@@ -747,6 +747,7 @@ mod tests {
         assert!(result.is_ok(), "run_wasm_plugin should succeed: {result:?}");
     }
 
+    // Verifies build.rs actually ran and emitted WASMTIME_DEP_VERSION.
     #[test]
     fn wasmtime_version_derived_from_cargo_toml() {
         let cargo_toml = include_str!("../../Cargo.toml");
