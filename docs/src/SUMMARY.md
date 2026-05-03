@@ -15,6 +15,7 @@
 - [Ship: Branch, PR, Release](./ship.md)
   - [GitHub Integration (plugin)](./github-integration.md)
 - [Extend: Plugins, Config, Tools](./plugins.md)
+  - [WASM Plugins](./wasm-plugins.md)
   - [Configuration](./configuration.md)
   - [Doctor: Environment Diagnostics](./doctor.md)
 - [Reference](./reference.md)
