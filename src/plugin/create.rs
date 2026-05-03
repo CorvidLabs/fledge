@@ -10,6 +10,7 @@ pub(crate) fn create_plugin(
     output: &Path,
     description: Option<&str>,
     yes: bool,
+    wasm: bool,
     json: bool,
 ) -> Result<()> {
     let yes = yes || crate::utils::is_non_interactive() || json;
@@ -28,6 +29,10 @@ pub(crate) fn create_plugin(
             .default(description.unwrap_or("A fledge plugin").to_string())
             .interact_text()?
     };
+
+    if wasm {
+        return create_wasm_plugin(&target, name, &desc, json);
+    }
 
     std::fs::create_dir_all(target.join("bin"))
         .with_context(|| format!("creating {}/bin", target.display()))?;
@@ -163,6 +168,152 @@ See [fledge plugin docs](https://github.com/CorvidLabs/fledge) for the full plug
             "  {} Publish with: {}",
             style("3.").dim(),
             style(format!("fledge plugins publish ./{name}")).cyan()
+        );
+    }
+
+    Ok(())
+}
+
+fn create_wasm_plugin(target: &Path, name: &str, desc: &str, json: bool) -> Result<()> {
+    std::fs::create_dir_all(target.join("src"))
+        .with_context(|| format!("creating {}/src", target.display()))?;
+
+    let plugin_toml = format!(
+        r#"[plugin]
+name = {name:?}
+version = "0.1.0"
+description = {desc:?}
+protocol = "fledge-v1"
+runtime = "wasm"
+
+[[commands]]
+name = {name:?}
+description = {desc:?}
+binary = "target/wasm32-wasip1/release/{name}.wasm"
+
+[hooks]
+build = "cargo build --target wasm32-wasip1 --release"
+
+[capabilities]
+exec = false
+store = false
+metadata = false
+filesystem = "none"
+network = false
+"#,
+    );
+    fs::write(target.join("plugin.toml"), plugin_toml).context("writing plugin.toml")?;
+
+    let cargo_toml = format!(
+        r#"[package]
+name = {name:?}
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = {{ version = "1", features = ["derive"] }}
+serde_json = "1"
+"#,
+    );
+    fs::write(target.join("Cargo.toml"), cargo_toml).context("writing Cargo.toml")?;
+
+    // .cargo/config.toml so `cargo build --release` targets wasm32-wasip1 by default
+    fs::create_dir_all(target.join(".cargo")).context("creating .cargo")?;
+    fs::write(
+        target.join(".cargo/config.toml"),
+        "[build]\ntarget = \"wasm32-wasip1\"\n",
+    )
+    .context("writing .cargo/config.toml")?;
+
+    let main_rs = format!(
+        r#"use serde_json::json;
+
+fn main() {{
+    let output = json!({{
+        "type": "output",
+        "text": "{name} WASM plugin running\n"
+    }});
+    println!("{{}}", output);
+}}
+"#,
+    );
+    fs::write(target.join("src/main.rs"), main_rs).context("writing src/main.rs")?;
+
+    fs::write(
+        target.join(".gitignore"),
+        "/target/\n.DS_Store\nThumbs.db\n",
+    )
+    .context("writing .gitignore")?;
+
+    let readme = format!(
+        r#"# {name} — fledge WASM plugin
+
+{desc}
+
+## Prerequisites
+
+```bash
+rustup target add wasm32-wasip1
+```
+
+## Build
+
+```bash
+cargo build --release
+```
+
+The `.cargo/config.toml` sets `wasm32-wasip1` as the default target, so `--target` is not needed.
+
+## Install
+
+```bash
+fledge plugins install ./{name}
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `fledge {name}` | {desc} |
+"#,
+    );
+    fs::write(target.join("README.md"), readme).context("writing README.md")?;
+
+    let files_created = vec![
+        "plugin.toml".to_string(),
+        "Cargo.toml".to_string(),
+        ".cargo/config.toml".to_string(),
+        "src/main.rs".to_string(),
+        "README.md".to_string(),
+        ".gitignore".to_string(),
+    ];
+
+    if json {
+        let result = serde_json::json!({
+            "schema_version": super::PLUGINS_CREATE_SCHEMA,
+            "action": "create",
+            "path": target.display().to_string(),
+            "name": name,
+            "description": desc,
+            "runtime": "wasm",
+            "files_created": files_created,
+        });
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!(
+            "\n{} Created WASM plugin at {}",
+            style("✅").green().bold(),
+            style(target.display()).cyan()
+        );
+        println!(
+            "\n  {} Build with: {}",
+            style("1.").dim(),
+            style("cargo build --target wasm32-wasip1 --release").cyan()
+        );
+        println!(
+            "  {} Install with: {}",
+            style("2.").dim(),
+            style(format!("fledge plugins install ./{name}")).cyan()
         );
     }
 

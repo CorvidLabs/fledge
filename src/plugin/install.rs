@@ -272,8 +272,11 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
     let caps = &manifest.capabilities;
-    let has_caps = caps.exec || caps.store || caps.metadata;
-    let needs_cap_prompt = has_caps && manifest.plugin.protocol.is_some();
+    let has_protocol_caps = caps.exec || caps.store || caps.metadata;
+    let has_wasm_caps = caps.filesystem.as_deref().is_some_and(|f| f != "none") || caps.network;
+    let has_caps = has_protocol_caps || has_wasm_caps;
+    let needs_cap_prompt =
+        has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
     let has_hooks = manifest.hooks.has_any();
 
     if needs_cap_prompt || has_hooks {
@@ -293,6 +296,31 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                     println!(
                         "    {} metadata — read project metadata and environment",
                         style("•").yellow()
+                    );
+                }
+                if let Some(ref fs) = caps.filesystem {
+                    if fs != "none" {
+                        println!(
+                            "    {} filesystem ({}) — access host files",
+                            style("•").yellow(),
+                            fs
+                        );
+                    }
+                }
+                if caps.network {
+                    println!(
+                        "    {} network — make outbound network requests",
+                        style("•").yellow()
+                    );
+                }
+                if caps.exec && caps.network {
+                    println!(
+                        "\n    {} This plugin can both execute commands and access the network.",
+                        style("⚠").yellow().bold()
+                    );
+                    println!(
+                        "    {} Together these allow data exfiltration — only install if you trust the source.",
+                        style("⚠").yellow().bold()
                     );
                 }
             }
@@ -342,6 +370,28 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
 
     run_build(&plugin_dir, &manifest)?;
 
+    if manifest.plugin.is_wasm() {
+        for cmd in &manifest.commands {
+            let wasm_path = plugin_dir.join(&cmd.binary);
+            if wasm_path.exists() {
+                println!(
+                    "  {} Pre-compiling WASM module...",
+                    style("▶").cyan().bold()
+                );
+                super::wasm::compile_and_cache(&wasm_path)?;
+            } else {
+                fs::remove_dir_all(&plugin_dir).ok();
+                bail!(
+                    "WASM binary '{}' not found after build.\n  \
+                     Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
+                     Expected: {}",
+                    cmd.binary,
+                    wasm_path.display()
+                );
+            }
+        }
+    }
+
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
         fs::remove_dir_all(&plugin_dir).ok();
     })?;
@@ -360,6 +410,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         commands: command_names.clone(),
         pinned_ref: git_ref.map(String::from),
         capabilities: granted_caps,
+        runtime: manifest.plugin.runtime.clone(),
     };
 
     if let Some(idx) = existing {

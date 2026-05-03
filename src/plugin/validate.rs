@@ -105,6 +105,54 @@ pub(crate) fn validate_plugin(path: &Path, strict: bool, json: bool) -> Result<(
         }
     }
 
+    if let Some(ref rt) = manifest.plugin.runtime {
+        if rt != "wasm" && rt != "native" {
+            report.errors.push(format!(
+                "plugin.runtime must be \"wasm\" or \"native\", got {:?}",
+                rt
+            ));
+        }
+    }
+
+    if let Some(ref fs_cap) = manifest.capabilities.filesystem {
+        match fs_cap.as_str() {
+            "none" | "project" | "plugin" => {}
+            other => {
+                report.errors.push(format!(
+                    "capabilities.filesystem must be \"none\", \"project\", or \"plugin\", got {:?}",
+                    other
+                ));
+            }
+        }
+    }
+
+    let is_wasm = manifest.plugin.runtime.as_deref() == Some("wasm");
+    if is_wasm {
+        if manifest.plugin.protocol.as_deref() != Some("fledge-v1") {
+            report.errors.push(
+                "WASM plugins must set plugin.protocol = \"fledge-v1\" — \
+                 without this, capabilities will not be granted at install time"
+                    .to_string(),
+            );
+        }
+        for cmd in &manifest.commands {
+            if !cmd.binary.is_empty() && !cmd.binary.ends_with(".wasm") {
+                report.warnings.push(format!(
+                    "WASM command '{}' binary '{}' does not end in .wasm — \
+                     WASM plugins should point to a .wasm file (e.g. target/wasm32-wasip1/release/{}.wasm)",
+                    cmd.name, cmd.binary, cmd.name
+                ));
+            }
+        }
+        if manifest.hooks.build.is_none() {
+            report.warnings.push(
+                "WASM plugin has no build hook — add [hooks] build = \"cargo build --target wasm32-wasip1 --release\" \
+                 so the .wasm binary is compiled during install"
+                    .to_string(),
+            );
+        }
+    }
+
     print_plugin_report(&report, strict, json)
 }
 

@@ -81,6 +81,69 @@ fledge plugins search            # browse all plugins
 fledge plugins search deploy     # search by keyword
 ```
 
+## WASM Plugins
+
+WASM plugins run in a sandboxed Wasmtime runtime with no host access by default. They're ideal for pure-computation tasks (linting, formatting, analysis) where you want strong isolation.
+
+### Creating
+
+```bash
+fledge plugins create fledge-my-tool --wasm
+cd fledge-my-tool
+```
+
+This scaffolds a Rust project targeting `wasm32-wasip1` with `plugin.toml`, `Cargo.toml`, and `src/main.rs`.
+
+### Building
+
+```bash
+cargo build --target wasm32-wasip1 --release
+```
+
+The build hook in `plugin.toml` runs this automatically during install.
+
+### Capabilities
+
+WASM plugins support two additional capability fields beyond exec/store/metadata:
+
+| Field | Values | Default | Description |
+|-------|--------|---------|-------------|
+| `filesystem` | `"none"`, `"project"`, `"plugin"` | `"none"` | `"project"` mounts project root read-only at `/project`. `"plugin"` adds read-write plugin dir at `/plugin`. |
+| `network` | `true`/`false` | `false` | Inherits host network stack when `true` |
+
+```toml
+[plugin]
+name = "fledge-analyze"
+version = "0.1.0"
+protocol = "fledge-v1"
+runtime = "wasm"
+
+[[commands]]
+name = "analyze"
+binary = "target/wasm32-wasip1/release/fledge-analyze.wasm"
+
+[hooks]
+build = "cargo build --target wasm32-wasip1 --release"
+
+[capabilities]
+filesystem = "project"
+network = false
+```
+
+### Limitations
+
+- Interactive UI (prompt/confirm/select) is not supported — use non-interactive output
+- Compute is bounded (fuel limit + 60s wall-clock timeout)
+- Memory is limited to 256 MB
+
+### When to use WASM vs native
+
+| Use WASM when... | Use native when... |
+|---|---|
+| Pure computation over project files | Need to shell out to external tools |
+| Untrusted/community plugins | Need unrestricted filesystem access |
+| Cross-platform single binary | Need pipes, redirects, or shell features |
+
 ## Building a Plugin
 
 ### 1. Create the repo
@@ -92,7 +155,14 @@ fledge plugins create fledge-deploy
 cd fledge-deploy
 ```
 
-This scaffolds `plugin.toml`, a starter executable in `bin/`, a README, and a `.gitignore`. Or create one manually:
+For a WASM plugin, add `--wasm`:
+
+```bash
+fledge plugins create fledge-deploy --wasm
+cd fledge-deploy
+```
+
+This scaffolds `plugin.toml`, a starter executable in `bin/` (or `src/main.rs` for WASM), a README, and a `.gitignore`. Or create one manually:
 
 ```bash
 mkdir fledge-deploy && cd fledge-deploy
@@ -178,6 +248,7 @@ fledge plugins install yourname/fledge-deploy
 | `description` | string | No | Short description (warned about if missing on `validate`) |
 | `author` | string | No | Who made it |
 | `protocol` | string | No | Set to `"fledge-v1"` to opt into the [structured plugin protocol](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md). Without it, the plugin runs with inherited stdio. |
+| `runtime` | string | No | Set to `"wasm"` for sandboxed WASM plugins. Omit or set to `"native"` for standard executable plugins. |
 
 ### [[commands]]
 
@@ -198,6 +269,8 @@ Capabilities declare what protocol features the plugin uses. All default to `fal
 | `exec` | bool | `false` | Execute shell commands on the host |
 | `store` | bool | `false` | Persist key-value data between runs |
 | `metadata` | bool | `false` | Read project metadata (language, name, git info) |
+| `filesystem` | string | `"none"` | WASM only. `"project"` for read-only project access, `"plugin"` for read-write plugin dir |
+| `network` | bool | `false` | WASM only. Inherit host network stack |
 
 ```toml
 [capabilities]
@@ -290,7 +363,9 @@ The easiest setup is `gh auth login` — fledge uses it automatically as a fallb
 
 ## Security Model
 
-> **Warning:** Plugins run as unsandboxed processes with your full user permissions. A plugin can read any file you can read, write to any directory you can write to, and make network requests — regardless of its declared capabilities. Capabilities gate the fledge-v1 *protocol* (exec/store/metadata RPC messages), not the process itself. Review plugin source before installing, especially from unknown authors.
+> **Warning (native plugins):** Native plugins run as unsandboxed processes with your full user permissions. A plugin can read any file you can read, write to any directory you can write to, and make network requests — regardless of its declared capabilities. Capabilities gate the fledge-v1 *protocol* (exec/store/metadata RPC messages), not the process itself. Review plugin source before installing, especially from unknown authors.
+>
+> **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default. Filesystem and network access are opt-in, scoped, and prompted at install time. See [WASM Plugins](#wasm-plugins) above.
 
 Fledge has several safeguards:
 

@@ -42,6 +42,7 @@ pub(crate) fn list_plugins(json: bool) -> Result<()> {
                     "commands": p.commands,
                     "pinned_ref": p.pinned_ref,
                     "trust_tier": tier.label(),
+                    "runtime": p.runtime.as_deref().unwrap_or("native"),
                 })
             })
             .collect();
@@ -67,12 +68,18 @@ pub(crate) fn list_plugins(json: bool) -> Result<()> {
             Some(r) => format!("v{} (pinned: {})", plugin.version, r),
             None => format!("v{}", plugin.version),
         };
+        let runtime_label = if plugin.runtime.as_deref() == Some("wasm") {
+            format!(" {}", style("(wasm)").magenta())
+        } else {
+            String::new()
+        };
         println!(
-            "  {:<width$}  {}  [{}]  {}",
+            "  {:<width$}  {}  [{}]  {}{}",
             style(&plugin.name).green(),
             style(&version_str).dim(),
             tier.styled_label(),
             style(format!("({})", plugin.source)).dim(),
+            runtime_label,
             width = max_name,
         );
         if !plugin.commands.is_empty() {
@@ -113,15 +120,20 @@ pub(crate) fn audit_plugins(json: bool) -> Result<()> {
             .map(|p| {
                 let tier = determine_trust_tier(&p.source);
                 let caps = p.capabilities.as_ref();
+                let is_wasm = p.runtime.as_deref() == Some("wasm");
                 serde_json::json!({
                     "name": p.name,
                     "version": p.version,
                     "source": p.source,
                     "trust_tier": tier.label(),
+                    "runtime": p.runtime.as_deref().unwrap_or("native"),
+                    "sandboxed": is_wasm,
                     "capabilities": {
                         "exec": caps.is_some_and(|c| c.exec),
                         "store": caps.is_some_and(|c| c.store),
                         "metadata": caps.is_some_and(|c| c.metadata),
+                        "filesystem": caps.and_then(|c| c.filesystem.as_deref()).unwrap_or("none"),
+                        "network": caps.is_some_and(|c| c.network),
                     },
                     "commands": p.commands,
                     "has_lifecycle_hooks": has_lifecycle_hooks(&p.name),
@@ -141,12 +153,19 @@ pub(crate) fn audit_plugins(json: bool) -> Result<()> {
 
     for plugin in &registry.plugins {
         let tier = determine_trust_tier(&plugin.source);
+        let is_wasm = plugin.runtime.as_deref() == Some("wasm");
+        let runtime_label = if is_wasm {
+            format!(" {}", style("(wasm · sandboxed)").magenta())
+        } else {
+            String::new()
+        };
         println!(
-            "  {} {} v{} [{}]",
+            "  {} {} v{} [{}]{}",
             style("•").dim(),
             style(&plugin.name).green(),
             plugin.version,
             tier.styled_label(),
+            runtime_label,
         );
         println!("    Source: {}", style(&plugin.source).dim(),);
 
@@ -221,13 +240,19 @@ pub(crate) fn audit_plugins(json: bool) -> Result<()> {
             caps.is_some_and(|c| c.exec || c.metadata)
         })
         .count();
+    let wasm_count = registry
+        .plugins
+        .iter()
+        .filter(|p| p.runtime.as_deref() == Some("wasm"))
+        .count();
 
     println!(
-        "  {} {} plugin(s), {} unverified, {} with elevated capabilities",
+        "  {} {} plugin(s), {} unverified, {} with elevated capabilities, {} sandboxed (wasm)",
         style("Summary:").bold(),
         registry.plugins.len(),
         unverified_count,
-        elevated_count
+        elevated_count,
+        wasm_count,
     );
 
     Ok(())

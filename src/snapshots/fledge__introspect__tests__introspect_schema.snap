@@ -1,5 +1,6 @@
 ---
 source: src/introspect.rs
+assertion_line: 388
 expression: output
 ---
 {
@@ -1433,6 +1434,14 @@ expression: output
               "long": "yes",
               "short": "y",
               "help": "Skip all interactive prompts",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "wasm",
+              "long": "wasm",
+              "help": "Create a WASM plugin (Rust + wasm32-wasip1)",
               "required": false,
               "takes_value": false,
               "global": false

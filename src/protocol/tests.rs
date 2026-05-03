@@ -5,15 +5,12 @@ fn all_capabilities() -> crate::plugin::PluginCapabilities {
         exec: true,
         store: true,
         metadata: true,
+        ..Default::default()
     }
 }
 
 fn no_capabilities() -> crate::plugin::PluginCapabilities {
-    crate::plugin::PluginCapabilities {
-        exec: false,
-        store: false,
-        metadata: false,
-    }
+    crate::plugin::PluginCapabilities::default()
 }
 
 #[test]
@@ -301,6 +298,8 @@ fn init_message_serializes() {
             exec: true,
             store: true,
             metadata: false,
+            filesystem: None,
+            network: None,
         },
     };
     let json = serde_json::to_string(&ctx).unwrap();
@@ -917,6 +916,7 @@ fn main() {
         exec: true,
         store: false,
         metadata: true,
+        ..Default::default()
     };
     let result = super::run_protocol_plugin(
         &bin,

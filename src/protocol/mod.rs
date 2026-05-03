@@ -15,16 +15,16 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
-// Re-export submodule items needed by tests (via `use super::*`)
+pub(crate) use detect::detect_project_context;
+pub(crate) use exec::handle_exec;
+pub(crate) use metadata::handle_metadata;
+pub(crate) use store::{handle_load, handle_store};
+pub(crate) use ui::handle_log;
+
 #[cfg(test)]
 pub(crate) use detect::sanitize_remote_url;
 #[cfg(test)]
-pub(crate) use exec::{handle_exec, MAX_EXEC_OUTPUT_SIZE};
-#[cfg(test)]
-pub(crate) use metadata::handle_metadata;
-#[cfg(test)]
-pub(crate) use store::{handle_load, handle_store};
-// Re-export std::io::Read so tests can call .read_to_end() via `use super::*`
+pub(crate) use exec::MAX_EXEC_OUTPUT_SIZE;
 #[cfg(test)]
 pub(crate) use std::io::Read;
 
@@ -45,6 +45,10 @@ pub(crate) struct CapabilitiesInfo {
     pub(crate) exec: bool,
     pub(crate) store: bool,
     pub(crate) metadata: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) filesystem: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) network: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,6 +192,12 @@ pub fn run_protocol_plugin(
             exec: capabilities.exec,
             store: capabilities.store,
             metadata: capabilities.metadata,
+            filesystem: capabilities.filesystem.clone(),
+            network: if capabilities.network {
+                Some(true)
+            } else {
+                None
+            },
         },
     };
 

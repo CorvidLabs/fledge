@@ -5,6 +5,8 @@ use std::process::Command;
 
 use super::{load_registry, plugins_dir, PluginCapabilities, PluginManifest};
 
+type ProtocolInfo = (String, String, PathBuf, PluginCapabilities, Option<String>);
+
 pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
     let bin_path = super::resolve_plugin_command(name)
         .or_else(|| resolve_plugin_by_name(name))
@@ -24,9 +26,33 @@ pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
             )
         })?;
 
-    if let Some((plugin_name, plugin_version, plugin_dir, capabilities)) =
+    if let Some((plugin_name, plugin_version, plugin_dir, capabilities, runtime)) =
         resolve_protocol_info(name)?
     {
+        if runtime.as_deref() == Some("wasm") {
+            let manifest_path = plugin_dir.join("plugin.toml");
+            let content = std::fs::read_to_string(&manifest_path)
+                .context("reading plugin.toml for WASM plugin")?;
+            let manifest: PluginManifest =
+                toml::from_str(&content).context("parsing plugin.toml for WASM plugin")?;
+            let wasm_binary = manifest
+                .commands
+                .iter()
+                .find(|c| c.name == name)
+                .or_else(|| manifest.commands.first())
+                .map(|c| plugin_dir.join(&c.binary))
+                .ok_or_else(|| anyhow::anyhow!("WASM plugin has no commands defined"))?;
+
+            return super::wasm::run_wasm_plugin(
+                &wasm_binary,
+                args,
+                &plugin_name,
+                &plugin_version,
+                &plugin_dir,
+                &capabilities,
+            );
+        }
+
         return crate::protocol::run_protocol_plugin(
             &bin_path,
             args,
@@ -143,9 +169,16 @@ pub(super) fn apply_protocol(
     plugin_version: String,
     plugin_dir: PathBuf,
     caps: PluginCapabilities,
-) -> Result<Option<(String, String, PathBuf, PluginCapabilities)>> {
+    runtime: Option<&str>,
+) -> Result<Option<ProtocolInfo>> {
     match protocol {
-        Some("fledge-v1") => Ok(Some((plugin_name, plugin_version, plugin_dir, caps))),
+        Some("fledge-v1") => Ok(Some((
+            plugin_name,
+            plugin_version,
+            plugin_dir,
+            caps,
+            runtime.map(String::from),
+        ))),
         Some(unsupported) => bail!(
             "Plugin '{}' requires protocol '{}' which is not supported by this version of fledge.\n  \
              Update fledge to use this plugin: cargo install fledge",
@@ -156,9 +189,7 @@ pub(super) fn apply_protocol(
     }
 }
 
-fn resolve_protocol_info(
-    name: &str,
-) -> Result<Option<(String, String, PathBuf, PluginCapabilities)>> {
+fn resolve_protocol_info(name: &str) -> Result<Option<ProtocolInfo>> {
     let registry = match load_registry() {
         Ok(r) => r,
         Err(_) => return Ok(None),
@@ -188,10 +219,11 @@ fn resolve_protocol_info(
 
     apply_protocol(
         manifest.plugin.protocol.as_deref(),
-        manifest.plugin.name,
-        manifest.plugin.version,
+        manifest.plugin.name.clone(),
+        manifest.plugin.version.clone(),
         plugin_dir,
         caps,
+        manifest.plugin.runtime.as_deref(),
     )
 }
 
