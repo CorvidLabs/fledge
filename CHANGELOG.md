@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.1.0] - 2026-05-02
+
+### Features
+
+- **WASM plugin runtime** — sandboxed plugins compiled to WebAssembly (#345)
+  - Capability-scoped permissions (network, filesystem, store)
+  - Fuel-bounded execution with configurable limits
+  - Cross-platform (any language that targets wasm32-wasip1)
+  - Precompiled module caching for fast startup
+  - Full fledge-v1 protocol support (output, log, progress, store)
+
+### Documentation
+
+- Add WASM plugin documentation to README and GitHub Pages (#346)
+- Fix plugin security model, storage paths, and spec accuracy (#344)
+
+### Chores
+
+- Update Homebrew formula to v1.0.2 (#343)
+
 ## [v1.0.2] - 2026-05-02
 
 ### Chores
