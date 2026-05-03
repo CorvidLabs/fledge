@@ -8,8 +8,29 @@ use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 use super::{
     apply_git_auth, extract_name_from_source, link_commands, load_registry, normalize_source,
     plugin_bin_dir, plugins_dir, run_build, run_hook, save_registry, validate_plugin_name,
-    PluginEntry, PluginManifest, PLUGINS_INSTALL_SCHEMA,
+    PluginCapabilities, PluginEntry, PluginManifest, PLUGINS_INSTALL_SCHEMA,
 };
+
+pub(super) fn check_tier_capabilities(
+    tier: TrustTier,
+    caps: &PluginCapabilities,
+) -> std::result::Result<(), Vec<&'static str>> {
+    if tier != TrustTier::Unverified {
+        return Ok(());
+    }
+    let mut blocked = Vec::new();
+    if caps.exec {
+        blocked.push("exec");
+    }
+    if caps.network {
+        blocked.push("network");
+    }
+    if blocked.is_empty() {
+        Ok(())
+    } else {
+        Err(blocked)
+    }
+}
 
 /// Top-level dispatcher for `fledge plugins install`. Splits the
 /// single-source path from the `--defaults` bulk-install path so each
@@ -279,24 +300,15 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
     let has_hooks = manifest.hooks.has_any();
 
-    if tier == TrustTier::Unverified {
-        let mut blocked = Vec::new();
-        if caps.exec {
-            blocked.push("exec");
-        }
-        if caps.network {
-            blocked.push("network");
-        }
-        if !blocked.is_empty() {
-            fs::remove_dir_all(&plugin_dir).ok();
-            bail!(
-                "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
-                 Only official and team-tier plugins may use exec or network.\n  \
-                 If you trust this source, fork it into the CorvidLabs org or a team member's account.",
-                repo_name,
-                blocked.join(", ")
-            );
-        }
+    if let Err(blocked) = check_tier_capabilities(tier, caps) {
+        fs::remove_dir_all(&plugin_dir).ok();
+        bail!(
+            "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
+             Only official and team-tier plugins may use exec or network.\n  \
+             If you trust this source, fork it into the CorvidLabs org or a team member's account.",
+            repo_name,
+            blocked.join(", ")
+        );
     }
 
     if needs_cap_prompt || has_hooks {

@@ -34,6 +34,8 @@ use update::update_plugins;
 use validate::validate_plugin;
 
 #[cfg(test)]
+use install::check_tier_capabilities;
+#[cfg(test)]
 use run_plugin::{apply_protocol, resolve_plugin_source_dir, which_fledge_plugin};
 
 // ─── Constants ───────────────────────────────────────────────────────────────

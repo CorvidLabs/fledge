@@ -43,38 +43,42 @@ fn create_engine() -> Result<Engine> {
 }
 
 pub(crate) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
+    let wasm_bytes = std::fs::read(wasm_path)?;
     let cwasm_path = wasm_path.with_extension("cwasm");
     if cwasm_path.exists() {
-        if let Some(module) = try_load_cached(engine, wasm_path, &cwasm_path)? {
+        if let Some(module) = try_load_cached(engine, &wasm_bytes, &cwasm_path)? {
             return Ok(module);
         }
     }
-    let wasm_bytes = std::fs::read(wasm_path)?;
     let module = Module::new(engine, &wasm_bytes)?;
     if let Ok(serialized) = module.serialize() {
         let tmp_cwasm = cwasm_path.with_extension("cwasm.tmp");
-        if std::fs::write(&tmp_cwasm, &serialized).is_ok() {
-            let _ = std::fs::rename(&tmp_cwasm, &cwasm_path);
-        }
-        let wasm_hash = compute_hash(&wasm_bytes);
-        let cwasm_hash = compute_hash(&serialized);
-        let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
-        let hash_path = cwasm_path.with_extension("cwasm.sha256");
-        let tmp_hash = hash_path.with_extension("sha256.tmp");
-        if std::fs::write(&tmp_hash, &stamp).is_ok() {
-            let _ = std::fs::rename(&tmp_hash, &hash_path);
+        if std::fs::write(&tmp_cwasm, &serialized).is_ok()
+            && std::fs::rename(&tmp_cwasm, &cwasm_path).is_ok()
+        {
+            let wasm_hash = compute_hash(&wasm_bytes);
+            let cwasm_hash = compute_hash(&serialized);
+            let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
+            let hash_path = cwasm_path.with_extension("cwasm.sha256");
+            let tmp_hash = hash_path.with_extension("sha256.tmp");
+            if std::fs::write(&tmp_hash, &stamp).is_ok() {
+                let _ = std::fs::rename(&tmp_hash, &hash_path);
+            }
         }
     }
     Ok(module)
 }
 
-fn try_load_cached(engine: &Engine, wasm_path: &Path, cwasm_path: &Path) -> Result<Option<Module>> {
-    let wasm_bytes = std::fs::read(wasm_path)?;
+fn try_load_cached(
+    engine: &Engine,
+    wasm_bytes: &[u8],
+    cwasm_path: &Path,
+) -> Result<Option<Module>> {
+    let expected_wasm_hash = compute_hash(wasm_bytes);
     let cwasm_bytes = match std::fs::read(cwasm_path) {
         Ok(b) => b,
         Err(_) => return Ok(None),
     };
-    let expected_wasm_hash = compute_hash(&wasm_bytes);
     let actual_cwasm_hash = compute_hash(&cwasm_bytes);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
     let stamp = match std::fs::read_to_string(&hash_path) {
@@ -658,7 +662,8 @@ mod tests {
         let cwasm_path = wasm_path.with_extension("cwasm");
         assert!(cwasm_path.exists());
         let engine = create_engine().unwrap();
-        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+        let wasm_bytes = std::fs::read(&wasm_path).unwrap();
+        assert!(try_load_cached(&engine, &wasm_bytes, &cwasm_path)
             .unwrap()
             .is_some());
     }
@@ -682,7 +687,8 @@ mod tests {
 
         let cwasm_path = wasm_path.with_extension("cwasm");
         let engine = create_engine().unwrap();
-        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+        let wasm_bytes = std::fs::read(&wasm_path).unwrap();
+        assert!(try_load_cached(&engine, &wasm_bytes, &cwasm_path)
             .unwrap()
             .is_none());
     }
@@ -695,11 +701,13 @@ mod tests {
 
         compile_and_cache(&wasm_path).unwrap();
 
-        std::fs::write(&wasm_path, format!("{}\n;; modified", EXIT_OK_WAT)).unwrap();
+        let modified = format!("{}\n;; modified", EXIT_OK_WAT);
+        std::fs::write(&wasm_path, &modified).unwrap();
 
         let cwasm_path = wasm_path.with_extension("cwasm");
         let engine = create_engine().unwrap();
-        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+        let wasm_bytes = modified.as_bytes();
+        assert!(try_load_cached(&engine, wasm_bytes, &cwasm_path)
             .unwrap()
             .is_none());
     }
@@ -743,9 +751,11 @@ mod tests {
     fn wasmtime_version_derived_from_cargo_toml() {
         let cargo_toml = include_str!("../../Cargo.toml");
         let parsed: toml::Value = cargo_toml.parse().unwrap();
-        let dep_version = parsed["dependencies"]["wasmtime"]
+        let wt = &parsed["dependencies"]["wasmtime"];
+        let dep_version = wt
             .as_str()
-            .expect("wasmtime dependency should be a string version");
+            .or_else(|| wt.get("version").and_then(|v| v.as_str()))
+            .expect("wasmtime dependency should have a version");
         assert_eq!(
             WASMTIME_VERSION, dep_version,
             "build.rs-derived WASMTIME_VERSION ({}) doesn't match Cargo.toml wasmtime = \"{}\"",
@@ -833,8 +843,9 @@ mod tests {
         std::fs::write(&cwasm_path, b"tampered data").unwrap();
 
         let engine = create_engine().unwrap();
+        let wasm_bytes = std::fs::read(&wasm_path).unwrap();
         assert!(
-            try_load_cached(&engine, &wasm_path, &cwasm_path)
+            try_load_cached(&engine, &wasm_bytes, &cwasm_path)
                 .unwrap()
                 .is_none(),
             "cache should be invalid after .cwasm tampering"
@@ -938,8 +949,9 @@ mod tests {
         std::fs::remove_file(&hash_path).unwrap();
 
         let engine = create_engine().unwrap();
+        let wasm_bytes = std::fs::read(&wasm_path).unwrap();
         assert!(
-            try_load_cached(&engine, &wasm_path, &cwasm_path)
+            try_load_cached(&engine, &wasm_bytes, &cwasm_path)
                 .unwrap()
                 .is_none(),
             "cache should be invalid when hash file is missing"
@@ -959,8 +971,9 @@ mod tests {
         std::fs::write(&hash_path, "somehash\n").unwrap();
 
         let engine = create_engine().unwrap();
+        let wasm_bytes = std::fs::read(&wasm_path).unwrap();
         assert!(
-            try_load_cached(&engine, &wasm_path, &cwasm_path)
+            try_load_cached(&engine, &wasm_bytes, &cwasm_path)
                 .unwrap()
                 .is_none(),
             "cache should be invalid with truncated hash file"
