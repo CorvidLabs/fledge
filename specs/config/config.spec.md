@@ -1,6 +1,6 @@
 ---
 module: config
-version: 10
+version: 11
 status: active
 files:
   - src/config.rs
@@ -21,13 +21,14 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 | Export | Description |
 |--------|-------------|
-| `Config` | Top-level configuration struct with `defaults`, `templates`, `github`, and `ai` sections |
+| `Config` | Top-level configuration struct with `defaults`, `templates`, `github`, `ai`, and `trust` sections |
 | `Defaults` | Struct holding author, GitHub org, and license default values |
 | `TemplatesConfig` | Struct holding additional template directory paths and remote repo references |
 | `GitHubConfig` | Struct holding optional GitHub token for authenticated access |
 | `AiConfig` | Struct holding LLM provider selection and per-provider settings |
 | `ClaudeConfig` | `{ model: Option<String> }` — optional default model passed to `claude --model` |
 | `OllamaConfig` | `{ host: String, api_key: Option<String>, model: String, timeout_seconds: u64 }` — endpoint, auth, default model, and per-request timeout |
+| `TrustConfig` | `{ orgs: Vec<String>, users: Vec<String> }` — additional GitHub orgs and users to trust at team tier |
 | `load` | Loads config from disk or returns defaults if file is missing |
 | `config_path` | Returns the platform-appropriate path to the config file |
 | `save` | Serializes config to TOML and writes to disk, creating parent directories if needed |
@@ -51,13 +52,14 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 | Type | Description |
 |------|-------------|
-| `Config` | Top-level config with `defaults`, `templates`, `github`, and `ai` sections |
+| `Config` | Top-level config with `defaults`, `templates`, `github`, `ai`, and `trust` sections |
 | `Defaults` | Author, GitHub org, and license defaults |
 | `TemplatesConfig` | Additional template directory paths and remote repo references |
 | `GitHubConfig` | Optional GitHub token for authenticated access |
 | `AiConfig` | Active provider and per-provider settings |
 | `ClaudeConfig` | Per-Claude settings: default model override |
 | `OllamaConfig` | Per-Ollama settings: host URL, API key, default model, per-request timeout in seconds |
+| `TrustConfig` | Per-trust settings: additional GitHub orgs and users to classify as team tier |
 
 ### Traits
 
@@ -95,7 +97,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 4. GitHub token resolution order: `FLEDGE_GITHUB_TOKEN` env → `GITHUB_TOKEN` env → config file
 5. Template repos default to empty list
 6. `save` creates parent directories if they don't exist
-7. `get`/`set`/`unset` accept dotted keys: `defaults.author`, `defaults.github_org`, `defaults.license`, `github.token`, `templates.paths`, `templates.repos`, `ai.provider`, `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
+7. `get`/`set`/`unset` accept dotted keys: `defaults.author`, `defaults.github_org`, `defaults.license`, `github.token`, `templates.paths`, `templates.repos`, `trust.orgs`, `trust.users`, `ai.provider`, `ai.claude.model`, `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
 8. `set`/`unset` return an error for unknown keys
 9. `set` rejects list keys with guidance to use `add_to_list`
 10. `add_to_list`/`remove_from_list` reject scalar keys with guidance to use `set`/`unset`
@@ -207,6 +209,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11 | 2026-05-03 | Add `TrustConfig` struct and `trust.orgs`/`trust.users` list keys for extending the plugin trust system at runtime |
 | 10 | 2026-04-30 | Add `Config::is_secret_key(key) -> bool` — identifies keys whose values should be redacted in display (e.g. `github.token`, `ai.ollama.api_key`). Used by `config get` to avoid printing plaintext secrets to stdout |
 | 9 | 2026-04-26 | Document `valid_keys_hint()`, returns a static string listing all valid config keys, used by `handle_config` in main.rs for error messages |
 | 8 | 2026-04-24 | Add `ai.ollama.timeout_seconds` scalar (default 600). Mirrors the existing `FLEDGE_AI_TIMEOUT` env var so Ollama timeouts are tunable without env vars; env still wins. `set` parses as `u64` and rejects non-integer input; `unset` restores the 600s default |

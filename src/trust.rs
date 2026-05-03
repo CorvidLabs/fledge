@@ -91,12 +91,12 @@ pub fn determine_trust_tier_from_owner(owner: &str) -> TrustTier {
 }
 
 #[cfg(test)]
-pub fn classify_source_with(source: &str, config: &TrustConfig) -> TrustTier {
+fn classify_source_with(source: &str, config: &TrustConfig) -> TrustTier {
     classify_source(source, config)
 }
 
 #[cfg(test)]
-pub fn classify_owner_with(owner: &str, config: &TrustConfig) -> TrustTier {
+fn classify_owner_with(owner: &str, config: &TrustConfig) -> TrustTier {
     classify_owner(owner, config)
 }
 
