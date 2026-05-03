@@ -848,4 +848,432 @@ mod tests {
         let result = run_wasm_plugin(&wasm_path, &[], "test-bad-wasm", "0.0.1", dir.path(), &caps);
         assert!(result.is_err(), "malformed WASM should fail to load");
     }
+
+    // --- Guest memory validation ---
+
+    #[test]
+    fn validate_guest_range_rejects_negative_ptr() {
+        let result = validate_guest_range(-1, 10);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_string().contains("negative"),
+            "should mention negative pointer"
+        );
+    }
+
+    #[test]
+    fn validate_guest_range_rejects_negative_len() {
+        let result = validate_guest_range(0, -1);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_string().contains("negative"),
+            "should mention negative length"
+        );
+    }
+
+    #[test]
+    fn validate_guest_range_large_values_ok_on_64bit() {
+        // On 64-bit, i32::MAX + i32::MAX fits in usize — overflow guard is for 32-bit
+        let result = validate_guest_range(i32::MAX, i32::MAX);
+        assert!(result.is_ok(), "should not overflow on 64-bit");
+        let (start, end) = result.unwrap();
+        assert_eq!(start, i32::MAX as usize);
+        assert_eq!(end, (i32::MAX as usize) * 2);
+    }
+
+    #[test]
+    fn validate_guest_range_accepts_valid_range() {
+        let (start, end) = validate_guest_range(100, 50).unwrap();
+        assert_eq!(start, 100);
+        assert_eq!(end, 150);
+    }
+
+    #[test]
+    fn validate_guest_range_accepts_zero_length() {
+        let (start, end) = validate_guest_range(42, 0).unwrap();
+        assert_eq!(start, 42);
+        assert_eq!(end, 42);
+    }
+
+    #[test]
+    fn read_guest_slice_rejects_out_of_bounds() {
+        let data = vec![0u8; 100];
+        let result = read_guest_slice(&data, 90, 20);
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_string().contains("out-of-bounds"),
+            "should mention out-of-bounds"
+        );
+    }
+
+    #[test]
+    fn read_guest_slice_reads_valid_range() {
+        let data: Vec<u8> = (0..100).collect();
+        let slice = read_guest_slice(&data, 10, 5).unwrap();
+        assert_eq!(slice, &[10, 11, 12, 13, 14]);
+    }
+
+    #[test]
+    fn read_guest_slice_reads_exact_end() {
+        let data = vec![0u8; 64];
+        let slice = read_guest_slice(&data, 0, 64).unwrap();
+        assert_eq!(slice.len(), 64);
+    }
+
+    // --- Cache edge cases ---
+
+    #[test]
+    fn cache_invalid_when_hash_file_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+        std::fs::remove_file(&hash_path).unwrap();
+
+        assert!(
+            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            "cache should be invalid when hash file is missing"
+        );
+    }
+
+    #[test]
+    fn cache_invalid_when_hash_file_truncated() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+        // Write only 1 line instead of 3
+        std::fs::write(&hash_path, "somehash\n").unwrap();
+
+        assert!(
+            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            "cache should be invalid with truncated hash file"
+        );
+    }
+
+    #[test]
+    fn compile_and_cache_rejects_invalid_wasm() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("garbage.wasm");
+        std::fs::write(&wasm_path, b"this is not wasm").unwrap();
+
+        let result = compile_and_cache(&wasm_path);
+        assert!(result.is_err(), "should reject invalid WASM binary");
+    }
+
+    #[test]
+    fn load_module_recompiles_on_corrupt_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        // Corrupt the cached module but leave the hash file
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        std::fs::write(&cwasm_path, b"corrupted cwasm data").unwrap();
+
+        // load_module should detect corruption and fall back to source compilation
+        let engine = create_engine().unwrap();
+        let module = load_module(&engine, &wasm_path);
+        assert!(
+            module.is_ok(),
+            "should recompile from source when cache is corrupt: {:?}",
+            module.err()
+        );
+        assert!(module.unwrap().get_export("_start").is_some());
+    }
+
+    #[test]
+    fn compile_and_cache_produces_all_artifacts() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+
+        assert!(cwasm_path.exists(), ".cwasm should be created");
+        assert!(hash_path.exists(), ".cwasm.sha256 should be created");
+        assert!(
+            std::fs::metadata(&cwasm_path).unwrap().len() > 0,
+            ".cwasm should not be empty"
+        );
+
+        let stamp = std::fs::read_to_string(&hash_path).unwrap();
+        let lines: Vec<&str> = stamp.lines().collect();
+        assert_eq!(lines.len(), 3, "stamp should have 3 lines");
+        assert_eq!(lines[0].len(), 64, "wasm hash should be 64 hex chars");
+        assert_eq!(lines[1], WASMTIME_VERSION);
+        assert_eq!(lines[2].len(), 64, "cwasm hash should be 64 hex chars");
+    }
+
+    // --- Capability denial for store / metadata ---
+
+    #[test]
+    fn capability_denial_store_traps() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (import "fledge" "store_set" (func $store_set (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 0)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("store_denied.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default(); // store = false
+        let result = run_wasm_plugin(
+            &wasm_path,
+            &[],
+            "test-store-denied",
+            "0.0.1",
+            dir.path(),
+            &caps,
+        );
+        assert!(
+            result.is_err(),
+            "should fail when module imports store_set but store not granted"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("store"),
+            "error should hint at missing store capability: {err}"
+        );
+    }
+
+    #[test]
+    fn capability_denial_metadata_traps() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (import "fledge" "metadata" (func $metadata (param i32 i32) (result i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 0)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("meta_denied.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default(); // metadata = false
+        let result = run_wasm_plugin(
+            &wasm_path,
+            &[],
+            "test-meta-denied",
+            "0.0.1",
+            dir.path(),
+            &caps,
+        );
+        assert!(
+            result.is_err(),
+            "should fail when module imports metadata but capability not granted"
+        );
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("metadata"),
+            "error should hint at missing metadata capability: {err}"
+        );
+    }
+
+    #[test]
+    fn capability_denial_multiple_imports_shows_hint() {
+        // Wasmtime reports the first unresolved import; verify we still produce a capability hint
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (import "fledge" "exec" (func $exec (param i32 i32) (result i32)))
+            (import "fledge" "store_set" (func $store_set (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 0)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("multi_denied.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(
+            &wasm_path,
+            &[],
+            "test-multi-denied",
+            "0.0.1",
+            dir.path(),
+            &caps,
+        );
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("capabilities not granted"),
+            "error should mention missing capabilities: {err}"
+        );
+    }
+
+    // --- Missing _start export ---
+
+    #[test]
+    fn missing_start_export_returns_error() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "main") (call $exit (i32.const 0)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("no_start.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-no-start", "0.0.1", dir.path(), &caps);
+        assert!(result.is_err(), "should fail without _start export");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("_start"),
+            "error should mention missing _start: {err}"
+        );
+    }
+
+    // --- recv reads init context ---
+
+    #[test]
+    fn recv_delivers_init_context() {
+        // Module that calls recv into a buffer, then exits 0 if it got data, 1 if not
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start")
+                ;; recv into memory at offset 0, max 4096 bytes
+                (if (i32.gt_s (call $recv (i32.const 0) (i32.const 4096)) (i32.const 0))
+                    (then (call $exit (i32.const 0)))  ;; got data → success
+                    (else (call $exit (i32.const 1)))  ;; no data → failure
+                )
+            )
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("recv_init.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(
+            &wasm_path,
+            &["--test-arg".to_string()],
+            "test-recv-init",
+            "0.0.1",
+            dir.path(),
+            &caps,
+        );
+        assert!(
+            result.is_ok(),
+            "plugin should receive init context via recv: {:?}",
+            result.err()
+        );
+    }
+
+    // --- Empty WASM file ---
+
+    #[test]
+    fn empty_wasm_file_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("empty.wasm");
+        std::fs::write(&wasm_path, b"").unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-empty", "0.0.1", dir.path(), &caps);
+        assert!(result.is_err(), "empty WASM file should fail to load");
+    }
+
+    // --- Exit codes ---
+
+    #[test]
+    fn exit_code_42_returns_error_with_code() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 42)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("exit42.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-exit42", "0.0.1", dir.path(), &caps);
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("42"),
+            "error should include exit code 42: {err}"
+        );
+    }
+
+    // --- FledgeExitOk display ---
+
+    #[test]
+    fn fledge_exit_ok_display() {
+        let exit_ok = FledgeExitOk;
+        assert_eq!(format!("{exit_ok}"), "plugin exited successfully");
+    }
+
+    // --- Capabilities enabled: run with exec/store/metadata granted ---
+
+    #[test]
+    fn run_with_all_capabilities_enabled() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("all_caps.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        let caps = PluginCapabilities {
+            exec: true,
+            store: true,
+            metadata: true,
+            filesystem: Some("plugin".to_string()),
+            network: false,
+        };
+        let result = run_wasm_plugin(&wasm_path, &[], "test-all-caps", "0.0.1", dir.path(), &caps);
+        assert!(
+            result.is_ok(),
+            "should succeed with all capabilities enabled: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn filesystem_plugin_creates_data_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("fs_plugin.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        let caps = PluginCapabilities {
+            filesystem: Some("plugin".to_string()),
+            ..PluginCapabilities::default()
+        };
+        let result = run_wasm_plugin(
+            &wasm_path,
+            &[],
+            "test-fs-plugin",
+            "0.0.1",
+            dir.path(),
+            &caps,
+        );
+        assert!(result.is_ok(), "should succeed: {:?}", result.err());
+        assert!(
+            dir.path().join("data").exists(),
+            "plugin filesystem mode should create data/ directory"
+        );
+    }
 }
