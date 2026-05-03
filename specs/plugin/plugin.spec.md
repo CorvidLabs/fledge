@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 21
+version: 22
 status: active
 files:
   - src/plugin/mod.rs
@@ -151,7 +151,7 @@ Plugins are classified by their source into trust tiers:
 | Team | Source owner is a human member of the CorvidLabs org (`TEAM_MEMBERS` allowlist in `src/trust.rs`) | Cyan `[team]` |
 | Unverified | All other sources | Yellow `[unverified]` |
 
-Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins with elevated capabilities (exec, metadata) get an extra warning in `plugin audit`.
+Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins requesting `exec` or `network` capabilities are **blocked at install time** — the install is aborted, the partially-cloned directory is cleaned up, and the user is told to fork the plugin under a trusted source. Official and team-tier plugins are unaffected.
 
 ### Plugin Discovery
 
@@ -215,6 +215,7 @@ pinned_ref = "v0.2.0"
 14. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
 15. Protocol plugins without `exec` capability cannot run lifecycle hooks — `run_lifecycle_hook` skips them silently. Non-protocol plugins (no capability entry in the registry) are unaffected
 16. `plugin install` displays lifecycle hooks (with their shell commands) in the approval prompt alongside capabilities. Hooks-only plugins (no protocol capabilities) still require user approval before install completes
+17. `plugin install` rejects unverified plugins that request `exec` or `network` capabilities — the install is aborted before the approval prompt. Only official-tier and team-tier plugins may use these capabilities
 
 ## Behavioral Examples
 

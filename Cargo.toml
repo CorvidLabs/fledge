@@ -37,6 +37,9 @@ shell-words = "1.1.1"
 wasmtime = "43"
 wasmtime-wasi = "43"
 
+[build-dependencies]
+toml = "0.8"
+
 [dev-dependencies]
 insta = { version = "1.47.2", features = ["json"] }
 tempfile = "3"

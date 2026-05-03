@@ -1,5 +1,5 @@
 use super::*;
-use crate::trust::parse_source_ref;
+use crate::trust::{parse_source_ref, TrustTier};
 
 #[test]
 fn unsupported_protocol_version_returns_error() {
@@ -1290,4 +1290,73 @@ fn create_wasm_plugin_scaffolds_correct_files() {
         "WASM scaffold should use println!, not eprintln!"
     );
     assert!(main_rs.contains("println!"));
+}
+
+// --- Trust-tier capability enforcement ---
+
+#[test]
+fn unverified_tier_blocks_exec() {
+    let caps = PluginCapabilities {
+        exec: true,
+        ..Default::default()
+    };
+    let result = check_tier_capabilities(TrustTier::Unverified, &caps);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), vec!["exec"]);
+}
+
+#[test]
+fn unverified_tier_blocks_network() {
+    let caps = PluginCapabilities {
+        network: true,
+        ..Default::default()
+    };
+    let result = check_tier_capabilities(TrustTier::Unverified, &caps);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), vec!["network"]);
+}
+
+#[test]
+fn unverified_tier_blocks_exec_and_network() {
+    let caps = PluginCapabilities {
+        exec: true,
+        network: true,
+        ..Default::default()
+    };
+    let result = check_tier_capabilities(TrustTier::Unverified, &caps);
+    assert!(result.is_err());
+    let mut blocked = result.unwrap_err();
+    blocked.sort();
+    assert_eq!(blocked, vec!["exec", "network"]);
+}
+
+#[test]
+fn unverified_tier_allows_safe_capabilities() {
+    let caps = PluginCapabilities {
+        store: true,
+        metadata: true,
+        filesystem: Some("project".to_string()),
+        ..Default::default()
+    };
+    assert!(check_tier_capabilities(TrustTier::Unverified, &caps).is_ok());
+}
+
+#[test]
+fn official_tier_allows_exec() {
+    let caps = PluginCapabilities {
+        exec: true,
+        network: true,
+        ..Default::default()
+    };
+    assert!(check_tier_capabilities(TrustTier::Official, &caps).is_ok());
+}
+
+#[test]
+fn team_tier_allows_exec() {
+    let caps = PluginCapabilities {
+        exec: true,
+        network: true,
+        ..Default::default()
+    };
+    assert!(check_tier_capabilities(TrustTier::Team, &caps).is_ok());
 }
