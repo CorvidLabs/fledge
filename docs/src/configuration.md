@@ -85,6 +85,31 @@ timeout_seconds = 600          # request timeout (default: 600)
 | `ai.ollama.api_key` | Bearer token for authenticated endpoints | (none) |
 | `ai.ollama.timeout_seconds` | Request timeout in seconds | `600` |
 
+### [trust]
+
+Extend the plugin/lane trust system without recompiling. Entries here classify as **team** tier, granting access to `exec` and `network` capabilities:
+
+```toml
+[trust]
+orgs = ["my-company", "my-other-org"]
+users = ["my-friend", "trusted-bot"]
+```
+
+| Key | What it does |
+|-----|-------------|
+| `orgs` | GitHub orgs to trust at team tier |
+| `users` | GitHub users to trust at team tier |
+
+Manage via CLI:
+
+```bash
+fledge config add trust.orgs my-company
+fledge config add trust.users corvid-agent
+fledge config remove trust.orgs my-company
+```
+
+Compared case-insensitively. The hardcoded official org (`CorvidLabs`) and built-in team members are always trusted regardless of config.
+
 ### [github]
 
 ```toml
@@ -120,6 +145,10 @@ license = "MIT"
 [templates]
 paths = ["~/.fledge/templates", "~/projects/templates"]
 repos = ["CorvidLabs/fledge-templates", "my-org/my-templates"]
+
+[trust]
+orgs = ["my-company"]
+users = ["corvid-agent"]
 
 [github]
 token = "ghp_..."

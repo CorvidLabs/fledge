@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 22
+version: 23
 status: active
 files:
   - src/plugin/mod.rs
@@ -148,10 +148,19 @@ Plugins are classified by their source into trust tiers:
 | Tier | Criteria | Display |
 |------|----------|---------|
 | Official | Source org is `CorvidLabs` (case-insensitive) | Green bold `[official]` |
-| Team | Source owner is a human member of the CorvidLabs org (`TEAM_MEMBERS` allowlist in `src/trust.rs`) | Cyan `[team]` |
+| Team | Source owner is a human member of the CorvidLabs org (`TEAM_MEMBERS` allowlist in `src/trust.rs`), or listed in `trust.orgs` or `trust.users` in the user's config | Cyan `[team]` |
 | Unverified | All other sources | Yellow `[unverified]` |
 
 Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins requesting `exec` or `network` capabilities are **blocked at install time** — the install is aborted, the partially-cloned directory is cleaned up, and the user is told to fork the plugin under a trusted source. Official and team-tier plugins are unaffected.
+
+Users can extend the team tier via config without recompiling:
+
+```bash
+fledge config add trust.orgs my-org        # trust an org
+fledge config add trust.users my-friend    # trust a user
+```
+
+Both `trust.orgs` and `trust.users` are compared case-insensitively. Entries in these lists classify as **Team** (not Official). The hardcoded `OFFICIAL_ORGS` and `TEAM_MEMBERS` lists remain the baseline; config entries extend them.
 
 ### Plugin Discovery
 
@@ -216,6 +225,7 @@ pinned_ref = "v0.2.0"
 15. Protocol plugins without `exec` capability cannot run lifecycle hooks — `run_lifecycle_hook` skips them silently. Non-protocol plugins (no capability entry in the registry) are unaffected
 16. `plugin install` displays lifecycle hooks (with their shell commands) in the approval prompt alongside capabilities. Hooks-only plugins (no protocol capabilities) still require user approval before install completes
 17. `plugin install` rejects unverified plugins that request `exec` or `network` capabilities — the install is aborted before the approval prompt. Only official-tier and team-tier plugins may use these capabilities
+18. Trust tiers are extensible via config: `trust.orgs` and `trust.users` (list keys in `config.toml`) add entries to the team tier. Compared case-insensitively. Config entries never grant official tier — that remains hardcoded to `OFFICIAL_ORGS`
 
 ## Behavioral Examples
 
@@ -334,6 +344,8 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 23 | 2026-05-03 | Configurable trust: `trust.orgs` and `trust.users` config keys extend the team tier at runtime. Users can trust additional orgs/users via `fledge config add trust.orgs <name>` without recompiling. Invariant 18 added |
+| 22 | 2026-05-02 | Spec drift fix: bumped spec to document install-time blocking for unverified exec/network. Invariant 17 added |
 | 21 | 2026-05-02 | Fix plugin storage paths: replace hardcoded `~/.config/fledge/` with `<config_dir>/fledge/` to reflect platform-specific paths (macOS uses `~/Library/Application Support/`) |
 | 20 | 2026-04-29 | Document all submodule exports (`install.rs`, `list.rs`, `remove.rs`, `create.rs`, `publish.rs`, `update.rs`, `validate.rs`, `search.rs`, `run_plugin.rs`) now listed in spec frontmatter. No API changes |
 | 19 | 2026-04-29 | Refactor: split `plugin.rs` into `plugin/` module (11 submodules). Spec files list narrowed to `mod.rs` only — internal items use module-private visibility so spec-sync sees exactly the 7 public API exports. No API changes |

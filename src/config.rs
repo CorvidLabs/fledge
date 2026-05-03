@@ -12,6 +12,16 @@ pub struct Config {
     pub github: GitHubConfig,
     #[serde(default)]
     pub ai: AiConfig,
+    #[serde(default)]
+    pub trust: TrustConfig,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TrustConfig {
+    #[serde(default)]
+    pub orgs: Vec<String>,
+    #[serde(default)]
+    pub users: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,7 +112,7 @@ fn default_ollama_timeout_seconds() -> u64 {
     600
 }
 
-const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
+const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, trust.orgs, trust.users, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
 
 impl Config {
     pub fn valid_keys_hint() -> &'static str {
@@ -170,6 +180,8 @@ impl Config {
             "ai.ollama.api_key" => self.ai.ollama.api_key.clone(),
             "ai.ollama.model" => Some(self.ai.ollama.model.clone()),
             "ai.ollama.timeout_seconds" => Some(self.ai.ollama.timeout_seconds.to_string()),
+            "trust.orgs" => Some(self.trust.orgs.join("\n")),
+            "trust.users" => Some(self.trust.users.join("\n")),
             _ => None,
         }
     }
@@ -187,6 +199,8 @@ impl Config {
                 | "github.token"
                 | "templates.paths"
                 | "templates.repos"
+                | "trust.orgs"
+                | "trust.users"
                 | "ai.provider"
                 | "ai.claude.model"
                 | "ai.ollama.host"
@@ -222,11 +236,13 @@ impl Config {
                 })?;
                 self.ai.ollama.timeout_seconds = secs;
             }
-            "templates.paths" | "templates.repos" => anyhow::bail!(
-                "'{}' is a list key — use `fledge config add/remove {}` instead",
-                key,
-                key
-            ),
+            "templates.paths" | "templates.repos" | "trust.orgs" | "trust.users" => {
+                anyhow::bail!(
+                    "'{}' is a list key — use `fledge config add/remove {}` instead",
+                    key,
+                    key
+                )
+            }
             _ => anyhow::bail!("Unknown config key '{}'. {}", key, VALID_KEYS_HINT),
         }
         Ok(())
@@ -240,6 +256,8 @@ impl Config {
             "github.token" => self.github.token = None,
             "templates.paths" => self.templates.paths.clear(),
             "templates.repos" => self.templates.repos.clear(),
+            "trust.orgs" => self.trust.orgs.clear(),
+            "trust.users" => self.trust.users.clear(),
             "ai.provider" => self.ai.provider = None,
             "ai.claude.model" => self.ai.claude.model = None,
             "ai.ollama.host" => self.ai.ollama.host = default_ollama_host(),
@@ -257,6 +275,8 @@ impl Config {
         let list = match key {
             "templates.paths" => &mut self.templates.paths,
             "templates.repos" => &mut self.templates.repos,
+            "trust.orgs" => &mut self.trust.orgs,
+            "trust.users" => &mut self.trust.users,
             key if Self::is_valid_key(key) => {
                 anyhow::bail!(
                     "'{}' is a scalar key — use `fledge config set {} <value>` instead",
@@ -265,7 +285,7 @@ impl Config {
                 )
             }
             _ => anyhow::bail!(
-                "Unknown config key '{}'. List keys: templates.paths, templates.repos",
+                "Unknown config key '{}'. List keys: templates.paths, templates.repos, trust.orgs, trust.users",
                 key
             ),
         };
@@ -280,6 +300,8 @@ impl Config {
         let list = match key {
             "templates.paths" => &mut self.templates.paths,
             "templates.repos" => &mut self.templates.repos,
+            "trust.orgs" => &mut self.trust.orgs,
+            "trust.users" => &mut self.trust.users,
             key if Self::is_valid_key(key) => {
                 anyhow::bail!(
                     "'{}' is a scalar key — use `fledge config unset {}` instead",
@@ -288,7 +310,7 @@ impl Config {
                 )
             }
             _ => anyhow::bail!(
-                "Unknown config key '{}'. List keys: templates.paths, templates.repos",
+                "Unknown config key '{}'. List keys: templates.paths, templates.repos, trust.orgs, trust.users",
                 key
             ),
         };
@@ -854,5 +876,106 @@ repos = ["CorvidLabs/templates"]
         assert_eq!(config.defaults.author.as_deref(), Some("Leif"));
         assert_eq!(config.github.token.as_deref(), Some("ghp_secret"));
         assert_eq!(config.template_repos(), &["CorvidLabs/templates"]);
+    }
+
+    #[test]
+    fn trust_config_defaults_empty() {
+        let config = Config::default();
+        assert!(config.trust.orgs.is_empty());
+        assert!(config.trust.users.is_empty());
+    }
+
+    #[test]
+    fn trust_config_from_toml() {
+        let toml_str = r#"
+[trust]
+orgs = ["my-company", "other-org"]
+users = ["corvid-agent"]
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.trust.orgs, vec!["my-company", "other-org"]);
+        assert_eq!(config.trust.users, vec!["corvid-agent"]);
+    }
+
+    #[test]
+    fn trust_keys_are_valid() {
+        assert!(Config::is_valid_key("trust.orgs"));
+        assert!(Config::is_valid_key("trust.users"));
+    }
+
+    #[test]
+    fn trust_get_returns_newline_separated() {
+        let config = Config {
+            trust: TrustConfig {
+                orgs: vec!["a".to_string(), "b".to_string()],
+                users: vec![],
+            },
+            ..Config::default()
+        };
+        assert_eq!(config.get("trust.orgs").as_deref(), Some("a\nb"));
+    }
+
+    #[test]
+    fn trust_set_errors_as_list_key() {
+        let mut config = Config::default();
+        assert!(config.set("trust.orgs", "val").is_err());
+        assert!(config.set("trust.users", "val").is_err());
+    }
+
+    #[test]
+    fn trust_add_to_list() {
+        let mut config = Config::default();
+        config.add_to_list("trust.orgs", "my-company").unwrap();
+        config.add_to_list("trust.users", "corvid-agent").unwrap();
+        assert_eq!(config.trust.orgs, vec!["my-company"]);
+        assert_eq!(config.trust.users, vec!["corvid-agent"]);
+    }
+
+    #[test]
+    fn trust_add_deduplicates() {
+        let mut config = Config::default();
+        config.add_to_list("trust.orgs", "my-company").unwrap();
+        config.add_to_list("trust.orgs", "my-company").unwrap();
+        assert_eq!(config.trust.orgs.len(), 1);
+    }
+
+    #[test]
+    fn trust_remove_from_list() {
+        let mut config = Config {
+            trust: TrustConfig {
+                orgs: vec!["a".to_string(), "b".to_string()],
+                users: vec![],
+            },
+            ..Config::default()
+        };
+        let removed = config.remove_from_list("trust.orgs", "a").unwrap();
+        assert!(removed);
+        assert_eq!(config.trust.orgs, vec!["b"]);
+    }
+
+    #[test]
+    fn trust_unset_clears() {
+        let mut config = Config {
+            trust: TrustConfig {
+                orgs: vec!["a".to_string()],
+                users: vec!["b".to_string()],
+            },
+            ..Config::default()
+        };
+        config.unset("trust.orgs").unwrap();
+        config.unset("trust.users").unwrap();
+        assert!(config.trust.orgs.is_empty());
+        assert!(config.trust.users.is_empty());
+    }
+
+    #[test]
+    fn trust_missing_from_toml_defaults_empty() {
+        let toml_str = r#"
+[defaults]
+author = "Leif"
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert!(config.trust.orgs.is_empty());
+        assert!(config.trust.users.is_empty());
     }
 }
