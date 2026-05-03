@@ -49,7 +49,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 
 | Command | What you get | Use when |
 |---------|-------------|----------|
-| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args: [...], subcommands: [...]}`. Each subcommand recursively has the same shape; each arg has `name, long?, short?, aliases, help, required, takes_value, value_name, global?`. Each node's `args` is the **complete set of flags accepted at that level**, including inherited globals from ancestors (marked `global: true`) — no need to walk up the parent chain | First contact with fledge |
+| `fledge introspect --json` | `{schema_version: 1, name, about, aliases, args: [...], subcommands: [...]}`. Each subcommand recursively has the same shape; each arg has `name, long?, short?, aliases, help, required, takes_value, value_name, global?`. Each node's `args` is the **complete set of flags accepted at that level**, including inherited globals from ancestors (marked `global: true`). No need to walk up the parent chain | First contact with fledge |
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |
@@ -113,9 +113,9 @@ Commands **without** `--json` (pretty output only): `spec init`, `spec new`, `wa
 - Pillar list/query commands (`plugins list`, `lanes list/run/search`, `templates list/search`) use `{schema_version: 1, <resource>: [...]}`. The resource key (`plugins`, `lanes`, `results`, `templates`) acts as the discriminator.
 - Cross-cutting commands (`doctor`, `run`, `ai`, `ask`, `changelog`, `work`, `spec`, `review`) use `{schema_version: 1, action: "<verb>", ...}`. The `action` string discriminates between commands sharing similar shapes.
 
-Top-level `schema_version` is the version contract, **scoped per command**. Each `--json`-emitting command has its own version that bumps only when *that command's* shape changes incompatibly. Two commands both emitting `schema_version: 1` does not mean their shapes are linked — they're tracked independently. New fields are additive within a given command's version; field removal/retyping bumps that command's version. **Always read `<resource>` (or `action` + named keys). Never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work. Pinning to fledge ≥ 1.0 means you can rely on the envelope.
+Top-level `schema_version` is the version contract, **scoped per command**. Each `--json`-emitting command has its own version that bumps only when *that command's* shape changes incompatibly. Two commands both emitting `schema_version: 1` does not mean their shapes are linked. They're tracked independently. New fields are additive within a given command's version; field removal/retyping bumps that command's version. **Always read `<resource>` (or `action` + named keys). Never assume the top level is an array.** Pre-1.0 outputs that returned bare arrays were wrapped in tier C/D of the 1.0 readiness work. Pinning to fledge ≥ 1.0 means you can rely on the envelope.
 
-**Error output.** Errors always go to stderr as plain text, even when `--json` is active. Check the exit code first — non-zero means failure and stderr carries the human-readable error. Do not parse stderr as JSON. Stdout may still contain a partial or final envelope before some failures (e.g. `lanes run --json` emits the lane envelope with `success: false` then bails), so don't treat "stdout has JSON" as a success signal — the exit code is the contract.
+**Error output.** Errors always go to stderr as plain text, even when `--json` is active. Check the exit code first. Non-zero means failure and stderr carries the human-readable error. Do not parse stderr as JSON. Stdout may still contain a partial or final envelope before some failures (e.g. `lanes run --json` emits the lane envelope with `success: false` then bails), so don't treat "stdout has JSON" as a success signal. The exit code is the contract.
 
 ## Non-interactive mode
 
@@ -131,7 +131,7 @@ When non-interactive mode is active, every command that would otherwise prompt b
 
 | Command | Effect |
 |---------|--------|
-| `fledge templates init` | Skip template-variable prompts (uses detected defaults). For **local** templates this also auto-confirms `post_create` hooks. For **remote** templates it does **not** — pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize hooks from a third-party source. Without it, hooks are skipped in non-interactive mode and the rest of init still succeeds (`hooks_run: false` in the JSON envelope) |
+| `fledge templates init` | Skip template-variable prompts (uses detected defaults). For **local** templates this also auto-confirms `post_create` hooks. For **remote** templates it does **not**. Pass `--trust-hooks` (or set `FLEDGE_TRUST_HOOKS=1`) to authorize hooks from a third-party source. Without it, hooks are skipped in non-interactive mode and the rest of init still succeeds (`hooks_run: false` in the JSON envelope) |
 | `fledge templates create` | Skip name/description/type prompts |
 | `fledge ai use` | Errors with a clear "pass provider+model" message. No hang |
 | `fledge work commit` | Skip the interactive message prompt (requires `-m` or `--ai`) |

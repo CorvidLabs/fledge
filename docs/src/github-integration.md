@@ -10,7 +10,7 @@ fledge plugins install CorvidLabs/fledge-plugin-github
 
 ## Setup
 
-You need a GitHub token. The easiest option is to install `gh` and run `gh auth login` — fledge uses it as a fallback automatically. Otherwise, set `GITHUB_TOKEN` or configure it via `fledge config set github.token`. See [Configuration: GitHub](./configuration.md#github) for the full token resolution order and required scopes.
+You need a GitHub token. The easiest option is to install `gh` and run `gh auth login`. Fledge uses it as a fallback automatically. Otherwise, set `GITHUB_TOKEN` or configure it via `fledge config set github.token`. See [Configuration: GitHub](./configuration.md#github) for the full token resolution order and required scopes.
 
 ## GitHub commands (plugin)
 
@@ -52,5 +52,5 @@ fledge github checks --json
 
 ## Related
 
-- [Ship: Branch, Commit, Push, Release](./ship.md) — branch creation, commit, push, release workflow
-- [AI: Ask and Review](./review.md) — multi-model review panels, spec-awareness, output formats
+- [Ship: Branch, Commit, Push, Release](./ship.md). Branch creation, commit, push, release workflow
+- [AI: Ask and Review](./review.md). Multi-model review panels, spec-awareness, output formats

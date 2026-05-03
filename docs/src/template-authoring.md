@@ -79,12 +79,12 @@ repo_url = { message = "Repository URL", default = "https://github.com/{{ github
 Controls which files get rendered, copied, or skipped.
 
 - **`render`** - process through Tera
-- **`copy`** - copy as-is, even if a `render` glob would otherwise match (use this for binary assets, images, fonts — anything you don't want Tera to touch)
+- **`copy`** - copy as-is, even if a `render` glob would otherwise match (use this for binary assets, images, fonts, anything you don't want Tera to touch)
 - **`ignore`** - skip entirely (file is not written to the project)
 
 Files ending in `.tera` are *always* rendered (and the extension stripped) regardless of the globs. That is the explicit "render this" signal.
 
-Precedence — first rule that matches wins:
+Precedence. First rule that matches wins:
 
 1. `ignore` glob → skip
 2. `.tera` extension → render, strip extension
@@ -92,7 +92,7 @@ Precedence — first rule that matches wins:
 4. `render` glob → render through Tera
 5. Default (nothing matched) → copy bytes
 
-So a broad `render = ["**/*"]` is safe as long as binary assets are listed under `copy` — they bypass Tera even though the render glob would catch them.
+So a broad `render = ["**/*"]` is safe as long as binary assets are listed under `copy`. They bypass Tera even though the render glob would catch them.
 
 ```toml
 [files]

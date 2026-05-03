@@ -2,7 +2,7 @@
 
 `fledge.toml` lives in your project root and defines tasks, lanes, and release behavior. It's read by `fledge run`, `fledge lanes`, `fledge release`, and `fledge watch`. Plugins with the `metadata` capability can read it through the `fledge_config` metadata key.
 
-If no `fledge.toml` exists, `fledge run` falls back to language-aware auto-detection. As soon as the file exists, it takes full precedence — there is no merging with auto-detection.
+If no `fledge.toml` exists, `fledge run` falls back to language-aware auto-detection. As soon as the file exists, it takes full precedence. There is no merging with auto-detection.
 
 For plugin manifests (`plugin.toml`), see [Extend: Plugins](./plugins.md). For global user config (`~/.config/fledge/config.toml`), see [Configuration](./configuration.md).
 
@@ -76,7 +76,7 @@ dir = "crates/cli"
 
 | Field | Type | Required | Default | Notes |
 |-------|------|----------|---------|-------|
-| `cmd` | string | yes | — | Shell command. Run via `sh -c` (Unix) or `cmd /C` (Windows). |
+| `cmd` | string | yes | n/a | Shell command. Run via `sh -c` (Unix) or `cmd /C` (Windows). |
 | `description` | string | no | (uses `cmd`) | Shown by `fledge run --list`. |
 | `deps` | array of strings | no | `[]` | Tasks to run first. Resolved recursively. Cycles are detected and rejected. |
 | `env` | table | no | `{}` | Environment variables set for the task's process. |
@@ -115,7 +115,7 @@ fail_fast = true
 | Field | Type | Required | Default | Notes |
 |-------|------|----------|---------|-------|
 | `description` | string | no | `"(no description)"` | Shown by `fledge lanes list`. |
-| `steps` | array | yes | — | Ordered steps. At least one is required. |
+| `steps` | array | yes | n/a | Ordered steps. At least one is required. |
 | `fail_fast` | bool | no | `true` | If `false`, every step runs even after failures and a summary is reported at the end. |
 
 ### Step types
@@ -215,7 +215,7 @@ Currently parsed but unused. Reserved for future breaking-change migrations. Saf
 
 ## Imported lanes (`.fledge/lanes/*.toml`)
 
-`fledge lanes import <source>` writes imported lane definitions to a generated file under `.fledge/lanes/`. The filename is derived from the source ref as `<owner>-<repo>[-<subpath>].toml` (lowercased, with `/` in subpaths replaced by `-`) — for example, `fledge lanes import CorvidLabs/fledge-lanes/rust` writes to `.fledge/lanes/corvidlabs-fledge-lanes-rust.toml`. These files are auto-loaded by `fledge lanes run` after your top-level `fledge.toml`. Your local definitions win on name collisions.
+`fledge lanes import <source>` writes imported lane definitions to a generated file under `.fledge/lanes/`. The filename is derived from the source ref as `<owner>-<repo>[-<subpath>].toml` (lowercased, with `/` in subpaths replaced by `-`). For example, `fledge lanes import CorvidLabs/fledge-lanes/rust` writes to `.fledge/lanes/corvidlabs-fledge-lanes-rust.toml`. These files are auto-loaded by `fledge lanes run` after your top-level `fledge.toml`. Your local definitions win on name collisions.
 
 Each imported file has the same shape as `fledge.toml` but typically contains only `[tasks]` and `[lanes]` from the upstream source:
 
@@ -237,7 +237,7 @@ The leading `# Imported from <source>` comment is parsed and used to display the
 A real-world Rust project mixing every section:
 
 ```toml
-# fledge.toml — example project
+# fledge.toml. example project
 
 schema_version = 1
 
@@ -304,17 +304,17 @@ A parse failure on any section bails with a context-rich error pointing at the o
 
 A few subtle but documented behaviors worth knowing:
 
-- **Project precedence.** If `fledge.toml` exists, auto-detection is fully disabled — fledge uses only what's in the file.
+- **Project precedence.** If `fledge.toml` exists, auto-detection is fully disabled. Fledge uses only what's in the file.
 - **Empty `[tasks]` is an error.** `fledge run` bails with a "no tasks defined" message rather than silently running nothing.
 - **Empty `[lanes]` is an error for `fledge lanes run`.** The error tells you to add lanes, import them, or run `fledge lanes init`.
 - **Unknown fields are ignored.** TOML keys not in the schema are silently accepted (forward-compatible) but have no effect.
 - **`description` is optional everywhere.** Tasks fall back to showing `cmd`, lanes fall back to `(no description)`.
-- **Path handling differs by field.** Task `dir` is joined to the project root as configured and is *not* currently canonicalized — values like `"../sibling"` are accepted and will resolve outside the project. `[release].files` paths *are* canonicalized and rejected if they escape the project root.
+- **Path handling differs by field.** Task `dir` is joined to the project root as configured and is *not* currently canonicalized. Values like `"../sibling"` are accepted and will resolve outside the project. `[release].files` paths *are* canonicalized and rejected if they escape the project root.
 
 ## Related
 
-- [Run: Tasks and Lanes](./lanes.md) — workflow walkthrough, auto-detection, watch mode
-- [Configuration](./configuration.md) — global `~/.config/fledge/config.toml`
-- [Extend: Plugins](./plugins.md) — `plugin.toml` reference and ecosystem
-- [Plugin Protocol Spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md) — `fledge-v1` JSON wire protocol
-- [CLI Reference](./cli-reference.md) — every subcommand and flag
+- [Run: Tasks and Lanes](./lanes.md). Workflow walkthrough, auto-detection, watch mode
+- [Configuration](./configuration.md). Global `~/.config/fledge/config.toml`
+- [Extend: Plugins](./plugins.md). `plugin.toml` reference and ecosystem
+- [Plugin Protocol Spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md). `fledge-v1` JSON wire protocol
+- [CLI Reference](./cli-reference.md). Every subcommand and flag

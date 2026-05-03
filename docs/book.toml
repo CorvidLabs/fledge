@@ -2,7 +2,7 @@
 title = "fledge Documentation"
 authors = ["CorvidLabs"]
 language = "en"
-description = "Dev-lifecycle CLI — get your projects ready to fly. One Rust binary for the full loop from init to changelog."
+description = "Dev-lifecycle CLI. Get your projects ready to fly. One Rust binary for the full loop from init to changelog."
 
 [output.html]
 git-repository-url = "https://github.com/CorvidLabs/fledge"

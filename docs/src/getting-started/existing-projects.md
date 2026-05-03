@@ -43,7 +43,7 @@ Once `fledge.toml` exists, it takes full precedence over auto-detection.
 
 ## Everything Else Works Too
 
-Every command in the [six pillars](../pillars.md) works in any git repo — AI review, work branches, changelog, doctor, plugins, and more. See the sidebar for the full list.
+Every command in the [six pillars](../pillars.md) works in any git repo. AI review, work branches, changelog, doctor, plugins, and more. See the sidebar for the full list.
 
 ## Turn Your Project into a Template
 
@@ -67,4 +67,4 @@ fledge templates publish ./my-stack
 
 ## What's Next
 
-Once you're running tasks, the rest of the dev loop is available immediately — see [Quick Start: What's Next](./quick-start.md#whats-next) for the full list.
+Once you're running tasks, the rest of the dev loop is available immediately. See [Quick Start: What's Next](./quick-start.md#whats-next) for the full list.

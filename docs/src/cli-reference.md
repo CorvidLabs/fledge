@@ -417,7 +417,7 @@ fledge work <start|commit|push|status> [OPTIONS]
 - `start <name>`: Create a work branch (`--json` for JSON output)
 - `commit`: Stage and commit with conventional-commit formatting (`--json` for JSON output)
 - `push`: Push the current branch to origin (`--json` for JSON output)
-- `status`: Current branch status — ahead/behind counts and dirty file count (`--json` for JSON output)
+- `status`: Current branch status. Ahead/behind counts and dirty file count (`--json` for JSON output)
 
 **Options for `work start`:**
 
