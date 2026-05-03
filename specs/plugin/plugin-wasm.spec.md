@@ -41,7 +41,7 @@ Ships in **fledge 1.1.0** as an additive runtime alongside native. Existing nati
 
 ### Exported Functions
 
-All functions are `pub(super)` — visible to the `plugin` module but not public API:
+All functions are `pub(crate)` — visible within the crate but not public API:
 
 | Export | Description |
 |--------|-------------|

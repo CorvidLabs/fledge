@@ -43,7 +43,7 @@ fn create_engine() -> Result<Engine> {
     Ok(Engine::new(&config)?)
 }
 
-pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
+pub(crate) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     let cwasm_path = wasm_path.with_extension("cwasm");
     if cwasm_path.exists() && is_cache_valid(wasm_path, &cwasm_path)? {
         match unsafe { Module::deserialize_file(engine, &cwasm_path) } {
@@ -99,7 +99,7 @@ fn compute_hash(data: &[u8]) -> String {
     result.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-pub(super) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
+pub(crate) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
     let engine = create_engine()?;
     let wasm_bytes = std::fs::read(wasm_path)
         .with_context(|| format!("reading WASM binary: {}", wasm_path.display()))?;
@@ -436,7 +436,7 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
     }
 }
 
-pub(super) fn run_wasm_plugin(
+pub(crate) fn run_wasm_plugin(
     wasm_path: &Path,
     args: &[String],
     plugin_name: &str,
