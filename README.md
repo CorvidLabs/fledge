@@ -77,13 +77,18 @@ fledge ai status                               # show active provider/model and 
 
 That is the whole core. Anything else is a plugin.
 
-## Default plugins
+## Plugins
 
-Three plugins extend fledge with commands that don't belong in every install. One line installs them all:
+Plugins extend fledge with community-built commands. Native plugins run as regular executables; **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default.
 
 ```bash
-fledge plugins install --defaults
+fledge plugins install --defaults          # curated native plugin set
+fledge plugins create my-lint --wasm       # scaffold a sandboxed WASM plugin
 ```
+
+### Default plugins
+
+Three native plugins ship as the default set:
 
 | Plugin | Adds |
 |--------|------|
@@ -91,7 +96,17 @@ fledge plugins install --defaults
 | [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` — polyglot lockfile audits |
 | [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` — LOC, churn, test/source ratio (via `tokei` + `git`) |
 
-Not every fledge user is on GitHub or runs a polyglot project. The core stays tight, you opt in to what you need.
+### WASM plugins
+
+WASM plugins are ideal for pure-computation tasks (linting, formatting, analysis) where you want strong isolation without trusting arbitrary binaries:
+
+- Sandboxed by default — no filesystem, no network
+- Opt-in capabilities prompted at install time
+- Fuel-bounded execution (no infinite loops)
+- 256 MB memory cap
+- Cross-platform single `.wasm` binary
+
+See the [WASM plugin guide](https://corvidlabs.github.io/fledge/wasm-plugins.html) for authoring details.
 
 ## Built-in templates
 
@@ -111,6 +126,7 @@ Browse community templates: `fledge templates search <keyword>`
 - [Template authoring](https://corvidlabs.github.io/fledge/template-authoring.html). How to create and publish your own templates
 - [Lanes guide](https://corvidlabs.github.io/fledge/lanes.html). Task pipelines and workflow automation
 - [Plugins guide](https://corvidlabs.github.io/fledge/plugins.html). Extend fledge with community tools
+- [WASM plugins](https://corvidlabs.github.io/fledge/wasm-plugins.html). Build sandboxed plugins with Wasmtime
 
 ## Contributing
 
