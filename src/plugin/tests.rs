@@ -119,9 +119,13 @@ fn resolve_plugin_source_dir_handles_non_symlink_path() {
     assert_eq!(resolved, expected);
 }
 
+const _: () = assert!(
+    !DEFAULT_PLUGINS.is_empty(),
+    "DEFAULT_PLUGINS must not be empty"
+);
+
 #[test]
 fn default_plugins_are_well_formed() {
-    assert!(!DEFAULT_PLUGINS.is_empty());
     for src in DEFAULT_PLUGINS {
         let (owner_repo, git_ref) = parse_source_ref(src);
         assert!(
