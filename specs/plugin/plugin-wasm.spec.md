@@ -51,6 +51,14 @@ All functions are `pub(crate)` — visible within the crate but not public API:
 
 Internal (not exported): `setup_linker` (links host imports based on capabilities), `HostState` (per-invocation state: WASI context, plugin info, pending responses, store limits).
 
+### Functions
+
+| Function | Source | Signature | Description |
+|----------|--------|-----------|-------------|
+| `load_module` | `wasm.rs` | `(&Engine, &Path) -> Result<Module>` | Load a `.wasm` file, using `.cwasm` cache when valid (hash + version + tamper check) |
+| `compile_and_cache` | `wasm.rs` | `(&Path) -> Result<()>` | Pre-compile a `.wasm` binary to `.cwasm` with a 3-line stamp file (wasm hash, wasmtime version, cwasm hash) |
+| `run_wasm_plugin` | `wasm.rs` | `(&Path, &[String], &str, &str, &Path, &PluginCapabilities) -> Result<()>` | Full lifecycle: load module, build WASI context, link host imports, run `_start`, enforce limits |
+
 ## Manifest Changes
 
 ### plugin.toml
