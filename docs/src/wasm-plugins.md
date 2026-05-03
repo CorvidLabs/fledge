@@ -1,6 +1,6 @@
 # WASM Plugins
 
-WASM plugins run in a sandboxed [Wasmtime](https://wasmtime.dev/) runtime with no host access by default. They're ideal for pure-computation tasks — linting, formatting, analysis, code generation — where you want strong isolation without trusting arbitrary native binaries.
+WASM plugins run in a sandboxed [Wasmtime](https://wasmtime.dev/) runtime with no host access by default. They're ideal for pure-computation tasks (linting, formatting, analysis, code generation) where you want strong isolation without trusting arbitrary native binaries.
 
 ## Quick start
 
@@ -17,7 +17,7 @@ When fledge runs a WASM plugin:
 
 1. The `.wasm` binary is compiled to native code and cached as `.cwasm` (version-stamped, invalidated on Wasmtime upgrades)
 2. A Wasmtime instance is created with the declared capabilities
-3. The plugin communicates via the same [fledge-v1 protocol](./plugins.md#plugin-protocol-fledge-v1) as native plugins — JSON messages over host-provided `send`/`recv` functions
+3. The plugin communicates via the same [fledge-v1 protocol](./plugins.md#plugin-protocol-fledge-v1) as native plugins. JSON messages over host-provided `send`/`recv` functions
 4. Execution is bounded by fuel (CPU) and a 60-second wall-clock timeout
 5. Memory is capped at 256 MB
 
@@ -33,7 +33,7 @@ WASM plugins declare capabilities in `plugin.toml`. All default to denied.
 | `filesystem` | `"none"`, `"project"`, `"plugin"` | `"project"` mounts project root read-only. `"plugin"` adds a read-write plugin directory. |
 | `network` | `true`/`false` | Inherit the host network stack |
 
-Users are prompted to approve capabilities at install time. Denied capabilities fail gracefully at runtime — no crashes.
+Users are prompted to approve capabilities at install time. Denied capabilities fail gracefully at runtime. No crashes.
 
 ## plugin.toml for WASM
 
@@ -131,7 +131,7 @@ fledge plugins run my-lint
 | Memory | 256 MB | Allocation fails, plugin traps |
 | Stack | Wasmtime default | Plugin traps on overflow |
 
-All limits result in a clean trap — the host process never crashes or enters an invalid state.
+All limits result in a clean trap. The host process never crashes or enters an invalid state.
 
 ## When to use WASM vs native
 
@@ -151,7 +151,7 @@ All limits result in a clean trap — the host process never crashes or enters a
 
 ## Limitations
 
-- No interactive UI (prompt/confirm/select) — WASM plugins must use non-interactive output
+- No interactive UI (prompt/confirm/select). WASM plugins must use non-interactive output
 - No direct access to environment variables or the host filesystem beyond declared mounts
 - Build requires the `wasm32-wasip1` target (`rustup target add wasm32-wasip1`)
 - Currently Rust-only for the scaffold; any language that compiles to WASI works in practice

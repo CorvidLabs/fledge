@@ -29,13 +29,13 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 ### Template Rendering
 
 - Templates are rendered through Tera (Jinja2-style) in a sandboxed context
-- Path traversal is blocked — templates cannot write outside the project directory
+- Path traversal is blocked. Templates cannot write outside the project directory
 - **Local** templates (built-in or under a configured `extra_paths`) are
   presumed user-authored. `--yes` (or `FLEDGE_NON_INTERACTIVE=1`) auto-confirms
   their `post_create` hooks, on the same trust footing as the rest of the
   template content
 - **Remote** templates fetched from GitHub get a stricter consent rule.
-  `--yes` does **not** authorize their hooks — `--yes` skips routine prompts
+  `--yes` does **not** authorize their hooks. `--yes` skips routine prompts
   (template-variable defaults, etc.), but arbitrary shell execution from a
   third-party source needs explicit consent. Pass `--trust-hooks` (or set
   `FLEDGE_TRUST_HOOKS=1`) to authorize hook execution for the run; otherwise
@@ -58,18 +58,18 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
   [File Locations](#file-locations) below)
 - **Native plugins run as unsandboxed processes with the same permissions as
   the user.** A plugin binary can read any file the user can read, write to
-  any directory the user can write to, and make network requests — regardless
+  any directory the user can write to, and make network requests, regardless
   of its declared capabilities. Capabilities gate the fledge-v1 *protocol*
   (exec/store/metadata RPC messages), not the process itself. Treat
   installing a native plugin as equivalent to running arbitrary code
-- The `fledge-v1` plugin protocol exposes three opt-in capabilities — `exec`,
-  `store`, and `metadata` — that default to `false`. Each is presented for
+- The `fledge-v1` plugin protocol exposes three opt-in capabilities (`exec`,
+  `store`, and `metadata`) that default to `false`. Each is presented for
   explicit user approval at install time and persisted in `plugins.toml`
-- **`exec` grants full shell access — there is no sandbox.** A plugin with
+- **`exec` grants full shell access. There is no sandbox.** A plugin with
   `exec = true` can run any shell command via `sh -c <command>` (Unix) or
   `cmd /C <command>` (Windows). The optional `cwd` parameter is validated
   to stay within the project root or the plugin's own directory, but the
-  command string itself is unfiltered — `cat /etc/passwd`, `curl`, absolute
+  command string itself is unfiltered. `cat /etc/passwd`, `curl`, absolute
   paths, and `cd /` all work. Treat granting `exec` the same as granting
   the plugin full access to your system as your user
 - Stdout/stderr from `exec` are each capped at 10 MB; plugin state at 1 MB
@@ -85,9 +85,9 @@ sandbox with strict isolation:
   only compute and send output via the fledge protocol
 - **Filesystem access is opt-in and scoped.** The `filesystem` capability
   controls what the plugin can see:
-  - `"none"` (default) — no filesystem access
-  - `"project"` — read-only access to the project root (mounted at `/project`)
-  - `"plugin"` — read-only project root + read-write access to the plugin's
+  - `"none"` (default). No filesystem access
+  - `"project"`. Read-only access to the project root (mounted at `/project`)
+  - `"plugin"`. Read-only project root + read-write access to the plugin's
     own directory (mounted at `/plugin`)
 - **Network access is opt-in.** `network = true` inherits the host's network
   stack. Without it, the plugin cannot make any network requests
@@ -103,7 +103,7 @@ sandbox with strict isolation:
   approval
 - **Pre-compiled module caching.** WASM modules are compiled to native code
   and cached (`.cwasm`). The cache is keyed on SHA-256 hash of the `.wasm`
-  binary and the Wasmtime engine version — a Wasmtime upgrade automatically
+  binary and the Wasmtime engine version. A Wasmtime upgrade automatically
   invalidates stale caches
 
 ### File Locations
@@ -117,15 +117,15 @@ Plugin storage uses the platform config directory (`dirs::config_dir()`):
 | Windows  | `%APPDATA%\fledge\` |
 
 Under that base:
-- `plugins/` — installed plugin directories
-- `plugins/bin/` — symlinked binaries
-- `plugins.toml` — plugin registry
-- `config.toml` — global fledge config
+- `plugins/`. Installed plugin directories
+- `plugins/bin/`. Symlinked binaries
+- `plugins.toml`. Plugin registry
+- `config.toml`. Global fledge config
 
 ### Dependencies
 
 - `cargo audit` runs in CI to check for known vulnerabilities
-- Dependencies are kept up to date — run `fledge deps --audit` to check locally
+- Dependencies are kept up to date. Run `fledge deps --audit` to check locally
 
 ## Scope
 

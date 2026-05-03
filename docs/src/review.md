@@ -111,5 +111,5 @@ REVIEW=$(fledge review --json)
 
 ## Related
 
-- [Extend: Plugins](./plugins.md) — `fledge metrics` and `fledge deps` complement AI review (install with `fledge plugins install --defaults`)
-- [CLI Reference](./cli-reference.md#ai-ask-and-review) — full flag reference for `ai`, `ask`, and `review`
+- [Extend: Plugins](./plugins.md). `fledge metrics` and `fledge deps` complement AI review (install with `fledge plugins install --defaults`)
+- [CLI Reference](./cli-reference.md#ai-ask-and-review). Full flag reference for `ai`, `ask`, and `review`

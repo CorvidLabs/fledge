@@ -140,8 +140,8 @@ timeout_seconds = 600
 
 | Variable | What it does |
 |----------|-------------|
-| `FLEDGE_NON_INTERACTIVE` | Truthy (`1`, `true`, `yes`, `y`, `on`) silences prompts — same effect as passing `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts behave as `--yes`; prompts with no default bail with a clear error instead of hanging. **Hook exception:** for **ad-hoc remote** templates passed to `templates init` (`--template owner/repo` not in config), `post_create` hooks are skipped unless trust is granted explicitly via `--trust-hooks` or `FLEDGE_TRUST_HOOKS`. Built-in templates, anything under `templates.paths`, and anything reachable through your configured `templates.repos` still follow the `--yes` consent path. |
-| `FLEDGE_TRUST_HOOKS` | Truthy authorizes `post_create` hook execution for **ad-hoc remote** templates passed to `fledge templates init` — same as passing `--trust-hooks`. Has no effect on templates reached through `templates.paths` or `templates.repos` (those already follow the `--yes` consent path). Hooks run arbitrary shell commands; only set this for sources you trust. |
+| `FLEDGE_NON_INTERACTIVE` | Truthy (`1`, `true`, `yes`, `y`, `on`) silences prompts. Same effect as passing `--non-interactive` (alias `--ni`) per invocation. Confirmation prompts behave as `--yes`; prompts with no default bail with a clear error instead of hanging. **Hook exception:** for **ad-hoc remote** templates passed to `templates init` (`--template owner/repo` not in config), `post_create` hooks are skipped unless trust is granted explicitly via `--trust-hooks` or `FLEDGE_TRUST_HOOKS`. Built-in templates, anything under `templates.paths`, and anything reachable through your configured `templates.repos` still follow the `--yes` consent path. |
+| `FLEDGE_TRUST_HOOKS` | Truthy authorizes `post_create` hook execution for **ad-hoc remote** templates passed to `fledge templates init`. Same as passing `--trust-hooks`. Has no effect on templates reached through `templates.paths` or `templates.repos` (those already follow the `--yes` consent path). Hooks run arbitrary shell commands; only set this for sources you trust. |
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
 | `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
 | `FLEDGE_AI_PROVIDER` | AI provider override (`claude` or `ollama`) |
@@ -159,8 +159,8 @@ Per-project settings live in `fledge.toml` in your project root. This file defin
 For the full schema (every section, every key, every default), see the [`fledge.toml` Reference](./fledge-toml.md).
 
 Topical guides:
-- [Run: Tasks and Lanes](./lanes.md) — defining tasks/lanes, step types, parallel groups, importing community lanes
-- [Extend: Plugins](./plugins.md) — `plugin.toml` and the plugin ecosystem
+- [Run: Tasks and Lanes](./lanes.md). Defining tasks/lanes, step types, parallel groups, importing community lanes
+- [Extend: Plugins](./plugins.md). `plugin.toml` and the plugin ecosystem
 
 ## Priority Order
 

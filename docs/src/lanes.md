@@ -4,7 +4,7 @@ The Run pillar covers three commands: `fledge run` (task runner), `fledge watch`
 
 ## Running Tasks
 
-`fledge run` works immediately in any project — no config needed. It detects your stack from marker files and provides sensible defaults:
+`fledge run` works immediately in any project. No config needed. It detects your stack from marker files and provides sensible defaults:
 
 ```bash
 fledge run test     # auto-detects Rust/Node/Go/Python/Ruby/Java/Swift
@@ -36,7 +36,7 @@ When you want full control, generate a `fledge.toml`:
 fledge run --init
 ```
 
-This creates a config file pre-filled with detected tasks. Once `fledge.toml` exists, it takes full precedence — no mixing with auto-detection. You can also override the detected language with `--lang`:
+This creates a config file pre-filled with detected tasks. Once `fledge.toml` exists, it takes full precedence. No mixing with auto-detection. You can also override the detected language with `--lang`:
 
 ```bash
 fledge run test --lang swift
@@ -339,11 +339,11 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 ### Related
 
-- [`fledge.toml` Reference](./fledge-toml.md) — full schema for tasks, lanes, release, and imported lanes
-- [Configuration](./configuration.md) — global config, GitHub tokens
-- [Extend: Plugins](./plugins.md) — community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md) — full `fledge lanes` subcommand reference
-- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes) — official community lane collection
+- [`fledge.toml` Reference](./fledge-toml.md). Full schema for tasks, lanes, release, and imported lanes
+- [Configuration](./configuration.md). Global config, GitHub tokens
+- [Extend: Plugins](./plugins.md). Community commands, use plugins in lanes
+- [CLI Reference](./cli-reference.md). Full `fledge lanes` subcommand reference
+- [Example Lanes](https://github.com/CorvidLabs/fledge-lanes). Official community lane collection
 
 ### Tips
 

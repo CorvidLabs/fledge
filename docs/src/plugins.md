@@ -132,7 +132,7 @@ network = false
 
 ### Limitations
 
-- Interactive UI (prompt/confirm/select) is not supported — use non-interactive output
+- Interactive UI (prompt/confirm/select) is not supported. Use non-interactive output
 - Compute is bounded (fuel limit + 60s wall-clock timeout)
 - Memory is limited to 256 MB
 
@@ -339,19 +339,19 @@ Outbound (plugin → fledge):
 
 | Type | Reply | Requires |
 |------|-------|----------|
-| `prompt` | `response` with string | — |
-| `confirm` | `response` with boolean | — |
-| `select` | `response` with selected string | — |
-| `multi_select` | `response` with array of strings | — |
+| `prompt` | `response` with string | none |
+| `confirm` | `response` with boolean | none |
+| `select` | `response` with selected string | none |
+| `multi_select` | `response` with array of strings | none |
 | `exec` | `response` with `{code, stdout, stderr}` | `exec` |
 | `store` | *(fire-and-forget)* | `store` |
 | `load` | `response` with string or `null` | `store` |
 | `metadata` | `response` with object of requested keys | `metadata` |
-| `progress` | *(fire-and-forget)* | — |
-| `log` | *(fire-and-forget; level: debug/info/warn/error)* | — |
-| `output` | *(fire-and-forget; printed verbatim to stdout)* | — |
+| `progress` | *(fire-and-forget)* | none |
+| `log` | *(fire-and-forget; level: debug/info/warn/error)* | none |
+| `output` | *(fire-and-forget; printed verbatim to stdout)* | none |
 
-Reply messages always have shape `{"type": "response", "id": "<echoed>", "value": <type-specific>}`. There is no `exec_result` / `store_ack` / `load_result` envelope — every reply uses the generic `response` type.
+Reply messages always have shape `{"type": "response", "id": "<echoed>", "value": <type-specific>}`. There is no `exec_result` / `store_ack` / `load_result` envelope. Every reply uses the generic `response` type.
 
 See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md) for full schemas, lifecycle, security model, and worked examples.
 
@@ -359,11 +359,11 @@ See the [plugin protocol spec](https://github.com/CorvidLabs/fledge/blob/main/sp
 
 Plugin install, update, and search operations use your GitHub token when available. This enables installing plugins from private repositories. See [Configuration: GitHub](./configuration.md#github) for the full token resolution order and required scopes.
 
-The easiest setup is `gh auth login` — fledge uses it automatically as a fallback. The token is injected via git's `http.extraheader` mechanism and is never embedded in remote URLs or persisted to disk.
+The easiest setup is `gh auth login`. Fledge uses it automatically as a fallback. The token is injected via git's `http.extraheader` mechanism and is never embedded in remote URLs or persisted to disk.
 
 ## Security Model
 
-> **Warning (native plugins):** Native plugins run as unsandboxed processes with your full user permissions. A plugin can read any file you can read, write to any directory you can write to, and make network requests — regardless of its declared capabilities. Capabilities gate the fledge-v1 *protocol* (exec/store/metadata RPC messages), not the process itself. Review plugin source before installing, especially from unknown authors.
+> **Warning (native plugins):** Native plugins run as unsandboxed processes with your full user permissions. A plugin can read any file you can read, write to any directory you can write to, and make network requests, regardless of its declared capabilities. Capabilities gate the fledge-v1 *protocol* (exec/store/metadata RPC messages), not the process itself. Review plugin source before installing, especially from unknown authors.
 >
 > **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default. Filesystem and network access are opt-in, scoped, and prompted at install time. See [WASM Plugins](#wasm-plugins) above.
 

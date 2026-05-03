@@ -79,7 +79,7 @@ That is the whole core. Anything else is a plugin.
 
 ## Plugins
 
-Plugins extend fledge with community-built commands. Native plugins run as regular executables; **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default.
+Plugins extend fledge with community-built commands. Native plugins run as regular executables. **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default.
 
 ```bash
 fledge plugins install --defaults          # curated native plugin set
@@ -92,15 +92,15 @@ Three native plugins ship as the default set:
 
 | Plugin | Adds |
 |--------|------|
-| [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs` — GitHub PR/issue/CI flow |
-| [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps` — polyglot lockfile audits |
-| [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics` — LOC, churn, test/source ratio (via `tokei` + `git`) |
+| [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github) | `checks`, `issues`, `prs`. GitHub PR/issue/CI flow |
+| [`fledge-plugin-deps`](https://github.com/CorvidLabs/fledge-plugin-deps) | `deps`. Polyglot lockfile audits |
+| [`fledge-plugin-metrics`](https://github.com/CorvidLabs/fledge-plugin-metrics) | `metrics`. LOC, churn, test/source ratio (via `tokei` + `git`) |
 
 ### WASM plugins
 
 WASM plugins are ideal for pure-computation tasks (linting, formatting, analysis) where you want strong isolation without trusting arbitrary binaries:
 
-- Sandboxed by default — no filesystem, no network
+- Sandboxed by default. No filesystem, no network
 - Opt-in capabilities prompted at install time
 - Fuel-bounded execution (no infinite loops)
 - 256 MB memory cap

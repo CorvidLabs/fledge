@@ -81,4 +81,4 @@ fledge doctor                        # anything broken in your env?
 fledge plugins install --defaults    # adds checks, issues, prs, deps, metrics
 ```
 
-Each of these has its own chapter — see the sidebar for details.
+Each of these has its own chapter. See the sidebar for details.
