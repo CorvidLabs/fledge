@@ -132,6 +132,19 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             );
             println!();
 
+            println!("  {}", style("Trust").bold().underlined());
+            print_config_list_described(
+                "trust.orgs",
+                &config.trust.orgs,
+                "Extra trusted orgs (team tier)",
+            );
+            print_config_list_described(
+                "trust.users",
+                &config.trust.users,
+                "Extra trusted users (team tier)",
+            );
+            println!();
+
             println!("  {}", style("AI").bold().underlined());
             print_config_described(
                 "ai.provider",
@@ -278,6 +291,16 @@ pub fn interactive_config_edit() -> Result<()> {
         ConfigKey {
             key: "templates.repos",
             desc: "GitHub repos with templates (owner/repo)",
+            kind: KeyKind::List,
+        },
+        ConfigKey {
+            key: "trust.orgs",
+            desc: "Extra trusted orgs (team tier for plugins/lanes)",
+            kind: KeyKind::List,
+        },
+        ConfigKey {
+            key: "trust.users",
+            desc: "Extra trusted users (team tier for plugins/lanes)",
             kind: KeyKind::List,
         },
         ConfigKey {

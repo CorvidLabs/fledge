@@ -1,6 +1,8 @@
 use console::style;
 use serde::Serialize;
 
+use crate::config::TrustConfig;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrustTier {
@@ -34,12 +36,26 @@ const OFFICIAL_ORGS: &[&str] = &["CorvidLabs", "corvidlabs"];
 /// the CorvidLabs org itself classify as `Official` via `OFFICIAL_ORGS` above.
 ///
 /// Compared case-insensitively (GitHub treats `0xLeif` and `0xleif` as the
-/// same user). Adding or removing a member is a code change and requires a
-/// PR — there is no runtime configuration of this list.
+/// same user). Users can extend the team tier at runtime via `trust.orgs` and
+/// `trust.users` in config.toml — see `load_trust_config()`.
 const TEAM_MEMBERS: &[&str] = &["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"];
 
 fn is_team_member(owner: &str) -> bool {
     TEAM_MEMBERS.iter().any(|m| m.eq_ignore_ascii_case(owner))
+}
+
+fn load_trust_config() -> TrustConfig {
+    crate::config::Config::load()
+        .map(|c| c.trust)
+        .unwrap_or_default()
+}
+
+fn is_config_org(owner: &str, config: &TrustConfig) -> bool {
+    config.orgs.iter().any(|o| o.eq_ignore_ascii_case(owner))
+}
+
+fn is_config_user(owner: &str, config: &TrustConfig) -> bool {
+    config.users.iter().any(|u| u.eq_ignore_ascii_case(owner))
 }
 
 pub fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
@@ -65,6 +81,16 @@ pub fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
 }
 
 pub fn determine_trust_tier(source: &str) -> TrustTier {
+    let config = load_trust_config();
+    classify_source(source, &config)
+}
+
+pub fn determine_trust_tier_from_owner(owner: &str) -> TrustTier {
+    let config = load_trust_config();
+    classify_owner(owner, &config)
+}
+
+fn classify_source(source: &str, config: &TrustConfig) -> TrustTier {
     let (base, _) = parse_source_ref(source);
 
     let normalized = if base.starts_with("https://github.com/") {
@@ -83,7 +109,7 @@ pub fn determine_trust_tier(source: &str) -> TrustTier {
         if OFFICIAL_ORGS.contains(&org) {
             return TrustTier::Official;
         }
-        if is_team_member(org) {
+        if is_team_member(org) || is_config_org(org, config) || is_config_user(org, config) {
             return TrustTier::Team;
         }
     }
@@ -91,10 +117,11 @@ pub fn determine_trust_tier(source: &str) -> TrustTier {
     TrustTier::Unverified
 }
 
-pub fn determine_trust_tier_from_owner(owner: &str) -> TrustTier {
+fn classify_owner(owner: &str, config: &TrustConfig) -> TrustTier {
     if OFFICIAL_ORGS.contains(&owner) {
         TrustTier::Official
-    } else if is_team_member(owner) {
+    } else if is_team_member(owner) || is_config_org(owner, config) || is_config_user(owner, config)
+    {
         TrustTier::Team
     } else {
         TrustTier::Unverified
@@ -269,5 +296,124 @@ mod tests {
                 "expected {source} to classify as Team"
             );
         }
+    }
+
+    #[test]
+    fn config_org_classifies_as_team() {
+        let config = TrustConfig {
+            orgs: vec!["my-company".to_string()],
+            users: vec![],
+        };
+        assert_eq!(
+            classify_source("my-company/fledge-plugin-foo", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_user_classifies_as_team() {
+        let config = TrustConfig {
+            orgs: vec![],
+            users: vec!["corvid-agent".to_string()],
+        };
+        assert_eq!(
+            classify_source("corvid-agent/fledge-plugin-codegolf", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_org_case_insensitive() {
+        let config = TrustConfig {
+            orgs: vec!["MyCompany".to_string()],
+            users: vec![],
+        };
+        assert_eq!(
+            classify_source("mycompany/fledge-plugin-foo", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_user_case_insensitive() {
+        let config = TrustConfig {
+            orgs: vec![],
+            users: vec!["Corvid-Agent".to_string()],
+        };
+        assert_eq!(
+            classify_source("corvid-agent/fledge-plugin-foo", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_org_full_url() {
+        let config = TrustConfig {
+            orgs: vec!["my-company".to_string()],
+            users: vec![],
+        };
+        assert_eq!(
+            classify_source("https://github.com/my-company/fledge-plugin-foo", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_user_with_ref() {
+        let config = TrustConfig {
+            orgs: vec![],
+            users: vec!["corvid-agent".to_string()],
+        };
+        assert_eq!(
+            classify_source("corvid-agent/fledge-plugin-foo@v1.0.0", &config),
+            TrustTier::Team
+        );
+    }
+
+    #[test]
+    fn config_does_not_grant_official() {
+        let config = TrustConfig {
+            orgs: vec!["my-company".to_string()],
+            users: vec![],
+        };
+        assert_eq!(
+            classify_source("my-company/fledge-plugin-foo", &config),
+            TrustTier::Team
+        );
+        assert_ne!(
+            classify_source("my-company/fledge-plugin-foo", &config),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn official_takes_precedence_over_config() {
+        let config = TrustConfig {
+            orgs: vec!["CorvidLabs".to_string()],
+            users: vec![],
+        };
+        assert_eq!(
+            classify_source("CorvidLabs/fledge-plugin-foo", &config),
+            TrustTier::Official
+        );
+    }
+
+    #[test]
+    fn config_owner_based_team() {
+        let config = TrustConfig {
+            orgs: vec!["my-company".to_string()],
+            users: vec!["corvid-agent".to_string()],
+        };
+        assert_eq!(classify_owner("my-company", &config), TrustTier::Team);
+        assert_eq!(classify_owner("corvid-agent", &config), TrustTier::Team);
+    }
+
+    #[test]
+    fn empty_config_no_effect() {
+        let config = TrustConfig::default();
+        assert_eq!(
+            classify_source("someuser/fledge-plugin-thing", &config),
+            TrustTier::Unverified
+        );
     }
 }

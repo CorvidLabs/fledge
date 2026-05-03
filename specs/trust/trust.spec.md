@@ -1,19 +1,20 @@
 ---
 module: trust
-version: 2
+version: 3
 status: active
 files:
   - src/trust.rs
 
 db_tables: []
-depends_on: []
+depends_on:
+  - config
 ---
 
 # Trust
 
 ## Purpose
 
-Shared trust-tier classification for all extension types (plugins, templates, lanes). Determines whether a source is official (CorvidLabs org), team (a personal repo owned by a CorvidLabs member), or unverified based on the GitHub org/owner in the source URL or shorthand. Extracted from `plugin.rs` so that templates and lanes can reuse the same logic.
+Shared trust-tier classification for all extension types (plugins, templates, lanes). Determines whether a source is official (CorvidLabs org), team (a personal repo owned by a CorvidLabs member or listed in user config), or unverified based on the GitHub org/owner in the source URL or shorthand. Extracted from `plugin.rs` so that templates and lanes can reuse the same logic. Users can extend the team tier at runtime via `trust.orgs` and `trust.users` in `config.toml`.
 
 ## Public API
 
@@ -52,8 +53,10 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 4. `determine_trust_tier` supports HTTPS URLs, SSH URLs, and `owner/repo` shorthand
 5. `parse_source_ref` does not split on `@` in credential URLs (e.g., `https://user:token@github.com/...`)
 6. `parse_source_ref` handles SSH URLs with `git@` prefix without false-splitting on the prefix `@`
-7. Any source not matching an official org or team member returns `Unverified`
-8. Both `OFFICIAL_ORGS` and `TEAM_MEMBERS` are `&[&str]` constants — adding or removing entries is a code change and requires a PR. There is no runtime configuration of trust tiers
+7. Any source not matching an official org, team member, or config entry returns `Unverified`
+8. `OFFICIAL_ORGS` and `TEAM_MEMBERS` are `&[&str]` constants providing the baseline trust lists. Users can extend the team tier at runtime via `trust.orgs` and `trust.users` in `config.toml` — these config entries grant **Team** tier only, never Official
+9. Config-based orgs and users are compared case-insensitively, matching the behavior of hardcoded `TEAM_MEMBERS`
+10. When config cannot be loaded (missing or malformed `config.toml`), the system falls back to an empty `TrustConfig` — only the hardcoded constants apply
 
 ## Behavioral Examples
 
@@ -77,6 +80,15 @@ determine_trust_tier("CorvidLabs/fledge-plugin-deploy@v1.0.0") -> Official
 determine_trust_tier("0xLeif/fledge-plugin-thing@v0.1.0")       -> Team
 ```
 
+### determine_trust_tier — config-extended team tier
+```
+# Given config.toml contains trust.orgs = ["my-company"] and trust.users = ["corvid-agent"]
+determine_trust_tier("my-company/fledge-plugin-foo")    -> Team
+determine_trust_tier("corvid-agent/fledge-plugin-bar")  -> Team
+determine_trust_tier("My-Company/fledge-plugin-foo")    -> Team  (case-insensitive)
+determine_trust_tier("CorvidLabs/fledge-plugin-deploy") -> Official  (hardcoded takes precedence)
+```
+
 ### parse_source_ref
 ```
 parse_source_ref("someone/fledge-deploy@v1.2.0") -> ("someone/fledge-deploy", Some("v1.2.0"))
@@ -94,10 +106,12 @@ parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://us
 
 - `console` — colored terminal output for styled labels
 - `serde` — serialization of TrustTier enum
+- `crate::config` — `TrustConfig` struct and `Config::load()` for runtime trust extensions
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |
+| 3 | 2026-05-03 | Configurable trust: `trust.orgs` and `trust.users` config keys extend the team tier at runtime. Invariant 8 rewritten, invariants 9-10 added. Behavioral examples added for config-driven classification. Depends on `config` module |
 | 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (`["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |
+| 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |

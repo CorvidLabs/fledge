@@ -310,7 +310,8 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         bail!(
             "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
              Only official and team-tier plugins may use exec or network.\n  \
-             If you trust this source, fork it under an account you control or an org in your team allowlist.",
+             To trust this source, run: fledge config add trust.orgs <owner>\n  \
+             Or fork it under an account you control.",
             repo_name,
             blocked.join(", ")
         );
