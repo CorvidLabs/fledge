@@ -279,6 +279,26 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
     let has_hooks = manifest.hooks.has_any();
 
+    if tier == TrustTier::Unverified {
+        let mut blocked = Vec::new();
+        if caps.exec {
+            blocked.push("exec");
+        }
+        if caps.network {
+            blocked.push("network");
+        }
+        if !blocked.is_empty() {
+            fs::remove_dir_all(&plugin_dir).ok();
+            bail!(
+                "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
+                 Only official and team-tier plugins may use exec or network.\n  \
+                 If you trust this source, fork it into the CorvidLabs org or a team member's account.",
+                repo_name,
+                blocked.join(", ")
+            );
+        }
+    }
+
     if needs_cap_prompt || has_hooks {
         if !json {
             if needs_cap_prompt {
@@ -298,18 +318,33 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                         style("•").yellow()
                     );
                 }
-                if let Some(ref fs) = caps.filesystem {
-                    if fs != "none" {
-                        println!(
-                            "    {} filesystem ({}) — access host files",
-                            style("•").yellow(),
-                            fs
-                        );
+                if let Some(ref fs_cap) = caps.filesystem {
+                    match fs_cap.as_str() {
+                        "project" => {
+                            println!(
+                                "    {} filesystem (project) — read-only access to project directory",
+                                style("•").yellow()
+                            );
+                        }
+                        "plugin" => {
+                            println!(
+                                "    {} filesystem (plugin) — read-only project access + read-write plugin data",
+                                style("•").yellow()
+                            );
+                        }
+                        "none" => {}
+                        other => {
+                            println!(
+                                "    {} filesystem ({}) — access host files",
+                                style("•").yellow(),
+                                other
+                            );
+                        }
                     }
                 }
                 if caps.network {
                     println!(
-                        "    {} network — make outbound network requests",
+                        "    {} network — make outbound network requests (unrestricted)",
                         style("•").yellow()
                     );
                 }

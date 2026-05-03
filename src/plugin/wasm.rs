@@ -13,8 +13,7 @@ use crate::plugin::PluginCapabilities;
 const FUEL_LIMIT: u64 = 10_000_000_000;
 const WALL_CLOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 const MAX_MEMORY_BYTES: usize = 256 * 1024 * 1024;
-// Must match the wasmtime version in Cargo.toml — .cwasm cache is invalidated on mismatch
-const WASMTIME_VERSION: &str = "43";
+const WASMTIME_VERSION: &str = env!("WASMTIME_DEP_VERSION");
 
 #[derive(Debug)]
 struct FledgeExitOk;
@@ -45,68 +44,62 @@ fn create_engine() -> Result<Engine> {
 
 pub(crate) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     let cwasm_path = wasm_path.with_extension("cwasm");
-    if cwasm_path.exists() && is_cache_valid(wasm_path, &cwasm_path)? {
-        match unsafe { Module::deserialize_file(engine, &cwasm_path) } {
-            Ok(module) => return Ok(module),
-            Err(e) => {
-                eprintln!(
-                    "  {} cached module invalid (recompiling): {}",
-                    style("⚠").yellow(),
-                    e
-                );
-                let _ = std::fs::remove_file(&cwasm_path);
-                let _ = std::fs::remove_file(cwasm_path.with_extension("cwasm.sha256"));
-            }
+    if cwasm_path.exists() {
+        if let Some(module) = try_load_cached(engine, wasm_path, &cwasm_path)? {
+            return Ok(module);
         }
     }
-    let module = Module::from_file(engine, wasm_path)?;
-    match module.serialize() {
-        Ok(serialized) => {
-            let tmp_cwasm = cwasm_path.with_extension("cwasm.tmp");
-            if std::fs::write(&tmp_cwasm, &serialized).is_ok() {
-                let _ = std::fs::rename(&tmp_cwasm, &cwasm_path);
-            }
-            if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
-                let wasm_hash = compute_hash(&wasm_bytes);
-                let cwasm_hash = compute_hash(&serialized);
-                let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
-                let hash_path = cwasm_path.with_extension("cwasm.sha256");
-                let tmp_hash = hash_path.with_extension("sha256.tmp");
-                if std::fs::write(&tmp_hash, &stamp).is_ok() {
-                    let _ = std::fs::rename(&tmp_hash, &hash_path);
-                }
-            }
+    let wasm_bytes = std::fs::read(wasm_path)?;
+    let module = Module::new(engine, &wasm_bytes)?;
+    if let Ok(serialized) = module.serialize() {
+        let tmp_cwasm = cwasm_path.with_extension("cwasm.tmp");
+        if std::fs::write(&tmp_cwasm, &serialized).is_ok() {
+            let _ = std::fs::rename(&tmp_cwasm, &cwasm_path);
         }
-        Err(e) => {
-            eprintln!(
-                "  {} module serialization failed (will recompile next run): {}",
-                style("⚠").yellow(),
-                e
-            );
+        let wasm_hash = compute_hash(&wasm_bytes);
+        let cwasm_hash = compute_hash(&serialized);
+        let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
+        let hash_path = cwasm_path.with_extension("cwasm.sha256");
+        let tmp_hash = hash_path.with_extension("sha256.tmp");
+        if std::fs::write(&tmp_hash, &stamp).is_ok() {
+            let _ = std::fs::rename(&tmp_hash, &hash_path);
         }
     }
     Ok(module)
 }
 
-fn is_cache_valid(wasm_path: &Path, cwasm_path: &Path) -> Result<bool> {
+fn try_load_cached(engine: &Engine, wasm_path: &Path, cwasm_path: &Path) -> Result<Option<Module>> {
     let wasm_bytes = std::fs::read(wasm_path)?;
+    let cwasm_bytes = match std::fs::read(cwasm_path) {
+        Ok(b) => b,
+        Err(_) => return Ok(None),
+    };
     let expected_wasm_hash = compute_hash(&wasm_bytes);
+    let actual_cwasm_hash = compute_hash(&cwasm_bytes);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
-    match std::fs::read_to_string(&hash_path) {
-        Ok(stored) => {
-            let mut lines = stored.lines();
-            let wasm_hash_ok = lines.next().is_some_and(|h| h.trim() == expected_wasm_hash);
-            let version_ok = lines.next().is_some_and(|v| v.trim() == WASMTIME_VERSION);
-            let cwasm_hash_ok = match lines.next() {
-                Some(stored_cwasm_hash) => match std::fs::read(cwasm_path) {
-                    Ok(cwasm_bytes) => compute_hash(&cwasm_bytes) == stored_cwasm_hash.trim(),
-                    Err(_) => false,
-                },
-                None => false,
-            };
-            Ok(wasm_hash_ok && version_ok && cwasm_hash_ok)
+    let stamp = match std::fs::read_to_string(&hash_path) {
+        Ok(s) => s,
+        Err(_) => return Ok(None),
+    };
+    let mut lines = stamp.lines();
+    let wasm_ok = lines.next().is_some_and(|h| h.trim() == expected_wasm_hash);
+    let version_ok = lines.next().is_some_and(|v| v.trim() == WASMTIME_VERSION);
+    let cwasm_ok = lines.next().is_some_and(|h| h.trim() == actual_cwasm_hash);
+    if !(wasm_ok && version_ok && cwasm_ok) {
+        return Ok(None);
+    }
+    match unsafe { Module::deserialize(engine, &cwasm_bytes) } {
+        Ok(module) => Ok(Some(module)),
+        Err(e) => {
+            eprintln!(
+                "  {} cached module invalid (recompiling): {}",
+                style("⚠").yellow(),
+                e
+            );
+            let _ = std::fs::remove_file(cwasm_path);
+            let _ = std::fs::remove_file(&hash_path);
+            Ok(None)
         }
-        Err(_) => Ok(false),
     }
 }
 
@@ -585,26 +578,25 @@ pub(crate) fn run_wasm_plugin(
         Ok(()) => Ok(()),
         Err(e) => {
             if e.downcast_ref::<FledgeExitOk>().is_some() {
-                Ok(())
-            } else {
-                let msg = e.to_string();
-                if msg.contains("all fuel consumed") || msg.contains("out of fuel") {
-                    bail!(
+                return Ok(());
+            }
+            if let Some(trap) = e.downcast_ref::<Trap>() {
+                match trap {
+                    Trap::OutOfFuel => bail!(
                         "Plugin '{}' exceeded its compute budget.\n  \
                          The plugin ran too many instructions. This is a safety limit, not a bug in fledge.\n  \
                          If the plugin is doing heavy work, it may need to be split into smaller steps.",
                         plugin_name
-                    )
-                } else if msg.contains("epoch") {
-                    bail!(
+                    ),
+                    Trap::Interrupt => bail!(
                         "Plugin '{}' exceeded time limit ({} seconds)",
                         plugin_name,
                         WALL_CLOCK_TIMEOUT.as_secs()
-                    )
-                } else {
-                    bail!("Plugin '{}' trapped: {}", plugin_name, e)
+                    ),
+                    _ => bail!("Plugin '{}' trapped: {}", plugin_name, trap),
                 }
             }
+            bail!("Plugin '{}' failed: {}", plugin_name, e)
         }
     }
 }
@@ -665,7 +657,10 @@ mod tests {
 
         let cwasm_path = wasm_path.with_extension("cwasm");
         assert!(cwasm_path.exists());
-        assert!(is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+        let engine = create_engine().unwrap();
+        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+            .unwrap()
+            .is_some());
     }
 
     #[test]
@@ -686,7 +681,10 @@ mod tests {
         std::fs::write(&hash_path, format!("{}\n999\n{}", hash_line, cwasm_hash)).unwrap();
 
         let cwasm_path = wasm_path.with_extension("cwasm");
-        assert!(!is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+        let engine = create_engine().unwrap();
+        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -700,7 +698,10 @@ mod tests {
         std::fs::write(&wasm_path, format!("{}\n;; modified", EXIT_OK_WAT)).unwrap();
 
         let cwasm_path = wasm_path.with_extension("cwasm");
-        assert!(!is_cache_valid(&wasm_path, &cwasm_path).unwrap());
+        let engine = create_engine().unwrap();
+        assert!(try_load_cached(&engine, &wasm_path, &cwasm_path)
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -739,7 +740,7 @@ mod tests {
     }
 
     #[test]
-    fn wasmtime_version_const_matches_cargo_toml() {
+    fn wasmtime_version_derived_from_cargo_toml() {
         let cargo_toml = include_str!("../../Cargo.toml");
         let parsed: toml::Value = cargo_toml.parse().unwrap();
         let dep_version = parsed["dependencies"]["wasmtime"]
@@ -747,7 +748,7 @@ mod tests {
             .expect("wasmtime dependency should be a string version");
         assert_eq!(
             WASMTIME_VERSION, dep_version,
-            "WASMTIME_VERSION const ({}) does not match Cargo.toml wasmtime = \"{}\" — update the const",
+            "build.rs-derived WASMTIME_VERSION ({}) doesn't match Cargo.toml wasmtime = \"{}\"",
             WASMTIME_VERSION, dep_version
         );
     }
@@ -770,7 +771,7 @@ mod tests {
         assert!(result.is_err(), "infinite loop should be terminated");
         let err = result.unwrap_err().to_string();
         assert!(
-            err.contains("fuel") || err.contains("time limit") || err.contains("trapped"),
+            err.contains("compute budget") || err.contains("time limit") || err.contains("trapped"),
             "expected resource-limit error, got: {err}"
         );
     }
@@ -815,7 +816,7 @@ mod tests {
         let result = run_wasm_plugin(&wasm_path, &[], "test-exit-bad", "0.0.1", dir.path(), &caps);
         let err = result.unwrap_err().to_string();
         assert!(
-            err.contains("exited with code 1") || err.contains("trapped"),
+            err.contains("exited with code 1") || err.contains("trapped") || err.contains("failed"),
             "expected non-zero exit error, got: {err}"
         );
     }
@@ -829,11 +830,13 @@ mod tests {
         compile_and_cache(&wasm_path).unwrap();
 
         let cwasm_path = wasm_path.with_extension("cwasm");
-        // Tamper with the compiled module
         std::fs::write(&cwasm_path, b"tampered data").unwrap();
 
+        let engine = create_engine().unwrap();
         assert!(
-            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            try_load_cached(&engine, &wasm_path, &cwasm_path)
+                .unwrap()
+                .is_none(),
             "cache should be invalid after .cwasm tampering"
         );
     }
@@ -934,8 +937,11 @@ mod tests {
         let hash_path = cwasm_path.with_extension("cwasm.sha256");
         std::fs::remove_file(&hash_path).unwrap();
 
+        let engine = create_engine().unwrap();
         assert!(
-            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            try_load_cached(&engine, &wasm_path, &cwasm_path)
+                .unwrap()
+                .is_none(),
             "cache should be invalid when hash file is missing"
         );
     }
@@ -950,11 +956,13 @@ mod tests {
 
         let cwasm_path = wasm_path.with_extension("cwasm");
         let hash_path = cwasm_path.with_extension("cwasm.sha256");
-        // Write only 1 line instead of 3
         std::fs::write(&hash_path, "somehash\n").unwrap();
 
+        let engine = create_engine().unwrap();
         assert!(
-            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            try_load_cached(&engine, &wasm_path, &cwasm_path)
+                .unwrap()
+                .is_none(),
             "cache should be invalid with truncated hash file"
         );
     }
