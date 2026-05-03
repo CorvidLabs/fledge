@@ -1,7 +1,7 @@
 ---
 module: plugin-wasm
-version: 1
-status: draft
+version: 2
+status: active
 files:
   - src/plugin/wasm.rs
 db_tables: []
@@ -41,14 +41,15 @@ Ships in **fledge 1.1.0** as an additive runtime alongside native. Existing nati
 
 ### Exported Functions
 
-No exports yet — this module does not exist in code. The following exports are planned for the initial implementation:
+All functions are `pub(super)` — visible to the `plugin` module but not public API:
 
 | Export | Description |
 |--------|-------------|
-| `run_wasm_plugin` | Spawn a WASM plugin in Wasmtime with capability-mediated imports |
-| `WasmRuntime` | Struct managing Wasmtime engine, module cache, and resource limits |
-| `compile_and_cache` | Pre-compile a `.wasm` binary to `.cwasm` for fast startup |
-| `link_capabilities` | Link host imports based on granted capabilities |
+| `run_wasm_plugin` | Full lifecycle: load module, build WASI context, link host imports, run `_start`, enforce limits |
+| `load_module` | Load a `.wasm` file, using `.cwasm` cache when valid (hash + version + tamper check) |
+| `compile_and_cache` | Pre-compile a `.wasm` binary to `.cwasm` with a 3-line stamp file (wasm hash, wasmtime version, cwasm hash) |
+
+Internal (not exported): `setup_linker` (links host imports based on capabilities), `HostState` (per-invocation state: WASI context, plugin info, pending responses, store limits).
 
 ## Manifest Changes
 
@@ -91,7 +92,7 @@ Capabilities in WASM mode map directly to host-provided imports. If a capability
 | `store` | `fledge::store_set(key, value)`, `fledge::store_get(key) -> Option<value>` | Reads/writes `state.json` |
 | `metadata` | `fledge::metadata(keys) -> JSON` | Project metadata, git info, env |
 | `filesystem = "project"` | WASI preopened dir: project root (read-only) | N/A (native has full fs) |
-| `filesystem = "plugin"` | WASI preopened dirs: project root (read-only) + plugin dir (read-write) | N/A |
+| `filesystem = "plugin"` | WASI preopened dirs: project root (read-only) + plugin `data/` subdir (read-write) | N/A |
 | `network` | WASI socket API for outbound connections | N/A (native has full network) |
 
 With zero capabilities and `filesystem = "none"`, a WASM plugin can:
@@ -161,9 +162,9 @@ No custom imports needed — uses standard WASI filesystem preopens:
 |-------------------|----------------------|
 | `"none"` | (no preopens) |
 | `"project"` | Project root → `/project` (read-only) |
-| `"plugin"` | Project root → `/project` (read-only), Plugin dir → `/plugin` (read-write) |
+| `"plugin"` | Project root → `/project` (read-only), Plugin `data/` subdir → `/plugin` (read-write) |
 
-Plugins see a virtual filesystem rooted at `/project` and `/plugin`. No access to home directories, system files, or other plugins' storage.
+Plugins see a virtual filesystem rooted at `/project` and `/plugin`. The `/plugin` mount points to `<plugin_dir>/data/`, not the full plugin directory — this prevents plugins from modifying their own `plugin.toml`, `.wasm`, or `.cwasm` files. All preopened paths are canonicalized before mounting to prevent symlink escapes. No access to home directories, system files, or other plugins' storage.
 
 ### Network (requires `network = true`)
 
@@ -201,7 +202,7 @@ Fuel is Wasmtime's instruction-counting mechanism. When fuel runs out, the plugi
 
 ### Caching
 
-Compiled WASM modules are cached at `<config_dir>/fledge/plugins/<name>/compiled.cwasm` (Wasmtime's ahead-of-time compiled format). The cache is invalidated when the `.wasm` binary changes (checked by file hash). This eliminates compilation latency on subsequent runs — startup should be <50ms for cached modules.
+Compiled WASM modules are cached at `<plugin_dir>/<binary>.cwasm` (Wasmtime's ahead-of-time compiled format). A companion `.cwasm.sha256` stamp file stores three lines: the SHA-256 hash of the source `.wasm`, the Wasmtime major version, and the SHA-256 hash of the `.cwasm` itself. The cache is invalidated when any of these three checks fail — source change, Wasmtime upgrade, or `.cwasm` tampering. On deserialization failure (e.g., corrupt cache), the module is recompiled from source with a warning. This eliminates compilation latency on subsequent runs — startup should be <50ms for cached modules.
 
 ## Plugin Authoring
 
@@ -331,15 +332,19 @@ Plugin Security Audit
 3. The fledge-v1 protocol is preserved — same message types, same semantics, different transport (WASM imports vs stdio pipes)
 4. `filesystem = "none"` means zero preopened directories — the plugin cannot read or write any file
 5. `filesystem = "project"` preopens only the project root, read-only
-6. `filesystem = "plugin"` preopens project root (read-only) and plugin dir (read-write)
+6. `filesystem = "plugin"` preopens project root (read-only) and plugin `data/` subdir (read-write) — the full plugin dir is never writable
 7. `network = false` means no socket imports — the plugin cannot make any network connections
 8. Resource limits (memory, fuel, wall-clock) are enforced by Wasmtime and cannot be disabled by plugins
-9. Compiled WASM modules are cached as `.cwasm` — cache is invalidated by file hash of the source `.wasm` or wasmtime version change
+9. Compiled WASM modules are cached as `.cwasm` with a 3-line stamp file — cache is invalidated by source `.wasm` hash change, wasmtime version mismatch, or `.cwasm` tamper (hash mismatch)
 10. WASM plugins do not inherit host stderr — diagnostic output must use `fledge::send` with `Log` messages
 11. Interactive UI messages (prompt/confirm/select) are rejected in WASM mode with a warning
 12. Native plugins are completely unaffected by the WASM runtime addition (backward-compatible)
 13. The `fledge-plugin-sdk` crate abstracts WASM imports into the same ergonomic API as the native protocol
 14. In 2.0.0, installing a native plugin displays a warning and requires explicit user confirmation
+15. All preopened paths are canonicalized before mounting to prevent symlink escapes
+16. Host function JSON parse errors include the function name as context prefix (e.g., `"exec: malformed JSON: ..."`)
+17. The timeout thread is joined after `_start` completes to prevent use-after-drop
+18. Atomic ordering uses `Acquire` on reads and `Release` on stores for the finished flag
 
 ## Behavioral Examples
 
@@ -388,7 +393,8 @@ Plugin Security Audit
 | Invalid WASM | Binary is not valid WebAssembly | Error with validation details |
 | WASI incompatible | Module is not a valid WASI P1 module | Error suggesting recompile with `wasm32-wasip1` target |
 | Path traversal | Plugin attempts `..` escape from preopened dir | WASI denies the open — no host-side check needed |
-| Cache corrupt | `.cwasm` fails to load | Re-compile from `.wasm`, warn user |
+| Cache corrupt | `.cwasm` fails to deserialize | Re-compile from `.wasm`, warn user |
+| Cache tampered | `.cwasm` SHA-256 doesn't match stamp file | Invalidate cache, re-compile from `.wasm` |
 
 ## Dependencies
 
@@ -429,3 +435,4 @@ In 2.0.0, installing native plugins will show a warning. Users can approve with 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1 | 2026-05-02 | Initial spec — WASM plugin runtime with Wasmtime, capability-mediated sandboxing, additive in 1.1.0, default in 2.0.0 |
+| 2 | 2026-05-02 | Promoted to active. Updated Public API to match implementation (no `WasmRuntime` struct). `filesystem = "plugin"` preopens `data/` subdir (not full plugin dir). Cache uses 3-line stamp with cwasm tamper detection. Added invariants for path canonicalization, contextual JSON errors, thread joining, atomic ordering. |
