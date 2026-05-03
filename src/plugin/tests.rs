@@ -1259,3 +1259,35 @@ fn capabilities_info_includes_fields_when_set() {
     assert_eq!(parsed["filesystem"], "project");
     assert_eq!(parsed["network"], true);
 }
+
+#[test]
+fn create_wasm_plugin_scaffolds_correct_files() {
+    let dir = tempfile::tempdir().unwrap();
+    super::create::create_plugin(
+        "fledge-test-wasm",
+        dir.path(),
+        Some("A test"),
+        true,
+        true,
+        true,
+    )
+    .unwrap();
+
+    let plugin_dir = dir.path().join("fledge-test-wasm");
+    assert!(plugin_dir.join("plugin.toml").exists());
+    assert!(plugin_dir.join("Cargo.toml").exists());
+    assert!(plugin_dir.join("src/main.rs").exists());
+    assert!(plugin_dir.join("README.md").exists());
+    assert!(plugin_dir.join(".gitignore").exists());
+
+    let manifest_str = std::fs::read_to_string(plugin_dir.join("plugin.toml")).unwrap();
+    assert!(manifest_str.contains("runtime = \"wasm\""));
+    assert!(manifest_str.contains("wasm32-wasip1"));
+
+    let main_rs = std::fs::read_to_string(plugin_dir.join("src/main.rs")).unwrap();
+    assert!(
+        !main_rs.contains("eprintln!"),
+        "WASM scaffold should use println!, not eprintln!"
+    );
+    assert!(main_rs.contains("println!"));
+}

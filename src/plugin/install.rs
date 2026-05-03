@@ -272,8 +272,11 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
     let caps = &manifest.capabilities;
-    let has_caps = caps.exec || caps.store || caps.metadata;
-    let needs_cap_prompt = has_caps && manifest.plugin.protocol.is_some();
+    let has_protocol_caps = caps.exec || caps.store || caps.metadata;
+    let has_wasm_caps = caps.filesystem.as_deref().is_some_and(|f| f != "none") || caps.network;
+    let has_caps = has_protocol_caps || has_wasm_caps;
+    let needs_cap_prompt =
+        has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
     let has_hooks = manifest.hooks.has_any();
 
     if needs_cap_prompt || has_hooks {
@@ -292,6 +295,21 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                 if caps.metadata {
                     println!(
                         "    {} metadata — read project metadata and environment",
+                        style("•").yellow()
+                    );
+                }
+                if let Some(ref fs) = caps.filesystem {
+                    if fs != "none" {
+                        println!(
+                            "    {} filesystem ({}) — access host files",
+                            style("•").yellow(),
+                            fs
+                        );
+                    }
+                }
+                if caps.network {
+                    println!(
+                        "    {} network — make outbound network requests",
                         style("•").yellow()
                     );
                 }

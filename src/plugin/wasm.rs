@@ -134,6 +134,8 @@ fn build_wasi_p1(
         _ => {}
     }
 
+    builder.inherit_stdout();
+
     if capabilities.network {
         builder.inherit_network();
     }
@@ -392,7 +394,13 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
                 );
             }
         }
-        crate::protocol::OutboundMessage::Store { .. } => {}
+        crate::protocol::OutboundMessage::Store { .. } => {
+            eprintln!(
+                "  {} [{}] store not granted — message dropped",
+                style("⚠").yellow(),
+                plugin_name
+            );
+        }
         crate::protocol::OutboundMessage::Prompt { .. }
         | crate::protocol::OutboundMessage::Confirm { .. }
         | crate::protocol::OutboundMessage::Select { .. }
@@ -403,6 +411,7 @@ fn handle_outbound_json(caller: &Caller<'_, HostState>, msg_bytes: &[u8]) {
                 plugin_name
             );
         }
+        // Load, Exec, Metadata — handled via dedicated host functions, not outbound JSON
         _ => {}
     }
 }
@@ -651,5 +660,19 @@ mod tests {
         let caps = PluginCapabilities::default();
         let result = run_wasm_plugin(&wasm_path, &[], "test-runtime", "0.0.1", dir.path(), &caps);
         assert!(result.is_ok(), "run_wasm_plugin should succeed: {result:?}");
+    }
+
+    #[test]
+    fn wasmtime_version_const_matches_cargo_toml() {
+        let cargo_toml = include_str!("../../Cargo.toml");
+        let parsed: toml::Value = cargo_toml.parse().unwrap();
+        let dep_version = parsed["dependencies"]["wasmtime"]
+            .as_str()
+            .expect("wasmtime dependency should be a string version");
+        assert_eq!(
+            WASMTIME_VERSION, dep_version,
+            "WASMTIME_VERSION const ({}) does not match Cargo.toml wasmtime = \"{}\" — update the const",
+            WASMTIME_VERSION, dep_version
+        );
     }
 }

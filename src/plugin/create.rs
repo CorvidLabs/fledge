@@ -217,7 +217,7 @@ edition = "2021"
 
     let main_rs = format!(
         r#"fn main() {{
-    eprintln!("{name} WASM plugin running");
+    println!("{name} WASM plugin running");
 }}
 "#,
     );

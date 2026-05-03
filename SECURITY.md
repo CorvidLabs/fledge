@@ -50,18 +50,18 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 - Tokens are never logged, displayed, or included in error messages
 - All GitHub API calls use HTTPS
 
-### Plugins
+### Native Plugins
 
 - Plugins are external executables installed from GitHub repos
 - Plugin installation requires explicit user action (`fledge plugins install`)
 - Plugin binaries are symlinked to the platform config directory (see
   [File Locations](#file-locations) below)
-- **Plugins run as unsandboxed processes with the same permissions as the
-  user.** A plugin binary can read any file the user can read, write to any
-  directory the user can write to, and make network requests — regardless of
-  its declared capabilities. Capabilities gate the fledge-v1 *protocol*
+- **Native plugins run as unsandboxed processes with the same permissions as
+  the user.** A plugin binary can read any file the user can read, write to
+  any directory the user can write to, and make network requests — regardless
+  of its declared capabilities. Capabilities gate the fledge-v1 *protocol*
   (exec/store/metadata RPC messages), not the process itself. Treat
-  installing a plugin as equivalent to running arbitrary code
+  installing a native plugin as equivalent to running arbitrary code
 - The `fledge-v1` plugin protocol exposes three opt-in capabilities — `exec`,
   `store`, and `metadata` — that default to `false`. Each is presented for
   explicit user approval at install time and persisted in `plugins.toml`
@@ -74,6 +74,37 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
   the plugin full access to your system as your user
 - Stdout/stderr from `exec` are each capped at 10 MB; plugin state at 1 MB
   total / 64 KB per value / 256 keys; prompt/cancel timeouts at 5 minutes
+
+### WASM Plugins
+
+WASM plugins (`runtime = "wasm"` in `plugin.toml`) run inside a Wasmtime
+sandbox with strict isolation:
+
+- **No host access by default.** A WASM plugin with no capabilities declared
+  cannot read files, make network requests, or execute shell commands. It can
+  only compute and send output via the fledge protocol
+- **Filesystem access is opt-in and scoped.** The `filesystem` capability
+  controls what the plugin can see:
+  - `"none"` (default) — no filesystem access
+  - `"project"` — read-only access to the project root (mounted at `/project`)
+  - `"plugin"` — read-only project root + read-write access to the plugin's
+    own directory (mounted at `/plugin`)
+- **Network access is opt-in.** `network = true` inherits the host's network
+  stack. Without it, the plugin cannot make any network requests
+- **Compute is bounded.** Each WASM plugin gets a fuel budget
+  (10 billion units) and a wall-clock timeout (60 seconds). Exceeding either
+  terminates the plugin with a clear error
+- **Memory is bounded.** WASM plugins are limited to 256 MB of linear memory
+- **Interactive UI is not supported.** Prompt, confirm, select, and
+  multi-select messages produce a warning instead of blocking. WASM plugins
+  should use non-interactive output
+- **All capabilities are prompted at install time.** Filesystem and network
+  capabilities are displayed alongside exec/store/metadata and require user
+  approval
+- **Pre-compiled module caching.** WASM modules are compiled to native code
+  and cached (`.cwasm`). The cache is keyed on SHA-256 hash of the `.wasm`
+  binary and the Wasmtime engine version — a Wasmtime upgrade automatically
+  invalidates stale caches
 
 ### File Locations
 
