@@ -90,16 +90,6 @@ pub fn determine_trust_tier_from_owner(owner: &str) -> TrustTier {
     classify_owner(owner, &config)
 }
 
-#[cfg(test)]
-fn classify_source_with(source: &str, config: &TrustConfig) -> TrustTier {
-    classify_source(source, config)
-}
-
-#[cfg(test)]
-fn classify_owner_with(owner: &str, config: &TrustConfig) -> TrustTier {
-    classify_owner(owner, config)
-}
-
 fn classify_source(source: &str, config: &TrustConfig) -> TrustTier {
     let (base, _) = parse_source_ref(source);
 
@@ -315,7 +305,7 @@ mod tests {
             users: vec![],
         };
         assert_eq!(
-            classify_source_with("my-company/fledge-plugin-foo", &config),
+            classify_source("my-company/fledge-plugin-foo", &config),
             TrustTier::Team
         );
     }
@@ -327,7 +317,7 @@ mod tests {
             users: vec!["corvid-agent".to_string()],
         };
         assert_eq!(
-            classify_source_with("corvid-agent/fledge-plugin-codegolf", &config),
+            classify_source("corvid-agent/fledge-plugin-codegolf", &config),
             TrustTier::Team
         );
     }
@@ -339,7 +329,7 @@ mod tests {
             users: vec![],
         };
         assert_eq!(
-            classify_source_with("mycompany/fledge-plugin-foo", &config),
+            classify_source("mycompany/fledge-plugin-foo", &config),
             TrustTier::Team
         );
     }
@@ -351,7 +341,7 @@ mod tests {
             users: vec!["Corvid-Agent".to_string()],
         };
         assert_eq!(
-            classify_source_with("corvid-agent/fledge-plugin-foo", &config),
+            classify_source("corvid-agent/fledge-plugin-foo", &config),
             TrustTier::Team
         );
     }
@@ -363,7 +353,7 @@ mod tests {
             users: vec![],
         };
         assert_eq!(
-            classify_source_with("https://github.com/my-company/fledge-plugin-foo", &config),
+            classify_source("https://github.com/my-company/fledge-plugin-foo", &config),
             TrustTier::Team
         );
     }
@@ -375,7 +365,7 @@ mod tests {
             users: vec!["corvid-agent".to_string()],
         };
         assert_eq!(
-            classify_source_with("corvid-agent/fledge-plugin-foo@v1.0.0", &config),
+            classify_source("corvid-agent/fledge-plugin-foo@v1.0.0", &config),
             TrustTier::Team
         );
     }
@@ -387,11 +377,11 @@ mod tests {
             users: vec![],
         };
         assert_eq!(
-            classify_source_with("my-company/fledge-plugin-foo", &config),
+            classify_source("my-company/fledge-plugin-foo", &config),
             TrustTier::Team
         );
         assert_ne!(
-            classify_source_with("my-company/fledge-plugin-foo", &config),
+            classify_source("my-company/fledge-plugin-foo", &config),
             TrustTier::Official
         );
     }
@@ -403,7 +393,7 @@ mod tests {
             users: vec![],
         };
         assert_eq!(
-            classify_source_with("CorvidLabs/fledge-plugin-foo", &config),
+            classify_source("CorvidLabs/fledge-plugin-foo", &config),
             TrustTier::Official
         );
     }
@@ -414,18 +404,15 @@ mod tests {
             orgs: vec!["my-company".to_string()],
             users: vec!["corvid-agent".to_string()],
         };
-        assert_eq!(classify_owner_with("my-company", &config), TrustTier::Team);
-        assert_eq!(
-            classify_owner_with("corvid-agent", &config),
-            TrustTier::Team
-        );
+        assert_eq!(classify_owner("my-company", &config), TrustTier::Team);
+        assert_eq!(classify_owner("corvid-agent", &config), TrustTier::Team);
     }
 
     #[test]
     fn empty_config_no_effect() {
         let config = TrustConfig::default();
         assert_eq!(
-            classify_source_with("someuser/fledge-plugin-thing", &config),
+            classify_source("someuser/fledge-plugin-thing", &config),
             TrustTier::Unverified
         );
     }

@@ -112,6 +112,6 @@ parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://us
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |
-| 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (`["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |
 | 3 | 2026-05-03 | Configurable trust: `trust.orgs` and `trust.users` config keys extend the team tier at runtime. Invariant 8 rewritten, invariants 9-10 added. Behavioral examples added for config-driven classification. Depends on `config` module |
+| 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (`["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |
+| 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |
