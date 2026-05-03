@@ -211,13 +211,29 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+serde = {{ version = "1", features = ["derive"] }}
+serde_json = "1"
 "#,
     );
     fs::write(target.join("Cargo.toml"), cargo_toml).context("writing Cargo.toml")?;
 
+    // .cargo/config.toml so `cargo build --release` targets wasm32-wasip1 by default
+    fs::create_dir_all(target.join(".cargo")).context("creating .cargo")?;
+    fs::write(
+        target.join(".cargo/config.toml"),
+        "[build]\ntarget = \"wasm32-wasip1\"\n",
+    )
+    .context("writing .cargo/config.toml")?;
+
     let main_rs = format!(
-        r#"fn main() {{
-    println!("{name} WASM plugin running");
+        r#"use serde_json::json;
+
+fn main() {{
+    let output = json!({{
+        "type": "output",
+        "text": "{name} WASM plugin running\n"
+    }});
+    println!("{{}}", output);
 }}
 "#,
     );
@@ -234,11 +250,19 @@ edition = "2021"
 
 {desc}
 
+## Prerequisites
+
+```bash
+rustup target add wasm32-wasip1
+```
+
 ## Build
 
 ```bash
-cargo build --target wasm32-wasip1 --release
+cargo build --release
 ```
+
+The `.cargo/config.toml` sets `wasm32-wasip1` as the default target, so `--target` is not needed.
 
 ## Install
 
@@ -258,6 +282,7 @@ fledge plugins install ./{name}
     let files_created = vec![
         "plugin.toml".to_string(),
         "Cargo.toml".to_string(),
+        ".cargo/config.toml".to_string(),
         "src/main.rs".to_string(),
         "README.md".to_string(),
         ".gitignore".to_string(),

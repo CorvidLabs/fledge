@@ -129,17 +129,27 @@ pub(crate) fn validate_plugin(path: &Path, strict: bool, json: bool) -> Result<(
     let is_wasm = manifest.plugin.runtime.as_deref() == Some("wasm");
     if is_wasm {
         if manifest.plugin.protocol.as_deref() != Some("fledge-v1") {
-            report
-                .errors
-                .push("WASM plugins must set plugin.protocol = \"fledge-v1\"".to_string());
+            report.errors.push(
+                "WASM plugins must set plugin.protocol = \"fledge-v1\" — \
+                 without this, capabilities will not be granted at install time"
+                    .to_string(),
+            );
         }
         for cmd in &manifest.commands {
             if !cmd.binary.is_empty() && !cmd.binary.ends_with(".wasm") {
                 report.warnings.push(format!(
-                    "WASM command '{}' binary '{}' does not end in .wasm",
-                    cmd.name, cmd.binary
+                    "WASM command '{}' binary '{}' does not end in .wasm — \
+                     WASM plugins should point to a .wasm file (e.g. target/wasm32-wasip1/release/{}.wasm)",
+                    cmd.name, cmd.binary, cmd.name
                 ));
             }
+        }
+        if manifest.hooks.build.is_none() {
+            report.warnings.push(
+                "WASM plugin has no build hook — add [hooks] build = \"cargo build --target wasm32-wasip1 --release\" \
+                 so the .wasm binary is compiled during install"
+                    .to_string(),
+            );
         }
     }
 

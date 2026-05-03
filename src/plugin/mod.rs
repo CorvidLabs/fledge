@@ -107,7 +107,6 @@ struct PluginMeta {
 }
 
 impl PluginMeta {
-    #[allow(dead_code)]
     fn is_wasm(&self) -> bool {
         self.runtime.as_deref() == Some("wasm")
     }

@@ -313,6 +313,16 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                         style("•").yellow()
                     );
                 }
+                if caps.exec && caps.network {
+                    println!(
+                        "\n    {} This plugin can both execute commands and access the network.",
+                        style("⚠").yellow().bold()
+                    );
+                    println!(
+                        "    {} Together these allow data exfiltration — only install if you trust the source.",
+                        style("⚠").yellow().bold()
+                    );
+                }
             }
             if has_hooks {
                 println!("\n  {} Lifecycle hooks:", style("*").cyan().bold());
@@ -369,6 +379,15 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                     style("▶").cyan().bold()
                 );
                 super::wasm::compile_and_cache(&wasm_path)?;
+            } else {
+                fs::remove_dir_all(&plugin_dir).ok();
+                bail!(
+                    "WASM binary '{}' not found after build.\n  \
+                     Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
+                     Expected: {}",
+                    cmd.binary,
+                    wasm_path.display()
+                );
             }
         }
     }

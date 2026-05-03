@@ -60,13 +60,29 @@ pub(crate) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
         }
     }
     let module = Module::from_file(engine, wasm_path)?;
-    if let Ok(serialized) = module.serialize() {
-        let _ = std::fs::write(&cwasm_path, &serialized);
-        if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
-            let wasm_hash = compute_hash(&wasm_bytes);
-            let cwasm_hash = compute_hash(&serialized);
-            let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
-            let _ = std::fs::write(cwasm_path.with_extension("cwasm.sha256"), &stamp);
+    match module.serialize() {
+        Ok(serialized) => {
+            let tmp_cwasm = cwasm_path.with_extension("cwasm.tmp");
+            if std::fs::write(&tmp_cwasm, &serialized).is_ok() {
+                let _ = std::fs::rename(&tmp_cwasm, &cwasm_path);
+            }
+            if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
+                let wasm_hash = compute_hash(&wasm_bytes);
+                let cwasm_hash = compute_hash(&serialized);
+                let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
+                let hash_path = cwasm_path.with_extension("cwasm.sha256");
+                let tmp_hash = hash_path.with_extension("sha256.tmp");
+                if std::fs::write(&tmp_hash, &stamp).is_ok() {
+                    let _ = std::fs::rename(&tmp_hash, &hash_path);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "  {} module serialization failed (will recompile next run): {}",
+                style("⚠").yellow(),
+                e
+            );
         }
     }
     Ok(module)
@@ -108,15 +124,23 @@ pub(crate) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
 
     let cwasm_path = wasm_path.with_extension("cwasm");
     let serialized = module.serialize()?;
-    std::fs::write(&cwasm_path, &serialized)
+
+    // Atomic write: temp file + rename to avoid races on concurrent installs
+    let tmp_cwasm = cwasm_path.with_extension("cwasm.tmp");
+    std::fs::write(&tmp_cwasm, &serialized)
         .with_context(|| format!("writing cached module: {}", cwasm_path.display()))?;
+    std::fs::rename(&tmp_cwasm, &cwasm_path)
+        .with_context(|| format!("finalizing cached module: {}", cwasm_path.display()))?;
 
     let wasm_hash = compute_hash(&wasm_bytes);
     let cwasm_hash = compute_hash(&serialized);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
     let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
-    std::fs::write(&hash_path, &stamp)
+    let tmp_hash = hash_path.with_extension("sha256.tmp");
+    std::fs::write(&tmp_hash, &stamp)
         .with_context(|| format!("writing module hash: {}", hash_path.display()))?;
+    std::fs::rename(&tmp_hash, &hash_path)
+        .with_context(|| format!("finalizing module hash: {}", hash_path.display()))?;
 
     Ok(())
 }
@@ -524,7 +548,29 @@ pub(crate) fn run_wasm_plugin(
     store.data_mut().pending_response = Some(init_bytes);
 
     let instance = linker.instantiate(&mut store, &module).map_err(|e| {
-        anyhow::anyhow!("instantiating WASM plugin — the plugin may import functions for capabilities it wasn't granted: {e}")
+        let err_msg = e.to_string();
+        let cap_hints: Vec<&str> = [
+            ("exec", "exec", capabilities.exec),
+            ("store_set", "store", capabilities.store),
+            ("store_get", "store", capabilities.store),
+            ("metadata", "metadata", capabilities.metadata),
+        ]
+        .iter()
+        .filter(|(import, _, granted)| !granted && err_msg.contains(import))
+        .map(|(_, cap, _)| *cap)
+        .collect();
+        if !cap_hints.is_empty() {
+            let caps = cap_hints
+                .into_iter()
+                .collect::<std::collections::BTreeSet<_>>();
+            anyhow::anyhow!(
+                "WASM plugin imports functions that require capabilities not granted: {}\n  \
+                 Add these to [capabilities] in plugin.toml and reinstall.",
+                caps.into_iter().collect::<Vec<_>>().join(", ")
+            )
+        } else {
+            anyhow::anyhow!("Failed to instantiate WASM plugin: {e}")
+        }
     })?;
 
     let start = instance
@@ -544,7 +590,9 @@ pub(crate) fn run_wasm_plugin(
                 let msg = e.to_string();
                 if msg.contains("all fuel consumed") || msg.contains("out of fuel") {
                     bail!(
-                        "Plugin '{}' exceeded compute limit (fuel exhausted)",
+                        "Plugin '{}' exceeded its compute budget.\n  \
+                         The plugin ran too many instructions. This is a safety limit, not a bug in fledge.\n  \
+                         If the plugin is doing heavy work, it may need to be split into smaller steps.",
                         plugin_name
                     )
                 } else if msg.contains("epoch") {
