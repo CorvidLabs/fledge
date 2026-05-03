@@ -63,8 +63,9 @@ pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
     if let Ok(serialized) = module.serialize() {
         let _ = std::fs::write(&cwasm_path, &serialized);
         if let Ok(wasm_bytes) = std::fs::read(wasm_path) {
-            let hash = compute_hash(&wasm_bytes);
-            let stamp = format!("{}\n{}", hash, WASMTIME_VERSION);
+            let wasm_hash = compute_hash(&wasm_bytes);
+            let cwasm_hash = compute_hash(&serialized);
+            let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
             let _ = std::fs::write(cwasm_path.with_extension("cwasm.sha256"), &stamp);
         }
     }
@@ -73,14 +74,21 @@ pub(super) fn load_module(engine: &Engine, wasm_path: &Path) -> Result<Module> {
 
 fn is_cache_valid(wasm_path: &Path, cwasm_path: &Path) -> Result<bool> {
     let wasm_bytes = std::fs::read(wasm_path)?;
-    let expected_hash = compute_hash(&wasm_bytes);
+    let expected_wasm_hash = compute_hash(&wasm_bytes);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
     match std::fs::read_to_string(&hash_path) {
         Ok(stored) => {
             let mut lines = stored.lines();
-            let hash_ok = lines.next().is_some_and(|h| h.trim() == expected_hash);
+            let wasm_hash_ok = lines.next().is_some_and(|h| h.trim() == expected_wasm_hash);
             let version_ok = lines.next().is_some_and(|v| v.trim() == WASMTIME_VERSION);
-            Ok(hash_ok && version_ok)
+            let cwasm_hash_ok = match lines.next() {
+                Some(stored_cwasm_hash) => match std::fs::read(cwasm_path) {
+                    Ok(cwasm_bytes) => compute_hash(&cwasm_bytes) == stored_cwasm_hash.trim(),
+                    Err(_) => false,
+                },
+                None => false,
+            };
+            Ok(wasm_hash_ok && version_ok && cwasm_hash_ok)
         }
         Err(_) => Ok(false),
     }
@@ -103,9 +111,10 @@ pub(super) fn compile_and_cache(wasm_path: &Path) -> Result<()> {
     std::fs::write(&cwasm_path, &serialized)
         .with_context(|| format!("writing cached module: {}", cwasm_path.display()))?;
 
-    let hash = compute_hash(&wasm_bytes);
+    let wasm_hash = compute_hash(&wasm_bytes);
+    let cwasm_hash = compute_hash(&serialized);
     let hash_path = cwasm_path.with_extension("cwasm.sha256");
-    let stamp = format!("{}\n{}", hash, WASMTIME_VERSION);
+    let stamp = format!("{}\n{}\n{}", wasm_hash, WASMTIME_VERSION, cwasm_hash);
     std::fs::write(&hash_path, &stamp)
         .with_context(|| format!("writing module hash: {}", hash_path.display()))?;
 
@@ -119,17 +128,25 @@ fn build_wasi_p1(
 ) -> Result<WasiP1Ctx> {
     let mut builder = WasiCtxBuilder::new();
 
+    let resolved_plugin_dir = plugin_dir
+        .canonicalize()
+        .unwrap_or_else(|_| plugin_dir.to_path_buf());
+
     match capabilities.filesystem.as_deref() {
         Some("project") => {
             if let Some(root) = project_root {
-                builder.preopened_dir(root, "/project", DirPerms::READ, FilePerms::READ)?;
+                let resolved = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+                builder.preopened_dir(&resolved, "/project", DirPerms::READ, FilePerms::READ)?;
             }
         }
         Some("plugin") => {
             if let Some(root) = project_root {
-                builder.preopened_dir(root, "/project", DirPerms::READ, FilePerms::READ)?;
+                let resolved = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+                builder.preopened_dir(&resolved, "/project", DirPerms::READ, FilePerms::READ)?;
             }
-            builder.preopened_dir(plugin_dir, "/plugin", DirPerms::all(), FilePerms::all())?;
+            let data_dir = resolved_plugin_dir.join("data");
+            std::fs::create_dir_all(&data_dir)?;
+            builder.preopened_dir(&data_dir, "/plugin", DirPerms::all(), FilePerms::all())?;
         }
         _ => {}
     }
@@ -247,7 +264,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let slice = read_guest_slice(data, ptr, len)?;
-                let request: serde_json::Value = serde_json::from_slice(slice)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)
+                    .map_err(|e| wasmtime::Error::msg(format!("exec: malformed JSON: {e}")))?;
 
                 let command = request["command"].as_str().unwrap_or_default();
                 let cwd = request["cwd"].as_str();
@@ -275,7 +293,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let slice = read_guest_slice(data, ptr, len)?;
-                let request: serde_json::Value = serde_json::from_slice(slice)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)
+                    .map_err(|e| wasmtime::Error::msg(format!("store_set: malformed JSON: {e}")))?;
                 let key = request["key"].as_str().unwrap_or_default();
                 let value = request["value"].as_str().unwrap_or_default();
                 let plugin_dir = caller.data().plugin_dir.clone();
@@ -318,7 +337,8 @@ fn setup_linker(engine: &Engine, capabilities: &PluginCapabilities) -> Result<Li
                 let memory = get_memory(&mut caller)?;
                 let data = memory.data(&caller);
                 let slice = read_guest_slice(data, ptr, len)?;
-                let request: serde_json::Value = serde_json::from_slice(slice)?;
+                let request: serde_json::Value = serde_json::from_slice(slice)
+                    .map_err(|e| wasmtime::Error::msg(format!("metadata: malformed JSON: {e}")))?;
                 let keys: Vec<String> = request
                     .as_array()
                     .map(|a| {
@@ -450,16 +470,16 @@ pub(super) fn run_wasm_plugin(
     let finished = Arc::new(AtomicBool::new(false));
     let finished_clone = finished.clone();
     let engine_clone = engine.clone();
-    std::thread::spawn(move || {
+    let timeout_handle = std::thread::spawn(move || {
         let deadline = std::time::Instant::now() + WALL_CLOCK_TIMEOUT;
         loop {
             let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            if remaining.is_zero() || finished_clone.load(Ordering::Relaxed) {
+            if remaining.is_zero() || finished_clone.load(Ordering::Acquire) {
                 break;
             }
             std::thread::sleep(remaining.min(std::time::Duration::from_millis(250)));
         }
-        if !finished_clone.load(Ordering::Relaxed) {
+        if !finished_clone.load(Ordering::Acquire) {
             engine_clone.increment_epoch();
         }
     });
@@ -512,7 +532,8 @@ pub(super) fn run_wasm_plugin(
         .map_err(|e| anyhow::anyhow!("WASM module has no _start export: {e}"))?;
 
     let result = start.call(&mut store, ());
-    finished.store(true, Ordering::Relaxed);
+    finished.store(true, Ordering::Release);
+    let _ = timeout_handle.join();
 
     match result {
         Ok(()) => Ok(()),
@@ -521,7 +542,7 @@ pub(super) fn run_wasm_plugin(
                 Ok(())
             } else {
                 let msg = e.to_string();
-                if msg.contains("all fuel consumed") {
+                if msg.contains("all fuel consumed") || msg.contains("out of fuel") {
                     bail!(
                         "Plugin '{}' exceeded compute limit (fuel exhausted)",
                         plugin_name
@@ -578,7 +599,11 @@ mod tests {
         let hash_path = cwasm_path.with_extension("cwasm.sha256");
         let contents = std::fs::read_to_string(&hash_path).unwrap();
         let lines: Vec<&str> = contents.lines().collect();
-        assert_eq!(lines.len(), 2, "hash file should have hash + version");
+        assert_eq!(
+            lines.len(),
+            3,
+            "hash file should have wasm_hash + version + cwasm_hash"
+        );
         assert_eq!(lines[1], WASMTIME_VERSION);
     }
 
@@ -606,8 +631,11 @@ mod tests {
         let cwasm_path = wasm_path.with_extension("cwasm");
         let hash_path = cwasm_path.with_extension("cwasm.sha256");
         let contents = std::fs::read_to_string(&hash_path).unwrap();
-        let hash_line = contents.lines().next().unwrap();
-        std::fs::write(&hash_path, format!("{}\n999", hash_line)).unwrap();
+        let mut lines = contents.lines();
+        let hash_line = lines.next().unwrap();
+        let _version = lines.next().unwrap();
+        let cwasm_hash = lines.next().unwrap();
+        std::fs::write(&hash_path, format!("{}\n999\n{}", hash_line, cwasm_hash)).unwrap();
 
         let cwasm_path = wasm_path.with_extension("cwasm");
         assert!(!is_cache_valid(&wasm_path, &cwasm_path).unwrap());
@@ -674,5 +702,102 @@ mod tests {
             "WASMTIME_VERSION const ({}) does not match Cargo.toml wasmtime = \"{}\" — update the const",
             WASMTIME_VERSION, dep_version
         );
+    }
+
+    #[test]
+    fn fuel_exhaustion_returns_error() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (loop $spin (br $spin)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("spin.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-spin", "0.0.1", dir.path(), &caps);
+        assert!(result.is_err(), "infinite loop should be terminated");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("fuel") || err.contains("time limit") || err.contains("trapped"),
+            "expected resource-limit error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn capability_denial_exec_traps() {
+        // Module that tries to call exec — but caps.exec is false
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (import "fledge" "exec" (func $exec (param i32 i32) (result i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 0)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("exec_denied.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default(); // exec = false
+        let result = run_wasm_plugin(&wasm_path, &[], "test-denied", "0.0.1", dir.path(), &caps);
+        assert!(
+            result.is_err(),
+            "should fail when module imports exec but capability not granted"
+        );
+    }
+
+    #[test]
+    fn exit_nonzero_returns_error() {
+        let wat = r#"(module
+            (import "fledge" "exit" (func $exit (param i32)))
+            (import "fledge" "recv" (func $recv (param i32 i32) (result i32)))
+            (import "fledge" "send" (func $send (param i32 i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (call $exit (i32.const 1)))
+        )"#;
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("exit_bad.wasm");
+        std::fs::write(&wasm_path, wat).unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-exit-bad", "0.0.1", dir.path(), &caps);
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("exited with code 1") || err.contains("trapped"),
+            "expected non-zero exit error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn cache_invalid_on_cwasm_tamper() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("test.wasm");
+        std::fs::write(&wasm_path, EXIT_OK_WAT).unwrap();
+
+        compile_and_cache(&wasm_path).unwrap();
+
+        let cwasm_path = wasm_path.with_extension("cwasm");
+        // Tamper with the compiled module
+        std::fs::write(&cwasm_path, b"tampered data").unwrap();
+
+        assert!(
+            !is_cache_valid(&wasm_path, &cwasm_path).unwrap(),
+            "cache should be invalid after .cwasm tampering"
+        );
+    }
+
+    #[test]
+    fn malformed_wasm_returns_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let wasm_path = dir.path().join("bad.wasm");
+        std::fs::write(&wasm_path, b"not a valid wasm module").unwrap();
+
+        let caps = PluginCapabilities::default();
+        let result = run_wasm_plugin(&wasm_path, &[], "test-bad-wasm", "0.0.1", dir.path(), &caps);
+        assert!(result.is_err(), "malformed WASM should fail to load");
     }
 }
