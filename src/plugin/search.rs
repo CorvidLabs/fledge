@@ -150,6 +150,8 @@ fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
         .with_prompt("Select a plugin to install")
         .items(&items)
         .default(0)
+        .max_length(15)
+        .highlight_matches(true)
         .interact_opt()?;
 
     let Some(idx) = selection else {
