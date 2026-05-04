@@ -1,6 +1,6 @@
 ---
 module: search
-version: 3
+version: 4
 status: active
 files:
   - src/search.rs
@@ -26,6 +26,7 @@ The split is intentional: discovering "GitHub repos tagged with topic X" is a ge
 | `SearchResult` | A single matching repository with metadata |
 | `full_name` | Method on `SearchResult` returning `owner/repo` string |
 | `build_search_query_ex` | Constructs a GitHub search query string with topic + optional keyword/author |
+| `build_search_query` | Extended query builder with support for an additional topic filter |
 | `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
 | `format_stars` | Formats a star count with `k` suffix for thousands |
 | `urlencod` | URL-encodes a string for use in query parameters |
@@ -42,6 +43,7 @@ The split is intentional: discovering "GitHub repos tagged with topic X" is a ge
 |----------|-----------|-------------|
 | `full_name` | `(&self) -> String` | Returns `owner/repo` format string for a `SearchResult` |
 | `build_search_query_ex` | `(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String` | Constructs a GitHub search query string |
+| `build_search_query` | `(keyword: Option<&str>, author: Option<&str>, topic: &str, extra_topic: Option<&str>) -> String` | Extended query builder with additional topic filter |
 | `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parses GitHub search API JSON |
 | `format_stars` | `(count: u64) -> String` | Formats star count: `42`, `1.5k`, `123k` |
 | `urlencod` | `(s: &str) -> String` | Percent-encodes a string for query parameters |
