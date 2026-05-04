@@ -203,7 +203,7 @@ The bumper looks for the regex `version\s*[=:]\s*["']?(\d+\.\d+\.\d+)` and rewri
 
 `fledge release --dry-run` reports the same set of files the real run would bump, including these extras.
 
-> **Heads-up for plugin authors:** Don't list `Formula/*.rb` (Homebrew formulae) here. Formulae need a fresh `sha256` per release that doesn't exist until release artifacts are uploaded; bump them in a follow-up workflow instead.
+> **Heads-up for plugin authors:** Don't list Homebrew formulae here. Formulae need a fresh `sha256` per release that doesn't exist until release artifacts are uploaded; bump them in a follow-up workflow instead (see `post-release-formula.yml`).
 
 ## `schema_version`
 

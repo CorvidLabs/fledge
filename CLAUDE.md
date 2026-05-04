@@ -63,7 +63,7 @@ cargo fmt --check
 - `specs/` — spec-sync specifications (source of truth)
 - `templates/` — Built-in project templates (embedded via `include_dir!`)
 - `docs/` — mdBook documentation site
-- `Formula/` — Homebrew formula
+- `Formula/` — (removed; formula lives in CorvidLabs/homebrew-tap)
 - `flake.nix` — Nix flake
 - `install.sh` — Curl-pipe installer
 
@@ -72,4 +72,4 @@ cargo fmt --check
 - Specs are the source of truth — read before modifying code
 - Run `cargo run -- spec check` before committing
 - No direct commits to main — use feature branches
-- Releases bump `Cargo.toml`, `flake.nix`, and `Formula/fledge.rb` together (see `[release].files` in `fledge.toml`)
+- Releases bump `Cargo.toml` and `flake.nix` together (see `[release].files` in `fledge.toml`); the Homebrew formula in `CorvidLabs/homebrew-tap` is updated by `post-release-formula.yml`
