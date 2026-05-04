@@ -1,8 +1,8 @@
 name: Post-Release Formula Update
 
 # Runs after the Release workflow finishes uploading binaries + their .sha256
-# sidecars. Pulls the real shas, rewrites Formula/fledge.rb with the new
-# version + shas, and opens a PR. This is the only correct moment to bump the
+# sidecars. Pulls the real shas, rewrites the formula in CorvidLabs/homebrew-tap
+# with the new version + shas. This is the only correct moment to bump the
 # formula — at `fledge release` time the new version's binaries don't exist
 # yet, so any pre-build sha would be a lie.
 #
@@ -12,8 +12,7 @@ name: Post-Release Formula Update
 # `run: |` is a code-injection sink and is intentionally avoided here.
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 on:
   workflow_run:
@@ -35,10 +34,6 @@ jobs:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
-          # HEAD_BRANCH is the tag name (e.g. "v0.15.2") for tag-triggered runs.
-          # Validate strictly so an attacker who pushed a malformed tag can't
-          # smuggle anything downstream. Allow only `v<digits>.<digits>.<digits>`
-          # with optional pre-release/build metadata.
           if ! [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Refusing to run with non-semver tag '$HEAD_BRANCH'"
             exit 1
@@ -60,9 +55,6 @@ jobs:
             gh release download "$TAG" -p "$1.sha256" -R "$REPO" -O - \
               | awk '{print $1}'
           }
-          # Validate each sha is exactly 64 hex chars before exporting — the
-          # sidecar files are attacker-influenceable (an attacker who
-          # compromises the release pipeline could replace them).
           validate() {
             local sha="$1"
             if ! [[ "$sha" =~ ^[0-9a-fA-F]{64}$ ]]; then
@@ -77,14 +69,23 @@ jobs:
             echo "linux_x86_64=$(validate "$(fetch fledge-linux-x86_64)")"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Rewrite Formula/fledge.rb
+      - name: Sync formula to homebrew-tap
         env:
+          GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           NEW_VERSION: ${{ steps.tag.outputs.version }}
           MACOS_AARCH64: ${{ steps.shas.outputs.macos_aarch64 }}
           MACOS_X86_64: ${{ steps.shas.outputs.macos_x86_64 }}
           LINUX_X86_64: ${{ steps.shas.outputs.linux_x86_64 }}
         run: |
           set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::TAP_GITHUB_TOKEN secret is required"
+            exit 1
+          fi
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/CorvidLabs/homebrew-tap.git" /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          # Rewrite the formula in-place
           python3 - <<'PY'
           import os, re, sys, pathlib
           p = pathlib.Path("Formula/fledge.rb")
@@ -110,24 +111,12 @@ jobs:
           p.write_text("".join(parts))
           PY
 
-      - name: Open PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEW_VERSION: ${{ steps.tag.outputs.version }}
-        run: |
-          set -euo pipefail
-          BRANCH="formula/v$NEW_VERSION"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
           if git diff --quiet -- Formula/fledge.rb; then
-            echo "Formula/fledge.rb already at v$NEW_VERSION — nothing to do."
+            echo "homebrew-tap Formula/fledge.rb already at v$NEW_VERSION — nothing to do."
             exit 0
           fi
           git add Formula/fledge.rb
-          git commit -m "chore: update Homebrew formula to v$NEW_VERSION"
-          git push -u origin "$BRANCH"
-          gh pr create \
-            --title "chore: update Homebrew formula to v$NEW_VERSION" \
-            --body "Automated by post-release-formula.yml. Pulls the v$NEW_VERSION sha256 sidecars from the release and writes them into \`Formula/fledge.rb\` along with the version bump." \
-            --base main
+          git commit -m "chore: update formula to v$NEW_VERSION"
+          git push origin main
