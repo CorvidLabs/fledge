@@ -564,6 +564,9 @@ pub enum LaneSubcommand {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+        /// Start execution from this step (name or 1-based index)
+        #[arg(long)]
+        from: Option<String>,
     },
     /// List available lanes
     List {

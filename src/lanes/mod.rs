@@ -117,8 +117,62 @@ pub(super) fn default_true() -> bool {
 #[serde(untagged)]
 pub(super) enum Step {
     TaskRef(String),
-    Inline { run: String },
-    Parallel { parallel: Vec<ParallelItem> },
+    Inline {
+        run: String,
+        #[serde(default)]
+        when: Option<String>,
+        #[serde(default)]
+        timeout: Option<u64>,
+        #[serde(default)]
+        retries: Option<u32>,
+    },
+    TaskRefFull {
+        task: String,
+        #[serde(default)]
+        when: Option<String>,
+        #[serde(default)]
+        timeout: Option<u64>,
+        #[serde(default)]
+        retries: Option<u32>,
+    },
+    Parallel {
+        parallel: Vec<ParallelItem>,
+        #[serde(default)]
+        when: Option<String>,
+        #[serde(default)]
+        timeout: Option<u64>,
+        #[serde(default)]
+        retries: Option<u32>,
+    },
+}
+
+impl Step {
+    pub(super) fn when(&self) -> Option<&str> {
+        match self {
+            Step::TaskRef(_) => None,
+            Step::Inline { when, .. } => when.as_deref(),
+            Step::TaskRefFull { when, .. } => when.as_deref(),
+            Step::Parallel { when, .. } => when.as_deref(),
+        }
+    }
+
+    pub(super) fn timeout(&self) -> Option<u64> {
+        match self {
+            Step::TaskRef(_) => None,
+            Step::Inline { timeout, .. } => *timeout,
+            Step::TaskRefFull { timeout, .. } => *timeout,
+            Step::Parallel { timeout, .. } => *timeout,
+        }
+    }
+
+    pub(super) fn retries(&self) -> Option<u32> {
+        match self {
+            Step::TaskRef(_) => None,
+            Step::Inline { retries, .. } => *retries,
+            Step::TaskRefFull { retries, .. } => *retries,
+            Step::Parallel { retries, .. } => *retries,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,6 +187,7 @@ pub enum LaneAction {
         name: String,
         dry_run: bool,
         json: bool,
+        from: Option<String>,
     },
     List {
         json: bool,
@@ -214,6 +269,7 @@ pub fn run(action: LaneAction) -> Result<()> {
             name,
             dry_run,
             json,
+            from,
         } => {
             let config = load_lane_config()?;
             let lane = config.lanes.get(&name).ok_or_else(|| {
@@ -231,11 +287,16 @@ pub fn run(action: LaneAction) -> Result<()> {
 
             validate_lane(&name, lane, &config.tasks)?;
 
+            let from_index = match from {
+                Some(ref f) => Some(resolve_from(&lane.steps, f)?),
+                None => None,
+            };
+
             if dry_run {
-                dry_run_lane(&name, lane, json)
+                dry_run_lane(&name, lane, json, from_index)
             } else {
                 let project_dir = std::env::current_dir().context("getting current directory")?;
-                execute::execute_lane(&name, lane, &config.tasks, &project_dir, json)
+                execute::execute_lane(&name, lane, &config.tasks, &project_dir, json, from_index)
             }
         }
     }
@@ -391,7 +452,7 @@ pub(super) fn validate_lane(
 ) -> Result<()> {
     for (i, step) in lane.steps.iter().enumerate() {
         match step {
-            Step::TaskRef(name) => {
+            Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => {
                 if !tasks.contains_key(name) {
                     bail!(
                         "Lane '{}' step {} references unknown task '{}'.\n  Define it in [tasks] first.",
@@ -404,7 +465,7 @@ pub(super) fn validate_lane(
                     .map_err(|e| anyhow::anyhow!("Lane '{}' step {}: {}", lane_name, i + 1, e))?;
             }
             Step::Inline { .. } => {}
-            Step::Parallel { parallel } => {
+            Step::Parallel { parallel, .. } => {
                 for item in parallel {
                     if let ParallelItem::TaskRef(name) = item {
                         if !tasks.contains_key(name) {
@@ -443,7 +504,12 @@ pub(super) fn check_dep_cycle(
     Ok(())
 }
 
-pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Result<()> {
+pub(super) fn dry_run_lane(
+    lane_name: &str,
+    lane: &LaneDef,
+    json: bool,
+    from_index: Option<usize>,
+) -> Result<()> {
     let desc = lane.description.as_deref().unwrap_or("(no description)");
 
     if json {
@@ -451,41 +517,62 @@ pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Resul
             .steps
             .iter()
             .enumerate()
-            .map(|(i, step)| match step {
-                Step::TaskRef(name) => serde_json::json!({
-                    "step": i + 1,
-                    "kind": "task",
-                    "name": name,
-                }),
-                Step::Inline { run: cmd } => serde_json::json!({
-                    "step": i + 1,
-                    "kind": "inline",
-                    "name": cmd,
-                }),
-                Step::Parallel { parallel } => {
-                    let items: Vec<serde_json::Value> = parallel
-                        .iter()
-                        .map(|item| match item {
-                            ParallelItem::TaskRef(name) => serde_json::json!({
-                                "kind": "task",
-                                "name": name,
-                            }),
-                            ParallelItem::Inline { run: cmd } => serde_json::json!({
-                                "kind": "inline",
-                                "name": cmd,
-                            }),
-                        })
-                        .collect();
-                    serde_json::json!({
+            .map(|(i, step)| {
+                let skipped = from_index.is_some_and(|fi| i < fi);
+                let mut entry = match step {
+                    Step::TaskRef(name) => serde_json::json!({
                         "step": i + 1,
-                        "kind": "parallel",
-                        "items": items,
-                    })
+                        "kind": "task",
+                        "name": name,
+                    }),
+                    Step::TaskRefFull { task, .. } => serde_json::json!({
+                        "step": i + 1,
+                        "kind": "task",
+                        "name": task,
+                    }),
+                    Step::Inline { run: cmd, .. } => serde_json::json!({
+                        "step": i + 1,
+                        "kind": "inline",
+                        "name": cmd,
+                    }),
+                    Step::Parallel { parallel, .. } => {
+                        let items: Vec<serde_json::Value> = parallel
+                            .iter()
+                            .map(|item| match item {
+                                ParallelItem::TaskRef(name) => serde_json::json!({
+                                    "kind": "task",
+                                    "name": name,
+                                }),
+                                ParallelItem::Inline { run: cmd } => serde_json::json!({
+                                    "kind": "inline",
+                                    "name": cmd,
+                                }),
+                            })
+                            .collect();
+                        serde_json::json!({
+                            "step": i + 1,
+                            "kind": "parallel",
+                            "items": items,
+                        })
+                    }
+                };
+                if skipped {
+                    entry["skipped"] = serde_json::json!(true);
                 }
+                if let Some(when) = step.when() {
+                    entry["when"] = serde_json::json!(when);
+                }
+                if let Some(timeout) = step.timeout() {
+                    entry["timeout"] = serde_json::json!(timeout);
+                }
+                if let Some(retries) = step.retries() {
+                    entry["retries"] = serde_json::json!(retries);
+                }
+                entry
             })
             .collect();
 
-        let output = serde_json::json!({
+        let mut output = serde_json::json!({
             "schema_version": LANES_DRY_RUN_SCHEMA,
             "lane": lane_name,
             "description": lane.description.as_deref().unwrap_or(""),
@@ -494,6 +581,9 @@ pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Resul
             "dry_run": true,
             "steps": steps,
         });
+        if let Some(fi) = from_index {
+            output["from_step"] = serde_json::json!(fi + 1);
+        }
         println!("{}", serde_json::to_string_pretty(&output)?);
         return Ok(());
     }
@@ -507,25 +597,50 @@ pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Resul
     if !lane.fail_fast {
         println!("  {} fail_fast = false", style("⚙").dim());
     }
+    if let Some(fi) = from_index {
+        println!("  {} --from {}", style("⚙").dim(), fi + 1);
+    }
     for (i, step) in lane.steps.iter().enumerate() {
+        let skipped = from_index.is_some_and(|fi| i < fi);
+        let suffix = step_annotations(step);
         match step {
-            Step::TaskRef(name) => {
-                println!(
-                    "  {}. {} {}",
-                    i + 1,
-                    style(name).cyan(),
-                    style("(task)").dim()
-                );
+            Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => {
+                if skipped {
+                    println!(
+                        "  {}. {} {}",
+                        i + 1,
+                        style(name).dim().strikethrough(),
+                        style("(skipped by --from)").dim()
+                    );
+                } else {
+                    println!(
+                        "  {}. {} {}{}",
+                        i + 1,
+                        style(name).cyan(),
+                        style("(task)").dim(),
+                        suffix
+                    );
+                }
             }
-            Step::Inline { run: cmd } => {
-                println!(
-                    "  {}. {} {}",
-                    i + 1,
-                    style(cmd).cyan(),
-                    style("(inline)").dim()
-                );
+            Step::Inline { run: cmd, .. } => {
+                if skipped {
+                    println!(
+                        "  {}. {} {}",
+                        i + 1,
+                        style(cmd).dim().strikethrough(),
+                        style("(skipped by --from)").dim()
+                    );
+                } else {
+                    println!(
+                        "  {}. {} {}{}",
+                        i + 1,
+                        style(cmd).cyan(),
+                        style("(inline)").dim(),
+                        suffix
+                    );
+                }
             }
-            Step::Parallel { parallel } => {
+            Step::Parallel { parallel, .. } => {
                 let names: Vec<String> = parallel
                     .iter()
                     .map(|item| match item {
@@ -533,12 +648,22 @@ pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Resul
                         ParallelItem::Inline { run: cmd } => format!("run: {cmd}"),
                     })
                     .collect();
-                println!(
-                    "  {}. {} {}",
-                    i + 1,
-                    style(names.join(", ")).cyan(),
-                    style("(parallel)").dim()
-                );
+                if skipped {
+                    println!(
+                        "  {}. {} {}",
+                        i + 1,
+                        style(names.join(", ")).dim().strikethrough(),
+                        style("(skipped by --from)").dim()
+                    );
+                } else {
+                    println!(
+                        "  {}. {} {}{}",
+                        i + 1,
+                        style(names.join(", ")).cyan(),
+                        style("(parallel)").dim(),
+                        suffix
+                    );
+                }
             }
         }
     }
@@ -547,9 +672,9 @@ pub(super) fn dry_run_lane(lane_name: &str, lane: &LaneDef, json: bool) -> Resul
 
 pub(super) fn step_description(step: &Step) -> String {
     match step {
-        Step::TaskRef(name) => name.clone(),
-        Step::Inline { run: cmd } => cmd.clone(),
-        Step::Parallel { parallel } => {
+        Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => name.clone(),
+        Step::Inline { run: cmd, .. } => cmd.clone(),
+        Step::Parallel { parallel, .. } => {
             let names: Vec<String> = parallel
                 .iter()
                 .map(|item| match item {
@@ -560,6 +685,105 @@ pub(super) fn step_description(step: &Step) -> String {
             format!("parallel({})", names.join(", "))
         }
     }
+}
+
+fn step_annotations(step: &Step) -> String {
+    let mut parts = Vec::new();
+    if let Some(when) = step.when() {
+        parts.push(format!("when={when}"));
+    }
+    if let Some(timeout) = step.timeout() {
+        parts.push(format!("timeout={timeout}s"));
+    }
+    if let Some(retries) = step.retries() {
+        parts.push(format!("retries={retries}"));
+    }
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}]", parts.join(", "))
+    }
+}
+
+pub(super) fn resolve_from(steps: &[Step], from: &str) -> Result<usize> {
+    if let Ok(idx) = from.parse::<usize>() {
+        if idx == 0 || idx > steps.len() {
+            bail!("--from index {} is out of range (1-{})", idx, steps.len());
+        }
+        return Ok(idx - 1);
+    }
+
+    let mut parallel_match: Option<usize> = None;
+    for (i, step) in steps.iter().enumerate() {
+        match step {
+            Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => {
+                if name == from {
+                    return Ok(i);
+                }
+            }
+            Step::Inline { run: cmd, .. } => {
+                if cmd == from {
+                    return Ok(i);
+                }
+            }
+            Step::Parallel { parallel, .. } => {
+                if parallel_match.is_none()
+                    && parallel.iter().any(|item| match item {
+                        ParallelItem::TaskRef(name) => name == from,
+                        ParallelItem::Inline { run: cmd } => cmd == from,
+                    })
+                {
+                    parallel_match = Some(i);
+                }
+            }
+        }
+    }
+
+    if let Some(idx) = parallel_match {
+        bail!(
+            "--from '{}' matches an item inside the parallel step at index {}, \
+             but parallel steps cannot be targeted by name. Use `--from {}` instead.",
+            from,
+            idx + 1,
+            idx + 1,
+        );
+    }
+
+    bail!("--from '{}' does not match any step name or index", from);
+}
+
+pub(super) fn evaluate_when(condition: &str) -> bool {
+    for part in condition.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+
+        if let Some(rest) = part.strip_prefix('!') {
+            if let Some((var, val)) = rest.split_once('=') {
+                match std::env::var(var) {
+                    Ok(v) if v == val => return false,
+                    _ => {}
+                }
+            } else {
+                match std::env::var(rest) {
+                    Ok(v) if !v.is_empty() => return false,
+                    _ => {}
+                }
+            }
+        } else if let Some((var, val)) = part.split_once('=') {
+            match std::env::var(var) {
+                Ok(v) if v == val => {}
+                _ => return false,
+            }
+        } else {
+            match std::env::var(part) {
+                Ok(v) if !v.is_empty() => {}
+                _ => return false,
+            }
+        }
+    }
+    true
 }
 
 pub(super) fn format_duration(d: std::time::Duration) -> String {
@@ -593,14 +817,26 @@ pub(super) fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
         if i > 0 {
             out.push_str(", ");
         }
+        let extras = format_step_extras(step);
         match step {
             Step::TaskRef(name) => {
                 out.push_str(&format!("\"{}\"", escape_toml_value(name)));
             }
-            Step::Inline { run: cmd } => {
-                out.push_str(&format!("{{ run = \"{}\" }}", escape_toml_value(cmd)));
+            Step::TaskRefFull { task, .. } => {
+                out.push_str(&format!(
+                    "{{ task = \"{}\"{}}}",
+                    escape_toml_value(task),
+                    extras
+                ));
             }
-            Step::Parallel { parallel } => {
+            Step::Inline { run: cmd, .. } => {
+                out.push_str(&format!(
+                    "{{ run = \"{}\"{}}}",
+                    escape_toml_value(cmd),
+                    extras
+                ));
+            }
+            Step::Parallel { parallel, .. } => {
                 let items: Vec<String> = parallel
                     .iter()
                     .map(|item| match item {
@@ -612,10 +848,28 @@ pub(super) fn format_lane_toml(name: &str, lane: &LaneDef) -> String {
                         }
                     })
                     .collect();
-                out.push_str(&format!("{{ parallel = [{}] }}", items.join(", ")));
+                out.push_str(&format!("{{ parallel = [{}]{}}}", items.join(", "), extras));
             }
         }
     }
     out.push_str("]\n");
     out
+}
+
+fn format_step_extras(step: &Step) -> String {
+    let mut parts = String::new();
+    if let Some(when) = step.when() {
+        parts.push_str(&format!(", when = \"{}\"", escape_toml_value(when)));
+    }
+    if let Some(timeout) = step.timeout() {
+        parts.push_str(&format!(", timeout = {timeout}"));
+    }
+    if let Some(retries) = step.retries() {
+        parts.push_str(&format!(", retries = {retries}"));
+    }
+    if parts.is_empty() {
+        " ".to_string()
+    } else {
+        format!("{parts} ")
+    }
 }

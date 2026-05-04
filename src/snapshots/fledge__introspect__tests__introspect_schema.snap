@@ -1,5 +1,6 @@
 ---
 source: src/introspect.rs
+assertion_line: 388
 expression: output
 ---
 {
@@ -671,6 +672,15 @@ expression: output
               "help": "Output results as JSON",
               "required": false,
               "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "from",
+              "long": "from",
+              "help": "Start execution from this step (name or 1-based index)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "FROM",
               "global": false
             },
             {

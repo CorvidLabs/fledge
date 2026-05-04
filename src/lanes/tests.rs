@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use crate::trust::determine_trust_tier;
 
 use super::{
-    base64_decode, create_lane_repo, execute_lane, format_duration, format_lane_toml,
-    lane_defaults, list_lanes, load_lane_config, parse_import_source, validate_lane,
-    validate_lanes, FledgeFileWithLanes, LaneDef, ParallelItem, Step,
+    base64_decode, create_lane_repo, evaluate_when, execute_lane, format_duration,
+    format_lane_toml, lane_defaults, list_lanes, load_lane_config, parse_import_source,
+    resolve_from, validate_lane, validate_lanes, FledgeFileWithLanes, LaneDef, ParallelItem, Step,
 };
 
 fn parse_config(toml_str: &str) -> FledgeFileWithLanes {
@@ -48,7 +48,7 @@ steps = [
     );
     assert_eq!(config.lanes["release"].steps.len(), 2);
     match &config.lanes["release"].steps[1] {
-        Step::Inline { run: cmd } => assert_eq!(cmd, "cargo build --release"),
+        Step::Inline { run: cmd, .. } => assert_eq!(cmd, "cargo build --release"),
         _ => panic!("expected inline step"),
     }
 }
@@ -72,7 +72,7 @@ steps = [
     );
     assert_eq!(config.lanes["check"].steps.len(), 2);
     match &config.lanes["check"].steps[0] {
-        Step::Parallel { parallel } => {
+        Step::Parallel { parallel, .. } => {
             assert_eq!(parallel.len(), 2);
             assert!(matches!(&parallel[0], ParallelItem::TaskRef(n) if n == "lint"));
             assert!(matches!(&parallel[1], ParallelItem::TaskRef(n) if n == "fmt"));
@@ -318,6 +318,7 @@ steps = ["a", "b"]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -339,6 +340,7 @@ steps = [{ run = "echo inline-works" }]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -362,6 +364,7 @@ steps = [{ parallel = ["a", "b"] }]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -381,7 +384,7 @@ steps = [
 "#,
     );
     match &config.lanes["mixed"].steps[0] {
-        Step::Parallel { parallel } => {
+        Step::Parallel { parallel, .. } => {
             assert_eq!(parallel.len(), 2);
             assert!(matches!(&parallel[0], ParallelItem::TaskRef(n) if n == "lint"));
             assert!(matches!(&parallel[1], ParallelItem::Inline { run } if run == "echo inline"));
@@ -408,6 +411,7 @@ steps = [{ parallel = ["a", { run = "echo inline-b" }] }]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -429,6 +433,7 @@ steps = [{ parallel = [{ run = "echo one" }, { run = "echo two" }] }]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -458,6 +463,9 @@ fn format_lane_toml_with_parallel_inline() {
                     run: "echo done".to_string(),
                 },
             ],
+            when: None,
+            timeout: None,
+            retries: None,
         }],
         fail_fast: true,
         source: None,
@@ -487,6 +495,7 @@ steps = ["fail", "ok"]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("failed at step 1"));
@@ -512,6 +521,7 @@ steps = ["fail", "ok"]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("1 failure"));
@@ -539,6 +549,7 @@ steps = ["build"]
         &config.tasks,
         &project_dir,
         false,
+        None,
     );
     assert!(result.is_ok());
 }
@@ -668,6 +679,9 @@ fn format_lane_toml_with_inline() {
         description: None,
         steps: vec![Step::Inline {
             run: "echo hello".to_string(),
+            when: None,
+            timeout: None,
+            retries: None,
         }],
         fail_fast: true,
         source: None,
@@ -685,6 +699,9 @@ fn format_lane_toml_with_parallel() {
                 ParallelItem::TaskRef("lint".to_string()),
                 ParallelItem::TaskRef("fmt".to_string()),
             ],
+            when: None,
+            timeout: None,
+            retries: None,
         }],
         fail_fast: true,
         source: None,
@@ -1028,4 +1045,719 @@ fn list_lanes_json_includes_trust_tier() {
 
     let result = list_lanes(&lanes, true);
     assert!(result.is_ok());
+}
+
+// ── --from flag ──────────────────────────────────────────────────────
+
+#[test]
+fn resolve_from_by_index() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "echo a"
+b = "echo b"
+c = "echo c"
+
+[lanes.ci]
+steps = ["a", "b", "c"]
+"#,
+    );
+    let idx = resolve_from(&config.lanes["ci"].steps, "2").unwrap();
+    assert_eq!(idx, 1); // 0-based
+}
+
+#[test]
+fn resolve_from_by_name() {
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+test = "echo test"
+build = "echo build"
+
+[lanes.ci]
+steps = ["lint", "test", "build"]
+"#,
+    );
+    let idx = resolve_from(&config.lanes["ci"].steps, "test").unwrap();
+    assert_eq!(idx, 1);
+}
+
+#[test]
+fn resolve_from_index_out_of_range() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "echo a"
+
+[lanes.ci]
+steps = ["a"]
+"#,
+    );
+    let result = resolve_from(&config.lanes["ci"].steps, "5");
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("out of range"));
+}
+
+#[test]
+fn resolve_from_index_zero() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "echo a"
+
+[lanes.ci]
+steps = ["a"]
+"#,
+    );
+    let result = resolve_from(&config.lanes["ci"].steps, "0");
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("out of range"));
+}
+
+#[test]
+fn resolve_from_unknown_name() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "echo a"
+
+[lanes.ci]
+steps = ["a"]
+"#,
+    );
+    let result = resolve_from(&config.lanes["ci"].steps, "nonexistent");
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("does not match"));
+}
+
+#[test]
+fn execute_from_skips_earlier_steps() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "exit 1"
+b = "echo ok-b"
+c = "echo ok-c"
+
+[lanes.ci]
+steps = ["a", "b", "c"]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    // Step "a" would fail, but --from 2 skips it
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        Some(1), // 0-based index for step 2
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn execute_from_by_name_skips() {
+    let config = parse_config(
+        r#"
+[tasks]
+fail = "exit 1"
+ok = "echo ok"
+
+[lanes.ci]
+steps = ["fail", "ok"]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    // Skip "fail", start from "ok"
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        Some(1),
+    );
+    assert!(result.is_ok());
+}
+
+// ── when conditions ──────────────────────────────────────────────────
+
+#[test]
+fn evaluate_when_var_set() {
+    std::env::set_var("FLEDGE_TEST_WHEN_SET", "1");
+    assert!(evaluate_when("FLEDGE_TEST_WHEN_SET"));
+    std::env::remove_var("FLEDGE_TEST_WHEN_SET");
+}
+
+#[test]
+fn evaluate_when_var_not_set() {
+    std::env::remove_var("FLEDGE_TEST_WHEN_UNSET");
+    assert!(!evaluate_when("FLEDGE_TEST_WHEN_UNSET"));
+}
+
+#[test]
+fn evaluate_when_var_equals() {
+    std::env::set_var("FLEDGE_TEST_WHEN_EQ", "true");
+    assert!(evaluate_when("FLEDGE_TEST_WHEN_EQ=true"));
+    assert!(!evaluate_when("FLEDGE_TEST_WHEN_EQ=false"));
+    std::env::remove_var("FLEDGE_TEST_WHEN_EQ");
+}
+
+#[test]
+fn evaluate_when_negated_var() {
+    std::env::remove_var("FLEDGE_TEST_WHEN_NEG");
+    assert!(evaluate_when("!FLEDGE_TEST_WHEN_NEG"));
+    std::env::set_var("FLEDGE_TEST_WHEN_NEG", "1");
+    assert!(!evaluate_when("!FLEDGE_TEST_WHEN_NEG"));
+    std::env::remove_var("FLEDGE_TEST_WHEN_NEG");
+}
+
+#[test]
+fn evaluate_when_negated_equals() {
+    std::env::set_var("FLEDGE_TEST_WHEN_NEQ", "prod");
+    assert!(evaluate_when("!FLEDGE_TEST_WHEN_NEQ=dev"));
+    assert!(!evaluate_when("!FLEDGE_TEST_WHEN_NEQ=prod"));
+    std::env::remove_var("FLEDGE_TEST_WHEN_NEQ");
+}
+
+#[test]
+fn evaluate_when_multiple_conditions() {
+    std::env::set_var("FLEDGE_TEST_A", "1");
+    std::env::set_var("FLEDGE_TEST_B", "2");
+    assert!(evaluate_when("FLEDGE_TEST_A,FLEDGE_TEST_B"));
+    assert!(evaluate_when("FLEDGE_TEST_A=1,FLEDGE_TEST_B=2"));
+    assert!(!evaluate_when("FLEDGE_TEST_A=1,FLEDGE_TEST_B=3"));
+    std::env::remove_var("FLEDGE_TEST_A");
+    std::env::remove_var("FLEDGE_TEST_B");
+}
+
+#[test]
+fn evaluate_when_empty_string() {
+    assert!(evaluate_when(""));
+    assert!(evaluate_when(","));
+}
+
+#[test]
+fn parse_when_on_inline_step() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo deploy", when = "CI=true" }]
+"#,
+    );
+    match &config.lanes["ci"].steps[0] {
+        Step::Inline { run, when, .. } => {
+            assert_eq!(run, "echo deploy");
+            assert_eq!(when.as_deref(), Some("CI=true"));
+        }
+        _ => panic!("expected inline step"),
+    }
+}
+
+#[test]
+fn parse_task_ref_full_with_when() {
+    let config = parse_config(
+        r#"
+[tasks]
+deploy = "echo deploy"
+
+[lanes.ci]
+steps = [{ task = "deploy", when = "CI=true" }]
+"#,
+    );
+    match &config.lanes["ci"].steps[0] {
+        Step::TaskRefFull { task, when, .. } => {
+            assert_eq!(task, "deploy");
+            assert_eq!(when.as_deref(), Some("CI=true"));
+        }
+        _ => panic!("expected TaskRefFull step"),
+    }
+}
+
+#[test]
+fn execute_when_skips_step() {
+    std::env::remove_var("FLEDGE_TEST_SKIP");
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [
+  { run = "exit 1", when = "FLEDGE_TEST_SKIP=yes" },
+  { run = "echo passed" },
+]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    // First step has when condition that's not met, so it's skipped
+    // Second step runs and passes
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn execute_when_runs_step() {
+    std::env::set_var("FLEDGE_TEST_RUN", "yes");
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo conditional-ok", when = "FLEDGE_TEST_RUN=yes" }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_ok());
+    std::env::remove_var("FLEDGE_TEST_RUN");
+}
+
+// ── timeout ──────────────────────────────────────────────────────────
+
+#[test]
+fn parse_timeout_on_inline() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo fast", timeout = 30 }]
+"#,
+    );
+    assert_eq!(config.lanes["ci"].steps[0].timeout(), Some(30));
+}
+
+#[test]
+fn parse_retries_on_inline() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo flaky", retries = 3 }]
+"#,
+    );
+    assert_eq!(config.lanes["ci"].steps[0].retries(), Some(3));
+}
+
+#[test]
+fn parse_all_options_on_task_ref_full() {
+    let config = parse_config(
+        r#"
+[tasks]
+deploy = "echo deploy"
+
+[lanes.ci]
+steps = [{ task = "deploy", when = "CI", timeout = 60, retries = 2 }]
+"#,
+    );
+    let step = &config.lanes["ci"].steps[0];
+    assert_eq!(step.when(), Some("CI"));
+    assert_eq!(step.timeout(), Some(60));
+    assert_eq!(step.retries(), Some(2));
+}
+
+#[test]
+fn execute_timeout_kills_slow_command() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "sleep 30", timeout = 1 }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    // The lane failed at step 1 within ~1s, proving the timeout killed
+    // the 30s sleep. The error message mentions "step 1" and the elapsed
+    // time is around 1s, not 30s.
+    assert!(
+        err.contains("failed at step 1"),
+        "expected failure at step 1, got: {err}"
+    );
+}
+
+#[test]
+fn execute_timeout_fast_command_succeeds() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo fast", timeout = 30 }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_ok());
+}
+
+// ── retries ──────────────────────────────────────────────────────────
+
+#[test]
+fn execute_retries_succeed_on_first_try() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo ok", retries = 3 }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn execute_retries_still_fail_after_exhaustion() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "exit 1", retries = 2 }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "ci",
+        &config.lanes["ci"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn execute_retries_succeed_on_third_attempt() {
+    // Core value prop of retries: a flaky step that fails twice, succeeds
+    // on the third attempt. Uses a counter file as a side channel between
+    // attempts to coordinate state. With retries = 2 the lane runs the
+    // step 3 times total — first two fail, third succeeds.
+    let counter = std::env::temp_dir().join(format!(
+        "fledge_test_retry_counter_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    let _ = std::fs::remove_file(&counter);
+    let counter_path = counter.display().to_string();
+
+    let cmd = format!(
+        "n=$(cat {p} 2>/dev/null || echo 0); n=$((n+1)); echo $n > {p}; \
+         if [ $n -ge 3 ]; then exit 0; else exit 1; fi",
+        p = counter_path
+    );
+
+    let toml_str = format!(
+        r#"
+[tasks]
+
+[lanes.flaky]
+steps = [{{ run = "{cmd}", retries = 2 }}]
+"#
+    );
+    let config = parse_config(&toml_str);
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "flaky",
+        &config.lanes["flaky"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    let final_count = std::fs::read_to_string(&counter)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let _ = std::fs::remove_file(&counter);
+
+    assert!(
+        result.is_ok(),
+        "expected success after retries, got: {:?}",
+        result.err().map(|e| e.to_string())
+    );
+    assert_eq!(
+        final_count, "3",
+        "expected 3 attempts (initial + 2 retries), counter shows: {final_count}"
+    );
+}
+
+// ── combined features ────────────────────────────────────────────────
+
+#[test]
+fn parse_parallel_with_when() {
+    let config = parse_config(
+        r#"
+[tasks]
+a = "echo a"
+b = "echo b"
+
+[lanes.ci]
+steps = [{ parallel = ["a", "b"], when = "CI" }]
+"#,
+    );
+    match &config.lanes["ci"].steps[0] {
+        Step::Parallel { parallel, when, .. } => {
+            assert_eq!(parallel.len(), 2);
+            assert_eq!(when.as_deref(), Some("CI"));
+        }
+        _ => panic!("expected parallel step"),
+    }
+}
+
+#[test]
+fn validate_task_ref_full_unknown() {
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+
+[lanes.ci]
+steps = [{ task = "nonexistent", when = "CI" }]
+"#,
+    );
+    let result = validate_lane("ci", &config.lanes["ci"], &config.tasks);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("nonexistent"));
+}
+
+#[test]
+fn format_lane_toml_with_task_ref_full() {
+    let lane = LaneDef {
+        description: Some("CI".to_string()),
+        steps: vec![Step::TaskRefFull {
+            task: "deploy".to_string(),
+            when: Some("CI=true".to_string()),
+            timeout: Some(60),
+            retries: Some(2),
+        }],
+        fail_fast: true,
+        source: None,
+    };
+    let toml = format_lane_toml("ci", &lane);
+    assert!(toml.contains("task = \"deploy\""));
+    assert!(toml.contains("when = \"CI=true\""));
+    assert!(toml.contains("timeout = 60"));
+    assert!(toml.contains("retries = 2"));
+}
+
+#[test]
+fn format_lane_toml_inline_with_extras() {
+    let lane = LaneDef {
+        description: None,
+        steps: vec![Step::Inline {
+            run: "echo hi".to_string(),
+            when: Some("CI".to_string()),
+            timeout: None,
+            retries: Some(1),
+        }],
+        fail_fast: true,
+        source: None,
+    };
+    let toml = format_lane_toml("test", &lane);
+    assert!(toml.contains("run = \"echo hi\""));
+    assert!(toml.contains("when = \"CI\""));
+    assert!(toml.contains("retries = 1"));
+    assert!(!toml.contains("timeout"));
+}
+
+#[test]
+fn bare_task_ref_has_no_options() {
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+
+[lanes.ci]
+steps = ["lint"]
+"#,
+    );
+    let step = &config.lanes["ci"].steps[0];
+    assert!(step.when().is_none());
+    assert!(step.timeout().is_none());
+    assert!(step.retries().is_none());
+}
+
+#[test]
+fn resolve_from_with_inline_step() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [
+  { run = "echo first" },
+  { run = "echo second" },
+]
+"#,
+    );
+    let idx = resolve_from(&config.lanes["ci"].steps, "echo second").unwrap();
+    assert_eq!(idx, 1);
+}
+
+#[test]
+fn resolve_from_with_task_ref_full() {
+    let config = parse_config(
+        r#"
+[tasks]
+deploy = "echo deploy"
+
+[lanes.ci]
+steps = [
+  "deploy",
+  { task = "deploy", when = "CI" },
+]
+"#,
+    );
+    // First match wins — "deploy" matches step 0 (bare TaskRef)
+    let idx = resolve_from(&config.lanes["ci"].steps, "deploy").unwrap();
+    assert_eq!(idx, 0);
+}
+
+#[test]
+fn resolve_from_parallel_item_emits_specific_error() {
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+fmt = "echo fmt"
+build = "echo build"
+
+[lanes.ci]
+steps = [
+  { parallel = ["lint", "fmt"] },
+  "build",
+]
+"#,
+    );
+    let result = resolve_from(&config.lanes["ci"].steps, "lint");
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("parallel"),
+        "expected parallel-specific error, got: {err}"
+    );
+    assert!(
+        err.contains("--from 1"),
+        "expected hint to use --from <index>, got: {err}"
+    );
+}
+
+#[test]
+fn resolve_from_bare_step_wins_over_parallel_match() {
+    // If a bare step also matches the name, that takes precedence over the
+    // parallel-only match. Regression guard for the new branch.
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+fmt = "echo fmt"
+
+[lanes.ci]
+steps = [
+  { parallel = ["lint", "fmt"] },
+  "lint",
+]
+"#,
+    );
+    let idx = resolve_from(&config.lanes["ci"].steps, "lint").unwrap();
+    assert_eq!(idx, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn execute_timeout_kills_grandchild_processes() {
+    // Multi-statement shell forks a child that survives kill of `sh` itself
+    // unless we kill the entire process group. The marker file is touched
+    // only if `sleep` outlives the timeout — which it shouldn't.
+    let marker = std::env::temp_dir().join(format!(
+        "fledge_test_orphan_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    let _ = std::fs::remove_file(&marker);
+    let cmd = format!("echo start && sleep 3 && touch {}", marker.display());
+
+    let toml_str = format!(
+        r#"
+[tasks]
+
+[lanes.timeout]
+steps = [{{ run = "{cmd}", timeout = 1 }}]
+"#
+    );
+    let config = parse_config(&toml_str);
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "timeout",
+        &config.lanes["timeout"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_err(), "expected timeout failure");
+
+    // Wait past the original sleep duration. If the process group kill
+    // worked, the marker is never created. Otherwise it shows up after ~3s.
+    std::thread::sleep(std::time::Duration::from_secs(4));
+    let leaked = marker.exists();
+    let _ = std::fs::remove_file(&marker);
+    assert!(
+        !leaked,
+        "marker file was created — grandchild sleep was orphaned, not killed"
+    );
 }
