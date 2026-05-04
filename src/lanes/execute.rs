@@ -65,7 +65,6 @@ pub(crate) fn execute_lane(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
-        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
         let step_start = Instant::now();
 
         let mut last_err = None;
@@ -79,6 +78,7 @@ pub(crate) fn execute_lane(
                     i + 1
                 );
             }
+            let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, false, deadline);
             match result {
                 Ok(()) => {
@@ -186,13 +186,13 @@ fn execute_lane_json(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
-        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
         let step_start = Instant::now();
 
         let mut attempts = 0u32;
         let mut last_err = None;
         for attempt in 0..=retries {
             attempts = attempt + 1;
+            let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, true, deadline);
             match result {
                 Ok(()) => {
@@ -278,10 +278,10 @@ pub(crate) fn execute_lane_silent(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
-        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
 
         let mut last_err = None;
         for _ in 0..=retries {
+            let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, true, deadline);
             match result {
                 Ok(()) => {

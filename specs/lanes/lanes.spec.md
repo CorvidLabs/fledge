@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 21
+version: 22
 status: active
 files:
   - src/lanes/mod.rs
@@ -45,13 +45,8 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `lane_defaults` | Return project-type-specific default lane TOML |
 | `init_lanes` | Initialize default lanes in fledge.toml based on detected project type |
 | `execute_lane` | Execute a lane with progress display (human-readable or JSON) |
-| `execute_lane_json` | Execute a lane and output step results as JSON |
 | `execute_lane_silent` | Execute a lane without console output |
 | `execute_task_with_deps` | Execute a task and all its dependencies with cycle detection |
-| `execute_task_recursive` | Recursively execute a task and its deps, tracking visited set |
-| `execute_single_task` | Execute a single task as a shell command |
-| `execute_inline` | Execute an inline shell command in project directory |
-| `execute_parallel` | Execute parallel items using thread scoping, collecting errors |
 | `publish_lanes` | Publish a lane repository to GitHub with fledge-lane topic |
 | `validate_lanes` | Validate lanes for structural integrity and task references |
 | `print_lane_report` | Output a validation report in human-readable or JSON format |
@@ -80,12 +75,8 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `lane_defaults` | `(&str) -> &'static str` | Return default lane TOML for a project type |
 | `init_lanes` | `(bool) -> Result<()>` | Initialize default lanes in fledge.toml based on detected project type |
 | `execute_lane` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path, bool, Option<usize>) -> Result<()>` | Execute a lane with human-readable or JSON progress, optional `--from` index |
-| `execute_lane_json` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path, Option<usize>) -> Result<()>` | Execute a lane and output step results as JSON |
 | `execute_lane_silent` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path) -> Result<()>` | Execute a lane without console output |
 | `execute_task_with_deps` | `(&str, &BTreeMap<String, TaskDef>, &Path, bool, Option<Instant>) -> Result<()>` | Execute a task and all its dependencies with cycle detection, optional deadline |
-| `execute_single_task` | `(&str, &TaskDef, &Path, bool, Option<Instant>) -> Result<()>` | Execute a single task as a shell command in project directory |
-| `execute_inline` | `(&str, &Path, bool, Option<Instant>) -> Result<()>` | Execute an inline shell command in project directory |
-| `execute_parallel` | `(&[ParallelItem], &BTreeMap<String, TaskDef>, &Path, bool, Option<Instant>) -> Result<()>` | Execute parallel items via thread scoping, collecting all errors |
 | `resolve_from` | `(&[Step], &str) -> Result<usize>` | Resolve `--from` argument to 0-based step index (by name or 1-based index) |
 | `evaluate_when` | `(&str) -> bool` | Evaluate a `when` condition string against environment variables |
 | `publish_lanes` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Publish lane repo to GitHub with fledge-lane topic |
@@ -175,8 +166,8 @@ steps = [
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
 11. `--from <step>` skips all steps before the target (by 1-based index or step name). Stateless — no run history is persisted. Skipped steps show in both human-readable and JSON output
 12. `when` conditions are evaluated against environment variables before each step executes. Steps with unmet conditions are silently skipped (shown as skipped in output). Evaluation is AND-logic for comma-separated conditions
-13. `timeout` sets a per-step deadline in seconds. The deadline covers the entire step execution including task dependency resolution. Child processes are killed when the deadline passes
-14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it)
+13. `timeout` sets a per-step deadline in seconds. The deadline covers the entire step execution including task dependency resolution. The direct child process is killed when the deadline passes; grandchild processes spawned by shell commands (e.g. `sh -c "..."`) are not tracked and may continue running as orphans
+14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). When combined with `timeout`, each retry attempt gets a fresh deadline — the timeout is per-attempt, not a shared wall-clock cap
 
 ## Behavioral Examples
 
@@ -341,6 +332,8 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 22 | 2026-05-04 | Fix spec validation: remove `execute_lane_json`, `execute_task_recursive`, `execute_single_task`, `execute_inline`, `execute_parallel` from Exported Functions (narrowed to private `fn` in v21). Document process tree limitation on timeout (invariant 13). Fix timeout + retries interaction: deadline is now per-attempt, not total (invariant 14) |
+| 21 | 2026-05-04 | Add `when` (conditional steps), `timeout` (per-step deadlines), `retries`, and `--from` (resume from step). New `Step` options on table-form steps. New exports: `resolve_from`, `evaluate_when`. Invariants 11-14 |
 | 20 | 2026-05-01 | **1.0 contract finalize:** Add Compatibility Policy locking the lanes v1 schema. Future Step variants must use unique discriminator keys in inline-table form so the untagged enum keeps deserializing older lanes. Field removal/retyping bumps schema; parallel + fail_fast semantics, fail_fast default, imported-lane file naming, and trust-tier classification are all locked. No code change |
 | 19 | 2026-04-29 | Document all submodule exports (community, create, defaults, execute, publish, validate) after splitting lanes.rs into lanes/ module folder |
 | 18 | 2026-04-27 | **Breaking (1.0 contract finalize, follow-up):** `lanes publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `lanes_published`, `topic`, `import_hint`); `cancelled: true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Mirrors the same fix landed for `plugins publish` and `templates publish` in the previous commit |
