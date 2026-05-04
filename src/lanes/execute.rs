@@ -273,6 +273,13 @@ fn execute_lane_json(
     Ok(())
 }
 
+/// Execute a lane with no console output. Used by internal callers like
+/// `release --pre-lane` and the watch task runner where lane prose would
+/// pollute the agent's stdout or trigger noisy re-runs. Honors `when`,
+/// `timeout`, and `retries` (including the inter-attempt 1s delay, which
+/// is silent here — callers in watch mode may see unexplained delays on
+/// flaky steps). Deliberately omits `--from`: that flag is user-facing
+/// only and silent execution paths always run from step 1.
 pub(crate) fn execute_lane_silent(
     lane_name: &str,
     lane: &LaneDef,

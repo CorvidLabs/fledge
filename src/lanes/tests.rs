@@ -1473,6 +1473,65 @@ steps = [{ run = "exit 1", retries = 2 }]
     assert!(result.is_err());
 }
 
+#[cfg(unix)]
+#[test]
+fn execute_retries_succeed_on_third_attempt() {
+    // Core value prop of retries: a flaky step that fails twice, succeeds
+    // on the third attempt. Uses a counter file as a side channel between
+    // attempts to coordinate state. With retries = 2 the lane runs the
+    // step 3 times total — first two fail, third succeeds.
+    let counter = std::env::temp_dir().join(format!(
+        "fledge_test_retry_counter_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    let _ = std::fs::remove_file(&counter);
+    let counter_path = counter.display().to_string();
+
+    let cmd = format!(
+        "n=$(cat {p} 2>/dev/null || echo 0); n=$((n+1)); echo $n > {p}; \
+         if [ $n -ge 3 ]; then exit 0; else exit 1; fi",
+        p = counter_path
+    );
+
+    let toml_str = format!(
+        r#"
+[tasks]
+
+[lanes.flaky]
+steps = [{{ run = "{cmd}", retries = 2 }}]
+"#
+    );
+    let config = parse_config(&toml_str);
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "flaky",
+        &config.lanes["flaky"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    let final_count = std::fs::read_to_string(&counter)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let _ = std::fs::remove_file(&counter);
+
+    assert!(
+        result.is_ok(),
+        "expected success after retries, got: {:?}",
+        result.err().map(|e| e.to_string())
+    );
+    assert_eq!(
+        final_count, "3",
+        "expected 3 attempts (initial + 2 retries), counter shows: {final_count}"
+    );
+}
+
 // ── combined features ────────────────────────────────────────────────
 
 #[test]
