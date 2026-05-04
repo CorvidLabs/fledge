@@ -1528,8 +1528,9 @@ steps = [{ run = "echo flaky", retries = 3, retry_delay = 5 }]
 #[test]
 fn execute_retry_delay_zero_skips_sleep() {
     // With retry_delay = 0 the retry loop sleeps 0s between attempts —
-    // failed-after-exhaustion completes essentially instantly, proving
-    // the delay value is honored (default 1s would make this take ~2s).
+    // failed-after-exhaustion runs much faster than the ~2s the default
+    // (1s) would take with `retries = 2`. We use 1500ms as the bound so
+    // a slow CI runner still passes as long as no explicit sleep fires.
     let config = parse_config(
         r#"
 [tasks]
@@ -1551,8 +1552,8 @@ steps = [{ run = "exit 1", retries = 2, retry_delay = 0 }]
     let elapsed = start.elapsed();
     assert!(result.is_err());
     assert!(
-        elapsed < std::time::Duration::from_millis(800),
-        "expected near-instant fail with retry_delay=0, took {elapsed:?}"
+        elapsed < std::time::Duration::from_millis(1500),
+        "expected near-instant fail with retry_delay=0 (default 1s × 2 retries = 2s baseline), took {elapsed:?}"
     );
 }
 

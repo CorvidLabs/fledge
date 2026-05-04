@@ -51,5 +51,4 @@ libc = "0.2.185"
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_System_JobObjects",
-    "Win32_System_Threading",
 ] }
