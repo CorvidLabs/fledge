@@ -19,11 +19,23 @@ impl SearchResult {
 }
 
 pub fn build_search_query_ex(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String {
+    build_search_query(keyword, author, topic, None)
+}
+
+pub fn build_search_query(
+    keyword: Option<&str>,
+    author: Option<&str>,
+    topic: &str,
+    extra_topic: Option<&str>,
+) -> String {
     let mut parts = Vec::new();
     if let Some(kw) = keyword {
         parts.push(format!("{kw} in:name,description,topics"));
     }
     parts.push(format!("topic:{topic}"));
+    if let Some(et) = extra_topic {
+        parts.push(format!("topic:{et}"));
+    }
     if let Some(a) = author {
         parts.push(format!("user:{a}"));
     }

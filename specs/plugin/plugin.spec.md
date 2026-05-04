@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 23
+version: 24
 status: active
 files:
   - src/plugin/mod.rs
@@ -13,6 +13,7 @@ files:
   - src/plugin/update.rs
   - src/plugin/validate.rs
   - src/plugin/search.rs
+  - src/plugin/recommend.rs
   - src/plugin/tests.rs
 
 db_tables: []
@@ -55,7 +56,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginValidationReport` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
 | `validate_plugin` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
 | `print_plugin_report` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
-| `search_plugins` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
+| `search_plugins` | Search GitHub for plugins by query, author, topic, limit with `fledge-plugin` topic filter |
+| `recommend_plugins` | Detect project language and suggest relevant uninstalled plugins |
 
 ### Structs & Enums
 
@@ -89,7 +91,8 @@ Plugin system for community extensions. Plugins are external executables that re
 | `find_latest_tag` | `update.rs` | `(&Path) -> Option<String>` | Fetch tags and return the latest version-sorted tag for a plugin repo |
 | `validate_plugin` | `validate.rs` | `(&Path, bool, bool) -> Result<()>` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
 | `print_plugin_report` | `validate.rs` | `(&PluginValidationReport, bool, bool) -> Result<()>` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
-| `search_plugins` | `search.rs` | `(Option<&str>, Option<&str>, usize, bool) -> Result<()>` | Search GitHub for plugins by query, author, limit with `fledge-plugin` topic filter |
+| `search_plugins` | `search.rs` | `(Option<&str>, Option<&str>, Option<&str>, usize, bool, bool) -> Result<()>` | Search GitHub for plugins by query, author, topic, limit, interactive, json |
+| `recommend_plugins` | `recommend.rs` | `(bool) -> Result<()>` | Detect project language, suggest uninstalled plugins, offer bulk install |
 
 ## Plugin Format
 

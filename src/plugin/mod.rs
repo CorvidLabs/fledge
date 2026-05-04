@@ -11,6 +11,7 @@ mod create;
 mod install;
 mod list;
 mod publish;
+mod recommend;
 mod remove;
 mod run_plugin;
 mod search;
@@ -27,6 +28,7 @@ use create::create_plugin;
 use install::install_action;
 use list::{audit_plugins, list_plugins};
 use publish::publish_plugin;
+use recommend::recommend_plugins;
 use remove::remove_plugin;
 use run_plugin::{run_hook, run_plugin_cmd};
 use search::search_plugins;
@@ -213,8 +215,11 @@ pub enum PluginAction {
     Search {
         query: Option<String>,
         author: Option<String>,
+        topic: Option<String>,
         limit: usize,
+        interactive: bool,
     },
+    Recommend,
     Run {
         name: String,
         args: Vec<String>,
@@ -258,8 +263,18 @@ pub fn run(opts: PluginOptions) -> Result<()> {
         PluginAction::Search {
             query,
             author,
+            topic,
             limit,
-        } => search_plugins(query.as_deref(), author.as_deref(), limit, opts.json),
+            interactive,
+        } => search_plugins(
+            query.as_deref(),
+            author.as_deref(),
+            topic.as_deref(),
+            limit,
+            interactive,
+            opts.json,
+        ),
+        PluginAction::Recommend => recommend_plugins(opts.json),
         PluginAction::Run { name, args } => run_plugin_cmd(&name, &args),
         PluginAction::Publish {
             path,

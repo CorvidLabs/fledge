@@ -288,12 +288,17 @@ fn run() -> Result<()> {
                 PluginSubcommand::Search {
                     query,
                     author,
+                    topic,
                     limit,
+                    interactive,
                 } => plugin::PluginAction::Search {
                     query,
                     author,
+                    topic,
                     limit,
+                    interactive,
                 },
+                PluginSubcommand::Recommend => plugin::PluginAction::Recommend,
                 PluginSubcommand::Run { name, args } => plugin::PluginAction::Run { name, args },
                 PluginSubcommand::Publish {
                     path,
