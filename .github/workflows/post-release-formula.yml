@@ -110,7 +110,7 @@ jobs:
           p.write_text("".join(parts))
           PY
 
-      - name: Open PR
+      - name: Open PR (fledge repo)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ steps.tag.outputs.version }}
@@ -131,3 +131,26 @@ jobs:
             --title "chore: update Homebrew formula to v$NEW_VERSION" \
             --body "Automated by post-release-formula.yml. Pulls the v$NEW_VERSION sha256 sidecars from the release and writes them into \`Formula/fledge.rb\` along with the version bump." \
             --base main
+
+      - name: Sync formula to homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::TAP_GITHUB_TOKEN not set — skipping homebrew-tap sync"
+            exit 0
+          fi
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/CorvidLabs/homebrew-tap.git" /tmp/homebrew-tap
+          cp Formula/fledge.rb /tmp/homebrew-tap/Formula/fledge.rb
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- Formula/fledge.rb; then
+            echo "homebrew-tap Formula/fledge.rb already at v$NEW_VERSION — nothing to do."
+            exit 0
+          fi
+          git add Formula/fledge.rb
+          git commit -m "chore: update formula to v$NEW_VERSION"
+          git push origin main
