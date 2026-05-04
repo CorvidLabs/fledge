@@ -125,6 +125,8 @@ pub(super) enum Step {
         timeout: Option<u64>,
         #[serde(default)]
         retries: Option<u32>,
+        #[serde(default)]
+        retry_delay: Option<u64>,
     },
     TaskRefFull {
         task: String,
@@ -134,6 +136,8 @@ pub(super) enum Step {
         timeout: Option<u64>,
         #[serde(default)]
         retries: Option<u32>,
+        #[serde(default)]
+        retry_delay: Option<u64>,
     },
     Parallel {
         parallel: Vec<ParallelItem>,
@@ -143,6 +147,8 @@ pub(super) enum Step {
         timeout: Option<u64>,
         #[serde(default)]
         retries: Option<u32>,
+        #[serde(default)]
+        retry_delay: Option<u64>,
     },
 }
 
@@ -173,7 +179,19 @@ impl Step {
             Step::Parallel { retries, .. } => *retries,
         }
     }
+
+    pub(super) fn retry_delay(&self) -> Option<u64> {
+        match self {
+            Step::TaskRef(_) => None,
+            Step::Inline { retry_delay, .. } => *retry_delay,
+            Step::TaskRefFull { retry_delay, .. } => *retry_delay,
+            Step::Parallel { retry_delay, .. } => *retry_delay,
+        }
+    }
 }
+
+/// Default delay between retry attempts when `retry_delay` is not specified.
+pub(super) const DEFAULT_RETRY_DELAY_SECS: u64 = 1;
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -568,6 +586,9 @@ pub(super) fn dry_run_lane(
                 if let Some(retries) = step.retries() {
                     entry["retries"] = serde_json::json!(retries);
                 }
+                if let Some(retry_delay) = step.retry_delay() {
+                    entry["retry_delay"] = serde_json::json!(retry_delay);
+                }
                 entry
             })
             .collect();
@@ -698,6 +719,9 @@ fn step_annotations(step: &Step) -> String {
     if let Some(retries) = step.retries() {
         parts.push(format!("retries={retries}"));
     }
+    if let Some(retry_delay) = step.retry_delay() {
+        parts.push(format!("retry_delay={retry_delay}s"));
+    }
     if parts.is_empty() {
         String::new()
     } else {
@@ -753,6 +777,15 @@ pub(super) fn resolve_from(steps: &[Step], from: &str) -> Result<usize> {
 }
 
 pub(super) fn evaluate_when(condition: &str) -> bool {
+    evaluate_when_with(condition, |var| std::env::var(var).ok())
+}
+
+/// Like `evaluate_when` but with the env lookup injected. Used by tests so
+/// they can pass a `HashMap` instead of mutating process-global env vars.
+pub(super) fn evaluate_when_with<F>(condition: &str, lookup: F) -> bool
+where
+    F: Fn(&str) -> Option<String>,
+{
     for part in condition.split(',') {
         let part = part.trim();
         if part.is_empty() {
@@ -761,26 +794,18 @@ pub(super) fn evaluate_when(condition: &str) -> bool {
 
         if let Some(rest) = part.strip_prefix('!') {
             if let Some((var, val)) = rest.split_once('=') {
-                match std::env::var(var) {
-                    Ok(v) if v == val => return false,
-                    _ => {}
+                if matches!(lookup(var), Some(v) if v == val) {
+                    return false;
                 }
-            } else {
-                match std::env::var(rest) {
-                    Ok(v) if !v.is_empty() => return false,
-                    _ => {}
-                }
+            } else if matches!(lookup(rest), Some(v) if !v.is_empty()) {
+                return false;
             }
         } else if let Some((var, val)) = part.split_once('=') {
-            match std::env::var(var) {
-                Ok(v) if v == val => {}
-                _ => return false,
+            if !matches!(lookup(var), Some(v) if v == val) {
+                return false;
             }
-        } else {
-            match std::env::var(part) {
-                Ok(v) if !v.is_empty() => {}
-                _ => return false,
-            }
+        } else if !matches!(lookup(part), Some(v) if !v.is_empty()) {
+            return false;
         }
     }
     true
@@ -866,6 +891,9 @@ fn format_step_extras(step: &Step) -> String {
     }
     if let Some(retries) = step.retries() {
         parts.push_str(&format!(", retries = {retries}"));
+    }
+    if let Some(retry_delay) = step.retry_delay() {
+        parts.push_str(&format!(", retry_delay = {retry_delay}"));
     }
     if parts.is_empty() {
         " ".to_string()

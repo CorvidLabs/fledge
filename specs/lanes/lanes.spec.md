@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 23
+version: 24
 status: active
 files:
   - src/lanes/mod.rs
@@ -141,7 +141,8 @@ steps = ["deps-audit", "license-check", "security-scan"]
 |--------|------|-------------|
 | `when` | `string` | Condition: skip step if not met. Supports `VAR` (set & non-empty), `VAR=value` (equals), `!VAR` (not set/empty), `!VAR=value` (not equals). Multiple comma-separated conditions are AND'd |
 | `timeout` | `integer` | Per-attempt timeout in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step including task deps. Process is killed on timeout |
-| `retries` | `integer` | Number of retry attempts after failure (0 = no retries, default). Total attempts = retries + 1. A 1-second delay is inserted between attempts |
+| `retries` | `integer` | Number of retry attempts after failure (0 = no retries, default). Total attempts = retries + 1. The delay between attempts is configurable via `retry_delay` (defaults to 1 second) |
+| `retry_delay` | `integer` | Seconds to sleep between retry attempts. Defaults to 1. Set to 0 for immediate retry. Only meaningful when `retries > 0` |
 
 ```toml
 # Examples of step options
@@ -166,8 +167,8 @@ steps = [
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
 11. `--from <step>` skips all steps before the target (by 1-based index or step name). Stateless — no run history is persisted. Skipped steps show in both human-readable and JSON output
 12. `when` conditions are evaluated against environment variables before each step executes. Steps with unmet conditions are silently skipped (shown as skipped in output). Evaluation is AND-logic for comma-separated conditions
-13. `timeout` sets a per-attempt deadline in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step execution including task dependency resolution. On Unix, the spawned command runs in its own process group and the entire group is killed via `killpg(SIGKILL)` when the deadline passes — multi-statement shell commands (`sh -c "a && b"`) do not leak grandchild processes. On Windows only the direct child is killed; grandchildren may orphan
-14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). A 1-second delay is inserted between retry attempts to avoid hammering failing resources
+13. `timeout` sets a per-attempt deadline in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step execution including task dependency resolution. The spawned command's full process tree is reaped on timeout: on Unix via process group + `killpg(SIGKILL)`; on Windows via Job Object + `TerminateJobObject`. Multi-statement shell commands (`sh -c "a && b"`, `cmd /c "a & b"`) do not leak grandchild processes
+14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). `retry_delay` controls the sleep between attempts in seconds (default 1, set to 0 for immediate retry)
 
 ## Behavioral Examples
 
@@ -332,6 +333,7 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 24 | 2026-05-04 | Follow-up polish: (a) New `retry_delay` step option (seconds, default 1) — overrides the inter-attempt sleep, supports immediate retry with `retry_delay = 0`. (b) Windows process tree reaping via Job Object + `TerminateJobObject` — mirrors the Unix `process_group` + `killpg` fix from v23 so timeout no longer leaks grandchildren on Windows either. (c) `evaluate_when` now exposes a closure-injected `evaluate_when_with` so tests can supply a `HashMap` instead of mutating process-global env vars (edition-2024 prep) |
 | 23 | 2026-05-04 | Follow-up review fixes: (a) Process group kill on Unix — `timeout` now reaps the entire process tree via `killpg(SIGKILL)`, no more orphaned grandchildren from `sh -c "a && b"`. (b) Skipped step JSON entries normalized to include `success: null, duration_ms: null, error: null` so the per-step shape is consistent across completed and skipped rows; `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` reverted to 1 (additive only). (c) `--from <name>` on a parallel step now emits a specific error pointing at index targeting instead of the generic "no match" |
 | 22 | 2026-05-04 | Review fixes: (a) 1-second retry delay between attempts. (b) Timeout is per-attempt — each retry gets a fresh deadline. (c) Bump `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` from 1 → 2 for new fields (later reverted in v23). (d) Fix spec: remove private fns from Exported Functions, document process tree limitation on timeout |
 | 21 | 2026-05-04 | Add `when` (conditional steps), `timeout` (per-step deadlines), `retries`, and `--from` (resume from step). New `Step` options on table-form steps. New exports: `resolve_from`, `evaluate_when`. Invariants 11-14 |

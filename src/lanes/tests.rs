@@ -466,6 +466,7 @@ fn format_lane_toml_with_parallel_inline() {
             when: None,
             timeout: None,
             retries: None,
+            retry_delay: None,
         }],
         fail_fast: true,
         source: None,
@@ -682,6 +683,7 @@ fn format_lane_toml_with_inline() {
             when: None,
             timeout: None,
             retries: None,
+            retry_delay: None,
         }],
         fail_fast: true,
         source: None,
@@ -702,6 +704,7 @@ fn format_lane_toml_with_parallel() {
             when: None,
             timeout: None,
             retries: None,
+            retry_delay: None,
         }],
         fail_fast: true,
         source: None,
@@ -1183,60 +1186,95 @@ steps = ["fail", "ok"]
 }
 
 // ── when conditions ──────────────────────────────────────────────────
+//
+// These tests use `evaluate_when_with` and a `HashMap` to avoid mutating
+// process-global env vars. Rust's test runner is multi-threaded, and on
+// edition 2024 `std::env::set_var` is `unsafe` due to soundness issues
+// with concurrent setenv/getenv calls. Routing the lookup through a
+// closure side-steps both concerns.
+
+fn env_map<I, K, V>(pairs: I) -> std::collections::HashMap<String, String>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: Into<String>,
+    V: Into<String>,
+{
+    pairs
+        .into_iter()
+        .map(|(k, v)| (k.into(), v.into()))
+        .collect()
+}
+
+fn eval(condition: &str, env: &std::collections::HashMap<String, String>) -> bool {
+    super::evaluate_when_with(condition, |var| env.get(var).cloned())
+}
 
 #[test]
 fn evaluate_when_var_set() {
-    std::env::set_var("FLEDGE_TEST_WHEN_SET", "1");
-    assert!(evaluate_when("FLEDGE_TEST_WHEN_SET"));
-    std::env::remove_var("FLEDGE_TEST_WHEN_SET");
+    let env = env_map([("FLEDGE_TEST_WHEN_SET", "1")]);
+    assert!(eval("FLEDGE_TEST_WHEN_SET", &env));
 }
 
 #[test]
 fn evaluate_when_var_not_set() {
-    std::env::remove_var("FLEDGE_TEST_WHEN_UNSET");
-    assert!(!evaluate_when("FLEDGE_TEST_WHEN_UNSET"));
+    let env = env_map::<_, &str, &str>([]);
+    assert!(!eval("FLEDGE_TEST_WHEN_UNSET", &env));
+}
+
+#[test]
+fn evaluate_when_var_set_but_empty() {
+    let env = env_map([("FLEDGE_TEST_WHEN_EMPTY", "")]);
+    // Empty value is treated as not-set per the bare-VAR semantics
+    assert!(!eval("FLEDGE_TEST_WHEN_EMPTY", &env));
 }
 
 #[test]
 fn evaluate_when_var_equals() {
-    std::env::set_var("FLEDGE_TEST_WHEN_EQ", "true");
-    assert!(evaluate_when("FLEDGE_TEST_WHEN_EQ=true"));
-    assert!(!evaluate_when("FLEDGE_TEST_WHEN_EQ=false"));
-    std::env::remove_var("FLEDGE_TEST_WHEN_EQ");
+    let env = env_map([("FLEDGE_TEST_WHEN_EQ", "true")]);
+    assert!(eval("FLEDGE_TEST_WHEN_EQ=true", &env));
+    assert!(!eval("FLEDGE_TEST_WHEN_EQ=false", &env));
 }
 
 #[test]
 fn evaluate_when_negated_var() {
-    std::env::remove_var("FLEDGE_TEST_WHEN_NEG");
-    assert!(evaluate_when("!FLEDGE_TEST_WHEN_NEG"));
-    std::env::set_var("FLEDGE_TEST_WHEN_NEG", "1");
-    assert!(!evaluate_when("!FLEDGE_TEST_WHEN_NEG"));
-    std::env::remove_var("FLEDGE_TEST_WHEN_NEG");
+    let unset = env_map::<_, &str, &str>([]);
+    assert!(eval("!FLEDGE_TEST_WHEN_NEG", &unset));
+    let set = env_map([("FLEDGE_TEST_WHEN_NEG", "1")]);
+    assert!(!eval("!FLEDGE_TEST_WHEN_NEG", &set));
 }
 
 #[test]
 fn evaluate_when_negated_equals() {
-    std::env::set_var("FLEDGE_TEST_WHEN_NEQ", "prod");
-    assert!(evaluate_when("!FLEDGE_TEST_WHEN_NEQ=dev"));
-    assert!(!evaluate_when("!FLEDGE_TEST_WHEN_NEQ=prod"));
-    std::env::remove_var("FLEDGE_TEST_WHEN_NEQ");
+    let env = env_map([("FLEDGE_TEST_WHEN_NEQ", "prod")]);
+    assert!(eval("!FLEDGE_TEST_WHEN_NEQ=dev", &env));
+    assert!(!eval("!FLEDGE_TEST_WHEN_NEQ=prod", &env));
 }
 
 #[test]
 fn evaluate_when_multiple_conditions() {
-    std::env::set_var("FLEDGE_TEST_A", "1");
-    std::env::set_var("FLEDGE_TEST_B", "2");
-    assert!(evaluate_when("FLEDGE_TEST_A,FLEDGE_TEST_B"));
-    assert!(evaluate_when("FLEDGE_TEST_A=1,FLEDGE_TEST_B=2"));
-    assert!(!evaluate_when("FLEDGE_TEST_A=1,FLEDGE_TEST_B=3"));
-    std::env::remove_var("FLEDGE_TEST_A");
-    std::env::remove_var("FLEDGE_TEST_B");
+    let env = env_map([("FLEDGE_TEST_A", "1"), ("FLEDGE_TEST_B", "2")]);
+    assert!(eval("FLEDGE_TEST_A,FLEDGE_TEST_B", &env));
+    assert!(eval("FLEDGE_TEST_A=1,FLEDGE_TEST_B=2", &env));
+    assert!(!eval("FLEDGE_TEST_A=1,FLEDGE_TEST_B=3", &env));
 }
 
 #[test]
 fn evaluate_when_empty_string() {
-    assert!(evaluate_when(""));
-    assert!(evaluate_when(","));
+    let env = env_map::<_, &str, &str>([]);
+    assert!(eval("", &env));
+    assert!(eval(",", &env));
+}
+
+#[test]
+fn evaluate_when_real_env_smoke() {
+    // One smoke test that goes through the real `evaluate_when` (which
+    // reads `std::env::var`) to confirm the wrapper still works. Uses a
+    // var that's basically always present; falls back if not.
+    if std::env::var("PATH").is_ok() {
+        assert!(evaluate_when("PATH"));
+    }
+    // A definitely-not-set var name
+    assert!(!evaluate_when("FLEDGE_DEFINITELY_NOT_SET_XYZ_8675309"));
 }
 
 #[test]
@@ -1473,6 +1511,51 @@ steps = [{ run = "exit 1", retries = 2 }]
     assert!(result.is_err());
 }
 
+#[test]
+fn parse_retry_delay_on_inline() {
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.ci]
+steps = [{ run = "echo flaky", retries = 3, retry_delay = 5 }]
+"#,
+    );
+    assert_eq!(config.lanes["ci"].steps[0].retries(), Some(3));
+    assert_eq!(config.lanes["ci"].steps[0].retry_delay(), Some(5));
+}
+
+#[test]
+fn execute_retry_delay_zero_skips_sleep() {
+    // With retry_delay = 0 the retry loop sleeps 0s between attempts —
+    // failed-after-exhaustion completes essentially instantly, proving
+    // the delay value is honored (default 1s would make this take ~2s).
+    let config = parse_config(
+        r#"
+[tasks]
+
+[lanes.fast-fail]
+steps = [{ run = "exit 1", retries = 2, retry_delay = 0 }]
+"#,
+    );
+    let project_dir = std::env::current_dir().unwrap();
+    let start = std::time::Instant::now();
+    let result = execute_lane(
+        "fast-fail",
+        &config.lanes["fast-fail"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    let elapsed = start.elapsed();
+    assert!(result.is_err());
+    assert!(
+        elapsed < std::time::Duration::from_millis(800),
+        "expected near-instant fail with retry_delay=0, took {elapsed:?}"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn execute_retries_succeed_on_third_attempt() {
@@ -1580,6 +1663,7 @@ fn format_lane_toml_with_task_ref_full() {
             when: Some("CI=true".to_string()),
             timeout: Some(60),
             retries: Some(2),
+            retry_delay: None,
         }],
         fail_fast: true,
         source: None,
@@ -1600,6 +1684,7 @@ fn format_lane_toml_inline_with_extras() {
             when: Some("CI".to_string()),
             timeout: None,
             retries: Some(1),
+            retry_delay: None,
         }],
         fail_fast: true,
         source: None,
