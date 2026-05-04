@@ -693,10 +693,18 @@ pub enum PluginSubcommand {
         /// Filter by author/owner
         #[arg(short, long)]
         author: Option<String>,
+        /// Filter by GitHub topic (e.g. `ci`, `rust`, `testing`)
+        #[arg(short, long)]
+        topic: Option<String>,
         /// Maximum results
         #[arg(short, long, default_value = "20")]
         limit: usize,
+        /// Interactive fuzzy-search — pick a plugin to install
+        #[arg(short, long)]
+        interactive: bool,
     },
+    /// Recommend plugins based on your project's language and tooling
+    Recommend,
     /// Run a plugin command
     Run {
         /// Plugin command name

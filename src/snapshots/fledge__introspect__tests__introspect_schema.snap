@@ -1,6 +1,5 @@
 ---
 source: src/introspect.rs
-assertion_line: 388
 expression: output
 ---
 {
@@ -1252,6 +1251,16 @@ expression: output
               "global": false
             },
             {
+              "name": "topic",
+              "long": "topic",
+              "short": "t",
+              "help": "Filter by GitHub topic (e.g. `ci`, `rust`, `testing`)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "TOPIC",
+              "global": false
+            },
+            {
               "name": "limit",
               "long": "limit",
               "short": "l",
@@ -1261,6 +1270,42 @@ expression: output
               "value_name": "LIMIT",
               "global": false
             },
+            {
+              "name": "interactive",
+              "long": "interactive",
+              "short": "i",
+              "help": "Interactive fuzzy-search — pick a plugin to install",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
+          "subcommands": []
+        },
+        {
+          "name": "recommend",
+          "about": "Recommend plugins based on your project's language and tooling",
+          "aliases": [],
+          "args": [
             {
               "name": "json",
               "long": "json",

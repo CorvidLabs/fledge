@@ -6,7 +6,9 @@ use super::PLUGINS_SEARCH_SCHEMA;
 pub(crate) fn search_plugins(
     query: Option<&str>,
     author: Option<&str>,
+    topic: Option<&str>,
     limit: usize,
+    interactive: bool,
     json: bool,
 ) -> Result<()> {
     let sp = crate::spinner::Spinner::start("Searching GitHub for plugins:");
@@ -14,7 +16,7 @@ pub(crate) fn search_plugins(
     let config = crate::config::Config::load().ok();
     let token = config.as_ref().and_then(|c| c.github_token());
 
-    let query_str = crate::search::build_search_query_ex(query, author, "fledge-plugin");
+    let query_str = crate::search::build_search_query(query, author, "fledge-plugin", topic);
     let limit_str = limit.to_string();
     let body = crate::github::github_api_get(
         "/search/repositories",
@@ -29,9 +31,9 @@ pub(crate) fn search_plugins(
 
     sp.finish();
 
-    let items = body["items"].as_array().unwrap_or(&Vec::new()).clone();
+    let results = crate::search::parse_search_response(&body)?;
 
-    if items.is_empty() {
+    if results.is_empty() {
         if json {
             let result = serde_json::json!({
                 "schema_version": PLUGINS_SEARCH_SCHEMA,
@@ -51,17 +53,17 @@ pub(crate) fn search_plugins(
     }
 
     if json {
-        let entries: Vec<serde_json::Value> = items
+        let entries: Vec<serde_json::Value> = results
             .iter()
-            .map(|item| {
-                let owner = item["owner"]["login"].as_str().unwrap_or("");
-                let tier = crate::trust::determine_trust_tier_from_owner(owner);
+            .map(|r| {
+                let tier = crate::trust::determine_trust_tier_from_owner(&r.owner);
                 serde_json::json!({
-                    "name": item["name"],
-                    "full_name": item["full_name"],
-                    "description": item["description"],
-                    "stars": item["stargazers_count"],
-                    "url": item["html_url"],
+                    "name": r.name,
+                    "full_name": r.full_name(),
+                    "description": r.description,
+                    "stars": r.stars,
+                    "url": r.url,
+                    "topics": r.topics,
                     "trust_tier": tier.label(),
                 })
             })
@@ -74,34 +76,92 @@ pub(crate) fn search_plugins(
         return Ok(());
     }
 
+    if interactive {
+        return interactive_search(&results);
+    }
+
+    print_results(&results);
+    Ok(())
+}
+
+fn print_results(results: &[crate::search::SearchResult]) {
     println!("{}", style("Available plugins:").bold());
-    let max_name = items
+    let max_name = results
         .iter()
-        .filter_map(|i| i["full_name"].as_str())
-        .map(|n| n.len())
+        .map(|r| r.full_name().len())
         .max()
         .unwrap_or(0);
 
-    for item in &items {
-        let full_name = item["full_name"].as_str().unwrap_or("?");
-        let owner = item["owner"]["login"].as_str().unwrap_or("");
-        let tier = crate::trust::determine_trust_tier_from_owner(owner);
-        let desc = item["description"].as_str().unwrap_or("(no description)");
-        let stars = item["stargazers_count"].as_u64().unwrap_or(0);
+    for r in results {
+        let tier = crate::trust::determine_trust_tier_from_owner(&r.owner);
+        let topics_str = if r.topics.is_empty() {
+            String::new()
+        } else {
+            let filtered: Vec<&str> = r
+                .topics
+                .iter()
+                .filter(|t| *t != "fledge-plugin")
+                .map(|t| t.as_str())
+                .collect();
+            if filtered.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", style(filtered.join(", ")).cyan())
+            }
+        };
         println!(
-            "  {:<width$}  [{}]  {}  {}",
-            style(full_name).green(),
+            "  {:<width$}  [{}]  {}  {}{}",
+            style(r.full_name()).green(),
             tier.styled_label(),
-            style(desc).dim(),
-            style(format!("⭐ {stars}")).yellow(),
+            style(&r.description).dim(),
+            style(format!("⭐ {}", r.stars)).yellow(),
+            topics_str,
             width = max_name,
         );
     }
 
     println!(
         "\n  Install with: {}",
-        style("fledge plugin install <owner/repo>").cyan()
+        style("fledge plugins install <owner/repo>").cyan()
+    );
+    println!(
+        "  Or use:       {}",
+        style("fledge plugins search --interactive").cyan()
+    );
+}
+
+fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
+    crate::utils::require_interactive("--interactive")?;
+
+    let items: Vec<String> = results
+        .iter()
+        .map(|r| {
+            let tier = crate::trust::determine_trust_tier_from_owner(&r.owner);
+            format!(
+                "{:<40} [{}]  {}",
+                r.full_name(),
+                tier.label(),
+                r.description
+            )
+        })
+        .collect();
+
+    let selection = dialoguer::FuzzySelect::with_theme(&dialoguer::theme::ColorfulTheme::default())
+        .with_prompt("Select a plugin to install")
+        .items(&items)
+        .default(0)
+        .interact_opt()?;
+
+    let Some(idx) = selection else {
+        println!("Cancelled.");
+        return Ok(());
+    };
+
+    let chosen = &results[idx];
+    println!(
+        "\n  Installing {} ...\n",
+        style(chosen.full_name()).green().bold()
     );
 
-    Ok(())
+    super::install::install_action(Some(&chosen.full_name()), false, false, false)
 }
