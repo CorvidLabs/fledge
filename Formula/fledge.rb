@@ -6,12 +6,12 @@ class Fledge < Formula
   # — once release.yml uploads the binaries and their .sha256 sidecars, that
   # workflow opens a PR bumping the version and shas together. Don't try to bump
   # this manually during `fledge release` (the new shas don't exist at bump time).
-  version "1.1.1"
+  version "1.2.0"
 
   on_macos do
     on_arm do
       url "https://github.com/CorvidLabs/fledge/releases/download/v#{version}/fledge-macos-aarch64"
-      sha256 "c03a51f92e3d6990f7b89e69037030e26c2b565a42c71f48f7a8ba8cfaa768d4"
+      sha256 "6e262a705d1ac979b332df967d64664e45ac9903a52715b4db067971a9229444"
 
       def install
         bin.install "fledge-macos-aarch64" => "fledge"
@@ -20,7 +20,7 @@ class Fledge < Formula
 
     on_intel do
       url "https://github.com/CorvidLabs/fledge/releases/download/v#{version}/fledge-macos-x86_64"
-      sha256 "6fb3caea3e47a971bc62b7e7f303b3a70fcddc046fb144b26462515c6527913c"
+      sha256 "4d79dae9a30d351461b94ba208f55fb4bbd401e521bf6f1c4b054496874ee922"
 
       def install
         bin.install "fledge-macos-x86_64" => "fledge"
@@ -31,7 +31,7 @@ class Fledge < Formula
   on_linux do
     on_intel do
       url "https://github.com/CorvidLabs/fledge/releases/download/v#{version}/fledge-linux-x86_64"
-      sha256 "65be69828141b34571bab339639498ca80900a15134955a749831fdd20b7a021"
+      sha256 "a4f69177a742d6f0855550d81af75f19ba8fc3e138a34422f7e9e5488077f994"
 
       def install
         bin.install "fledge-linux-x86_64" => "fledge"
