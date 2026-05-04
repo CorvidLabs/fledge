@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.2.0] - 2026-05-03
+
+### Features
+
+- **Plugin discoverability** — topic filter, interactive search, and recommend command (#357) (1cf52d9)
+  - `fledge plugins search --topic ci` filters results by GitHub topic
+  - `fledge plugins search --interactive` opens a fuzzy-select picker
+  - `fledge plugins recommend` suggests plugins based on project context
+- **Configurable trust tiers** — override trust classification via config.toml (#356) (74af2fd)
+  - `fledge config add trust.users corvid-agent` to trust a user
+  - `fledge config add trust.orgs myorg` to trust an org
+  - Overrides apply before GitHub API checks
+
+### Chores
+
+- bump default plugin pins (deps v0.2.0, metrics v0.2.1) (#355) (4513195)
+- update Homebrew formula to v1.1.1 (#354) (504d6fc)
+
 ## [v1.1.1] - 2026-05-03
 
 ### Chores
