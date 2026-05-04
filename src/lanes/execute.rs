@@ -70,6 +70,7 @@ pub(crate) fn execute_lane(
         let mut last_err = None;
         for attempt in 0..=retries {
             if attempt > 0 {
+                std::thread::sleep(Duration::from_secs(1));
                 println!(
                     "  {} Retry {}/{} for step {}",
                     style("⟳").yellow(),
@@ -191,6 +192,9 @@ fn execute_lane_json(
         let mut attempts = 0u32;
         let mut last_err = None;
         for attempt in 0..=retries {
+            if attempt > 0 {
+                std::thread::sleep(Duration::from_secs(1));
+            }
             attempts = attempt + 1;
             let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, true, deadline);
@@ -280,7 +284,10 @@ pub(crate) fn execute_lane_silent(
         let timeout = step.timeout();
 
         let mut last_err = None;
-        for _ in 0..=retries {
+        for attempt in 0..=retries {
+            if attempt > 0 {
+                std::thread::sleep(Duration::from_secs(1));
+            }
             let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, true, deadline);
             match result {

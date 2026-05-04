@@ -140,8 +140,8 @@ steps = ["deps-audit", "license-check", "security-scan"]
 | Option | Type | Description |
 |--------|------|-------------|
 | `when` | `string` | Condition: skip step if not met. Supports `VAR` (set & non-empty), `VAR=value` (equals), `!VAR` (not set/empty), `!VAR=value` (not equals). Multiple comma-separated conditions are AND'd |
-| `timeout` | `integer` | Per-step timeout in seconds. The deadline covers the entire step including task deps. Process is killed on timeout |
-| `retries` | `integer` | Number of retry attempts after failure (0 = no retries, default). Total attempts = retries + 1 |
+| `timeout` | `integer` | Per-attempt timeout in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step including task deps. Process is killed on timeout |
+| `retries` | `integer` | Number of retry attempts after failure (0 = no retries, default). Total attempts = retries + 1. A 1-second delay is inserted between attempts |
 
 ```toml
 # Examples of step options
@@ -166,8 +166,8 @@ steps = [
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
 11. `--from <step>` skips all steps before the target (by 1-based index or step name). Stateless — no run history is persisted. Skipped steps show in both human-readable and JSON output
 12. `when` conditions are evaluated against environment variables before each step executes. Steps with unmet conditions are silently skipped (shown as skipped in output). Evaluation is AND-logic for comma-separated conditions
-13. `timeout` sets a per-step deadline in seconds. The deadline covers the entire step execution including task dependency resolution. The direct child process is killed when the deadline passes; grandchild processes spawned by shell commands (e.g. `sh -c "..."`) are not tracked and may continue running as orphans
-14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). When combined with `timeout`, each retry attempt gets a fresh deadline — the timeout is per-attempt, not a shared wall-clock cap
+13. `timeout` sets a per-attempt deadline in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step execution including task dependency resolution. The direct child process is killed when the deadline passes; grandchild processes spawned by shell commands (e.g. `sh -c "..."`) are not tracked and may continue running as orphans
+14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). A 1-second delay is inserted between retry attempts to avoid hammering failing resources
 
 ## Behavioral Examples
 
@@ -272,11 +272,11 @@ $ fledge lanes run release
 
 # Run a lane with JSON output (each step record has step/name/success/duration_ms/error)
 $ fledge lanes run ci --json
-{"schema_version": 1, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [{"step": 1, "name": "lint", "success": true, "duration_ms": 245, "error": null}, ...], "failures": []}
+{"schema_version": 2, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [{"step": 1, "name": "lint", "success": true, "duration_ms": 245, "error": null}, ...], "failures": []}
 
 # Dry-run with JSON (plan only — no duration_ms, includes dry_run: true)
 $ fledge lanes run ci --json --dry-run
-{"schema_version": 1, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "fail_fast": true, "dry_run": true, "steps": [{"step": 1, "kind": "task", "name": "lint"}, {"step": 2, "kind": "parallel", "items": [{"kind": "task", "name": "fmt"}]}, ...]}
+{"schema_version": 2, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "fail_fast": true, "dry_run": true, "steps": [{"step": 1, "kind": "task", "name": "lint"}, {"step": 2, "kind": "parallel", "items": [{"kind": "task", "name": "fmt"}]}, ...]}
 ```
 
 ## Error Cases
@@ -332,7 +332,7 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 22 | 2026-05-04 | Fix spec validation: remove `execute_lane_json`, `execute_task_recursive`, `execute_single_task`, `execute_inline`, `execute_parallel` from Exported Functions (narrowed to private `fn` in v21). Document process tree limitation on timeout (invariant 13). Fix timeout + retries interaction: deadline is now per-attempt, not total (invariant 14) |
+| 22 | 2026-05-04 | Review fixes: (a) 1-second retry delay between attempts. (b) Timeout is per-attempt — each retry gets a fresh deadline. (c) Bump `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` from 1 → 2 for new fields. (d) Fix spec: remove private fns from Exported Functions, document process tree limitation on timeout |
 | 21 | 2026-05-04 | Add `when` (conditional steps), `timeout` (per-step deadlines), `retries`, and `--from` (resume from step). New `Step` options on table-form steps. New exports: `resolve_from`, `evaluate_when`. Invariants 11-14 |
 | 20 | 2026-05-01 | **1.0 contract finalize:** Add Compatibility Policy locking the lanes v1 schema. Future Step variants must use unique discriminator keys in inline-table form so the untagged enum keeps deserializing older lanes. Field removal/retyping bumps schema; parallel + fail_fast semantics, fail_fast default, imported-lane file naming, and trust-tier classification are all locked. No code change |
 | 19 | 2026-04-29 | Document all submodule exports (community, create, defaults, execute, publish, validate) after splitting lanes.rs into lanes/ module folder |

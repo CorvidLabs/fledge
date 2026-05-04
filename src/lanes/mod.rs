@@ -33,8 +33,8 @@ use validate::validate_lanes;
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
 pub(super) const LANES_LIST_SCHEMA: u32 = 1;
-pub(super) const LANES_DRY_RUN_SCHEMA: u32 = 1;
-pub(super) const LANES_RUN_SCHEMA: u32 = 1;
+pub(super) const LANES_DRY_RUN_SCHEMA: u32 = 2;
+pub(super) const LANES_RUN_SCHEMA: u32 = 2;
 pub(super) const LANES_INIT_SCHEMA: u32 = 1;
 pub(super) const LANES_SEARCH_SCHEMA: u32 = 1;
 pub(super) const LANES_IMPORT_SCHEMA: u32 = 1;
