@@ -133,16 +133,24 @@ fn print_results(results: &[crate::search::SearchResult]) {
 fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
     crate::utils::require_interactive("--interactive")?;
 
+    let term_width = console::Term::stdout().size().1 as usize;
+    let max_item_width = term_width.saturating_sub(4);
+
     let items: Vec<String> = results
         .iter()
         .map(|r| {
             let tier = crate::trust::determine_trust_tier_from_owner(&r.owner);
-            format!(
+            let line = format!(
                 "{:<40} [{}]  {}",
                 r.full_name(),
                 tier.label(),
                 r.description
-            )
+            );
+            if line.len() > max_item_width {
+                format!("{}…", &line[..max_item_width - 1])
+            } else {
+                line
+            }
         })
         .collect();
 
