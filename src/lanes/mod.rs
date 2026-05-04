@@ -33,8 +33,8 @@ use validate::validate_lanes;
 /// corrupting the meaning of `schema_version` for unrelated commands. Additive
 /// changes (new optional fields) do not bump.
 pub(super) const LANES_LIST_SCHEMA: u32 = 1;
-pub(super) const LANES_DRY_RUN_SCHEMA: u32 = 2;
-pub(super) const LANES_RUN_SCHEMA: u32 = 2;
+pub(super) const LANES_DRY_RUN_SCHEMA: u32 = 1;
+pub(super) const LANES_RUN_SCHEMA: u32 = 1;
 pub(super) const LANES_INIT_SCHEMA: u32 = 1;
 pub(super) const LANES_SEARCH_SCHEMA: u32 = 1;
 pub(super) const LANES_IMPORT_SCHEMA: u32 = 1;
@@ -713,15 +713,40 @@ pub(super) fn resolve_from(steps: &[Step], from: &str) -> Result<usize> {
         return Ok(idx - 1);
     }
 
+    let mut parallel_match: Option<usize> = None;
     for (i, step) in steps.iter().enumerate() {
-        let name = match step {
-            Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => name.as_str(),
-            Step::Inline { run: cmd, .. } => cmd.as_str(),
-            Step::Parallel { .. } => continue,
-        };
-        if name == from {
-            return Ok(i);
+        match step {
+            Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => {
+                if name == from {
+                    return Ok(i);
+                }
+            }
+            Step::Inline { run: cmd, .. } => {
+                if cmd == from {
+                    return Ok(i);
+                }
+            }
+            Step::Parallel { parallel, .. } => {
+                if parallel_match.is_none()
+                    && parallel.iter().any(|item| match item {
+                        ParallelItem::TaskRef(name) => name == from,
+                        ParallelItem::Inline { run: cmd } => cmd == from,
+                    })
+                {
+                    parallel_match = Some(i);
+                }
+            }
         }
+    }
+
+    if let Some(idx) = parallel_match {
+        bail!(
+            "--from '{}' matches an item inside the parallel step at index {}, \
+             but parallel steps cannot be targeted by name. Use `--from {}` instead.",
+            from,
+            idx + 1,
+            idx + 1,
+        );
     }
 
     bail!("--from '{}' does not match any step name or index", from);

@@ -1,6 +1,8 @@
 use anyhow::{bail, Context, Result};
 use console::style;
 use std::collections::{BTreeMap, HashSet};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -167,6 +169,9 @@ fn execute_lane_json(
             step_results.push(serde_json::json!({
                 "step": i + 1,
                 "name": step_desc,
+                "success": serde_json::Value::Null,
+                "duration_ms": serde_json::Value::Null,
+                "error": serde_json::Value::Null,
                 "skipped": true,
                 "reason": "--from",
             }));
@@ -178,6 +183,9 @@ fn execute_lane_json(
                 step_results.push(serde_json::json!({
                     "step": i + 1,
                     "name": step_desc,
+                    "success": serde_json::Value::Null,
+                    "duration_ms": serde_json::Value::Null,
+                    "error": serde_json::Value::Null,
                     "skipped": true,
                     "reason": format!("when '{}' not met", when),
                 }));
@@ -552,12 +560,28 @@ fn run_command_with_deadline(
             if Instant::now() >= d {
                 bail!("step timed out");
             }
+            // On Unix, place the child in its own process group so we can
+            // signal the entire tree on timeout. Without this, killing a
+            // shell-launched child (e.g. `sh -c "echo a && sleep 30"`)
+            // leaves grandchildren orphaned and adopted by init.
+            #[cfg(unix)]
+            command.process_group(0);
             let mut child = command.spawn().context("spawning command")?;
+            #[cfg(unix)]
+            let pgid = child.id() as libc::pid_t;
             loop {
                 match child.try_wait().context("waiting for command")? {
                     Some(status) => return Ok(status),
                     None => {
                         if Instant::now() >= d {
+                            #[cfg(unix)]
+                            // SAFETY: killpg(pgid, SIGKILL) is safe — pgid is the
+                            // child's own pgid (set via process_group(0) above) and
+                            // SIGKILL has no signal handler to invoke.
+                            unsafe {
+                                libc::killpg(pgid, libc::SIGKILL);
+                            }
+                            #[cfg(not(unix))]
                             let _ = child.kill();
                             let _ = child.wait();
                             bail!("step timed out");

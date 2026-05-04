@@ -166,7 +166,7 @@ steps = ["build", "test"]
              stdout was:\n{stdout}"
         )
     });
-    assert_eq!(parsed["schema_version"].as_u64(), Some(2));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
     assert_eq!(parsed["lane"].as_str(), Some("ci"));
     assert_eq!(parsed["success"].as_bool(), Some(true));
     // Task output must NOT have leaked into stdout.
@@ -215,7 +215,7 @@ steps = ["build", { parallel = ["lint", "fmt"] }, { run = "echo done" }]
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap_or_else(|e| {
         panic!("stdout is not JSON in dry-run mode (regression).\nerror: {e}\nstdout:\n{stdout}")
     });
-    assert_eq!(parsed["schema_version"].as_u64(), Some(2));
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
     assert_eq!(parsed["lane"].as_str(), Some("ci"));
     assert_eq!(parsed["dry_run"].as_bool(), Some(true));
     assert_eq!(parsed["total_steps"].as_u64(), Some(3));

@@ -1604,3 +1604,101 @@ steps = [
     let idx = resolve_from(&config.lanes["ci"].steps, "deploy").unwrap();
     assert_eq!(idx, 0);
 }
+
+#[test]
+fn resolve_from_parallel_item_emits_specific_error() {
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+fmt = "echo fmt"
+build = "echo build"
+
+[lanes.ci]
+steps = [
+  { parallel = ["lint", "fmt"] },
+  "build",
+]
+"#,
+    );
+    let result = resolve_from(&config.lanes["ci"].steps, "lint");
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("parallel"),
+        "expected parallel-specific error, got: {err}"
+    );
+    assert!(
+        err.contains("--from 1"),
+        "expected hint to use --from <index>, got: {err}"
+    );
+}
+
+#[test]
+fn resolve_from_bare_step_wins_over_parallel_match() {
+    // If a bare step also matches the name, that takes precedence over the
+    // parallel-only match. Regression guard for the new branch.
+    let config = parse_config(
+        r#"
+[tasks]
+lint = "echo lint"
+fmt = "echo fmt"
+
+[lanes.ci]
+steps = [
+  { parallel = ["lint", "fmt"] },
+  "lint",
+]
+"#,
+    );
+    let idx = resolve_from(&config.lanes["ci"].steps, "lint").unwrap();
+    assert_eq!(idx, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn execute_timeout_kills_grandchild_processes() {
+    // Multi-statement shell forks a child that survives kill of `sh` itself
+    // unless we kill the entire process group. The marker file is touched
+    // only if `sleep` outlives the timeout — which it shouldn't.
+    let marker = std::env::temp_dir().join(format!(
+        "fledge_test_orphan_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+    ));
+    let _ = std::fs::remove_file(&marker);
+    let cmd = format!("echo start && sleep 3 && touch {}", marker.display());
+
+    let toml_str = format!(
+        r#"
+[tasks]
+
+[lanes.timeout]
+steps = [{{ run = "{cmd}", timeout = 1 }}]
+"#
+    );
+    let config = parse_config(&toml_str);
+    let project_dir = std::env::current_dir().unwrap();
+    let result = execute_lane(
+        "timeout",
+        &config.lanes["timeout"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_err(), "expected timeout failure");
+
+    // Wait past the original sleep duration. If the process group kill
+    // worked, the marker is never created. Otherwise it shows up after ~3s.
+    std::thread::sleep(std::time::Duration::from_secs(4));
+    let leaked = marker.exists();
+    let _ = std::fs::remove_file(&marker);
+    assert!(
+        !leaked,
+        "marker file was created — grandchild sleep was orphaned, not killed"
+    );
+}
