@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use super::{
     evaluate_when, format_duration, step_description, LaneDef, ParallelItem, Step, TaskDef,
-    LANES_RUN_SCHEMA,
+    DEFAULT_RETRY_DELAY_SECS, LANES_RUN_SCHEMA,
 };
 
 pub(crate) fn execute_lane(
@@ -67,12 +67,13 @@ pub(crate) fn execute_lane(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
+        let retry_delay = step.retry_delay().unwrap_or(DEFAULT_RETRY_DELAY_SECS);
         let step_start = Instant::now();
 
         let mut last_err = None;
         for attempt in 0..=retries {
             if attempt > 0 {
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_secs(retry_delay));
                 println!(
                     "  {} Retry {}/{} for step {}",
                     style("⟳").yellow(),
@@ -195,13 +196,14 @@ fn execute_lane_json(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
+        let retry_delay = step.retry_delay().unwrap_or(DEFAULT_RETRY_DELAY_SECS);
         let step_start = Instant::now();
 
         let mut attempts = 0u32;
         let mut last_err = None;
         for attempt in 0..=retries {
             if attempt > 0 {
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_secs(retry_delay));
             }
             attempts = attempt + 1;
             let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
@@ -297,11 +299,12 @@ pub(crate) fn execute_lane_silent(
 
         let retries = step.retries().unwrap_or(0);
         let timeout = step.timeout();
+        let retry_delay = step.retry_delay().unwrap_or(DEFAULT_RETRY_DELAY_SECS);
 
         let mut last_err = None;
         for attempt in 0..=retries {
             if attempt > 0 {
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_secs(retry_delay));
             }
             let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
             let result = execute_step_core(step, tasks, project_dir, true, deadline);
@@ -567,29 +570,48 @@ fn run_command_with_deadline(
             if Instant::now() >= d {
                 bail!("step timed out");
             }
-            // On Unix, place the child in its own process group so we can
-            // signal the entire tree on timeout. Without this, killing a
-            // shell-launched child (e.g. `sh -c "echo a && sleep 30"`)
-            // leaves grandchildren orphaned and adopted by init.
+
+            // Reap entire process tree on timeout. Without this, a shell
+            // command like `sh -c "echo a && sleep 30"` would leave
+            // grandchildren running after the direct child is killed.
+            //
+            // - Unix: spawn in a fresh process group, signal it with
+            //   `killpg(SIGKILL)` on timeout.
+            // - Windows: assign the child to a Job Object; on timeout,
+            //   `TerminateJobObject` kills every process in the job tree.
+            //   The job is configured with NO limit flags — children that
+            //   outlive the parent on a successful exit are NOT reaped
+            //   when the job handle drops, matching the Unix semantic.
             #[cfg(unix)]
             command.process_group(0);
             let mut child = command.spawn().context("spawning command")?;
             #[cfg(unix)]
             let pgid = child.id() as libc::pid_t;
+            #[cfg(windows)]
+            let job = setup_windows_job(&child);
+
             loop {
+                // RAII (`#[cfg(windows)] _job: Some(JobHandle)`) closes the
+                // job handle on every exit path including the `?` propagation
+                // from `try_wait`, preventing a Windows handle leak.
                 match child.try_wait().context("waiting for command")? {
                     Some(status) => return Ok(status),
                     None => {
                         if Instant::now() >= d {
                             #[cfg(unix)]
-                            // SAFETY: killpg(pgid, SIGKILL) is safe — pgid is the
-                            // child's own pgid (set via process_group(0) above) and
-                            // SIGKILL has no signal handler to invoke.
+                            // SAFETY: killpg(pgid, SIGKILL) — pgid is the child's own
+                            // pgid (set via process_group(0) above) and SIGKILL has no
+                            // signal handler to invoke.
                             unsafe {
                                 libc::killpg(pgid, libc::SIGKILL);
                             }
-                            #[cfg(not(unix))]
-                            let _ = child.kill();
+                            #[cfg(windows)]
+                            match &job {
+                                Some(j) => j.terminate(),
+                                None => {
+                                    let _ = child.kill();
+                                }
+                            }
                             let _ = child.wait();
                             bail!("step timed out");
                         }
@@ -600,4 +622,70 @@ fn run_command_with_deadline(
         }
         None => Ok(command.status()?),
     }
+}
+
+/// RAII wrapper for a Win32 Job Object handle. Drop closes the handle.
+/// The job is configured with no limit flags — closing the handle does
+/// not kill members; only an explicit `terminate()` does. This keeps the
+/// Windows path's behavior aligned with Unix: tree reaping fires on
+/// timeout, never on successful exit (so a step that intentionally
+/// backgrounds a daemon does not get its daemon killed).
+#[cfg(windows)]
+struct JobHandle(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl JobHandle {
+    fn terminate(&self) {
+        // SAFETY: self.0 is a valid job handle owned by this guard for the
+        // lifetime of the borrow; TerminateJobObject is documented to be
+        // safe to call on a valid handle. Exit code 1 stands for the
+        // synthetic kill.
+        unsafe {
+            windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0, 1);
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for JobHandle {
+    fn drop(&mut self) {
+        // SAFETY: self.0 is a valid handle returned by CreateJobObjectW
+        // and never closed elsewhere — Drop is the single owner of the
+        // close call.
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
+/// Wrap the spawned child in a Job Object so that `TerminateJobObject`
+/// reaps the entire process tree on timeout. The race window between
+/// `spawn` and `AssignProcessToJobObject` is small for typical shell
+/// invocations — a child rarely spawns grandchildren before the assign
+/// call lands a few microseconds later. If setup fails (rare; would
+/// require resource exhaustion), returns `None` and the timeout path
+/// falls back to `child.kill()` which only signals the direct child.
+#[cfg(windows)]
+fn setup_windows_job(child: &std::process::Child) -> Option<JobHandle> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW};
+
+    // SAFETY: CreateJobObjectW with null name returns a fresh unnamed job
+    // handle or null on failure.
+    let job: HANDLE = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+    if job.is_null() {
+        return None;
+    }
+    let guard = JobHandle(job);
+
+    // SAFETY: child's raw handle is valid for the duration of the Child borrow;
+    // AssignProcessToJobObject does not retain the handle past the call.
+    let assigned = unsafe { AssignProcessToJobObject(job, child.as_raw_handle() as HANDLE) };
+    if assigned == 0 {
+        // guard's Drop closes the job handle on this path
+        return None;
+    }
+
+    Some(guard)
 }
