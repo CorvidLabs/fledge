@@ -68,7 +68,17 @@ pub(crate) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()
                         ));
                     }
                 }
-                Step::Inline { run: cmd } => {
+                Step::TaskRefFull {
+                    task: task_name, ..
+                } => {
+                    if !parsed.tasks.contains_key(task_name) {
+                        report.errors.push(format!(
+                            "Lane '{name}' step {} references undefined task '{task_name}'",
+                            i + 1
+                        ));
+                    }
+                }
+                Step::Inline { run: cmd, .. } => {
                     if cmd.trim().is_empty() {
                         report.errors.push(format!(
                             "Lane '{name}' step {} has empty inline command",
@@ -76,7 +86,7 @@ pub(crate) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()
                         ));
                     }
                 }
-                Step::Parallel { parallel } => {
+                Step::Parallel { parallel, .. } => {
                     if parallel.is_empty() {
                         report.errors.push(format!(
                             "Lane '{name}' step {} has empty parallel group",

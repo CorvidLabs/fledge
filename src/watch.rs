@@ -150,6 +150,7 @@ fn run_target(opts: &WatchOptions) {
             name: opts.name.clone(),
             dry_run: false,
             json: false,
+            from: None,
         })
     } else {
         task_runner::run(task_runner::RunOptions {

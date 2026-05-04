@@ -5,10 +5,11 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use super::{
-    format_duration, step_description, LaneDef, ParallelItem, Step, TaskDef, LANES_RUN_SCHEMA,
+    evaluate_when, format_duration, step_description, LaneDef, ParallelItem, Step, TaskDef,
+    LANES_RUN_SCHEMA,
 };
 
 pub(crate) fn execute_lane(
@@ -17,9 +18,10 @@ pub(crate) fn execute_lane(
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     json: bool,
+    from_index: Option<usize>,
 ) -> Result<()> {
     if json {
-        return execute_lane_json(lane_name, lane, tasks, project_dir);
+        return execute_lane_json(lane_name, lane, tasks, project_dir, from_index);
     }
 
     let desc = lane.description.as_deref().unwrap_or("(no description)");
@@ -29,35 +31,70 @@ pub(crate) fn execute_lane(
         style(lane_name).bold(),
         style(desc).dim()
     );
+    if let Some(fi) = from_index {
+        println!("  {} starting from step {}", style("⚙").dim(), fi + 1);
+    }
 
     let total_steps = lane.steps.len();
     let mut failures: Vec<String> = Vec::new();
     let lane_start = Instant::now();
 
     for (i, step) in lane.steps.iter().enumerate() {
+        if from_index.is_some_and(|fi| i < fi) {
+            println!(
+                "  {} Step {} {}",
+                style("⏭").dim(),
+                i + 1,
+                style("(skipped by --from)").dim()
+            );
+            continue;
+        }
+
+        if let Some(when) = step.when() {
+            if !evaluate_when(when) {
+                println!(
+                    "  {} Step {} {} {}",
+                    style("⏭").dim(),
+                    i + 1,
+                    step_description(step),
+                    style(format!("(skipped: when '{when}' not met)")).dim()
+                );
+                continue;
+            }
+        }
+
+        let retries = step.retries().unwrap_or(0);
+        let timeout = step.timeout();
+        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
         let step_start = Instant::now();
-        let result = match step {
-            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, false),
-            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, false),
-            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, false),
-        };
+
+        let mut last_err = None;
+        for attempt in 0..=retries {
+            if attempt > 0 {
+                println!(
+                    "  {} Retry {}/{} for step {}",
+                    style("⟳").yellow(),
+                    attempt,
+                    retries,
+                    i + 1
+                );
+            }
+            let result = execute_step_core(step, tasks, project_dir, false, deadline);
+            match result {
+                Ok(()) => {
+                    last_err = None;
+                    break;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                }
+            }
+        }
+
         let elapsed = step_start.elapsed();
 
-        if let Err(e) = result {
-            let step_desc = match step {
-                Step::TaskRef(name) => name.clone(),
-                Step::Inline { run: cmd } => cmd.clone(),
-                Step::Parallel { parallel } => {
-                    let names: Vec<String> = parallel
-                        .iter()
-                        .map(|item| match item {
-                            ParallelItem::TaskRef(name) => name.clone(),
-                            ParallelItem::Inline { run: cmd } => cmd.clone(),
-                        })
-                        .collect();
-                    format!("parallel({})", names.join(", "))
-                }
-            };
+        if let Some(e) = last_err {
+            let step_desc = step_description(step);
             if lane.fail_fast {
                 bail!(
                     "Lane '{}' failed at step {} ({}) after {}: {}",
@@ -110,11 +147,12 @@ pub(crate) fn execute_lane(
     Ok(())
 }
 
-pub(crate) fn execute_lane_json(
+fn execute_lane_json(
     lane_name: &str,
     lane: &LaneDef,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
+    from_index: Option<usize>,
 ) -> Result<()> {
     let total_steps = lane.steps.len();
     let mut step_results: Vec<serde_json::Value> = Vec::new();
@@ -123,23 +161,66 @@ pub(crate) fn execute_lane_json(
 
     for (i, step) in lane.steps.iter().enumerate() {
         let step_desc = step_description(step);
-        let step_start = Instant::now();
-        let result = match step {
-            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, true),
-            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, true),
-            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, true),
-        };
-        let elapsed = step_start.elapsed();
-        let success = result.is_ok();
-        let error_msg = result.err().map(|e| e.to_string());
 
-        step_results.push(serde_json::json!({
+        if from_index.is_some_and(|fi| i < fi) {
+            step_results.push(serde_json::json!({
+                "step": i + 1,
+                "name": step_desc,
+                "skipped": true,
+                "reason": "--from",
+            }));
+            continue;
+        }
+
+        if let Some(when) = step.when() {
+            if !evaluate_when(when) {
+                step_results.push(serde_json::json!({
+                    "step": i + 1,
+                    "name": step_desc,
+                    "skipped": true,
+                    "reason": format!("when '{}' not met", when),
+                }));
+                continue;
+            }
+        }
+
+        let retries = step.retries().unwrap_or(0);
+        let timeout = step.timeout();
+        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
+        let step_start = Instant::now();
+
+        let mut attempts = 0u32;
+        let mut last_err = None;
+        for attempt in 0..=retries {
+            attempts = attempt + 1;
+            let result = execute_step_core(step, tasks, project_dir, true, deadline);
+            match result {
+                Ok(()) => {
+                    last_err = None;
+                    break;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                }
+            }
+        }
+
+        let elapsed = step_start.elapsed();
+        let success = last_err.is_none();
+        let error_msg = last_err.map(|e| e.to_string());
+
+        let mut entry = serde_json::json!({
             "step": i + 1,
             "name": step_desc,
             "success": success,
             "duration_ms": elapsed.as_millis() as u64,
             "error": error_msg,
-        }));
+        });
+        if attempts > 1 {
+            entry["attempts"] = serde_json::json!(attempts);
+        }
+
+        step_results.push(entry);
 
         if !success {
             failures.push(step_desc.clone());
@@ -152,7 +233,7 @@ pub(crate) fn execute_lane_json(
     let total_elapsed = lane_start.elapsed();
     let success = failures.is_empty();
 
-    let output = serde_json::json!({
+    let mut output = serde_json::json!({
         "schema_version": LANES_RUN_SCHEMA,
         "lane": lane_name,
         "description": lane.description.as_deref().unwrap_or(""),
@@ -163,6 +244,9 @@ pub(crate) fn execute_lane_json(
         "steps": step_results,
         "failures": failures,
     });
+    if let Some(fi) = from_index {
+        output["from_step"] = serde_json::json!(fi + 1);
+    }
 
     println!("{}", serde_json::to_string_pretty(&output)?);
 
@@ -186,13 +270,31 @@ pub(crate) fn execute_lane_silent(
     let mut failures: Vec<String> = Vec::new();
 
     for (i, step) in lane.steps.iter().enumerate() {
-        let result = match step {
-            Step::TaskRef(name) => execute_task_with_deps(name, tasks, project_dir, true),
-            Step::Inline { run: cmd } => execute_inline(cmd, project_dir, true),
-            Step::Parallel { parallel } => execute_parallel(parallel, tasks, project_dir, true),
-        };
+        if let Some(when) = step.when() {
+            if !evaluate_when(when) {
+                continue;
+            }
+        }
 
-        if let Err(e) = result {
+        let retries = step.retries().unwrap_or(0);
+        let timeout = step.timeout();
+        let deadline = timeout.map(|t| Instant::now() + Duration::from_secs(t));
+
+        let mut last_err = None;
+        for _ in 0..=retries {
+            let result = execute_step_core(step, tasks, project_dir, true, deadline);
+            match result {
+                Ok(()) => {
+                    last_err = None;
+                    break;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                }
+            }
+        }
+
+        if let Some(e) = last_err {
             let step_desc = step_description(step);
             if lane.fail_fast {
                 bail!(
@@ -218,22 +320,47 @@ pub(crate) fn execute_lane_silent(
     Ok(())
 }
 
+fn execute_step_core(
+    step: &Step,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_dir: &Path,
+    quiet: bool,
+    deadline: Option<Instant>,
+) -> Result<()> {
+    match step {
+        Step::TaskRef(name) | Step::TaskRefFull { task: name, .. } => {
+            execute_task_with_deps(name, tasks, project_dir, quiet, deadline)
+        }
+        Step::Inline { run: cmd, .. } => execute_inline(cmd, project_dir, quiet, deadline),
+        Step::Parallel { parallel, .. } => {
+            execute_parallel(parallel, tasks, project_dir, quiet, deadline)
+        }
+    }
+}
+
 pub(crate) fn execute_task_with_deps(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     quiet: bool,
+    deadline: Option<Instant>,
 ) -> Result<()> {
+    if let Some(d) = deadline {
+        if Instant::now() >= d {
+            bail!("step timed out");
+        }
+    }
     let mut visited = HashSet::new();
-    execute_task_recursive(name, tasks, project_dir, &mut visited, quiet)
+    execute_task_recursive(name, tasks, project_dir, &mut visited, quiet, deadline)
 }
 
-pub(crate) fn execute_task_recursive(
+fn execute_task_recursive(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     visited: &mut HashSet<String>,
     quiet: bool,
+    deadline: Option<Instant>,
 ) -> Result<()> {
     if !visited.insert(name.to_string()) {
         bail!(
@@ -248,17 +375,18 @@ pub(crate) fn execute_task_recursive(
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found", name))?;
 
     for dep in task.deps() {
-        execute_task_recursive(dep, tasks, project_dir, visited, quiet)?;
+        execute_task_recursive(dep, tasks, project_dir, visited, quiet, deadline)?;
     }
 
-    execute_single_task(name, task, project_dir, quiet)
+    execute_single_task(name, task, project_dir, quiet, deadline)
 }
 
-pub(crate) fn execute_single_task(
+fn execute_single_task(
     name: &str,
     task: &TaskDef,
     project_dir: &Path,
     quiet: bool,
+    deadline: Option<Instant>,
 ) -> Result<()> {
     if !quiet {
         println!(
@@ -284,18 +412,12 @@ pub(crate) fn execute_single_task(
         command.env(key, value);
     }
 
-    // In quiet (JSON) mode, redirect the spawned task's stdout/stderr to
-    // null so the agent's stdout stays a clean single JSON object.
-    // Trade-off: per-step output isn't captured into the JSON record. For
-    // 1.0 this is intentionally lossy — capturing output would require a
-    // larger refactor and consumers that need it can re-run without --json.
     if quiet {
         command.stdout(std::process::Stdio::null());
         command.stderr(std::process::Stdio::null());
     }
 
-    let status = command
-        .status()
+    let status = run_command_with_deadline(&mut command, deadline)
         .with_context(|| format!("running task '{name}'"))?;
 
     if !status.success() {
@@ -306,7 +428,12 @@ pub(crate) fn execute_single_task(
     Ok(())
 }
 
-pub(crate) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Result<()> {
+fn execute_inline(
+    cmd: &str,
+    project_dir: &Path,
+    quiet: bool,
+    deadline: Option<Instant>,
+) -> Result<()> {
     if !quiet {
         println!(
             "  {} {}",
@@ -325,8 +452,7 @@ pub(crate) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Resu
         command.stderr(std::process::Stdio::null());
     }
 
-    let status = command
-        .status()
+    let status = run_command_with_deadline(&mut command, deadline)
         .with_context(|| format!("running inline command: {cmd}"))?;
 
     if !status.success() {
@@ -337,11 +463,12 @@ pub(crate) fn execute_inline(cmd: &str, project_dir: &Path, quiet: bool) -> Resu
     Ok(())
 }
 
-pub(crate) fn execute_parallel(
+fn execute_parallel(
     items: &[ParallelItem],
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
     quiet: bool,
+    deadline: Option<Instant>,
 ) -> Result<()> {
     let names_display: Vec<String> = items
         .iter()
@@ -368,9 +495,11 @@ pub(crate) fn execute_parallel(
             let handle = s.spawn(move || {
                 let result = match item {
                     ParallelItem::TaskRef(name) => {
-                        execute_task_with_deps(name, tasks, project_dir, quiet)
+                        execute_task_with_deps(name, tasks, project_dir, quiet, deadline)
                     }
-                    ParallelItem::Inline { run: cmd } => execute_inline(cmd, project_dir, quiet),
+                    ParallelItem::Inline { run: cmd } => {
+                        execute_inline(cmd, project_dir, quiet, deadline)
+                    }
                 };
                 if let Err(e) = result {
                     let label = match item {
@@ -405,4 +534,32 @@ pub(crate) fn execute_parallel(
     }
 
     Ok(())
+}
+
+fn run_command_with_deadline(
+    command: &mut Command,
+    deadline: Option<Instant>,
+) -> Result<std::process::ExitStatus> {
+    match deadline {
+        Some(d) => {
+            if Instant::now() >= d {
+                bail!("step timed out");
+            }
+            let mut child = command.spawn().context("spawning command")?;
+            loop {
+                match child.try_wait().context("waiting for command")? {
+                    Some(status) => return Ok(status),
+                    None => {
+                        if Instant::now() >= d {
+                            let _ = child.kill();
+                            let _ = child.wait();
+                            bail!("step timed out");
+                        }
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                }
+            }
+        }
+        None => Ok(command.status()?),
+    }
 }
