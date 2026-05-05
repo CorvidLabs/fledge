@@ -207,7 +207,7 @@ fledge lanes <run|list|init|search|import|publish|create|validate>
 
 **Subcommands:**
 
-- `run <name>` - Run a lane by name (`--dry-run` to preview, `--json` for JSON output)
+- `run <name>` - Run a lane by name (`--dry-run` to preview, `--json` for JSON output, `--from <step|index>` to resume from a specific step)
 - `list` - List available lanes (`--json` for JSON output)
 - `init` - Add default lanes to `fledge.toml`
 - `search [query]` - Search GitHub for community lanes (`--author`, `--json`)
@@ -244,13 +244,17 @@ steps = [
 
 | Type | Syntax | |
 |------|--------|-|
-| Task reference | `"task_name"` | Runs a task from `[tasks]` |
+| Task reference | `"task_name"` or `{ task = "name" }` | Runs a task from `[tasks]` |
 | Inline command | `{ run = "command" }` | Shell command |
 | Parallel group | `{ parallel = ["a", "b"] }` | Concurrent execution |
 
+**Step options** (on table-form steps): `when` (env-var condition), `timeout` (per-attempt seconds), `retries` (count), `retry_delay` (seconds between attempts, default `1`). See [`fledge.toml` Reference](./fledge-toml.md#step-options) for the full forms.
+
 ```bash
-fledge lanes run ci           # run a lane
+fledge lanes run ci                   # run a lane
 fledge lanes run ci --dry-run
+fledge lanes run ci --from build      # resume from a step (name or 1-based index)
+fledge lanes run ci --json            # per-step results, including `skipped` rows
 fledge lanes list
 fledge lanes list --json
 fledge lanes init

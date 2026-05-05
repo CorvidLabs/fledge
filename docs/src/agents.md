@@ -56,7 +56,7 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 | `fledge plugins validate --json` | `{schema_version: 1, path, plugin_name, errors, warnings}` |
 | `fledge lanes list --json` | `{schema_version: 1, lanes: [...]}` |
 | `fledge lanes search --json` | `{schema_version: 1, results: [...]}` |
-| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps, failures}` |
+| `fledge lanes run <name> --json` | `{schema_version: 1, lane, success, duration_ms, fail_fast, steps, failures}`. Each `steps` entry has `step, name, success, duration_ms, error`; retried steps additionally carry `attempts: <n>`; skipped steps carry `skipped: true, reason: "when 'X' not met"` or `reason: "--from"` (with `success: null, duration_ms: null, error: null`). `--from <step\|index>` is also supported on `lanes run`. |
 | `fledge lanes validate --json` | `{schema_version: 1, path, lane_count, errors, warnings}` |
 | `fledge work start <name> --json` | `{schema_version: 1, action: "work_start", branch, base, type, prefix, issue}` |
 | `fledge work commit --json` | `{schema_version: 1, action: "work_commit", hash, message, branch}` |

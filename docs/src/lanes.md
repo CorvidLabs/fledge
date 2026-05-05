@@ -149,6 +149,66 @@ steps = [
 ]
 ```
 
+### Step Options
+
+Table-form steps accept four optional fields: `when`, `timeout`, `retries`, and `retry_delay`. They work on task references (`{ task = "name" }`), inline commands (`{ run = "..." }`), and parallel groups (`{ parallel = [...] }`).
+
+| Option | Type | Default | What it does |
+|--------|------|---------|--------------|
+| `when` | string | always run | Skip the step unless an env-var condition is met. See forms below. |
+| `timeout` | integer (seconds) | unlimited | Per-attempt deadline. The whole process tree is killed on exceed. |
+| `retries` | integer | `0` | Retry attempts after failure. Total attempts = `retries + 1`. |
+| `retry_delay` | integer (seconds) | `1` | Sleep between retry attempts. Set `0` for immediate retry. |
+
+```toml
+[lanes.release]
+description = "Build and ship"
+steps = [
+  { task = "test", when = "!SKIP_TESTS" },
+  { task = "build", timeout = 120 },
+  { run = "scripts/publish.sh", retries = 3, retry_delay = 5 },
+  { task = "deploy", when = "CI=true,DEPLOY_ENV=production", timeout = 60 },
+]
+```
+
+#### Conditional steps with `when`
+
+The `when` string supports four condition forms. Multiple comma-separated conditions are AND'd.
+
+| Form | Meaning |
+|------|---------|
+| `VAR` | Run when `VAR` is set and non-empty |
+| `VAR=value` | Run when `VAR` equals `value` exactly |
+| `!VAR` | Run when `VAR` is unset or empty |
+| `!VAR=value` | Run when `VAR` does not equal `value` |
+| `VAR1,VAR2=x` | AND: every condition must hold |
+
+Skipped steps are visible in the output (`⏭ Step N name (skipped: when 'X' not met)`) and in JSON output (`"skipped": true, "reason": "..."`).
+
+#### Per-step timeouts
+
+`timeout` sets a per-attempt deadline. On exceed, fledge sends `SIGKILL` to the process group on Unix or `TerminateJobObject` on Windows, so multi-statement shells (`sh -c "a && b"`, `cmd /c "a & b"`) don't leak grandchildren. If the step has `retries`, each attempt gets a fresh deadline.
+
+#### Retries with `retry_delay`
+
+`retries` re-runs the entire step on failure. `retry_delay` controls the sleep between attempts (default 1s). `retry_delay = 0` retries immediately — useful when you want to absorb a flake without slowing down the lane.
+
+```toml
+# Immediate-retry flake mitigation
+{ run = "curl https://api.example.com/health", retries = 5, retry_delay = 0 }
+```
+
+### Resuming with `--from`
+
+`fledge lanes run <name> --from <step>` skips every step before the target. Useful for "I already ran lint and test, just resume from build."
+
+```bash
+fledge lanes run ci --from build      # by step name
+fledge lanes run ci --from 3          # by 1-based index
+```
+
+Resume is stateless — no run history is persisted. Skipped steps appear in the output (`⏭ Step N (skipped by --from)`) and in JSON output (`"skipped": true, "reason": "--from"`). Targeting a parallel-group step by name doesn't work; use the index instead.
+
 ### Failure Behavior
 
 Default is `fail_fast = true`. Pipeline stops on the first failure.
@@ -256,6 +316,19 @@ steps = [
 ]
 ```
 
+#### Real CI with conditional deploy and flake retries
+
+```toml
+[lanes.ci]
+description = "Lint, test, build, and deploy on main"
+steps = [
+  { parallel = ["fmt", "lint"] },
+  { task = "test", timeout = 300 },
+  "build",
+  { task = "deploy", when = "CI=true,BRANCH=main", timeout = 120, retries = 2, retry_delay = 5 },
+]
+```
+
 ### Auto-Generated Defaults
 
 `fledge lanes init` detects your project type:
@@ -272,6 +345,8 @@ steps = [
 ```bash
 fledge lanes run ci                   # run a lane
 fledge lanes run ci --dry-run         # preview the plan
+fledge lanes run ci --from build      # resume from a step (by name or 1-based index)
+fledge lanes run ci --json            # machine-readable per-step results
 fledge lanes list                     # list lanes
 fledge lanes list --json
 fledge lanes init                     # generate defaults
