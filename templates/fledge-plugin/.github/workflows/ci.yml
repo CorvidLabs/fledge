@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: |
+          shopt -s nullglob
+          fail=0
+          for f in bin/*; do
+            if head -n1 "$f" | grep -qE '^#!.*\b(bash|sh)\b'; then
+              echo "▶ shellcheck $f"
+              shellcheck "$f" || fail=1
+            fi
+          done
+          exit "$fail"
+
+  smoke:
+    name: Smoke (--help)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run --help on every bin entry
+        run: |
+          shopt -s nullglob
+          for f in bin/*; do
+            if head -n1 "$f" | grep -qE '^#!.*\b(bash|sh)\b'; then
+              chmod +x "$f"
+              echo "▶ $f --help"
+              "$f" --help || exit 1
+              echo
+            fi
+          done

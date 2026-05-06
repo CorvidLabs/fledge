@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# {{ project_name }} — {{ description }}
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+fledge {{ command_name }} — {{ description }}
+
+USAGE:
+  fledge {{ command_name }} [OPTIONS] [ARGS]
+
+OPTIONS:
+  -h, --help    Show this help
+
+EXAMPLES:
+  fledge {{ command_name }}
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "{{ project_name }}: unknown flag '$1'" >&2
+      exit 64
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+# --- Your plugin logic here ---
+echo "Hello from {{ project_name }}!"

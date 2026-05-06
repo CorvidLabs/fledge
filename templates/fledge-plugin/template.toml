@@ -1,0 +1,16 @@
+[template]
+name = "fledge-plugin"
+description = "Fledge plugin with shell commands, CI, GitHub Pages docs, and plugin.toml"
+min_fledge_version = "1.2.0"
+
+[prompts]
+description = { message = "Plugin description", default = "A fledge plugin" }
+command_name = { message = "Command name (what users type after 'fledge')", default = "{{ project_name | replace(from='fledge-plugin-', to='') }}" }
+emoji = { message = "Emoji for the docs page", default = "🔌" }
+needs_exec = { message = "Needs exec capability? (shell out via host) [true/false]", default = "false" }
+needs_store = { message = "Needs store capability? (persistent key-value state) [true/false]", default = "false" }
+
+[files]
+render = ["**/*.toml", "**/*.md", "**/*.html", "bin/*"]
+copy = []
+ignore = ["template.toml"]
