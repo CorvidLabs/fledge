@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # {{ project_name }} — {{ description }}
+#
+# This is a starter stub. Replace it with any language — the only contract
+# is that `bin/{{ command_name }}` is executable and supports `--help`.
 set -euo pipefail
 
 usage() {
@@ -33,5 +36,4 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# --- Your plugin logic here ---
 echo "Hello from {{ project_name }}!"

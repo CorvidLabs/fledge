@@ -17,7 +17,7 @@ fledge {{ command_name }} --help
 
 ## How it works
 
-This plugin is a shell script that runs via the fledge plugin protocol. It receives arguments from the CLI and can use any tools available on your system.
+This plugin runs via the [fledge-v1 plugin protocol](https://corvidlabs.github.io/fledge/). The `binary` field in `plugin.toml` points to the executable in `bin/` — replace the starter bash stub with any language (Python, Node, Go, Rust, etc.). The only contract is that the binary is executable and supports `--help`.
 {% if needs_exec == "true" %}
 ### Exec capability
 
