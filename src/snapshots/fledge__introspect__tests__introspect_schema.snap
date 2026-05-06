@@ -1271,6 +1271,15 @@ expression: output
               "global": false
             },
             {
+              "name": "trust_tier",
+              "long": "trust-tier",
+              "help": "Filter by trust tier (`official`, `team`, or `unverified`) — applied client-side after fetching",
+              "required": false,
+              "takes_value": true,
+              "value_name": "TIER",
+              "global": false
+            },
+            {
               "name": "limit",
               "long": "limit",
               "short": "l",

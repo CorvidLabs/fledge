@@ -68,6 +68,7 @@ const PLUGINS_REMOVE_SCHEMA: u32 = 1;
 const PLUGINS_LIST_SCHEMA: u32 = 1;
 const PLUGINS_AUDIT_SCHEMA: u32 = 1;
 const PLUGINS_SEARCH_SCHEMA: u32 = 1;
+const PLUGINS_RECOMMEND_SCHEMA: u32 = 1;
 const PLUGINS_CREATE_SCHEMA: u32 = 1;
 const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
 
@@ -216,6 +217,7 @@ pub enum PluginAction {
         query: Option<String>,
         author: Option<String>,
         topic: Option<String>,
+        trust_tier: Option<crate::trust::TrustTier>,
         limit: usize,
         interactive: bool,
     },
@@ -264,12 +266,14 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             query,
             author,
             topic,
+            trust_tier,
             limit,
             interactive,
         } => search_plugins(
             query.as_deref(),
             author.as_deref(),
             topic.as_deref(),
+            trust_tier,
             limit,
             interactive,
             opts.json,
