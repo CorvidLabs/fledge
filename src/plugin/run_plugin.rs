@@ -115,8 +115,7 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
             bail!("Hook path '{}' escapes plugin directory", hook);
         }
         super::make_executable(&hook_path)?;
-        run_hook_file(&hook_path, plugin_dir)
-            .with_context(|| format!("running {event} hook"))?
+        run_hook_file(&hook_path, plugin_dir).with_context(|| format!("running {event} hook"))?
     } else {
         let parts = shell_words::split(hook)
             .with_context(|| format!("parsing {event} hook command: {hook}"))?;
@@ -144,10 +143,7 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
 /// `.bat` and `.cmd` files are executed via `cmd /c`.
 fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::ExitStatus> {
     if cfg!(windows) {
-        let ext = hook_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let ext = hook_path.extension().and_then(|e| e.to_str()).unwrap_or("");
         match ext {
             "bat" | "cmd" => {
                 return Command::new("cmd")
