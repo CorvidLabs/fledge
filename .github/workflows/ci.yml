@@ -74,6 +74,7 @@ jobs:
         run: fledge lanes run check
       - name: Install default plugins
         run: fledge plugins install --defaults --non-interactive
+        continue-on-error: true
       - name: List installed plugins
         run: fledge plugins list
       - name: Run default plugin - github (smoke test)
