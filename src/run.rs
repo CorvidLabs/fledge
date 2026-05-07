@@ -342,10 +342,12 @@ fmt = "ruff format --check ."
 lint = "bundle exec rubocop"
 console = "bundle exec irb""#
             .to_string(),
-        "java-gradle" => r#"build = "./gradlew build"
-test = "./gradlew test"
-lint = "./gradlew check""#
-            .to_string(),
+        "java-gradle" => {
+            let gradlew = if cfg!(windows) { "gradlew.bat" } else { "./gradlew" };
+            format!(
+                "build = \"{gradlew} build\"\ntest = \"{gradlew} test\"\nlint = \"{gradlew} check\""
+            )
+        }
         "java-maven" => r#"build = "mvn compile"
 test = "mvn test"
 lint = "mvn checkstyle:check""#
@@ -439,8 +441,9 @@ fn auto_detect_tasks(project_type: &str, dir: &Path) -> BTreeMap<String, TaskDef
             tasks.insert("lint".into(), TaskDef::Short("bundle exec rubocop".into()));
         }
         "java-gradle" => {
-            tasks.insert("build".into(), TaskDef::Short("./gradlew build".into()));
-            tasks.insert("test".into(), TaskDef::Short("./gradlew test".into()));
+            let gradlew = if cfg!(windows) { "gradlew.bat" } else { "./gradlew" };
+            tasks.insert("build".into(), TaskDef::Short(format!("{gradlew} build")));
+            tasks.insert("test".into(), TaskDef::Short(format!("{gradlew} test")));
         }
         "java-maven" => {
             tasks.insert("build".into(), TaskDef::Short("mvn compile".into()));

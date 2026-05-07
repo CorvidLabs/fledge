@@ -616,7 +616,10 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
     }
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_file(original, link)?;
+        // Symlink creation on Windows requires Developer Mode or elevated
+        // privileges.  Fall back to copying the file when symlink fails.
+        std::os::windows::fs::symlink_file(original, link)
+            .or_else(|_| std::fs::copy(original, link).map(|_| ()))?;
     }
     Ok(())
 }
