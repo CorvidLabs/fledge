@@ -348,9 +348,18 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
 
 pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
     let bin_dir = plugin_bin_dir();
-    let bin_path = bin_dir.join(format!("fledge-{name}"));
+    let base = format!("fledge-{name}");
+    let bin_path = bin_dir.join(&base);
     if bin_path.exists() {
         return Some(bin_path);
+    }
+    if cfg!(windows) {
+        for ext in &[".exe", ".bat", ".cmd"] {
+            let with_ext = bin_dir.join(format!("{base}{ext}"));
+            if with_ext.exists() {
+                return Some(with_ext);
+            }
+        }
     }
     run_plugin::which_fledge_plugin(name)
 }
