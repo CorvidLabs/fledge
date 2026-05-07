@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 26
+version: 27
 status: active
 files:
   - src/plugin/mod.rs
@@ -32,32 +32,32 @@ Plugin system for community extensions. Plugins are external executables that re
 
 ### Exported Functions
 
-| Export | Description |
-|--------|-------------|
-| `run` | Entry point — install, list, remove, or run plugins |
-| `resolve_plugin_command` | Check if a command name matches an installed plugin |
-| `run_lifecycle_hook` | Run a named lifecycle hook across all installed plugins |
-| `DEFAULT_PLUGINS` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
-| `PluginOptions` | Options for the plugin subcommand |
-| `PluginAction` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
-| `PluginCapabilities` | Declared capabilities — exec, store, metadata (all default false) |
-| `install_action` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
-| `install_defaults` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
-| `install_plugin` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
-| `list_plugins` | List installed plugins with trust tier, version, and source info |
-| `audit_plugins` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
-| `has_lifecycle_hooks` | Check whether a plugin has any lifecycle hooks defined in its manifest |
-| `get_lifecycle_hooks` | Return all lifecycle hooks for a plugin as (event, command) pairs |
-| `remove_plugin` | Remove an installed plugin: delete symlinks, run post_remove hook, clean up directory and registry |
-| `create_plugin` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
-| `publish_plugin` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
-| `update_plugins` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
-| `find_latest_tag` | Fetch tags and return the latest version-sorted tag for a plugin repo |
-| `PluginValidationReport` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
-| `validate_plugin` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
-| `print_plugin_report` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
-| `search_plugins` | Search GitHub for plugins by query, author, topic, limit with `fledge-plugin` topic filter |
-| `recommend_plugins` | Detect project language and suggest relevant uninstalled plugins |
+| Export | Visibility | Description |
+|--------|------------|-------------|
+| `run` | `pub` | Entry point — install, list, remove, or run plugins |
+| `resolve_plugin_command` | `pub` | Check if a command name matches an installed plugin |
+| `run_lifecycle_hook` | `pub` | Run a named lifecycle hook across all installed plugins |
+| `DEFAULT_PLUGINS` | `pub` | Curated list of plugin sources installed by `fledge plugins install --defaults` |
+| `PluginOptions` | `pub` | Options for the plugin subcommand |
+| `PluginAction` | `pub` | Enum of plugin operations: Install, Remove, Update, List, Search, Run, Publish, Create, Validate, Audit |
+| `PluginCapabilities` | `pub` | Declared capabilities — exec, store, metadata (all default false) |
+| `install_action` | `pub(crate)` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
+| `install_defaults` | `pub(crate)` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
+| `install_plugin` | `pub(crate)` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `list_plugins` | `pub(crate)` | List installed plugins with trust tier, version, and source info |
+| `audit_plugins` | `pub(crate)` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
+| `has_lifecycle_hooks` | `pub(crate)` | Check whether a plugin has any lifecycle hooks defined in its manifest |
+| `get_lifecycle_hooks` | `pub(crate)` | Return all lifecycle hooks for a plugin as (event, command) pairs |
+| `remove_plugin` | `pub(crate)` | Remove an installed plugin: delete symlinks, run post_remove hook, clean up directory and registry |
+| `create_plugin` | `pub(crate)` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
+| `publish_plugin` | `pub(crate)` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
+| `update_plugins` | `pub(crate)` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
+| `find_latest_tag` | `pub(crate)` | Fetch tags and return the latest version-sorted tag for a plugin repo |
+| `PluginValidationReport` | `pub(crate)` | Validation result struct: path, plugin_name, errors, warnings. Serializable for `--json` output |
+| `validate_plugin` | `pub(crate)` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
+| `print_plugin_report` | `pub(crate)` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
+| `search_plugins` | `pub(crate)` | Search GitHub for plugins by query, author, topic, limit with `fledge-plugin` topic filter |
+| `recommend_plugins` | `pub(crate)` | Detect project language and suggest relevant uninstalled plugins |
 
 ### Structs & Enums
 
