@@ -421,7 +421,10 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         }
     }
 
-    run_build(&plugin_dir, &manifest)?;
+    if let Err(e) = run_build(&plugin_dir, &manifest) {
+        fs::remove_dir_all(&plugin_dir).ok();
+        return Err(e.context("build failed; installation rolled back"));
+    }
 
     if manifest.plugin.is_wasm() {
         for cmd in &manifest.commands {
@@ -448,6 +451,20 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
         fs::remove_dir_all(&plugin_dir).ok();
     })?;
+
+    // Run post_install hook BEFORE persisting to registry so a hook failure
+    // doesn't leave the plugin marked as installed but non-functional.
+    if let Some(hook) = &manifest.hooks.post_install {
+        if let Err(e) = run_hook(&plugin_dir, hook, "post_install") {
+            // Roll back: remove symlinks and plugin directory
+            for cmd_name in &command_names {
+                let link_path = bin_dir.join(format!("fledge-{cmd_name}"));
+                fs::remove_file(&link_path).ok();
+            }
+            fs::remove_dir_all(&plugin_dir).ok();
+            return Err(e.context("post_install hook failed; installation rolled back"));
+        }
+    }
 
     let (base_source, _) = parse_source_ref(source);
     let granted_caps = if manifest.plugin.protocol.is_some() {
@@ -493,10 +510,6 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         if !command_names.is_empty() {
             println!("  Commands: {}", style(command_names.join(", ")).cyan());
         }
-    }
-
-    if let Some(hook) = &manifest.hooks.post_install {
-        run_hook(&plugin_dir, hook, "post_install")?;
     }
 
     Ok(serde_json::json!({
