@@ -115,11 +115,7 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
             bail!("Hook path '{}' escapes plugin directory", hook);
         }
         super::make_executable(&hook_path)?;
-        Command::new(&hook_path)
-            .current_dir(plugin_dir)
-            .env("FLEDGE_PLUGIN_DIR", plugin_dir)
-            .status()
-            .with_context(|| format!("running {event} hook"))?
+        run_hook_file(&hook_path, plugin_dir).with_context(|| format!("running {event} hook"))?
     } else {
         let parts = shell_words::split(hook)
             .with_context(|| format!("parsing {event} hook command: {hook}"))?;
@@ -139,6 +135,67 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
         bail!("Hook '{}' exited with code {}", event, code);
     }
     Ok(())
+}
+
+/// Execute a hook file, handling platform differences. On Windows, shell
+/// scripts (`.sh` or extensionless) are wrapped with `sh` / `bash` /
+/// `git-bash` since `Command::new("script.sh")` produces OS error 193.
+/// `.bat` and `.cmd` files are executed via `cmd /c`.
+fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::ExitStatus> {
+    if cfg!(windows) {
+        let ext = hook_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        match ext {
+            "bat" | "cmd" => {
+                return Command::new("cmd")
+                    .args(["/c", &hook_path.to_string_lossy()])
+                    .current_dir(plugin_dir)
+                    .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                    .status()
+                    .context("running hook via cmd /c");
+            }
+            "exe" => {
+                return Command::new(hook_path)
+                    .current_dir(plugin_dir)
+                    .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                    .status()
+                    .context("running hook exe");
+            }
+            _ => {
+                // Shell script or extensionless — try sh, bash, git-bash
+                for shell in &["sh", "bash"] {
+                    if let Ok(status) = Command::new(shell)
+                        .arg(hook_path)
+                        .current_dir(plugin_dir)
+                        .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                        .status()
+                    {
+                        return Ok(status);
+                    }
+                }
+                // git-bash as last resort (common on Windows via Git for Windows)
+                let git_bash = Path::new("C:\\Program Files\\Git\\bin\\bash.exe");
+                if git_bash.exists() {
+                    return Command::new(git_bash)
+                        .arg(hook_path)
+                        .current_dir(plugin_dir)
+                        .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                        .status()
+                        .context("running hook via git-bash");
+                }
+                bail!(
+                    "Cannot run hook '{}': no shell interpreter found.\n  \
+                     Install Git for Windows (which includes bash) or add sh/bash to PATH.",
+                    hook_path.display()
+                );
+            }
+        }
+    }
+
+    Command::new(hook_path)
+        .current_dir(plugin_dir)
+        .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+        .status()
+        .context("running hook")
 }
 
 fn resolve_plugin_by_name(plugin_name: &str) -> Option<PathBuf> {
@@ -235,6 +292,14 @@ pub(super) fn which_fledge_plugin(name: &str) -> Option<PathBuf> {
         let candidate = dir.join(&target);
         if candidate.exists() {
             return Some(candidate);
+        }
+        if cfg!(windows) {
+            for ext in &[".exe", ".bat", ".cmd"] {
+                let with_ext = dir.join(format!("{target}{ext}"));
+                if with_ext.exists() {
+                    return Some(with_ext);
+                }
+            }
         }
     }
 
