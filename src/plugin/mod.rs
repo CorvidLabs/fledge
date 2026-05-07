@@ -504,7 +504,17 @@ fn link_commands(
             }
         }
 
-        let binary_path = plugin_dir.join(&cmd.binary);
+        #[cfg_attr(not(windows), allow(unused_mut))]
+        let mut binary_path = plugin_dir.join(&cmd.binary);
+        // On Windows, compiled binaries have .exe extension even when the
+        // manifest omits it.
+        #[cfg(windows)]
+        if !binary_path.exists() && binary_path.extension().is_none() {
+            let with_exe = binary_path.with_extension("exe");
+            if with_exe.exists() {
+                binary_path = with_exe;
+            }
+        }
         if let Ok(canonical_binary) = binary_path.canonicalize() {
             let canonical_dir = plugin_dir
                 .canonicalize()
@@ -541,7 +551,11 @@ fn link_commands(
 
         make_executable(&binary_path)?;
 
-        let link_name = format!("fledge-{}", cmd.name);
+        let link_name = if cfg!(windows) {
+            format!("fledge-{}.exe", cmd.name)
+        } else {
+            format!("fledge-{}", cmd.name)
+        };
         let link_path = bin_dir.join(&link_name);
         if link_path.exists() || link_path.is_symlink() {
             fs::remove_file(&link_path).ok();
@@ -625,7 +639,10 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
     }
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_file(original, link)?;
+        // Symlink creation on Windows requires Developer Mode or elevated
+        // privileges.  Fall back to copying the file when symlink fails.
+        std::os::windows::fs::symlink_file(original, link)
+            .or_else(|_| std::fs::copy(original, link).map(|_| ()))?;
     }
     Ok(())
 }

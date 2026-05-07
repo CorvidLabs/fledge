@@ -48,6 +48,45 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  integration:
+    name: Integration (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [test]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build fledge
+        run: cargo build --release
+      - name: Add fledge to PATH (unix)
+        if: runner.os != 'Windows'
+        run: echo "${{ github.workspace }}/target/release" >> $GITHUB_PATH
+      - name: Add fledge to PATH (windows)
+        if: runner.os == 'Windows'
+        run: echo "${{ github.workspace }}/target/release" >> $env:GITHUB_PATH
+      - name: Verify fledge runs
+        run: fledge --version
+      - name: Run lanes (check)
+        run: fledge lanes run check
+      - name: Install default plugins
+        run: fledge plugins install --defaults --non-interactive
+        continue-on-error: true
+      - name: List installed plugins
+        run: fledge plugins list
+      - name: Run default plugin - github (smoke test)
+        run: fledge github --help
+        continue-on-error: true
+      - name: Run default plugin - deps (smoke test)
+        run: fledge deps --help
+        continue-on-error: true
+      - name: Run default plugin - metrics
+        run: fledge metrics
+        continue-on-error: true
+
   spec-check:
     runs-on: ubuntu-latest
     outputs:
@@ -66,7 +105,7 @@ jobs:
   corvid-pet:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && always()
-    needs: [test, lint, audit, spec-check]
+    needs: [test, lint, audit, spec-check, integration]
     steps:
       - uses: actions/checkout@v4
 
@@ -74,6 +113,7 @@ jobs:
         id: status
         env:
           CHECK_TEST: "Tests (3 OS)=${{ needs.test.result }}"
+          CHECK_INTEGRATION: "Integration (3 OS)=${{ needs.integration.result }}"
           CHECK_LINT: "Lint (fmt + clippy)=${{ needs.lint.result }}"
           CHECK_SPEC: "Spec Validation=${{ needs.spec-check.result }}"
           CHECK_AUDIT: "Dependency Audit=${{ needs.audit.result }}"

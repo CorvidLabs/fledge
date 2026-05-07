@@ -158,6 +158,23 @@ pub(crate) struct InboundResponse {
     pub(crate) value: serde_json::Value,
 }
 
+/// Build a [`Command`] for a protocol plugin binary, wrapping script files
+/// through `sh` on Windows where shebangs are not natively supported.
+fn build_protocol_command(bin_path: &Path) -> Command {
+    #[cfg(windows)]
+    {
+        if std::fs::read(bin_path)
+            .map(|bytes| bytes.starts_with(b"#!"))
+            .unwrap_or(false)
+        {
+            let mut cmd = Command::new("sh");
+            cmd.arg(bin_path);
+            return cmd;
+        }
+    }
+    Command::new(bin_path)
+}
+
 pub fn run_protocol_plugin(
     bin_path: &Path,
     args: &[String],
@@ -166,7 +183,7 @@ pub fn run_protocol_plugin(
     plugin_dir: &Path,
     capabilities: &crate::plugin::PluginCapabilities,
 ) -> Result<()> {
-    let mut child = Command::new(bin_path)
+    let mut child = build_protocol_command(bin_path)
         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

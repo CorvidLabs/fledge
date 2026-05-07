@@ -5,6 +5,33 @@ use std::process::Command;
 
 use super::{load_registry, plugins_dir, PluginCapabilities, PluginManifest};
 
+/// Build a [`Command`] for a plugin binary, handling script files on Windows.
+///
+/// On Windows, bash scripts (those starting with `#!`) cannot be executed
+/// directly because the OS doesn't interpret shebangs.  We detect script files
+/// and wrap them through `sh` so that Git-for-Windows / MSYS2 / WSL can
+/// execute them.
+fn build_plugin_command(bin_path: &Path) -> Command {
+    #[cfg(windows)]
+    {
+        if is_script_file(bin_path) {
+            let mut cmd = Command::new("sh");
+            cmd.arg(bin_path);
+            return cmd;
+        }
+    }
+    Command::new(bin_path)
+}
+
+/// Returns `true` when the file at `path` starts with `#!` (a shebang),
+/// indicating it is a script rather than a native binary.
+#[cfg(windows)]
+fn is_script_file(path: &Path) -> bool {
+    std::fs::read(path)
+        .map(|bytes| bytes.starts_with(b"#!"))
+        .unwrap_or(false)
+}
+
 type ProtocolInfo = (String, String, PathBuf, PluginCapabilities, Option<String>);
 
 pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
@@ -63,7 +90,7 @@ pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
         );
     }
 
-    let mut cmd = Command::new(&bin_path);
+    let mut cmd = build_plugin_command(&bin_path);
     cmd.args(args);
     if let Some(plugin_dir) = resolve_plugin_source_dir(&bin_path) {
         cmd.env("FLEDGE_PLUGIN_DIR", &plugin_dir);
