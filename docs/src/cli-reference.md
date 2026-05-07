@@ -469,6 +469,8 @@ fledge work push --force                              # force-with-lease
 fledge work status --json                             # {schema_version, action, branch, default, ahead, behind, dirty}
 ```
 
+> **Note:** `fledge work pr` has been removed. Use `fledge github prs create` (from [fledge-plugin-github](https://github.com/CorvidLabs/fledge-plugin-github)) or `gh pr create` directly.
+
 ---
 
 ### fledge changelog
@@ -662,6 +664,8 @@ fledge plugins create my-tool --yes --description "My deploy tool"
 fledge plugins validate
 fledge plugins validate ./my-tool --strict
 fledge plugins validate --json
+fledge plugins audit                                    # security audit of installed plugins
+fledge plugins audit --json                             # machine-readable audit output
 ```
 
 ---

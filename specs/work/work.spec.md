@@ -1,6 +1,6 @@
 ---
 module: work
-version: 12
+version: 13
 status: active
 files:
   - src/work.rs
@@ -202,8 +202,8 @@ $ fledge work status
 ```
 $ fledge work pr
 ⚠ `fledge work pr` has been removed.
-  Use `gh pr create` to open a pull request.
-  See: https://cli.github.com/manual/gh_pr_create
+  Use `fledge github prs create` (fledge-plugin-github) to open a pull request.
+  Or directly: `gh pr create` — https://cli.github.com/manual/gh_pr_create
 ```
 
 ### work start --json
