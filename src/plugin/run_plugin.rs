@@ -164,7 +164,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                 // Shell script or extensionless — try sh, bash, git-bash
                 for shell in &["sh", "bash"] {
                     if let Ok(status) = Command::new(shell)
-                        .arg(&hook_path)
+                        .arg(hook_path)
                         .current_dir(plugin_dir)
                         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
                         .status()
@@ -176,7 +176,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                 let git_bash = Path::new("C:\\Program Files\\Git\\bin\\bash.exe");
                 if git_bash.exists() {
                     return Command::new(git_bash)
-                        .arg(&hook_path)
+                        .arg(hook_path)
                         .current_dir(plugin_dir)
                         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
                         .status()
