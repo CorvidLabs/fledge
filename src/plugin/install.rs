@@ -421,7 +421,10 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
         }
     }
 
-    run_build(&plugin_dir, &manifest)?;
+    if let Err(e) = run_build(&plugin_dir, &manifest) {
+        fs::remove_dir_all(&plugin_dir).ok();
+        return Err(e);
+    }
 
     if manifest.plugin.is_wasm() {
         for cmd in &manifest.commands {
