@@ -1,0 +1,44 @@
+# {{ project_name }}
+
+{{ description }}
+
+## Install
+
+```bash
+fledge plugins install {{ github_org }}/{{ project_name }}
+```
+
+## Usage
+
+```bash
+fledge {{ command_name }}
+fledge {{ command_name }} --help
+```
+
+## How it works
+
+This plugin runs via the [fledge-v1 plugin protocol](https://corvidlabs.github.io/fledge/). The `binary` field in `plugin.toml` points to the executable in `bin/` — replace the starter bash stub with any language (Python, Node, Go, Rust, etc.). The only contract is that the binary is executable and supports `--help`.
+{% if needs_exec == "true" %}
+### Exec capability
+
+This plugin uses the `exec` capability to shell out commands via the fledge host. This means it can run arbitrary commands in the project context.
+{% endif %}{% if needs_store == "true" %}
+### Store capability
+
+This plugin uses the `store` capability for persistent key-value storage in `.fledge/store/{{ project_name }}/`.
+{% endif %}
+
+## Development
+
+```bash
+# Test the command directly
+chmod +x bin/*
+./bin/{{ command_name }} --help
+
+# Install locally for testing
+fledge plugins install --path .
+```
+
+## License
+
+{{ license }}

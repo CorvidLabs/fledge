@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ project_name }} — fledge plugin</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>{{ emoji }}</text></svg>">
+  <style>
+    :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--text-muted:#8b949e;--accent:#58a6ff;--accent-subtle:#1f6feb33;--green:#3fb950;--orange:#d29922;--purple:#bc8cff;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;padding:2rem 1rem}
+    .container{max-width:720px;margin:0 auto}
+    .hero{text-align:center;padding:3rem 1rem;margin-bottom:2rem}
+    .hero-icon{font-size:4rem;margin-bottom:1rem;display:block}
+    .hero h1{font-size:2rem;font-weight:700;margin-bottom:.5rem}
+    .hero .subtitle{color:var(--text-muted);font-size:1.1rem;max-width:500px;margin:0 auto}
+    .badges{display:flex;gap:.5rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap}
+    .badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .75rem;border-radius:999px;font-size:.8rem;font-weight:500;border:1px solid var(--border);background:var(--surface)}
+    .badge--version{border-color:var(--orange);color:var(--orange)}
+    .badge--lang{border-color:var(--purple);color:var(--purple)}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.25rem}
+    .card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:.75rem}
+    .install-cmd{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-family:'SF Mono','Fira Code',monospace;font-size:.9rem;color:var(--accent);position:relative;overflow-x:auto}
+    .install-cmd .copy-btn{position:absolute;top:.5rem;right:.5rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--text-muted);cursor:pointer;font-size:.75rem}
+    .install-cmd .copy-btn:hover{color:var(--text)}
+    .commands-list{list-style:none}
+    .commands-list li{padding:.5rem 0;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:1rem}
+    .commands-list li:last-child{border-bottom:none}
+    .cmd-name{font-family:'SF Mono','Fira Code',monospace;font-size:.9rem;color:var(--accent);white-space:nowrap}
+    .cmd-desc{color:var(--text-muted);font-size:.9rem}
+    .capabilities{display:flex;gap:.5rem;flex-wrap:wrap}
+    .cap{padding:.25rem .6rem;border-radius:6px;font-size:.8rem;font-family:'SF Mono','Fira Code',monospace;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent)}
+    .cap--none{background:transparent;color:var(--text-muted);border-color:var(--border)}
+    .usage-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:'SF Mono','Fira Code',monospace;font-size:.85rem;line-height:1.8;overflow-x:auto;white-space:pre;color:var(--text-muted)}
+    .usage-block .cmd{color:var(--text)}
+    .links{display:flex;gap:1rem;flex-wrap:wrap}
+    .links a{display:inline-flex;align-items:center;gap:.4rem;color:var(--accent);text-decoration:none;font-size:.9rem;padding:.5rem 1rem;border-radius:8px;border:1px solid var(--border);transition:border-color .2s}
+    .links a:hover{border-color:var(--accent)}
+    .footer{text-align:center;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--text-muted);font-size:.8rem}
+    .footer a{color:var(--accent);text-decoration:none}
+    @media(max-width:600px){.hero h1{font-size:1.5rem}.commands-list li{flex-direction:column;gap:.25rem}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <span class="hero-icon">{{ emoji }}</span>
+      <h1>{{ project_name }}</h1>
+      <p class="subtitle">{{ description }}</p>
+      <div class="badges">
+        <span class="badge badge--version">v0.1.0</span>
+        <span class="badge badge--lang">Shell</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Install</h2>
+      <div class="install-cmd">
+        <span>fledge plugins install {{ github_org }}/{{ project_name }}</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('fledge plugins install {{ github_org }}/{{ project_name }}')">copy</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Commands</h2>
+      <ul class="commands-list">
+        <li><span class="cmd-name">fledge {{ command_name }}</span><span class="cmd-desc">{{ description }}</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Usage</h2>
+      <div class="usage-block"><span class="cmd">  fledge {{ command_name }}</span>
+<span class="cmd">  fledge {{ command_name }} --help</span>
+</div>
+    </div>
+    <div class="card">
+      <h2>Capabilities</h2>
+      <div class="capabilities">
+{% if needs_exec == "true" %}        <span class="cap">exec</span>
+{% endif %}{% if needs_store == "true" %}        <span class="cap">store</span>
+{% endif %}{% if needs_exec != "true" and needs_store != "true" %}        <span class="cap cap--none">none required</span>
+{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Links</h2>
+      <div class="links">
+        <a href="https://github.com/{{ github_org }}/{{ project_name }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> Source</a>
+        <a href="https://github.com/{{ github_org }}/{{ project_name }}/issues"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/><path fill-rule="evenodd" d="M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z"/></svg> Issues</a>
+        <a href="https://corvidlabs.github.io/fledge/"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm7.251 10.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574zM8.755 4.75l-.004 7.322a3.752 3.752 0 011.992-.572H14.5v-9h-3.495a2.25 2.25 0 00-2.25 2.25z"/></svg> Docs</a>
+      </div>
+    </div>
+    <footer class="footer">
+      Part of the <a href="https://github.com/CorvidLabs/fledge">fledge</a> ecosystem by <a href="https://github.com/{{ github_org }}">{{ github_org }}</a>
+    </footer>
+  </div>
+</body>
+</html>

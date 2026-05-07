@@ -1,0 +1,16 @@
+[plugin]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "{{ description }}"
+author = "{{ author }}"
+license = "{{ license }}"
+
+[[commands]]
+name = "{{ command_name }}"
+description = "{{ description }}"
+binary = "bin/{{ command_name }}"
+
+[capabilities]
+exec = {{ needs_exec }}
+store = {{ needs_store }}
+metadata = false
