@@ -343,7 +343,11 @@ lint = "bundle exec rubocop"
 console = "bundle exec irb""#
             .to_string(),
         "java-gradle" => {
-            let gradlew = if cfg!(windows) { "gradlew.bat" } else { "./gradlew" };
+            let gradlew = if cfg!(windows) {
+                "gradlew.bat"
+            } else {
+                "./gradlew"
+            };
             format!(
                 "build = \"{gradlew} build\"\ntest = \"{gradlew} test\"\nlint = \"{gradlew} check\""
             )
@@ -441,7 +445,11 @@ fn auto_detect_tasks(project_type: &str, dir: &Path) -> BTreeMap<String, TaskDef
             tasks.insert("lint".into(), TaskDef::Short("bundle exec rubocop".into()));
         }
         "java-gradle" => {
-            let gradlew = if cfg!(windows) { "gradlew.bat" } else { "./gradlew" };
+            let gradlew = if cfg!(windows) {
+                "gradlew.bat"
+            } else {
+                "./gradlew"
+            };
             tasks.insert("build".into(), TaskDef::Short(format!("{gradlew} build")));
             tasks.insert("test".into(), TaskDef::Short(format!("{gradlew} test")));
         }
