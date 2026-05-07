@@ -564,6 +564,9 @@ pub enum LaneSubcommand {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+        /// Start execution from this step (name or 1-based index)
+        #[arg(long)]
+        from: Option<String>,
     },
     /// List available lanes
     List {
@@ -696,6 +699,9 @@ pub enum PluginSubcommand {
         /// Filter by GitHub topic (e.g. `ci`, `rust`, `testing`)
         #[arg(short, long)]
         topic: Option<String>,
+        /// Filter by trust tier (`official`, `team`, or `unverified`) — applied client-side after fetching
+        #[arg(long = "trust-tier", value_name = "TIER")]
+        trust_tier: Option<crate::trust::TrustTier>,
         /// Maximum results
         #[arg(short, long, default_value = "20")]
         limit: usize,

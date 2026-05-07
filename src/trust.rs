@@ -3,8 +3,9 @@ use serde::Serialize;
 
 use crate::config::TrustConfig;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
+#[clap(rename_all = "lowercase")]
 pub enum TrustTier {
     Official,
     Team,

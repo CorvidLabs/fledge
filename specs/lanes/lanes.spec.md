@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 20
+version: 24
 status: active
 files:
   - src/lanes/mod.rs
@@ -45,13 +45,8 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `lane_defaults` | Return project-type-specific default lane TOML |
 | `init_lanes` | Initialize default lanes in fledge.toml based on detected project type |
 | `execute_lane` | Execute a lane with progress display (human-readable or JSON) |
-| `execute_lane_json` | Execute a lane and output step results as JSON |
 | `execute_lane_silent` | Execute a lane without console output |
 | `execute_task_with_deps` | Execute a task and all its dependencies with cycle detection |
-| `execute_task_recursive` | Recursively execute a task and its deps, tracking visited set |
-| `execute_single_task` | Execute a single task as a shell command |
-| `execute_inline` | Execute an inline shell command in project directory |
-| `execute_parallel` | Execute parallel items using thread scoping, collecting errors |
 | `publish_lanes` | Publish a lane repository to GitHub with fledge-lane topic |
 | `validate_lanes` | Validate lanes for structural integrity and task references |
 | `print_lane_report` | Output a validation report in human-readable or JSON format |
@@ -60,9 +55,9 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 
 | Type | Description |
 |------|-------------|
-| `LaneAction` | Action enum for the lane subcommand (Run with json/dry_run, List, Init, Search, Import, Publish, Create, Validate) |
+| `LaneAction` | Action enum for the lane subcommand (Run with json/dry_run/from, List, Init, Search, Import, Publish, Create, Validate) |
 | `LaneDef` | A named lane with description, steps, and fail_fast flag |
-| `Step` | A single step: task reference, inline command, or parallel group |
+| `Step` | A single step: task reference (bare string or `{ task = "..." }`), inline command (`{ run = "..." }`), or parallel group (`{ parallel = [...] }`). Table-form steps support optional `when`, `timeout`, and `retries` fields |
 | `ParallelItem` | An item within a parallel group: task reference or inline command |
 | `LaneValidationReport` | Validation results: path, lane_count, errors, warnings (serializable) |
 
@@ -79,14 +74,11 @@ Composable workflow pipelines defined in `fledge.toml` and `.fledge/lanes/`. Lan
 | `create_lane_repo` | `(&str, &Path, Option<&str>, bool, bool) -> Result<()>` | Scaffold a new lane repository with fledge.toml, README, .gitignore |
 | `lane_defaults` | `(&str) -> &'static str` | Return default lane TOML for a project type |
 | `init_lanes` | `(bool) -> Result<()>` | Initialize default lanes in fledge.toml based on detected project type |
-| `execute_lane` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute a lane with human-readable or JSON progress |
-| `execute_lane_json` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path) -> Result<()>` | Execute a lane and output step results as JSON |
+| `execute_lane` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path, bool, Option<usize>) -> Result<()>` | Execute a lane with human-readable or JSON progress, optional `--from` index |
 | `execute_lane_silent` | `(&str, &LaneDef, &BTreeMap<String, TaskDef>, &Path) -> Result<()>` | Execute a lane without console output |
-| `execute_task_with_deps` | `(&str, &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute a task and all its dependencies with cycle detection |
-| `execute_task_recursive` | `(&str, &BTreeMap<String, TaskDef>, &Path, &mut HashSet<String>, bool) -> Result<()>` | Recursively execute task deps, tracking visited set for cycles |
-| `execute_single_task` | `(&str, &TaskDef, &Path, bool) -> Result<()>` | Execute a single task as a shell command in project directory |
-| `execute_inline` | `(&str, &Path, bool) -> Result<()>` | Execute an inline shell command in project directory |
-| `execute_parallel` | `(&[ParallelItem], &BTreeMap<String, TaskDef>, &Path, bool) -> Result<()>` | Execute parallel items via thread scoping, collecting all errors |
+| `execute_task_with_deps` | `(&str, &BTreeMap<String, TaskDef>, &Path, bool, Option<Instant>) -> Result<()>` | Execute a task and all its dependencies with cycle detection, optional deadline |
+| `resolve_from` | `(&[Step], &str) -> Result<usize>` | Resolve `--from` argument to 0-based step index (by name or 1-based index) |
+| `evaluate_when` | `(&str) -> bool` | Evaluate a `when` condition string against environment variables |
 | `publish_lanes` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Publish lane repo to GitHub with fledge-lane topic |
 | `validate_lanes` | `(&Path, bool, bool) -> Result<()>` | Validate lanes for structural integrity, task refs, circular deps |
 | `print_lane_report` | `(&LaneValidationReport, bool, bool) -> Result<()>` | Output validation report in human-readable or JSON format |
@@ -139,8 +131,27 @@ steps = ["deps-audit", "license-check", "security-scan"]
 | Type | Format | Description |
 |------|--------|-------------|
 | Task reference | `"task_name"` | Runs a task defined in `[tasks]` |
+| Task reference (full) | `{ task = "name" }` | Runs a task with optional `when`/`timeout`/`retries` |
 | Inline command | `{ run = "command" }` | Runs a shell command directly |
 | Parallel group | `{ parallel = ["a", "b"] }` | Runs items concurrently (task refs or inline commands) |
+
+### Step Options (table-form steps only)
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `when` | `string` | Condition: skip step if not met. Supports `VAR` (set & non-empty), `VAR=value` (equals), `!VAR` (not set/empty), `!VAR=value` (not equals). Multiple comma-separated conditions are AND'd |
+| `timeout` | `integer` | Per-attempt timeout in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step including task deps. Process is killed on timeout |
+| `retries` | `integer` | Number of retry attempts after failure (0 = no retries, default). Total attempts = retries + 1. The delay between attempts is configurable via `retry_delay` (defaults to 1 second) |
+| `retry_delay` | `integer` | Seconds to sleep between retry attempts. Defaults to 1. Set to 0 for immediate retry. Only meaningful when `retries > 0` |
+
+```toml
+# Examples of step options
+steps = [
+  { task = "deploy", when = "CI=true", timeout = 120 },
+  { run = "curl health", retries = 3, timeout = 10 },
+  { parallel = ["lint", "fmt"], when = "!SKIP_CHECKS" },
+]
+```
 
 ## Invariants
 
@@ -154,6 +165,10 @@ steps = ["deps-audit", "license-check", "security-scan"]
 8. `--dry-run` prints the execution plan without running anything
 9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
+11. `--from <step>` skips all steps before the target (by 1-based index or step name). Stateless — no run history is persisted. Skipped steps show in both human-readable and JSON output
+12. `when` conditions are evaluated against environment variables before each step executes. Steps with unmet conditions are silently skipped (shown as skipped in output). Evaluation is AND-logic for comma-separated conditions
+13. `timeout` sets a per-attempt deadline in seconds. Each retry attempt gets a fresh deadline. The deadline covers the entire step execution including task dependency resolution. The spawned command's full process tree is reaped on timeout: on Unix via process group + `killpg(SIGKILL)`; on Windows via Job Object + `TerminateJobObject`. Multi-statement shell commands (`sh -c "a && b"`, `cmd /c "a & b"`) do not leak grandchild processes
+14. `retries` specifies the number of retry attempts after failure. Total attempts = retries + 1. Retry is per-step (the full step re-executes, not individual commands within it). `retry_delay` controls the sleep between attempts in seconds (default 1, set to 0 for immediate retry)
 
 ## Behavioral Examples
 
@@ -235,6 +250,27 @@ $ fledge lanes publish
 ✅ . — valid (2 lanes)
 ➡️ Publishing 2 lanes as owner/my-lanes
 
+# Resume from a specific step (skip earlier ones)
+$ fledge lanes run ci --from 3
+▶️ Lane: ci — Full CI pipeline
+  ⚙ starting from step 3
+  ⏭ Step 1 (skipped by --from)
+  ⏭ Step 2 (skipped by --from)
+  ▶️ Running task: build
+  ✔ Step 3 done (3.456s)
+✅ Lane ci completed (3 steps in 3.456s)
+
+# Resume by step name
+$ fledge lanes run ci --from test
+
+# Conditional step skipped when condition not met
+$ fledge lanes run release
+▶️ Lane: release — Build and publish
+  ▶️ Running task: test
+  ✔ Step 1 done (1.032s)
+  ⏭ Step 2 deploy (skipped: when 'CI=true' not met)
+✅ Lane release completed (2 steps in 1.032s)
+
 # Run a lane with JSON output (each step record has step/name/success/duration_ms/error)
 $ fledge lanes run ci --json
 {"schema_version": 1, "lane": "ci", "description": "Full CI pipeline", "total_steps": 3, "success": true, "duration_ms": 4733, "fail_fast": true, "steps": [{"step": 1, "name": "lint", "success": true, "duration_ms": 245, "error": null}, ...], "failures": []}
@@ -297,6 +333,10 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 24 | 2026-05-04 | Follow-up polish: (a) New `retry_delay` step option (seconds, default 1) — overrides the inter-attempt sleep, supports immediate retry with `retry_delay = 0`. (b) Windows process tree reaping via Job Object + `TerminateJobObject` — mirrors the Unix `process_group` + `killpg` fix from v23 so timeout no longer leaks grandchildren on Windows either. (c) `evaluate_when` now exposes a closure-injected `evaluate_when_with` so tests can supply a `HashMap` instead of mutating process-global env vars (edition-2024 prep) |
+| 23 | 2026-05-04 | Follow-up review fixes: (a) Process group kill on Unix — `timeout` now reaps the entire process tree via `killpg(SIGKILL)`, no more orphaned grandchildren from `sh -c "a && b"`. (b) Skipped step JSON entries normalized to include `success: null, duration_ms: null, error: null` so the per-step shape is consistent across completed and skipped rows; `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` reverted to 1 (additive only). (c) `--from <name>` on a parallel step now emits a specific error pointing at index targeting instead of the generic "no match" |
+| 22 | 2026-05-04 | Review fixes: (a) 1-second retry delay between attempts. (b) Timeout is per-attempt — each retry gets a fresh deadline. (c) Bump `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` from 1 → 2 for new fields (later reverted in v23). (d) Fix spec: remove private fns from Exported Functions, document process tree limitation on timeout |
+| 21 | 2026-05-04 | Add `when` (conditional steps), `timeout` (per-step deadlines), `retries`, and `--from` (resume from step). New `Step` options on table-form steps. New exports: `resolve_from`, `evaluate_when`. Invariants 11-14 |
 | 20 | 2026-05-01 | **1.0 contract finalize:** Add Compatibility Policy locking the lanes v1 schema. Future Step variants must use unique discriminator keys in inline-table form so the untagged enum keeps deserializing older lanes. Field removal/retyping bumps schema; parallel + fail_fast semantics, fail_fast default, imported-lane file naming, and trust-tier classification are all locked. No code change |
 | 19 | 2026-04-29 | Document all submodule exports (community, create, defaults, execute, publish, validate) after splitting lanes.rs into lanes/ module folder |
 | 18 | 2026-04-27 | **Breaking (1.0 contract finalize, follow-up):** `lanes publish --json` cancelled and success paths now share the same key set (`schema_version`, `action`, `cancelled`, `repo`, `lanes_published`, `topic`, `import_hint`); `cancelled: true` when the user declines, `false` on success. The cancelled `repo.exists` field is removed (`created: false` covers it). Mirrors the same fix landed for `plugins publish` and `templates publish` in the previous commit |

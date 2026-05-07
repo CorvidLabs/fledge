@@ -1,5 +1,6 @@
 ---
 source: src/introspect.rs
+assertion_line: 388
 expression: output
 ---
 {
@@ -674,6 +675,15 @@ expression: output
               "global": false
             },
             {
+              "name": "from",
+              "long": "from",
+              "help": "Start execution from this step (name or 1-based index)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "FROM",
+              "global": false
+            },
+            {
               "name": "non_interactive",
               "long": "non-interactive",
               "aliases": [
@@ -1258,6 +1268,15 @@ expression: output
               "required": false,
               "takes_value": true,
               "value_name": "TOPIC",
+              "global": false
+            },
+            {
+              "name": "trust_tier",
+              "long": "trust-tier",
+              "help": "Filter by trust tier (`official`, `team`, or `unverified`) — applied client-side after fetching",
+              "required": false,
+              "takes_value": true,
+              "value_name": "TIER",
               "global": false
             },
             {

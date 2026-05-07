@@ -2,11 +2,13 @@ use anyhow::{Context, Result};
 use console::style;
 
 use super::PLUGINS_SEARCH_SCHEMA;
+use crate::trust::TrustTier;
 
 pub(crate) fn search_plugins(
     query: Option<&str>,
     author: Option<&str>,
     topic: Option<&str>,
+    trust_tier: Option<TrustTier>,
     limit: usize,
     interactive: bool,
     json: bool,
@@ -32,6 +34,16 @@ pub(crate) fn search_plugins(
     sp.finish();
 
     let results = crate::search::parse_search_response(&body)?;
+    // GitHub's API has no concept of fledge's trust tiers, so the filter is
+    // applied client-side after parsing. Each result's tier is computed from
+    // the owner via the same classifier `plugins list/audit` use.
+    let results: Vec<crate::search::SearchResult> = match trust_tier {
+        Some(want) => results
+            .into_iter()
+            .filter(|r| crate::trust::determine_trust_tier_from_owner(&r.owner) == want)
+            .collect(),
+        None => results,
+    };
 
     if results.is_empty() {
         if json {

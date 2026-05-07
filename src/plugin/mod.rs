@@ -68,6 +68,7 @@ const PLUGINS_REMOVE_SCHEMA: u32 = 1;
 const PLUGINS_LIST_SCHEMA: u32 = 1;
 const PLUGINS_AUDIT_SCHEMA: u32 = 1;
 const PLUGINS_SEARCH_SCHEMA: u32 = 1;
+const PLUGINS_RECOMMEND_SCHEMA: u32 = 1;
 const PLUGINS_CREATE_SCHEMA: u32 = 1;
 const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
 
@@ -216,6 +217,7 @@ pub enum PluginAction {
         query: Option<String>,
         author: Option<String>,
         topic: Option<String>,
+        trust_tier: Option<crate::trust::TrustTier>,
         limit: usize,
         interactive: bool,
     },
@@ -264,12 +266,14 @@ pub fn run(opts: PluginOptions) -> Result<()> {
             query,
             author,
             topic,
+            trust_tier,
             limit,
             interactive,
         } => search_plugins(
             query.as_deref(),
             author.as_deref(),
             topic.as_deref(),
+            trust_tier,
             limit,
             interactive,
             opts.json,
@@ -344,9 +348,18 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
 
 pub fn resolve_plugin_command(name: &str) -> Option<PathBuf> {
     let bin_dir = plugin_bin_dir();
-    let bin_path = bin_dir.join(format!("fledge-{name}"));
+    let base = format!("fledge-{name}");
+    let bin_path = bin_dir.join(&base);
     if bin_path.exists() {
         return Some(bin_path);
+    }
+    if cfg!(windows) {
+        for ext in &[".exe", ".bat", ".cmd"] {
+            let with_ext = bin_dir.join(format!("{base}{ext}"));
+            if with_ext.exists() {
+                return Some(with_ext);
+            }
+        }
     }
     run_plugin::which_fledge_plugin(name)
 }
@@ -491,7 +504,17 @@ fn link_commands(
             }
         }
 
-        let binary_path = plugin_dir.join(&cmd.binary);
+        #[cfg_attr(not(windows), allow(unused_mut))]
+        let mut binary_path = plugin_dir.join(&cmd.binary);
+        // On Windows, compiled binaries have .exe extension even when the
+        // manifest omits it.
+        #[cfg(windows)]
+        if !binary_path.exists() && binary_path.extension().is_none() {
+            let with_exe = binary_path.with_extension("exe");
+            if with_exe.exists() {
+                binary_path = with_exe;
+            }
+        }
         if let Ok(canonical_binary) = binary_path.canonicalize() {
             let canonical_dir = plugin_dir
                 .canonicalize()
@@ -528,7 +551,11 @@ fn link_commands(
 
         make_executable(&binary_path)?;
 
-        let link_name = format!("fledge-{}", cmd.name);
+        let link_name = if cfg!(windows) {
+            format!("fledge-{}.exe", cmd.name)
+        } else {
+            format!("fledge-{}", cmd.name)
+        };
         let link_path = bin_dir.join(&link_name);
         if link_path.exists() || link_path.is_symlink() {
             fs::remove_file(&link_path).ok();
@@ -612,7 +639,10 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
     }
     #[cfg(windows)]
     {
-        std::os::windows::fs::symlink_file(original, link)?;
+        // Symlink creation on Windows requires Developer Mode or elevated
+        // privileges.  Fall back to copying the file when symlink fails.
+        std::os::windows::fs::symlink_file(original, link)
+            .or_else(|_| std::fs::copy(original, link).map(|_| ()))?;
     }
     Ok(())
 }

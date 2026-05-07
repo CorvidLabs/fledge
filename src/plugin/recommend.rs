@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use console::style;
 
-use super::PLUGINS_SEARCH_SCHEMA;
+use super::PLUGINS_RECOMMEND_SCHEMA;
 
 struct Recommendation {
     repo: &'static str,
@@ -130,7 +130,8 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
             })
             .collect();
         let result = serde_json::json!({
-            "schema_version": PLUGINS_SEARCH_SCHEMA,
+            "schema_version": PLUGINS_RECOMMEND_SCHEMA,
+            "action": "plugins_recommend",
             "language": lang,
             "installed_count": installed.len(),
             "recommendations": entries,

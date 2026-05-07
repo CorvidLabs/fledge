@@ -184,10 +184,12 @@ fn run() -> Result<()> {
                     name,
                     dry_run,
                     json,
+                    from,
                 } => lanes::LaneAction::Run {
                     name,
                     dry_run,
                     json,
+                    from,
                 },
                 LaneSubcommand::List { json } => lanes::LaneAction::List { json },
                 LaneSubcommand::Init { json } => lanes::LaneAction::Init { json },
@@ -238,10 +240,15 @@ fn run() -> Result<()> {
                     let name = args.first().cloned().unwrap_or_default();
                     let dry_run = args.iter().any(|a| a == "--dry-run");
                     let json = args.iter().any(|a| a == "--json");
+                    let from = args
+                        .iter()
+                        .position(|a| a == "--from")
+                        .and_then(|pos| args.get(pos + 1).cloned());
                     lanes::LaneAction::Run {
                         name,
                         dry_run,
                         json,
+                        from,
                     }
                 }
             };
@@ -289,12 +296,14 @@ fn run() -> Result<()> {
                     query,
                     author,
                     topic,
+                    trust_tier,
                     limit,
                     interactive,
                 } => plugin::PluginAction::Search {
                     query,
                     author,
                     topic,
+                    trust_tier,
                     limit,
                     interactive,
                 },

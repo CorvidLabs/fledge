@@ -120,7 +120,14 @@ fail_fast = true
 
 ### Step types
 
-A step can be one of three shapes. Mix them freely.
+A step can be one of three shapes. Mix them freely. Bare-string task references are shorthand; the table form (`{ task = "name" }`) is required when you want step options like `when`, `timeout`, `retries`, or `retry_delay`.
+
+| Shape | Form | Notes |
+|-------|------|-------|
+| Task reference (short) | `"name"` | Bare string. Shorthand for `{ task = "name" }`. |
+| Task reference (full) | `{ task = "name" }` | Table form. Accepts step options. |
+| Inline command | `{ run = "..." }` | One-off shell command. Accepts step options. |
+| Parallel group | `{ parallel = [...] }` | Items run concurrently. Accepts step options. |
 
 #### Task reference
 
@@ -169,6 +176,30 @@ steps = [
 ```
 
 Parallel groups cannot be nested.
+
+### Step options
+
+Table-form steps (`{ task = "..." }`, `{ run = "..." }`, `{ parallel = [...] }`) accept four optional fields.
+
+| Option | Type | Default | Notes |
+|--------|------|---------|-------|
+| `when` | string | always run | Skip the step unless an env-var condition is met. Forms: `VAR` (set & non-empty), `VAR=value` (equals), `!VAR` (unset/empty), `!VAR=value` (not equals). Comma-separated values are AND'd. |
+| `timeout` | integer | unlimited | Per-attempt deadline in seconds. The whole process tree is killed on exceed (Unix: `killpg(SIGKILL)`; Windows: `TerminateJobObject`). Includes task-dependency resolution. |
+| `retries` | integer | `0` | Retry attempts after failure. Total attempts = `retries + 1`. The step re-runs as a whole; per-step, not per-command. |
+| `retry_delay` | integer | `1` | Sleep between retry attempts in seconds. Set `0` for immediate retry. Only meaningful when `retries > 0`. |
+
+```toml
+[lanes.release]
+description = "Test, build, deploy with retries"
+steps = [
+  { task = "test", when = "!SKIP_TESTS", timeout = 300 },
+  { task = "build", timeout = 600 },
+  { run = "scripts/publish.sh", retries = 3, retry_delay = 5 },
+  { task = "deploy", when = "CI=true,BRANCH=main", timeout = 120 },
+]
+```
+
+Skipped steps appear in the human-readable output (`⏭ Step N <label> (skipped: when 'X' not met)`) and in `--json` output (`"skipped": true, "reason": "..."`). The `--from` flag adds its own skip reason: `"reason": "--from"`.
 
 ### `fail_fast`
 

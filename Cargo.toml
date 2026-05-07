@@ -1,6 +1,6 @@
 [package]
 name = "fledge"
-version = "1.2.0"
+version = "1.4.0"
 edition = "2021"
 authors = ["0xLeif <leif.algo@pm.me>"]
 description = "Dev lifecycle CLI. One tool for the dev loop, any language."
@@ -46,3 +46,9 @@ tempfile = "3"
 
 [target."cfg(unix)".dependencies]
 libc = "0.2.185"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_JobObjects",
+] }

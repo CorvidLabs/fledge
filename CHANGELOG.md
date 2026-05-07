@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.0] - 2026-05-07
+
+### Features
+
+- add fledge-plugin template (#370) (b4b7c7f)
+
+### Fixes
+
+- Windows and Linux cross-platform compatibility (#374) (c7bb817)
+- Windows plugin system — hook execution, stale state, binary resolution (#373) (1c84642)
+
+## [v1.3.1] - 2026-05-06
+
+### Fixes
+
+- prevent stdin inheritance in exec child processes (#368) (397532c)
+- repair AGENTS.md drift, add --trust-tier search filter (#366) (ab39e6b)
+
+## [v1.3.0] - 2026-05-05
+
+### Chores
+
+- auto-sync formula to homebrew-tap on release (#361) (345b410)
+- update Homebrew formula to v1.2.0 (#359) (ac3c8ad)
+
+### Documentation
+
+- document when, timeout, retries, retry_delay, and --from (#365) (4d9836b)
+
+### Features
+
+- retry_delay, Windows job kill, thread-safe when tests (#363) (3cdc246)
+- conditional steps, timeouts, retries, and resume (#362) (a1cf45d)
+
+### Fixes
+
+- build Linux binary with musl for glibc compatibility (#364) (b669056)
+- cap interactive search rows to prevent prompt ghosting (#360) (2c7c541)
+
 ## [v1.2.0] - 2026-05-03
 
 ### Features
