@@ -11,6 +11,7 @@ One CLI for the dev loop. Any language. JSON by default. Read the docs and go.
 ```bash
 fledge templates init my-tool --template rust-cli
 cd my-tool
+fledge lanes init
 fledge lanes run ci
 ```
 
