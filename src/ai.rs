@@ -70,21 +70,55 @@ struct StatusReport {
     model_source: Option<Source>,
     host: Option<String>,
     host_source: Option<Source>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    api_key_source: Option<Source>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cloud_routed: Option<bool>,
 }
 
 fn status(json: bool) -> Result<()> {
     let config = Config::load().context("loading config")?;
     let (kind, provider_source) = resolve_provider_with_source(&config)?;
 
-    let (model, model_source, host, host_source) = match kind {
+    let (model, model_source, host, host_source, api_key_source, cloud_routed) = match kind {
         ProviderKind::Claude => {
             let (m, s) = resolve_claude_model(&config);
-            (m, s, None, None)
+            (m, s, None, None, None, None)
         }
         ProviderKind::Ollama => {
             let (m, ms) = resolve_ollama_model(&config);
-            let (h, hs) = resolve_ollama_host(&config);
-            (Some(m), Some(ms), Some(h), Some(hs))
+            let aks = resolve_ollama_api_key_source(&config);
+            let api_key = std::env::var("OLLAMA_API_KEY")
+                .ok()
+                .or_else(|| config.ai.ollama.api_key.clone())
+                .filter(|k| !k.is_empty());
+            let effective_host = crate::llm::resolve_effective_host(&config, &m, &api_key);
+            let is_cloud = crate::llm::is_cloud_model(&m);
+            let routed_to_cloud = is_cloud
+                && api_key.is_some()
+                && effective_host == crate::llm::DEFAULT_OLLAMA_CLOUD_HOST;
+
+            let h_source = if std::env::var("OLLAMA_HOST").is_ok() {
+                Source::Env
+            } else if routed_to_cloud {
+                Source::Default
+            } else {
+                let default_host = "http://localhost:11434";
+                if crate::llm::normalize_ollama_host(&config.ai.ollama.host) == default_host {
+                    Source::Default
+                } else {
+                    Source::ConfigFile
+                }
+            };
+
+            (
+                Some(m),
+                Some(ms),
+                Some(effective_host),
+                Some(h_source),
+                aks,
+                Some(routed_to_cloud),
+            )
         }
     };
 
@@ -95,6 +129,8 @@ fn status(json: bool) -> Result<()> {
         model_source,
         host,
         host_source,
+        api_key_source,
+        cloud_routed,
     };
 
     if json {
@@ -107,6 +143,9 @@ fn status(json: bool) -> Result<()> {
             "model_source": report.model_source,
             "host": report.host,
             "host_source": report.host_source,
+            "api_key_set": report.api_key_source.is_some(),
+            "api_key_source": report.api_key_source,
+            "cloud_routed": report.cloud_routed,
         });
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
@@ -132,12 +171,32 @@ fn status(json: bool) -> Result<()> {
         ),
     }
     if let (Some(h), Some(src)) = (&report.host, &report.host_source) {
+        let cloud_note = if report.cloud_routed == Some(true) {
+            " (auto-routed to cloud)".to_string()
+        } else {
+            format!(" (from {})", src.label())
+        };
         println!(
             "      {} {} {}",
             style("Host:").bold(),
             style(h).cyan(),
-            style(format!("(from {})", src.label())).dim()
+            style(cloud_note).dim()
         );
+    }
+    if report.provider == "ollama" {
+        match &report.api_key_source {
+            Some(src) => println!(
+                "   {} {} {}",
+                style("API Key:").bold(),
+                style("***").green(),
+                style(format!("(from {})", src.label())).dim()
+            ),
+            None => println!(
+                "   {} {}",
+                style("API Key:").bold(),
+                style("(not set — required for cloud models)").dim()
+            ),
+        }
     }
     Ok(())
 }
@@ -177,6 +236,28 @@ fn resolve_ollama_model(config: &Config) -> (String, Source) {
     }
 }
 
+fn resolve_ollama_api_key_source(config: &Config) -> Option<Source> {
+    if std::env::var("OLLAMA_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return Some(Source::Env);
+    }
+    if config
+        .ai
+        .ollama
+        .api_key
+        .as_ref()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return Some(Source::ConfigFile);
+    }
+    None
+}
+
+#[cfg(test)]
 fn resolve_ollama_host(config: &Config) -> (String, Source) {
     if let Ok(v) = std::env::var("OLLAMA_HOST") {
         return (crate::llm::normalize_ollama_host(&v), Source::Env);
@@ -339,6 +420,11 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
 }
 
 fn list_ollama_models(config: &Config) -> Result<Vec<ModelEntry>> {
+    let api_key = std::env::var("OLLAMA_API_KEY")
+        .ok()
+        .or_else(|| config.ai.ollama.api_key.clone())
+        .filter(|k| !k.is_empty());
+
     let host = crate::llm::normalize_ollama_host(
         &std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone()),
     );
@@ -350,10 +436,7 @@ fn list_ollama_models(config: &Config) -> Result<Vec<ModelEntry>> {
         .into();
 
     let mut req = ureq::Agent::get(&agent, &url).header("User-Agent", "fledge-cli");
-    if let Some(key) = std::env::var("OLLAMA_API_KEY")
-        .ok()
-        .or_else(|| config.ai.ollama.api_key.clone())
-    {
+    if let Some(ref key) = api_key {
         req = req.header("Authorization", &format!("Bearer {key}"));
     }
 
@@ -421,6 +504,34 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
         Some(m) => Some(m),
         None => prompt_for_model(kind, &config)?,
     };
+
+    // If a cloud model is selected and no API key is configured, prompt for one.
+    if let Some(ref m) = chosen_model {
+        if matches!(kind, ProviderKind::Ollama)
+            && crate::llm::is_cloud_model(m)
+            && resolve_ollama_api_key_source(&config).is_none()
+            && utils::is_interactive()
+        {
+            eprintln!(
+                "  {} Cloud model '{}' requires an API key.",
+                style("⚠").yellow().bold(),
+                style(m).cyan()
+            );
+            eprintln!(
+                "  Get one at {} or run {}",
+                style("https://ollama.com/settings/keys").underlined(),
+                style("ollama signin").cyan()
+            );
+            let key: String = dialoguer::Password::with_theme(&ColorfulTheme::default())
+                .with_prompt("Ollama API key (empty to skip)")
+                .allow_empty_password(true)
+                .interact()
+                .context("reading API key")?;
+            if !key.is_empty() {
+                config.set("ai.ollama.api_key", &key)?;
+            }
+        }
+    }
 
     // Persist to config.
     config.set("ai.provider", kind.as_str())?;

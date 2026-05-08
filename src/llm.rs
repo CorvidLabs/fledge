@@ -29,6 +29,41 @@ impl ProviderKind {
     }
 }
 
+pub const DEFAULT_OLLAMA_CLOUD_HOST: &str = "https://ollama.com";
+
+/// Returns `true` when the model tag looks like an Ollama Cloud model.
+/// Cloud model names use a `-cloud` qualifier (e.g. `qwen3-coder:480b-cloud`).
+pub fn is_cloud_model(model: &str) -> bool {
+    let lower = model.to_ascii_lowercase();
+    lower.ends_with("-cloud") || lower.contains("-cloud:")
+}
+
+/// Resolve the effective Ollama host, accounting for cloud model auto-routing.
+///
+/// Precedence:
+/// 1. `OLLAMA_HOST` env var (explicit user override — always wins)
+/// 2. Non-default config host (user explicitly configured a custom host)
+/// 3. Cloud host when API key is present AND model is a cloud model
+/// 4. Config host (default: `http://localhost:11434`)
+pub fn resolve_effective_host(config: &Config, model: &str, api_key: &Option<String>) -> String {
+    if let Ok(host) = std::env::var("OLLAMA_HOST") {
+        return normalize_ollama_host(&host);
+    }
+
+    let config_host = normalize_ollama_host(&config.ai.ollama.host);
+    let default_host = "http://localhost:11434";
+
+    if config_host != default_host {
+        return config_host;
+    }
+
+    if api_key.is_some() && is_cloud_model(model) {
+        return DEFAULT_OLLAMA_CLOUD_HOST.to_string();
+    }
+
+    config_host
+}
+
 /// Ensure a host string has a scheme; prepend `http://` when missing.
 pub fn normalize_ollama_host(host: &str) -> String {
     let h = host.trim().trim_end_matches('/');
@@ -233,17 +268,25 @@ pub fn build_provider(
                 .or_else(|| config.ai.claude.model.clone()),
         })),
         ProviderKind::Ollama => {
-            let host = normalize_ollama_host(
-                &std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone()),
-            );
             let api_key = std::env::var("OLLAMA_API_KEY")
                 .ok()
-                .or_else(|| config.ai.ollama.api_key.clone());
+                .or_else(|| config.ai.ollama.api_key.clone())
+                .filter(|k| !k.is_empty());
             let model = overrides
                 .model
                 .clone()
                 .or(env_model)
                 .unwrap_or_else(|| config.ai.ollama.model.clone());
+            let host = resolve_effective_host(config, &model, &api_key);
+
+            if is_cloud_model(&model) && api_key.is_none() {
+                bail!(
+                    "Cloud model '{}' requires authentication.\n  \
+                     Set OLLAMA_API_KEY env var or run: fledge config set ai.ollama.api_key <key>",
+                    model
+                );
+            }
+
             let timeout = resolve_ollama_timeout(config);
             Ok(Box::new(OllamaProvider {
                 host,
@@ -537,5 +580,155 @@ mod tests {
         // sane. Timeout value is verified directly in resolve_ollama_timeout
         // tests above.
         let _ = build_provider(&config, &ProviderOverride::default()).unwrap();
+    }
+
+    #[test]
+    fn is_cloud_model_matches_variants() {
+        assert!(is_cloud_model("qwen3-coder:480b-cloud"));
+        assert!(is_cloud_model("llama3-cloud"));
+        assert!(is_cloud_model("model-cloud:latest"));
+        assert!(!is_cloud_model("llama3.3"));
+        assert!(!is_cloud_model("qwen3-coder:480b"));
+        assert!(!is_cloud_model("cloudflare-model"));
+    }
+
+    #[test]
+    fn resolve_host_local_by_default() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config::default();
+        let host = resolve_effective_host(&config, "llama3.3", &None);
+        assert_eq!(host, "http://localhost:11434");
+    }
+
+    #[test]
+    fn resolve_host_routes_cloud_model_when_key_present() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config::default();
+        let key = Some("test-key".to_string());
+        let host = resolve_effective_host(&config, "qwen3-coder:480b-cloud", &key);
+        assert_eq!(host, DEFAULT_OLLAMA_CLOUD_HOST);
+    }
+
+    #[test]
+    fn resolve_host_stays_local_for_cloud_model_without_key() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config::default();
+        let host = resolve_effective_host(&config, "qwen3-coder:480b-cloud", &None);
+        assert_eq!(host, "http://localhost:11434");
+    }
+
+    #[test]
+    fn resolve_host_respects_explicit_config_host() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config {
+            ai: AiConfig {
+                ollama: OllamaConfig {
+                    host: "https://custom.example.com".into(),
+                    ..OllamaConfig::default()
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let key = Some("test-key".to_string());
+        let host = resolve_effective_host(&config, "qwen3-coder:480b-cloud", &key);
+        assert_eq!(host, "https://custom.example.com");
+    }
+
+    #[test]
+    fn resolve_host_env_var_wins_over_cloud_auto() {
+        let _g = test_lock();
+        clear_env();
+        std::env::set_var("OLLAMA_HOST", "https://override.example.com");
+        let config = Config::default();
+        let key = Some("test-key".to_string());
+        let host = resolve_effective_host(&config, "qwen3-coder:480b-cloud", &key);
+        assert_eq!(host, "https://override.example.com");
+        clear_env();
+    }
+
+    #[test]
+    fn resolve_host_stays_local_for_non_cloud_with_key() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config::default();
+        let key = Some("test-key".to_string());
+        let host = resolve_effective_host(&config, "llama3.3", &key);
+        assert_eq!(host, "http://localhost:11434");
+    }
+
+    #[test]
+    fn build_ollama_cloud_model_without_key_errors() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config {
+            ai: AiConfig {
+                provider: Some("ollama".into()),
+                ollama: OllamaConfig {
+                    model: "qwen3-coder:480b-cloud".into(),
+                    ..OllamaConfig::default()
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        match build_provider(&config, &ProviderOverride::default()) {
+            Err(e) => assert!(
+                e.to_string().contains("requires authentication"),
+                "unexpected error: {e}"
+            ),
+            Ok(_) => panic!("expected error for cloud model without API key"),
+        }
+    }
+
+    #[test]
+    fn build_ollama_cloud_model_with_key_succeeds() {
+        let _g = test_lock();
+        clear_env();
+        std::env::set_var("OLLAMA_API_KEY", "test-key");
+        let config = Config {
+            ai: AiConfig {
+                provider: Some("ollama".into()),
+                ollama: OllamaConfig {
+                    model: "qwen3-coder:480b-cloud".into(),
+                    ..OllamaConfig::default()
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let provider = build_provider(&config, &ProviderOverride::default()).unwrap();
+        assert_eq!(provider.kind(), ProviderKind::Ollama);
+        assert_eq!(provider.model_name(), Some("qwen3-coder:480b-cloud"));
+        clear_env();
+    }
+
+    #[test]
+    fn empty_api_key_treated_as_none() {
+        let _g = test_lock();
+        clear_env();
+        let config = Config {
+            ai: AiConfig {
+                provider: Some("ollama".into()),
+                ollama: OllamaConfig {
+                    api_key: Some("".into()),
+                    model: "qwen3-coder:480b-cloud".into(),
+                    ..OllamaConfig::default()
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        match build_provider(&config, &ProviderOverride::default()) {
+            Err(e) => assert!(
+                e.to_string().contains("requires authentication"),
+                "unexpected error: {e}"
+            ),
+            Ok(_) => panic!("expected error for cloud model with empty API key"),
+        }
     }
 }

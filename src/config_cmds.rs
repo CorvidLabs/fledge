@@ -156,16 +156,43 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
                 &config.ai.claude.model,
                 "Claude model name",
             );
-            print_config_value_described(
-                "ai.ollama.host",
-                &config.ai.ollama.host,
-                "Ollama API endpoint URL",
-            );
-            print_config_described(
-                "ai.ollama.api_key",
-                &config.ai.ollama.api_key.as_ref().map(|_| "***".to_string()),
-                "Ollama Cloud API key",
-            );
+
+            let host_override = std::env::var("OLLAMA_HOST").ok();
+            if host_override.is_some() {
+                print_config_value_described(
+                    "ai.ollama.host",
+                    &format!(
+                        "{} {}",
+                        config.ai.ollama.host,
+                        style("(⚠ overridden by OLLAMA_HOST env)").yellow()
+                    ),
+                    "Ollama API endpoint URL",
+                );
+            } else {
+                print_config_value_described(
+                    "ai.ollama.host",
+                    &config.ai.ollama.host,
+                    "Ollama API endpoint URL",
+                );
+            }
+
+            let key_override = std::env::var("OLLAMA_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty());
+            if key_override.is_some() {
+                print_config_value_described(
+                    "ai.ollama.api_key",
+                    &format!("*** {}", style("(from OLLAMA_API_KEY env)").dim()),
+                    "Ollama Cloud API key",
+                );
+            } else {
+                print_config_described(
+                    "ai.ollama.api_key",
+                    &config.ai.ollama.api_key.as_ref().map(|_| "***".to_string()),
+                    "Ollama Cloud API key",
+                );
+            }
+
             print_config_value_described(
                 "ai.ollama.model",
                 &config.ai.ollama.model,
