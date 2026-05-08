@@ -182,10 +182,7 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             if key_override.is_some() {
                 print_config_value_described(
                     "ai.ollama.api_key",
-                    &format!(
-                        "*** {}",
-                        style("(from OLLAMA_API_KEY env)").dim()
-                    ),
+                    &format!("*** {}", style("(from OLLAMA_API_KEY env)").dim()),
                     "Ollama Cloud API key",
                 );
             } else {

@@ -92,11 +92,11 @@ fn status(json: bool) -> Result<()> {
                 .ok()
                 .or_else(|| config.ai.ollama.api_key.clone())
                 .filter(|k| !k.is_empty());
-            let effective_host =
-                crate::llm::resolve_effective_host(&config, &m, &api_key);
+            let effective_host = crate::llm::resolve_effective_host(&config, &m, &api_key);
             let is_cloud = crate::llm::is_cloud_model(&m);
-            let routed_to_cloud =
-                is_cloud && api_key.is_some() && effective_host == crate::llm::DEFAULT_OLLAMA_CLOUD_HOST;
+            let routed_to_cloud = is_cloud
+                && api_key.is_some()
+                && effective_host == crate::llm::DEFAULT_OLLAMA_CLOUD_HOST;
 
             let h_source = if std::env::var("OLLAMA_HOST").is_ok() {
                 Source::Env
@@ -172,7 +172,7 @@ fn status(json: bool) -> Result<()> {
     }
     if let (Some(h), Some(src)) = (&report.host, &report.host_source) {
         let cloud_note = if report.cloud_routed == Some(true) {
-            format!(" (auto-routed to cloud)")
+            " (auto-routed to cloud)".to_string()
         } else {
             format!(" (from {})", src.label())
         };

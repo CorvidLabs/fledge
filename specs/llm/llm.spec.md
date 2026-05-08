@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 3
+version: 4
 status: active
 files:
   - src/llm.rs
@@ -33,6 +33,9 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 | `resolve_provider_kind` | Determine active provider given config + override |
 | `build_provider` | Construct the concrete provider box from config + env + overrides |
 | `normalize_ollama_host` | Ensures `OllamaProvider.host` always has a scheme; prepends `http://` to bare `host:port` values |
+| `resolve_effective_host` | Picks the Ollama host: env var > custom config > cloud auto-route > default localhost |
+| `is_cloud_model` | Returns `true` when a model tag contains `-cloud` (e.g. `qwen3-coder:480b-cloud`) |
+| `DEFAULT_OLLAMA_CLOUD_HOST` | `"https://ollama.com"` — the Ollama Cloud API endpoint |
 | `describe` | Human string: `"claude (sonnet-4.5)"` or `"ollama (llama3.3)"` |
 
 ### Structs & Enums
@@ -59,6 +62,8 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 | `build_provider` | `(&Config, &ProviderOverride) -> Result<Box<dyn LlmProvider>>` | Builds a concrete provider; model follows the same precedence order |
 | `normalize_ollama_host` | `(&str) -> String` | Trims whitespace and trailing `/`; prepends `http://` when no scheme is present |
 | `describe` | `(&dyn LlmProvider) -> String` | Pretty formatter for spinner messages and JSON payloads |
+| `resolve_effective_host` | `(&Config, &str, &Option<String>) -> String` | Cloud-aware host resolution: `OLLAMA_HOST` env > custom config > cloud auto-route (when API key + cloud model) > default localhost |
+| `is_cloud_model` | `(&str) -> bool` | True when model name contains `-cloud` qualifier |
 | `ProviderKind::parse` | `(&str) -> Result<Self>` | Case-insensitive parse; trims whitespace |
 | `ProviderKind::as_str` | `(&self) -> &'static str` | `"claude"` or `"ollama"` |
 
@@ -73,6 +78,9 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 7. Network errors from Ollama surface with the full URL in the message so users can diagnose host / port / daemon-down issues quickly
 8. No provider implementation modifies the prompt text — spec context composition stays in `ask` / `review`
 9. `OllamaProvider.timeout` is resolved by `build_provider` with precedence `FLEDGE_AI_TIMEOUT` env var (seconds, integer) > `ai.ollama.timeout_seconds` config > default 600s; a non-integer env value is ignored and falls through to config
+10. When the model tag contains `-cloud` and an API key is available, `resolve_effective_host` auto-routes to `https://ollama.com` — bypassing the local daemon which cannot forward client Bearer tokens. An explicit `OLLAMA_HOST` env var or non-default config host always take priority over cloud auto-routing.
+11. `build_provider` bails early with a descriptive error when a cloud model is selected but no API key is configured (`OLLAMA_API_KEY` env or `ai.ollama.api_key` config)
+12. Empty API key strings (from config or env) are treated as absent — they do not trigger Bearer headers or cloud routing
 
 ## Behavioral Examples
 
@@ -91,13 +99,14 @@ $ fledge ask "what does the trust module do?"
 [Local-model answer]
 ```
 
-### Switch to Ollama Cloud / Turbo
+### Switch to Ollama Cloud (auto-routed)
 ```
 $ fledge config set ai.provider ollama
-$ fledge config set ai.ollama.host https://ollama.com
 $ fledge config set ai.ollama.api_key sk-...
-$ fledge config set ai.ollama.model "claude-sonnet-4.5"  # if the endpoint supports it
-$ fledge ask --with-specs work "why does work sanitize branch names?"
+$ fledge config set ai.ollama.model "qwen3-coder:480b-cloud"
+$ fledge ask "why does work sanitize branch names?"
+● Thinking [ollama (qwen3-coder:480b-cloud)]:
+# Host auto-routed to https://ollama.com (cloud model + API key)
 ```
 
 ### Per-invocation override
@@ -114,6 +123,7 @@ $ fledge review --provider claude --model opus-4
 | `claude` CLI not installed | Active provider is `claude` | Bail via existing `github::ensure_claude_cli` check |
 | Ollama host unreachable | POST to `<host>/api/generate` fails | Bail with the full URL and a "(is the Ollama server running?)" hint |
 | Malformed Ollama response | `/api/generate` returns non-JSON or missing `response` field | Bail with decoding error |
+| Cloud model without API key | Model tag contains `-cloud` but no `OLLAMA_API_KEY` env or `ai.ollama.api_key` config | Bail with "requires authentication" and setup instructions |
 
 ## Dependencies
 
@@ -126,6 +136,7 @@ $ fledge review --provider claude --model opus-4
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST`; `build_provider` bails on cloud models without API key; empty API keys treated as absent |
 | 3 | 2026-04-27 | Document `normalize_ollama_host`, ensures bare `host:port` values get an `http://` scheme; update invariant 3 to describe full normalization behavior |
 | 2 | 2026-04-24 | `OllamaProvider` gains a `timeout: Duration` field populated by `build_provider`; adds `ai.ollama.timeout_seconds` config fallback so the per-request timeout is tunable without env vars (`FLEDGE_AI_TIMEOUT` still wins) |
 | 1 | 2026-04-23 | Initial spec, provider abstraction with Claude + Ollama implementations, env-var and config resolution, CLI overrides |

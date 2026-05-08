@@ -45,11 +45,7 @@ pub fn is_cloud_model(model: &str) -> bool {
 /// 2. Non-default config host (user explicitly configured a custom host)
 /// 3. Cloud host when API key is present AND model is a cloud model
 /// 4. Config host (default: `http://localhost:11434`)
-pub fn resolve_effective_host(
-    config: &Config,
-    model: &str,
-    api_key: &Option<String>,
-) -> String {
+pub fn resolve_effective_host(config: &Config, model: &str, api_key: &Option<String>) -> String {
     if let Ok(host) = std::env::var("OLLAMA_HOST") {
         return normalize_ollama_host(&host);
     }
