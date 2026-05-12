@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.1] - 2026-05-11
+
+### Fixes
+
+- address open issues #377, #378, #379, #382, #383 (#384) (1582121)
+- auto-route Ollama Cloud models to ollama.com when API key is set (#381) (77b2ca0)
+- clean up on build hook failure + spec/doc updates (#375) (11cac9a)
+
+### Other
+
+- Update README.md (#376) (8dfe16b)
+
 ## [v1.4.0] - 2026-05-07
 
 ### Features
