@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 9
+version: 10
 status: active
 files:
   - src/spec/mod.rs
@@ -47,7 +47,8 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `specs_dir_from_config` | (internal) Resolve the specs directory path from config |
 | `find_spec_files` | (internal) Walk a directory tree and collect all `.spec.md` file paths |
 | `classify_companions` | (internal) Partition companion files into present and missing lists |
-| `validate_module_name` | (internal) Reject empty, dot, or path-traversal module names |
+| `validate_module_name` | (internal) Reject empty, dot, or path-traversal module names; allow nested names with `/` |
+| `module_leaf` | (internal) Last `/`-separated segment of a module name; used to derive the spec filename for nested names |
 | `to_title_case` | (internal) Convert snake_case to Title Case for spec scaffolding |
 | `parse_frontmatter` | (internal) Parse YAML frontmatter and body from a spec file string |
 | `extract_sections` | (internal) Extract `## Section` headings from a spec body |
@@ -268,6 +269,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-05-11 | Accept nested module names with `/` for `fledge spec new` (#383). `validate_module_name` allows `game/board`-style names while still rejecting `\`, leading/trailing `/`, `//`, and any `..`/`.` segment. New `module_leaf` helper derives the spec filename for nested names (`game/board` → `board.spec.md`). `new_spec` writes nested directory layout and quotes registry keys containing `/` so the resulting TOML stays valid |
 | 9 | 2026-04-29 | Document all `pub(crate)` exports from module split (`mod.rs`, `parse.rs`, `validation.rs`, `commands.rs`) to satisfy strict spec-sync validation |
 | 8 | 2026-04-27 | Fix nested-spec resolution (#291). `IndexEntry` now carries the spec file's on-disk `path`. `specs_for_changed_files` matches via each spec's actual parent directory rather than the assumed `<specs_dir>/<name>/`, and `load_module_bundle` resolves the spec file through the index instead of guessing. Sub-specs that share a directory with another module (e.g. `specs/plugin/plugin-protocol.spec.md`) now resolve correctly |
 | 7 | 2026-04-26 | Doc sync, behavioral examples for `spec list --json` and `spec show --json` updated to show the post-tier-D envelope shapes (previously displayed the bare-array / bare-detail forms shipped before envelope migration). Invariant 8 reworded to describe the envelope. No code change |

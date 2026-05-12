@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 4
+version: 5
 status: active
 files:
   - src/llm.rs
@@ -43,7 +43,7 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 | Type | Description |
 |------|-------------|
 | `ProviderKind` | `Claude` or `Ollama` |
-| `ClaudeProvider` | `{ model: Option<String> }` |
+| `ClaudeProvider` | `{ model: Option<String>, api_key: Option<String> }` — `api_key` exported to the `claude` CLI as `ANTHROPIC_API_KEY` |
 | `OllamaProvider` | `{ host, api_key: Option<String>, model, timeout: Duration }` |
 | `ProviderOverride` | Per-invocation overrides (CLI flags bypass env and config) |
 | `OllamaGenerateResponse` | (private) The `{ response: String }` payload decoded from `/api/generate` |
@@ -136,6 +136,7 @@ $ fledge review --provider claude --model opus-4
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-05-11 | `ClaudeProvider` gains `api_key: Option<String>`, forwarded to the `claude` CLI via `ANTHROPIC_API_KEY` (#379). Ollama HTTP and connection errors append an `OLLAMA_HOST env var = …` hint when the env var is set, so users diagnose silent overrides quickly (#378) |
 | 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST`; `build_provider` bails on cloud models without API key; empty API keys treated as absent |
 | 3 | 2026-04-27 | Document `normalize_ollama_host`, ensures bare `host:port` values get an `http://` scheme; update invariant 3 to describe full normalization behavior |
 | 2 | 2026-04-24 | `OllamaProvider` gains a `timeout: Duration` field populated by `build_provider`; adds `ai.ollama.timeout_seconds` config fallback so the per-request timeout is tunable without env vars (`FLEDGE_AI_TIMEOUT` still wins) |

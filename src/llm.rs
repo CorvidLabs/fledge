@@ -68,7 +68,7 @@ pub fn resolve_effective_host(config: &Config, model: &str, api_key: &Option<Str
 /// messages explain why the request hit the URL it did (issue #378). Returns
 /// an empty string when the env var is not set so the call site can append
 /// unconditionally.
-pub fn ollama_host_env_hint() -> String {
+fn ollama_host_env_hint() -> String {
     match std::env::var("OLLAMA_HOST") {
         Ok(v) if !v.is_empty() => {
             format!(" (OLLAMA_HOST env var = {v}; unset it to use ai.ollama.host config)")

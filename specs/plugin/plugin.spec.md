@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 27
+version: 28
 status: active
 files:
   - src/plugin/mod.rs
@@ -348,6 +348,8 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 28 | 2026-05-11 | `plugins update` skips workspace-managed plugins (no `.git` in install dir) with an informational `skipped` status instead of warning on a guaranteed-to-fail `git pull`. Detects both `.git` directories (standard clones) and `.git` files (worktrees / submodules). Lets host projects like Merlin register their internal plugins via `source = "owner/repo"` without triggering noisy errors on routine `fledge plugins update` runs (#382) |
+| 27 | 2026-05-07 | Frontmatter bump; no functional change |
 | 26 | 2026-05-05 | Add `--trust-tier {official,team,unverified}` filter to `plugins search`. Lets agents pre-filter results to first-party only (`official`) without post-processing. `TrustTier` now derives `clap::ValueEnum`. Filter is client-side (GitHub doesn't expose tier semantics). Invariant 9 updated |
 | 25 | 2026-05-05 | Spec drift fix surfaced by an agent-discoverability review. Three corrections: (a) Invariant 10 previously claimed `fledge --help` rendered a "Plugin Commands" section — never implemented; rewritten to document the actual design (clap `external_subcommand`, no help injection, discoverability via `plugins list`). (b) `plugins recommend` was undocumented in the invariants and reused `PLUGINS_SEARCH_SCHEMA` despite emitting a different envelope shape; now has its own `PLUGINS_RECOMMEND_SCHEMA`, `action: "plugins_recommend"` discriminator, and Invariant 11. (c) Invariants 7-8 now mention `runtime`/sandboxed status (already in the JSON envelopes since wasm support landed) |
 | 24 | 2026-05-03 | Plugin discoverability: `plugins search --topic` filter, `plugins search --interactive` (FuzzySelect TUI), and `plugins recommend` (project-language-aware suggestions). New file `src/plugin/recommend.rs`. (#357) |
