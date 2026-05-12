@@ -157,6 +157,23 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
                 "Claude model name",
             );
 
+            let claude_key_env = std::env::var("ANTHROPIC_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty());
+            if claude_key_env.is_some() {
+                print_config_value_described(
+                    "ai.claude.api_key",
+                    &format!("*** {}", style("(from ANTHROPIC_API_KEY env)").dim()),
+                    "Anthropic API key",
+                );
+            } else {
+                print_config_described(
+                    "ai.claude.api_key",
+                    &config.ai.claude.api_key.as_ref().map(|_| "***".to_string()),
+                    "Anthropic API key (or export ANTHROPIC_API_KEY)",
+                );
+            }
+
             let host_override = std::env::var("OLLAMA_HOST").ok();
             if host_override.is_some() {
                 print_config_value_described(
@@ -339,6 +356,11 @@ pub fn interactive_config_edit() -> Result<()> {
             key: "ai.claude.model",
             desc: "Claude model name",
             kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.claude.api_key",
+            desc: "Anthropic API key (or export ANTHROPIC_API_KEY)",
+            kind: KeyKind::Secret,
         },
         ConfigKey {
             key: "ai.ollama.host",

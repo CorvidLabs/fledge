@@ -242,7 +242,12 @@ fn test_load_module_bundle_rejects_path_traversal() {
     let tmp = TempDir::new().unwrap();
     scaffold_min_project(&tmp, &["real"]);
 
-    for bad in ["../evil", "..\\evil", "foo/bar", "foo\\bar", "..", ".", ""] {
+    // `..` (anywhere) and `\\` must always be rejected; leading/trailing `/` too.
+    // Note: `foo/bar` is now a legitimate nested name (issue #383) and is only
+    // rejected here because no such spec exists in the scaffold.
+    for bad in [
+        "../evil", "..\\evil", "foo\\bar", "..", ".", "", "/foo", "foo/", "foo//bar",
+    ] {
         let err = load_module_bundle(tmp.path(), bad).unwrap_err();
         let msg = err.to_string();
         assert!(
@@ -257,6 +262,19 @@ fn test_validate_module_name_allows_normal_names() {
     assert!(validate_module_name("trust").is_ok());
     assert!(validate_module_name("create_template").is_ok());
     assert!(validate_module_name("plugin-protocol").is_ok());
+    // Nested names (issue #383)
+    assert!(validate_module_name("game/board").is_ok());
+    assert!(validate_module_name("network/websocket").is_ok());
+}
+
+#[test]
+fn test_validate_module_name_rejects_invalid_nested_forms() {
+    assert!(validate_module_name("/foo").is_err());
+    assert!(validate_module_name("foo/").is_err());
+    assert!(validate_module_name("foo//bar").is_err());
+    assert!(validate_module_name("foo/../bar").is_err());
+    assert!(validate_module_name("foo\\bar").is_err());
+    assert!(validate_module_name("./foo").is_err());
 }
 
 fn scaffold_project_with_source_specs(tmp: &TempDir) {
@@ -734,6 +752,43 @@ fn test_new_spec_creates_files() {
 
     let registry = fs::read_to_string(specsync_dir.join("registry.toml")).unwrap();
     assert!(registry.contains("auth = \"specs/auth/auth.spec.md\""));
+}
+
+#[test]
+fn test_new_spec_supports_nested_names() {
+    let tmp = TempDir::new().unwrap();
+
+    let specsync_dir = tmp.path().join(".specsync");
+    fs::create_dir_all(&specsync_dir).unwrap();
+    fs::write(
+        specsync_dir.join("config.toml"),
+        "specs_dir = \"specs\"\nrequired_sections = []\n",
+    )
+    .unwrap();
+    fs::write(
+        specsync_dir.join("registry.toml"),
+        "[registry]\nname = \"test\"\n\n[specs]\n",
+    )
+    .unwrap();
+
+    let result = new_spec(tmp.path(), "game/board");
+
+    assert!(result.is_ok(), "{result:?}");
+    assert!(tmp.path().join("specs/game/board/board.spec.md").exists());
+    assert!(tmp.path().join("specs/game/board/requirements.md").exists());
+    assert!(tmp.path().join("specs/game/board/tasks.md").exists());
+    assert!(tmp.path().join("specs/game/board/context.md").exists());
+    assert!(tmp.path().join("specs/game/board/testing.md").exists());
+
+    let spec = fs::read_to_string(tmp.path().join("specs/game/board/board.spec.md")).unwrap();
+    assert!(spec.contains("module: game/board"));
+    assert!(spec.contains("src/board.rs"));
+
+    let req = fs::read_to_string(tmp.path().join("specs/game/board/requirements.md")).unwrap();
+    assert!(req.contains("spec: board.spec.md"));
+
+    let registry = fs::read_to_string(specsync_dir.join("registry.toml")).unwrap();
+    assert!(registry.contains("\"game/board\" = \"specs/game/board/board.spec.md\""));
 }
 
 #[test]

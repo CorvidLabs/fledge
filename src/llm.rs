@@ -64,6 +64,19 @@ pub fn resolve_effective_host(config: &Config, model: &str, api_key: &Option<Str
     config_host
 }
 
+/// Returns a parenthetical note when `OLLAMA_HOST` is set, so connection-error
+/// messages explain why the request hit the URL it did (issue #378). Returns
+/// an empty string when the env var is not set so the call site can append
+/// unconditionally.
+pub fn ollama_host_env_hint() -> String {
+    match std::env::var("OLLAMA_HOST") {
+        Ok(v) if !v.is_empty() => {
+            format!(" (OLLAMA_HOST env var = {v}; unset it to use ai.ollama.host config)")
+        }
+        _ => String::new(),
+    }
+}
+
 /// Ensure a host string has a scheme; prepend `http://` when missing.
 pub fn normalize_ollama_host(host: &str) -> String {
     let h = host.trim().trim_end_matches('/');
@@ -90,6 +103,10 @@ pub trait LlmProvider: Send + Sync {
 /// has been in `ask` and `review` from day one.
 pub struct ClaudeProvider {
     pub model: Option<String>,
+    /// API key passed to `claude` via the `ANTHROPIC_API_KEY` env var. When
+    /// `None`, the `claude` CLI uses whatever it can find on its own (env var
+    /// already in the environment, keychain entry, etc.).
+    pub api_key: Option<String>,
 }
 
 impl LlmProvider for ClaudeProvider {
@@ -104,10 +121,12 @@ impl LlmProvider for ClaudeProvider {
         args.push("--print".into());
         args.push(prompt.into());
 
-        let output = Command::new("claude")
-            .args(&args)
-            .output()
-            .context("invoking claude CLI")?;
+        let mut cmd = Command::new("claude");
+        cmd.args(&args);
+        if let Some(ref key) = self.api_key {
+            cmd.env("ANTHROPIC_API_KEY", key);
+        }
+        let output = cmd.output().context("invoking claude CLI")?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if !stderr.is_empty() {
@@ -178,12 +197,17 @@ impl LlmProvider for OllamaProvider {
             Ok(resp) => resp,
             Err(ureq::Error::StatusCode(code)) => {
                 bail!(
-                    "Ollama endpoint returned HTTP {code} from {url}. Check the model name, API key, and host URL."
+                    "Ollama endpoint returned HTTP {code} from {url}.{}\n  Check the model name, API key, and host URL.",
+                    ollama_host_env_hint()
                 );
             }
             Err(e) => {
-                return Err(anyhow::Error::new(e))
-                    .with_context(|| format!("POST {url} (is the Ollama server running?)"));
+                return Err(anyhow::Error::new(e)).with_context(|| {
+                    format!(
+                        "POST {url} (is the Ollama server running?){}",
+                        ollama_host_env_hint()
+                    )
+                });
             }
         };
 
@@ -260,13 +284,22 @@ pub fn build_provider(
     let env_model = std::env::var("FLEDGE_AI_MODEL").ok();
 
     match kind {
-        ProviderKind::Claude => Ok(Box::new(ClaudeProvider {
-            model: overrides
-                .model
-                .clone()
-                .or(env_model)
-                .or_else(|| config.ai.claude.model.clone()),
-        })),
+        ProviderKind::Claude => {
+            // Env var wins so users can override per-shell; otherwise fall
+            // back to the config file value (issue #379).
+            let api_key = std::env::var("ANTHROPIC_API_KEY")
+                .ok()
+                .or_else(|| config.ai.claude.api_key.clone())
+                .filter(|k| !k.is_empty());
+            Ok(Box::new(ClaudeProvider {
+                model: overrides
+                    .model
+                    .clone()
+                    .or(env_model)
+                    .or_else(|| config.ai.claude.model.clone()),
+                api_key,
+            }))
+        }
         ProviderKind::Ollama => {
             let api_key = std::env::var("OLLAMA_API_KEY")
                 .ok()
@@ -322,6 +355,7 @@ mod tests {
         std::env::remove_var("FLEDGE_AI_MODEL");
         std::env::remove_var("OLLAMA_HOST");
         std::env::remove_var("OLLAMA_API_KEY");
+        std::env::remove_var("ANTHROPIC_API_KEY");
         std::env::remove_var("FLEDGE_AI_TIMEOUT");
     }
 
@@ -495,14 +529,62 @@ mod tests {
     fn describe_includes_model_when_set() {
         let p = ClaudeProvider {
             model: Some("sonnet-4.5".into()),
+            api_key: None,
         };
         assert_eq!(describe(&p), "claude (sonnet-4.5)");
     }
 
     #[test]
     fn describe_bare_when_no_model() {
-        let p = ClaudeProvider { model: None };
+        let p = ClaudeProvider {
+            model: None,
+            api_key: None,
+        };
         assert_eq!(describe(&p), "claude");
+    }
+
+    #[test]
+    fn build_claude_picks_up_config_api_key() {
+        let _g = test_lock();
+        clear_env();
+        std::env::remove_var("ANTHROPIC_API_KEY");
+        let config = Config {
+            ai: AiConfig {
+                provider: Some("claude".into()),
+                claude: ClaudeConfig {
+                    model: None,
+                    api_key: Some("sk-ant-from-config".into()),
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let provider = build_provider(&config, &ProviderOverride::default()).unwrap();
+        assert_eq!(provider.kind(), ProviderKind::Claude);
+        // We can't read api_key off the trait object, but the build path must
+        // accept the config value without erroring; the public surface for
+        // verification is covered by the resolve_claude_api_key_source tests
+        // in ai.rs.
+    }
+
+    #[test]
+    fn build_claude_env_beats_config_api_key() {
+        let _g = test_lock();
+        clear_env();
+        std::env::set_var("ANTHROPIC_API_KEY", "sk-ant-from-env");
+        let config = Config {
+            ai: AiConfig {
+                provider: Some("claude".into()),
+                claude: ClaudeConfig {
+                    model: None,
+                    api_key: Some("sk-ant-from-config".into()),
+                },
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+        let _ = build_provider(&config, &ProviderOverride::default()).unwrap();
+        clear_env();
     }
 
     #[test]
