@@ -121,13 +121,27 @@ pub(crate) fn validate_module_name(name: &str) -> Result<()> {
     if name.is_empty() {
         bail!("Module name cannot be empty");
     }
-    if name == "." || name == ".." {
-        bail!("Invalid module name '{name}'");
+    if name.contains('\\') {
+        bail!("Invalid module name '{name}': may not contain '\\'; use '/' for nested specs");
     }
-    if name.contains('/') || name.contains('\\') || name.contains("..") {
-        bail!("Invalid module name '{name}': may not contain path separators or '..'");
+    if name.starts_with('/') || name.ends_with('/') {
+        bail!("Invalid module name '{name}': may not start or end with '/'");
+    }
+    for segment in name.split('/') {
+        if segment.is_empty() {
+            bail!("Invalid module name '{name}': empty path segment");
+        }
+        if segment == "." || segment == ".." {
+            bail!("Invalid module name '{name}': segment '{segment}' is not allowed");
+        }
     }
     Ok(())
+}
+
+/// Leaf segment of a (possibly nested) module name. For `game/board` returns `board`;
+/// for a flat name returns the name itself.
+pub(crate) fn module_leaf(name: &str) -> &str {
+    name.rsplit('/').next().unwrap_or(name)
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────

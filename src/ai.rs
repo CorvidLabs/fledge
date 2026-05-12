@@ -83,7 +83,8 @@ fn status(json: bool) -> Result<()> {
     let (model, model_source, host, host_source, api_key_source, cloud_routed) = match kind {
         ProviderKind::Claude => {
             let (m, s) = resolve_claude_model(&config);
-            (m, s, None, None, None, None)
+            let aks = resolve_claude_api_key_source(&config);
+            (m, s, None, None, aks, None)
         }
         ProviderKind::Ollama => {
             let (m, ms) = resolve_ollama_model(&config);
@@ -197,8 +198,43 @@ fn status(json: bool) -> Result<()> {
                 style("(not set — required for cloud models)").dim()
             ),
         }
+    } else if report.provider == "claude" {
+        match &report.api_key_source {
+            Some(src) => println!(
+                "   {} {} {}",
+                style("API Key:").bold(),
+                style("***").green(),
+                style(format!("(from {})", src.label())).dim()
+            ),
+            None => println!(
+                "   {} {}",
+                style("API Key:").bold(),
+                style("(not set — export ANTHROPIC_API_KEY or run `fledge config set ai.claude.api_key <key>`)").dim()
+            ),
+        }
     }
     Ok(())
+}
+
+fn resolve_claude_api_key_source(config: &Config) -> Option<Source> {
+    if std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return Some(Source::Env);
+    }
+    if config
+        .ai
+        .claude
+        .api_key
+        .as_ref()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return Some(Source::ConfigFile);
+    }
+    None
 }
 
 fn resolve_provider_with_source(config: &Config) -> Result<(ProviderKind, Source)> {

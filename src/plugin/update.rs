@@ -125,6 +125,27 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             continue;
         }
 
+        // Workspace-managed plugins (e.g. Merlin's bundled plugins under
+        // `plugins/`) have no `.git` and are rebuilt by the host project's
+        // init step. Skipping them silently keeps `plugins update` quiet
+        // instead of warning about a git pull that was never going to work.
+        // (Issue #382)
+        if !is_git_repo(&plugin_dir) {
+            if !json {
+                println!(
+                    "  {} {} — workspace-managed (no .git), skipped",
+                    style("*").cyan().bold(),
+                    style(&entry.name).cyan()
+                );
+            }
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "skipped",
+                "detail": "workspace-managed plugin (no .git in install dir) — managed by host project's init step",
+            }));
+            continue;
+        }
+
         if let Some(ref pinned) = entry.pinned_ref {
             let latest = find_latest_tag(&plugin_dir);
             match latest {
@@ -436,6 +457,15 @@ fn rebuild_after_fetch(
     Ok(result)
 }
 
+/// True when `plugin_dir` is the root of a git working tree. We accept both
+/// `.git` directories (standard clones) and `.git` files (worktrees /
+/// submodules). Plugins installed from a monorepo and symlinked into place
+/// will fail this check, which is exactly what we want — workspace plugins
+/// should not be `git pull`ed (issue #382).
+fn is_git_repo(plugin_dir: &Path) -> bool {
+    plugin_dir.join(".git").exists()
+}
+
 pub(crate) fn find_latest_tag(repo_dir: &Path) -> Option<String> {
     let mut cmd = Command::new("git");
     cmd.args(["fetch", "--tags"])
@@ -459,4 +489,36 @@ pub(crate) fn find_latest_tag(repo_dir: &Path) -> Option<String> {
         .next()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_git_repo;
+    use tempfile::TempDir;
+
+    #[test]
+    fn is_git_repo_detects_dot_git_directory() {
+        let tmp = TempDir::new().unwrap();
+        assert!(!is_git_repo(tmp.path()));
+        std::fs::create_dir_all(tmp.path().join(".git")).unwrap();
+        assert!(is_git_repo(tmp.path()));
+    }
+
+    #[test]
+    fn is_git_repo_detects_dot_git_file_for_worktrees_or_submodules() {
+        // `git worktree add` and `git submodule` both create a `.git` file
+        // (not a directory). Both forms must register as a real repo.
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join(".git"), "gitdir: /elsewhere\n").unwrap();
+        assert!(is_git_repo(tmp.path()));
+    }
+
+    #[test]
+    fn is_git_repo_returns_false_for_workspace_managed_plugin() {
+        // Issue #382: a plugin symlinked from a monorepo (or copied into the
+        // plugins dir without its own git metadata) has no `.git` entry.
+        let tmp = TempDir::new().unwrap();
+        std::fs::write(tmp.path().join("plugin.toml"), "[plugin]\nname = \"x\"\n").unwrap();
+        assert!(!is_git_repo(tmp.path()));
+    }
 }

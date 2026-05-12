@@ -70,22 +70,36 @@ pub struct ClaudeConfig {
     /// Default model name passed to the `claude` CLI via `--model`. When None,
     /// `claude` uses its own default.
     pub model: Option<String>,
+    /// Anthropic API key. Read from `ANTHROPIC_API_KEY` env var if this field
+    /// is None. Surface via `fledge ai status` and `fledge config list`.
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OllamaConfig {
-    /// Base URL of the Ollama-compatible endpoint.
-    #[serde(default = "default_ollama_host")]
+    /// Base URL of the Ollama-compatible endpoint. Skipped during serialization
+    /// when it equals the default so `fledge config unset ai.ollama.host`
+    /// actually removes the field from the file (issue #377).
+    #[serde(
+        default = "default_ollama_host",
+        skip_serializing_if = "is_default_ollama_host"
+    )]
     pub host: String,
     /// Bearer token for Ollama Cloud / Turbo or any authenticated endpoint.
     /// Read from `OLLAMA_API_KEY` env var if this field is None.
     pub api_key: Option<String>,
     /// Default model name (e.g. `llama3.3:70b` or a cloud-registry model).
-    #[serde(default = "default_ollama_model")]
+    #[serde(
+        default = "default_ollama_model",
+        skip_serializing_if = "is_default_ollama_model"
+    )]
     pub model: String,
     /// Per-request timeout in seconds. `FLEDGE_AI_TIMEOUT` env var takes
     /// precedence when set.
-    #[serde(default = "default_ollama_timeout_seconds")]
+    #[serde(
+        default = "default_ollama_timeout_seconds",
+        skip_serializing_if = "is_default_ollama_timeout_seconds"
+    )]
     pub timeout_seconds: u64,
 }
 
@@ -112,7 +126,19 @@ fn default_ollama_timeout_seconds() -> u64 {
     600
 }
 
-const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, trust.orgs, trust.users, ai.provider, ai.claude.model, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
+fn is_default_ollama_host(host: &str) -> bool {
+    host == default_ollama_host()
+}
+
+fn is_default_ollama_model(model: &str) -> bool {
+    model == default_ollama_model()
+}
+
+fn is_default_ollama_timeout_seconds(secs: &u64) -> bool {
+    *secs == default_ollama_timeout_seconds()
+}
+
+const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, trust.orgs, trust.users, ai.provider, ai.claude.model, ai.claude.api_key, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
 
 impl Config {
     pub fn valid_keys_hint() -> &'static str {
@@ -176,6 +202,7 @@ impl Config {
             "templates.repos" => Some(self.templates.repos.join("\n")),
             "ai.provider" => self.ai.provider.clone(),
             "ai.claude.model" => self.ai.claude.model.clone(),
+            "ai.claude.api_key" => self.ai.claude.api_key.clone(),
             "ai.ollama.host" => Some(self.ai.ollama.host.clone()),
             "ai.ollama.api_key" => self.ai.ollama.api_key.clone(),
             "ai.ollama.model" => Some(self.ai.ollama.model.clone()),
@@ -187,7 +214,10 @@ impl Config {
     }
 
     pub fn is_secret_key(key: &str) -> bool {
-        matches!(key, "github.token" | "ai.ollama.api_key")
+        matches!(
+            key,
+            "github.token" | "ai.claude.api_key" | "ai.ollama.api_key"
+        )
     }
 
     pub fn is_valid_key(key: &str) -> bool {
@@ -203,6 +233,7 @@ impl Config {
                 | "trust.users"
                 | "ai.provider"
                 | "ai.claude.model"
+                | "ai.claude.api_key"
                 | "ai.ollama.host"
                 | "ai.ollama.api_key"
                 | "ai.ollama.model"
@@ -224,6 +255,7 @@ impl Config {
                 self.ai.provider = Some(normalized);
             }
             "ai.claude.model" => self.ai.claude.model = Some(value.to_string()),
+            "ai.claude.api_key" => self.ai.claude.api_key = Some(value.to_string()),
             "ai.ollama.host" => self.ai.ollama.host = value.to_string(),
             "ai.ollama.api_key" => self.ai.ollama.api_key = Some(value.to_string()),
             "ai.ollama.model" => self.ai.ollama.model = value.to_string(),
@@ -260,6 +292,7 @@ impl Config {
             "trust.users" => self.trust.users.clear(),
             "ai.provider" => self.ai.provider = None,
             "ai.claude.model" => self.ai.claude.model = None,
+            "ai.claude.api_key" => self.ai.claude.api_key = None,
             "ai.ollama.host" => self.ai.ollama.host = default_ollama_host(),
             "ai.ollama.api_key" => self.ai.ollama.api_key = None,
             "ai.ollama.model" => self.ai.ollama.model = default_ollama_model(),
@@ -840,6 +873,65 @@ repos = ["CorvidLabs/fledge-templates", "user/my-templates"]
     #[test]
     fn is_valid_key_accepts_timeout_seconds() {
         assert!(Config::is_valid_key("ai.ollama.timeout_seconds"));
+    }
+
+    #[test]
+    fn unset_ollama_host_does_not_persist_default() {
+        // Issue #377: after unset, the serialized TOML must not contain the
+        // hardcoded default host. Equivalent guarantee for model + timeout.
+        let mut config = Config::default();
+        config
+            .set("ai.ollama.host", "https://custom.example.com")
+            .unwrap();
+        config.set("ai.ollama.model", "gpt-oss:20b").unwrap();
+        config.set("ai.ollama.timeout_seconds", "42").unwrap();
+
+        config.unset("ai.ollama.host").unwrap();
+        config.unset("ai.ollama.model").unwrap();
+        config.unset("ai.ollama.timeout_seconds").unwrap();
+
+        let toml = toml::to_string_pretty(&config).unwrap();
+        assert!(
+            !toml.contains("host = \"http://localhost:11434\""),
+            "default host should be skipped on serialize:\n{toml}"
+        );
+        assert!(
+            !toml.contains("model = \"llama3.3\""),
+            "default model should be skipped on serialize:\n{toml}"
+        );
+        assert!(
+            !toml.contains("timeout_seconds = 600"),
+            "default timeout should be skipped on serialize:\n{toml}"
+        );
+    }
+
+    #[test]
+    fn set_then_serialize_keeps_custom_host() {
+        let mut config = Config::default();
+        config
+            .set("ai.ollama.host", "https://custom.example.com")
+            .unwrap();
+        let toml = toml::to_string_pretty(&config).unwrap();
+        assert!(toml.contains("host = \"https://custom.example.com\""));
+    }
+
+    #[test]
+    fn claude_api_key_is_valid_key() {
+        // Issue #379
+        assert!(Config::is_valid_key("ai.claude.api_key"));
+        assert!(Config::is_secret_key("ai.claude.api_key"));
+    }
+
+    #[test]
+    fn claude_api_key_set_get_unset() {
+        let mut config = Config::default();
+        config.set("ai.claude.api_key", "sk-ant-test").unwrap();
+        assert_eq!(
+            config.get("ai.claude.api_key").as_deref(),
+            Some("sk-ant-test")
+        );
+        config.unset("ai.claude.api_key").unwrap();
+        assert!(config.get("ai.claude.api_key").is_none());
     }
 
     #[test]

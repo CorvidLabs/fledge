@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use super::{
-    classify_companions, find_spec_files, load_config, parse, to_title_case, validate_module_name,
-    validation, SPEC_CHECK_SCHEMA, SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
+    classify_companions, find_spec_files, load_config, module_leaf, parse, to_title_case,
+    validate_module_name, validation, SPEC_CHECK_SCHEMA, SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
 };
 
 #[derive(Debug, Serialize)]
@@ -382,7 +382,8 @@ pub(crate) fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
     validate_module_name(name)?;
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
-    let spec_path = specs_dir.join(name).join(format!("{name}.spec.md"));
+    let leaf = module_leaf(name);
+    let spec_path = specs_dir.join(name).join(format!("{leaf}.spec.md"));
 
     if !spec_path.exists() {
         bail!(
@@ -552,6 +553,7 @@ pub(crate) fn new_spec(root: &Path, name: &str) -> Result<()> {
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
     let spec_dir = specs_dir.join(name);
+    let leaf = module_leaf(name);
 
     if spec_dir.exists() {
         bail!("Spec directory already exists: {}", spec_dir.display());
@@ -565,7 +567,7 @@ module: {name}
 version: 1
 status: draft
 files:
-  - src/{name}.rs
+  - src/{leaf}.rs
 
 db_tables: []
 depends_on: []
@@ -632,13 +634,14 @@ Then ...
 | 1 | {date} | Initial spec |
 "#,
         name = name,
-        title = to_title_case(name),
+        leaf = leaf,
+        title = to_title_case(leaf),
         date = chrono::Local::now().format("%Y-%m-%d"),
     );
 
     let requirements_content = format!(
         r#"---
-spec: {name}.spec.md
+spec: {leaf}.spec.md
 ---
 
 ## User Stories
@@ -661,7 +664,7 @@ spec: {name}.spec.md
 
     let tasks_content = format!(
         r#"---
-spec: {name}.spec.md
+spec: {leaf}.spec.md
 ---
 
 ## Tasks
@@ -674,7 +677,7 @@ spec: {name}.spec.md
 
     let context_content = format!(
         r#"---
-spec: {name}.spec.md
+spec: {leaf}.spec.md
 ---
 
 ## Context
@@ -693,7 +696,7 @@ spec: {name}.spec.md
 
     let testing_content = format!(
         r#"---
-spec: {name}.spec.md
+spec: {leaf}.spec.md
 ---
 
 ## Test Plan
@@ -708,42 +711,48 @@ spec: {name}.spec.md
 "#
     );
 
-    fs::write(spec_dir.join(format!("{name}.spec.md")), &spec_content)?;
-    println!(
-        "{} Created specs/{name}/{name}.spec.md",
-        style("✅").green().bold()
-    );
+    let specs_dir_rel = config.specs_dir.as_deref().unwrap_or("specs");
+    let spec_file_rel = format!("{specs_dir_rel}/{name}/{leaf}.spec.md");
+
+    fs::write(spec_dir.join(format!("{leaf}.spec.md")), &spec_content)?;
+    println!("{} Created {spec_file_rel}", style("✅").green().bold());
 
     fs::write(spec_dir.join("requirements.md"), &requirements_content)?;
     println!(
-        "{} Created specs/{name}/requirements.md",
+        "{} Created {specs_dir_rel}/{name}/requirements.md",
         style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("tasks.md"), &tasks_content)?;
     println!(
-        "{} Created specs/{name}/tasks.md",
+        "{} Created {specs_dir_rel}/{name}/tasks.md",
         style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("context.md"), &context_content)?;
     println!(
-        "{} Created specs/{name}/context.md",
+        "{} Created {specs_dir_rel}/{name}/context.md",
         style("✅").green().bold()
     );
 
     fs::write(spec_dir.join("testing.md"), &testing_content)?;
     println!(
-        "{} Created specs/{name}/testing.md",
+        "{} Created {specs_dir_rel}/{name}/testing.md",
         style("✅").green().bold()
     );
 
-    // Update registry
+    // Update registry. Quote the key when it contains a `/` so the resulting
+    // TOML stays valid for nested names like `game/board`.
     let registry_path = root.join(".specsync/registry.toml");
     if registry_path.exists() {
         let mut registry = fs::read_to_string(&registry_path)?;
-        let entry = format!("{name} = \"specs/{name}/{name}.spec.md\"\n");
-        if !registry.contains(&format!("{name} =")) {
+        let key = if name.contains('/') {
+            format!("\"{name}\"")
+        } else {
+            name.to_string()
+        };
+        let entry = format!("{key} = \"{spec_file_rel}\"\n");
+        if !registry.contains(&format!("{key} =")) {
             registry.push_str(&entry);
             fs::write(&registry_path, &registry)?;
         }
@@ -753,7 +762,7 @@ spec: {name}.spec.md
     println!(
         "  Spec module '{}' created. Edit {} to get started.",
         style(name).green(),
-        style(format!("specs/{name}/{name}.spec.md")).cyan()
+        style(&spec_file_rel).cyan()
     );
 
     Ok(())
