@@ -614,31 +614,6 @@ fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
     Ok(output.parse().unwrap_or(0))
 }
 
-#[allow(dead_code)]
-fn format_commit_subject_as_bullet(subject: &str) -> String {
-    // Strip a leading conventional-commit prefix like "feat: ", "fix(scope): ".
-    let stripped = match subject.find(": ") {
-        Some(idx) => {
-            let prefix = &subject[..idx];
-            let looks_like_type = prefix
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '(' || c == ')' || c == '-' || c == '_');
-            if looks_like_type && !prefix.is_empty() {
-                subject[idx + 2..].trim()
-            } else {
-                subject
-            }
-        }
-        None => subject,
-    };
-
-    let mut chars = stripped.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-        None => stripped.to_string(),
-    }
-}
-
 pub fn build_commit_message(commit_type: &str, scope: Option<&str>, message: &str) -> String {
     let lowered = match message.chars().next() {
         Some(first) => first.to_lowercase().collect::<String>() + &message[first.len_utf8()..],
@@ -954,50 +929,6 @@ test = "cargo test"
         assert!(VALID_BRANCH_TYPES.contains(&"hotfix"));
         assert!(VALID_BRANCH_TYPES.contains(&"refactor"));
         assert!(!VALID_BRANCH_TYPES.contains(&"yolo"));
-    }
-
-    #[test]
-    fn format_commit_strips_feat_prefix() {
-        assert_eq!(
-            format_commit_subject_as_bullet("feat: add search command"),
-            "Add search command"
-        );
-    }
-
-    #[test]
-    fn format_commit_strips_scoped_prefix() {
-        assert_eq!(
-            format_commit_subject_as_bullet("fix(work): null pointer on empty branch"),
-            "Null pointer on empty branch"
-        );
-    }
-
-    #[test]
-    fn format_commit_uppercases_first_letter_with_no_prefix() {
-        assert_eq!(
-            format_commit_subject_as_bullet("update readme"),
-            "Update readme"
-        );
-    }
-
-    #[test]
-    fn format_commit_leaves_already_capitalized_alone() {
-        assert_eq!(
-            format_commit_subject_as_bullet("Refactor work module"),
-            "Refactor work module"
-        );
-    }
-
-    #[test]
-    fn format_commit_does_not_strip_unrelated_colons() {
-        // A subject like "Note: this is fine" should NOT be treated as a
-        // conventional-commit prefix — "Note" matches the alphanumeric rule
-        // but is real prose. The current heuristic treats it as a prefix and
-        // strips it; document that behavior so future changes are deliberate.
-        assert_eq!(
-            format_commit_subject_as_bullet("Note: something"),
-            "Something"
-        );
     }
 
     #[test]
