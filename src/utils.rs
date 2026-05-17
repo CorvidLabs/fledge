@@ -416,6 +416,12 @@ mod tests {
     }
 
     #[test]
+    fn validate_commit_scope_empty() {
+        let err = validate_commit_scope("").unwrap_err();
+        assert_eq!(err.to_string(), "--scope cannot be empty");
+    }
+
+    #[test]
     fn validate_commit_scope_caps_length() {
         let long = "a".repeat(65);
         assert!(validate_commit_scope(&long).is_err());
