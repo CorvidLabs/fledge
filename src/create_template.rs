@@ -232,7 +232,7 @@ fn write_example_files(target: &Path) -> Result<()> {
 
 ## Getting Started
 
-TODO: Add setup instructions here.
+> Add instructions on how to set up and run {{ project_name }}.
 
 ## License
 
