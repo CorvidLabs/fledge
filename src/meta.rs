@@ -130,6 +130,21 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
+    fn compute_file_hash_known_values() {
+        // Test empty input
+        assert_eq!(
+            compute_file_hash(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+
+        // Test known string
+        assert_eq!(
+            compute_file_hash(b"hello world"),
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+    }
+
+    #[test]
     fn compute_file_hash_is_deterministic() {
         let h1 = compute_file_hash(b"hello world");
         let h2 = compute_file_hash(b"hello world");
