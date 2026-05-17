@@ -232,7 +232,16 @@ fn write_example_files(target: &Path) -> Result<()> {
 
 ## Getting Started
 
-TODO: Add setup instructions here.
+### Prerequisites
+
+- [fledge](https://github.com/CorvidLabs/fledge)
+
+### Setup
+
+```bash
+fledge run build
+fledge run test
+```
 
 ## License
 
