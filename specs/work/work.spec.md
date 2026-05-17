@@ -26,7 +26,6 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | `run` | Entry point that dispatches to the appropriate work subcommand |
 | `WorkAction` | Enum of subcommands: Start, Commit, Push, Status, DeprecatedPr |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
-| `generate_title_from_branch` | Generates a human-readable PR title from a branch name by stripping any known type prefix and converting hyphens to spaces (retained for plugin use, `#[allow(dead_code)]`) |
 | `build_commit_message` | Builds a conventional-commit message string from type, optional scope, and message body |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
 
@@ -52,7 +51,6 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | `push` | `(force, json) -> Result<()>` | Pushes current branch to origin with `-u`. `--force` uses `--force-with-lease`. Refuses to push default branch or when nothing to push |
 | `status` | `(json: bool) -> Result<()>` | Shows current branch, commits ahead/behind, and dirty file count |
 | `sanitize_branch_name` | `(&str) -> String` | Lowercase, replace special chars with hyphens, collapse consecutive hyphens |
-| `generate_title_from_branch` | `(&str) -> String` | Strip type prefix, convert hyphens to spaces, title-case |
 | `build_commit_message` | `(commit_type, scope, message) -> String` | Formats `type(scope): message` or `type: message`; lowercases the first character of the message |
 | `build_branch_name` | `(name, branch_type, issue, prefix, config) -> String` | Apply format template with `{author}`, `{type}`, `{name}`, `{issue}` substitution |
 
@@ -73,8 +71,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 8. Plugin lifecycle hook `pre_push` runs before `fledge work push` pushes to origin (errors propagate and abort the push)
 9. `--prefix` bypasses type validation and format template, using raw `prefix/name`
 10. `--issue N` prepends the issue number to the branch name segment: `N-name`
-11. `generate_title_from_branch` strips any valid branch type prefix (feat/, feature/, fix/, bug/, chore/, task/, docs/, hotfix/, refactor/)
-12. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
+11. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
 13. `commit --all` runs `git add -A` before committing
 14. `commit` requires staged changes; bails if nothing is staged (separate message if working tree is clean vs unstaged)
 15. `commit` without `-m` or `--ai` prompts interactively via `dialoguer::Input`; non-interactive shells must provide `-m` or `--ai`
