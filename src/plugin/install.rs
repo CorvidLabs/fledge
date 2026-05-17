@@ -260,6 +260,13 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     }
 
     if let Some(ref_str) = git_ref {
+        if ref_str.starts_with('-') {
+            fs::remove_dir_all(&plugin_dir).ok();
+            bail!(
+                "Invalid git ref '{}': references cannot start with a hyphen.",
+                ref_str
+            );
+        }
         let status = Command::new("git")
             .args(["checkout", ref_str])
             .current_dir(&plugin_dir)
