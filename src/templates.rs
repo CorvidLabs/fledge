@@ -1110,6 +1110,21 @@ ignore = ["template.toml"]
     }
 
     #[test]
+    fn check_requirements_rejects_invalid_chars() {
+        let (found, missing) = check_requirements(&[
+            "".to_string(),
+            "tool/path".to_string(),
+            "tool\\path".to_string(),
+            "tool\0path".to_string(),
+        ]);
+        assert!(found.is_empty());
+        assert_eq!(
+            missing,
+            vec!["", "tool/path", "tool\\path", "tool\0path"]
+        );
+    }
+
+    #[test]
     fn safe_join_rejects_traversal() {
         let base = Path::new("/tmp/project");
         assert!(safe_join(base, "../etc/passwd").is_err());
