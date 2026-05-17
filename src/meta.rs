@@ -115,7 +115,6 @@ fn write_dot_fledge_gitignore(dot_fledge_dir: &Path) -> Result<()> {
 mod tests {
     use super::*;
 
-
     #[test]
     fn compute_file_hash_is_deterministic() {
         let h1 = compute_file_hash(b"hello world");
@@ -128,5 +127,4 @@ mod tests {
     fn compute_file_hash_changes_with_content() {
         assert_ne!(compute_file_hash(b"a"), compute_file_hash(b"b"));
     }
-
 }
