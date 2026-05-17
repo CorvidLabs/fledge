@@ -8,3 +8,6 @@ docs/book/
 .reviews/
 .fledge/
 .superpowers/
+site/node_modules
+site/dist
+site/.astro
