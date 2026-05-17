@@ -27,19 +27,6 @@ pub struct SourceInfo {
     pub updated: Option<String>,
 }
 
-#[allow(dead_code)]
-pub fn resolve_meta_path(project_dir: &Path) -> Option<PathBuf> {
-    let new_path = project_dir.join(".fledge").join("meta.toml");
-    if new_path.exists() {
-        return Some(new_path);
-    }
-    let legacy_path = project_dir.join(".fledge.toml");
-    if legacy_path.exists() {
-        return Some(legacy_path);
-    }
-    None
-}
-
 fn ensure_dot_fledge_dir(project_dir: &Path) -> Result<PathBuf> {
     let dir = project_dir.join(".fledge");
     if !dir.exists() {
@@ -127,7 +114,6 @@ fn write_dot_fledge_gitignore(dot_fledge_dir: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[test]
     fn compute_file_hash_known_values() {
@@ -155,27 +141,5 @@ mod tests {
     #[test]
     fn compute_file_hash_changes_with_content() {
         assert_ne!(compute_file_hash(b"a"), compute_file_hash(b"b"));
-    }
-
-    #[test]
-    fn resolve_meta_path_finds_new_layout() {
-        let tmp = TempDir::new().unwrap();
-        let dot_fledge = tmp.path().join(".fledge");
-        std::fs::create_dir_all(&dot_fledge).unwrap();
-        std::fs::write(dot_fledge.join("meta.toml"), "").unwrap();
-        assert!(resolve_meta_path(tmp.path()).is_some());
-    }
-
-    #[test]
-    fn resolve_meta_path_finds_legacy_file() {
-        let tmp = TempDir::new().unwrap();
-        std::fs::write(tmp.path().join(".fledge.toml"), "").unwrap();
-        assert!(resolve_meta_path(tmp.path()).is_some());
-    }
-
-    #[test]
-    fn resolve_meta_path_missing_returns_none() {
-        let tmp = TempDir::new().unwrap();
-        assert!(resolve_meta_path(tmp.path()).is_none());
     }
 }
