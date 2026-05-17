@@ -1118,10 +1118,7 @@ ignore = ["template.toml"]
             "tool\0path".to_string(),
         ]);
         assert!(found.is_empty());
-        assert_eq!(
-            missing,
-            vec!["", "tool/path", "tool\\path", "tool\0path"]
-        );
+        assert_eq!(missing, vec!["", "tool/path", "tool\\path", "tool\0path"]);
     }
 
     #[test]
