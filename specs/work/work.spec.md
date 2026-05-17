@@ -59,7 +59,6 @@ Provides opinionated git workflow commands for feature branch development. `fled
 **Internal (not exported):**
 - `load_work_config() -> WorkConfig` — Reads `[work]` section from `fledge.toml`, falls back to defaults
 - `generate_commit_message_with_ai(commit_type, scope, provider, model, json) -> Result<String>` — Sends the staged diff (truncated to 400 lines) to the configured LLM to generate a conventional-commit message
-- `format_commit_subject_as_bullet(&str) -> String` — Strips a leading conventional-commit prefix and upper-cases the first letter
 
 ## Invariants
 
