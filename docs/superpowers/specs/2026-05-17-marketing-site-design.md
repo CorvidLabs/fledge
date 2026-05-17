@@ -68,7 +68,7 @@ Logo: a 28×28 gradient tile with the letter "f" — no separate brand mark in v
 
 Reusable Astro components (in `site/src/components/`):
 
-- `Header.astro` — nav, version pill, primary CTA, docs search (only on `/docs/*`)
+- `Header.astro` — nav, version pill, primary CTA, GitHub link
 - `Footer.astro` — brand block + 3 link columns
 - `Button.astro` — `variant: primary | secondary | ghost`, accessible focus ring, min 44px tap target
 - `Badge.astro` — pill badge (used for "v1.4 shipping", "Latest", etc.)
@@ -138,9 +138,34 @@ Search/filter is client-side over this baked JSON (~30 entries × ~300 bytes = t
 
 Resilience: if the GitHub fetch fails or hits rate limit during a build, the script reuses the previous `plugins.json` from the cache step and emits a CI warning. Build never fails because GitHub is flaky.
 
-### `/plugins/{slug}` (optional v1)
+### `/plugins/{slug}` — per-plugin page
 
-Default to **deep-linking to the GitHub repo** in v1 (cards link to `repo`). Per-plugin pages are a follow-up unless we have a clear need (e.g., a curated description / screenshots). Decision flagged in the implementation plan.
+Each plugin gets its own page, generated from a per-plugin data file `site/src/data/plugins/{slug}.json` baked at prebuild.
+
+Sections, top-to-bottom:
+1. **Header**: `← Back to plugins` breadcrumb; plugin name (mono, large); version pill; tier tag + language tag; star count; "last updated" relative date; GitHub repo link.
+2. **Install panel**: prominent copyable `fledge plugins install ...` snippet; secondary copy showing `Cargo.toml`/`package.json` reference if relevant.
+3. **Description**: full description (first paragraph of README if repo description is too short).
+4. **README**: full README rendered as HTML at build time (via `marked` or `remark`), with the same code-block + callout styling as the docs.
+5. **Sidebar metadata** (right rail on wide screens, collapses to a top strip on narrow): topics, owner, default branch, latest release, license, recent commit count.
+6. **Related plugins**: 3 cards picked by shared topic overlap. Falls back to "Other in this language" if no topic overlap exists.
+7. **Footer CTA**: "Built something similar? Submit your plugin →" with link to the authoring guide.
+
+The per-plugin data file extends the registry entry with:
+
+```jsonc
+{
+  // ... all fields from the registry entry, plus:
+  "readme_html": "<h1>...</h1>...",  // README rendered to sanitized HTML
+  "readme_source_path": "README.md",
+  "license": "MIT",
+  "open_issues": 3,
+  "recent_commit_count_30d": 12,
+  "related_slugs": ["coverage", "bench", "todo"]  // computed by topic overlap
+}
+```
+
+Fallback: if a plugin has no README, the page renders the description + install panel only, with a "No README yet" inline note.
 
 ### `/examples` — walkthrough index
 
@@ -175,7 +200,7 @@ Article features:
 - Article footer: "Edit this page on GitHub" link + Previous/Next pager.
 - Right TOC built from H2/H3 with scrollspy.
 
-**Docs search**: ships in v1 as in-page browser search; integrated Pagefind index is a v1.1 candidate (post-launch). Header reserves the search box slot so the upgrade is purely additive.
+**Docs search**: v1 ships with **browser-native search only** (`Cmd/Ctrl+F`). The header search box is **dropped from v1** to avoid implying a feature that doesn't exist. A real index (Pagefind or Algolia DocSearch) is a v1.1 candidate; adding it back later is a purely additive change.
 
 **Content migration**: every file in `docs/src/*.md` and `docs/src/getting-started/*.md` moves to `site/src/content/docs/...md` with frontmatter (`title`, `description`, `order`). The mdBook `SUMMARY.md` is replaced by a typed Astro content collection schema.
 
@@ -186,7 +211,7 @@ Article features:
 3. **Featured post** card: text left + custom visual right. "Latest" badge.
 4. **3-column post grid**: category tag, date, title, dek, author avatar/name, read time.
 5. Pagination.
-6. **Subscribe strip**: "Get posts in your inbox" email signup. ⚠️ See open question below — we need to pick a mailing-list backend before v1 ships, else this becomes a `mailto:` placeholder.
+6. **Read-more strip** (instead of a mailing-list signup): horizontal card row with three companion CTAs — `Browse 31 plugins →`, `Read the docs →`, `Star on GitHub →`. No email capture in v1.
 
 Each post lives in `site/src/content/blog/{slug}.mdx` with frontmatter (`title`, `category`, `date`, `author`, `dek`, `readTime`, `featured?`, `draft?`).
 
@@ -215,13 +240,15 @@ site/
       blog/               *.mdx
       examples/           *.mdx
     data/
-      plugins.json        baked at prebuild
+      plugins.json        baked at prebuild — slim registry index
+      plugins/
+        {slug}.json       baked at prebuild — full per-plugin data including rendered README
     pages/
       index.astro
       404.astro
       plugins/
         index.astro
-        [slug].astro      (deferred — default behavior is to redirect to repo)
+        [slug].astro
       examples/
         index.astro
         [slug].astro
@@ -245,17 +272,20 @@ site/
 - Pages cache step keeps the previous `plugins.json` around so the prebuild can fall back on it during a GitHub outage.
 - Runner: `ubuntu-latest`. Merlin uses self-hosted; fledge defaults to GitHub-hosted unless that becomes a problem.
 
-## Open questions (must answer before plan)
+## Resolved during brainstorm
 
-1. **Mailing list provider**: Buttondown, Beehiiv, ConvertKit, or a `mailto:` placeholder until v1.1? — affects whether the subscribe form is functional at launch.
-2. **Per-plugin pages**: ship `/plugins/{slug}` in v1 (more work, lets us add curated content per plugin), or defer until a real need surfaces? Default: defer; cards link to repo.
-3. **Docs search**: ship in v1 with Pagefind (~minor extra build step), or ship browser-only search and add later? Default: defer.
-4. **Authentication for plugin registry fetch**: should the workflow create a GH App token for higher rate limits, or is `${{ secrets.GITHUB_TOKEN }}` (5000/hr) enough for ~30 plugins? Default: use the workflow token; revisit if we cross ~500 plugins.
+These were left open in the first draft and resolved with @0xLeif on 2026-05-17:
+
+1. **Mailing list** — dropped. No email signup in v1. The blog subscribe strip is replaced with a "Read more" CTA row pointing at plugins / docs / GitHub.
+2. **Per-plugin pages** — **shipped in v1**. Each plugin gets `/plugins/{slug}` rendered from a per-plugin JSON file baked at prebuild, including a sanitized HTML render of the repo's README. See the `/plugins/{slug}` section above for layout.
+3. **Docs search** — **deferred**. v1 ships with browser-native `Cmd/Ctrl+F` only; the search box is removed from the docs header to avoid implying a feature that isn't there. Pagefind is a v1.1 candidate.
+4. **Plugin-fetch auth** — use the workflow's `${{ secrets.GITHUB_TOKEN }}` (5000 req/hr is plenty for ~30 plugins). Revisit if the catalog crosses ~500 plugins.
 
 ## Success criteria
 
 - All four nav pages live at `/`, `/plugins`, `/examples`, `/docs`, `/blog`.
-- Plugin registry rebuilds weekly without manual intervention; surfaces every `CorvidLabs/fledge-plugin-*` repo automatically.
+- Plugin registry rebuilds weekly without manual intervention; surfaces every `CorvidLabs/fledge-plugin-*` repo automatically, plus repos owned by allowlisted community authors.
+- Every plugin has a working `/plugins/{slug}` page with rendered README, install snippet, related-plugin row, and GitHub link.
 - Lighthouse score ≥ 95 on Performance, Accessibility, Best Practices, SEO (mobile + desktop) for `/`, `/plugins`, and a representative `/docs/{page}`.
 - Migrated docs load with the same content as today's mdBook site. Old top-level URLs (`/fledge/getting-started.html`, etc.) return either matching content at the new path or a 1-step redirect (via a generated static HTML redirect file in `site/public/`), **not** a 404.
 - `cargo install fledge` snippet copies to clipboard in one click from the home and CTA.
