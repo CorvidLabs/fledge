@@ -640,13 +640,14 @@ fn format_commit_subject_as_bullet(subject: &str) -> String {
 }
 
 pub fn build_commit_message(commit_type: &str, scope: Option<&str>, message: &str) -> String {
-    let lowered = match message.chars().next() {
-        Some(first) => first.to_lowercase().collect::<String>() + &message[first.len_utf8()..],
-        None => message.to_string(),
+    let mut chars = message.trim().chars();
+    let msg = match chars.next() {
+        Some(c) => c.to_lowercase().to_string() + chars.as_str(),
+        None => String::new(),
     };
     match scope {
-        Some(s) => format!("{commit_type}({s}): {lowered}"),
-        None => format!("{commit_type}: {lowered}"),
+        Some(s) if !s.is_empty() => format!("{}({}): {}", commit_type, s, msg),
+        _ => format!("{}: {}", commit_type, msg),
     }
 }
 
@@ -1027,5 +1028,17 @@ test = "cargo test"
     #[test]
     fn test_build_commit_message_empty_message() {
         assert_eq!(build_commit_message("chore", None, ""), "chore: ");
+    }
+
+    #[test]
+    fn test_build_commit_message_with_whitespace() {
+        assert_eq!(
+            build_commit_message("feat", None, "  Add search  "),
+            "feat: add search"
+        );
+        assert_eq!(
+            build_commit_message("fix", Some("ui"), "\tFix padding\n"),
+            "fix(ui): fix padding"
+        );
     }
 }
