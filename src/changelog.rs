@@ -186,8 +186,13 @@ fn commits_between(from: Option<&str>, to: &str) -> Result<Vec<(String, String)>
 }
 
 fn build_release(tag: &str, date: &str, prev: Option<&str>) -> Result<Release> {
-    let to_ref = if tag == "Unreleased" { "HEAD" } else { tag };
-    let raw_commits = commits_between(prev, to_ref)?;
+    let to_ref = if tag == "Unreleased" {
+        "HEAD".to_string()
+    } else {
+        format!("refs/tags/{tag}")
+    };
+    let prev_ref = prev.map(|p| format!("refs/tags/{p}"));
+    let raw_commits = commits_between(prev_ref.as_deref(), &to_ref)?;
 
     let mut groups: std::collections::BTreeMap<String, Vec<CommitEntry>> =
         std::collections::BTreeMap::new();
