@@ -626,40 +626,6 @@ pub fn build_commit_message(commit_type: &str, scope: Option<&str>, message: &st
     }
 }
 
-#[allow(dead_code)]
-pub fn generate_title_from_branch(branch: &str) -> String {
-    let name = VALID_BRANCH_TYPES
-        .iter()
-        .find_map(|t| branch.strip_prefix(&format!("{t}/")))
-        .unwrap_or(branch);
-
-    let words: Vec<String> = name
-        .split('-')
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
-        .collect();
-
-    if words.is_empty() {
-        return branch.to_string();
-    }
-
-    let mut title = String::new();
-    for (i, word) in words.iter().enumerate() {
-        if i == 0 {
-            let mut chars = word.chars();
-            if let Some(first) = chars.next() {
-                title.push_str(&first.to_uppercase().to_string());
-                title.push_str(chars.as_str());
-            }
-        } else {
-            title.push(' ');
-            title.push_str(word);
-        }
-    }
-
-    title
-}
-
 #[cfg(test)]
 pub fn build_branch_name(
     name: &str,
@@ -727,56 +693,6 @@ mod tests {
     #[test]
     fn test_sanitize_preserves_slashes() {
         assert_eq!(sanitize_branch_name("feat/my-thing"), "feat/my-thing");
-    }
-
-    #[test]
-    fn test_generate_title_feat_prefix() {
-        assert_eq!(
-            generate_title_from_branch("feat/add-search-command"),
-            "Add search command"
-        );
-    }
-
-    #[test]
-    fn test_generate_title_fix_prefix() {
-        assert_eq!(
-            generate_title_from_branch("fix/null-pointer"),
-            "Null pointer"
-        );
-    }
-
-    #[test]
-    fn test_generate_title_no_prefix() {
-        assert_eq!(
-            generate_title_from_branch("my-cool-feature"),
-            "My cool feature"
-        );
-    }
-
-    #[test]
-    fn test_generate_title_single_word() {
-        assert_eq!(generate_title_from_branch("feat/search"), "Search");
-    }
-
-    #[test]
-    fn test_generate_title_empty_after_prefix() {
-        assert_eq!(generate_title_from_branch("feat/"), "feat/");
-    }
-
-    #[test]
-    fn test_generate_title_docs_prefix() {
-        assert_eq!(
-            generate_title_from_branch("docs/update-readme"),
-            "Update readme"
-        );
-    }
-
-    #[test]
-    fn test_generate_title_hotfix_prefix() {
-        assert_eq!(
-            generate_title_from_branch("hotfix/critical-bug"),
-            "Critical bug"
-        );
     }
 
     // Branch name building tests
