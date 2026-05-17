@@ -487,6 +487,9 @@ fn default_branch() -> Result<String> {
 }
 
 fn get_diff(base: &str, file: Option<&str>) -> Result<String> {
+    if base.starts_with('-') {
+        bail!("Invalid base revision: cannot start with '-'");
+    }
     let mut args = vec!["diff", base];
     if let Some(f) = file {
         args.push("--");
@@ -503,6 +506,9 @@ fn get_diff(base: &str, file: Option<&str>) -> Result<String> {
 }
 
 fn get_diff_stats(base: &str, file: Option<&str>) -> Result<String> {
+    if base.starts_with('-') {
+        bail!("Invalid base revision: cannot start with '-'");
+    }
     let mut args = vec!["diff", "--stat", base];
     if let Some(f) = file {
         args.push("--");
@@ -514,6 +520,9 @@ fn get_diff_stats(base: &str, file: Option<&str>) -> Result<String> {
 }
 
 fn get_changed_files(base: &str, file: Option<&str>) -> Result<Vec<String>> {
+    if base.starts_with('-') {
+        bail!("Invalid base revision: cannot start with '-'");
+    }
     let mut args = vec!["diff", "--name-only", base];
     if let Some(f) = file {
         args.push("--");
