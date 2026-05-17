@@ -16,8 +16,6 @@ const RUN_INIT_SCHEMA: u32 = 1;
 struct FledgeFile {
     #[serde(default)]
     tasks: BTreeMap<String, TaskDef>,
-    #[allow(dead_code)]
-    schema_version: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
