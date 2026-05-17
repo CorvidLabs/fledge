@@ -160,6 +160,12 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
                             )))
                         };
 
+                        if tag.starts_with('-') {
+                            bail!(
+                                "Invalid git tag '{}': references cannot start with a hyphen.",
+                                tag
+                            );
+                        }
                         let checkout = Command::new("git")
                             .args(["checkout", tag])
                             .current_dir(&plugin_dir)
