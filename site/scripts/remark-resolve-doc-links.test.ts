@@ -83,4 +83,21 @@ describe('resolveLink', () => {
   test('custom base URL', () => {
     expect(resolveLink('./plugins.md', 'lanes.md', idx, '/other/')).toBe('/other/docs/plugins')
   })
+
+  test('last-resort branch emits a console.warn and returns stripped URL', () => {
+    const warnings: string[] = []
+    const orig = console.warn
+    console.warn = (m: string) => warnings.push(m)
+    let result: string | null
+    try {
+      // 'nonexistent-file.md' has no match in byStem or byRelStem so it hits the last-resort path.
+      result = resolveLink('./nonexistent-file.md', 'lanes.md', idx, '/fledge/', 'lanes.md')
+    } finally {
+      console.warn = orig
+    }
+    expect(result).toBe('/fledge/docs/nonexistent-file')
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain('nonexistent-file.md')
+    expect(warnings[0]).toContain('lanes.md')
+  })
 })

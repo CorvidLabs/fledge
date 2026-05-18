@@ -39,7 +39,7 @@ export interface DocIndex {
 
 function walk(dir: string, prefix = ''): string[] {
   const out: string[] = []
-  for (const entry of readdirSync(dir)) {
+  for (const entry of readdirSync(dir).sort()) {
     const full = join(dir, entry)
     const rel = prefix ? `${prefix}/${entry}` : entry
     if (statSync(full).isDirectory()) out.push(...walk(full, rel))
@@ -58,7 +58,11 @@ export function buildDocIndex(docsDir: string): DocIndex {
     const base = relStem.split('/').pop()!
     // First occurrence wins (basenames are unique in our docs tree today; if
     // that changes we'll get a clear precedence here rather than silent overwrite).
-    if (!byStem.has(base)) byStem.set(base, relStem)
+    if (!byStem.has(base)) {
+      byStem.set(base, relStem)
+    } else if (byStem.get(base) !== relStem) {
+      console.warn(`[remark-resolve-doc-links] duplicate basename "${base}": kept ${byStem.get(base)}, ignored ${relStem}`)
+    }
   }
   return { byStem, byRelStem }
 }
@@ -83,6 +87,7 @@ export function resolveLink(
   sourceRelPath: string,
   index: DocIndex,
   base = BASE,
+  currentFile = sourceRelPath,
 ): string | null {
   if (!href) return null
   if (isExternal(href)) return null
@@ -115,7 +120,10 @@ export function resolveLink(
     return `${base}docs/${found}${hash}`
   }
   // Last resort: just strip the .md so we don't leave a guaranteed-404 link.
-  return `${base}docs/${resolvedRel}${hash}`
+  // Emit a warning so authors notice during local dev / CI rather than shipping a silent 404.
+  const strippedUrl = `${base}docs/${resolvedRel}${hash}`
+  console.warn(`[remark-resolve-doc-links] could not resolve "${href}" from ${currentFile}; emitting stripped URL (will 404)`)
+  return strippedUrl
 }
 
 /** The remark plugin. */
@@ -135,7 +143,7 @@ export default function remarkResolveDocLinks(opts: Options = {}) {
     // narrow inline rather than pulling in heavy mdast typings.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     visit(tree as any, 'link', (node: any) => {
-      const rewritten = resolveLink(node.url, rel, index, base)
+      const rewritten = resolveLink(node.url, rel, index, base, filePath)
       if (rewritten !== null) node.url = rewritten
     })
   }
