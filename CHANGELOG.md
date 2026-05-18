@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.2] - 2026-05-18
+
+### Security
+
+- Fix Command/Flag Injection in `git checkout` (plugin install/update) (#394)
+- Fix command injection in changelog generation (#396)
+- Fix command injection vulnerability in `git diff` (#397)
+
+### Fixes
+
+- Provide fledge setup instructions in template README (#393)
+
+### Internal
+
+- Remove unused `schema_version` field from `FledgeFile` (#386)
+- Remove unused functions: `generate_title_from_branch` (#388), `format_commit_subject_as_bullet` (#389), `resolve_meta_path` (#392)
+- Add tests: `compute_file_hash` known-value (#385), `build_commit_message` whitespace cases (#390), `check_requirements` invalid chars (#391), empty commit scope validation (#395)
+
+### Site
+
+- Marketing site rebuild (Astro + plugin registry), doc redirects, mobile responsiveness, and metadata fixes (#398–#405)
+
 ## [v1.4.1] - 2026-05-11
 
 ### Fixes
