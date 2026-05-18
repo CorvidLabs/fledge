@@ -18,6 +18,12 @@ const PER_PLUGIN_DIR = join(DATA_DIR, 'plugins')
 const INDEX_PATH = join(DATA_DIR, 'plugins.json')
 const TOKEN = process.env.GITHUB_TOKEN
 
+function rawHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'User-Agent': 'fledge-site-builder' }
+  if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`
+  return headers
+}
+
 export interface RegistryEntry {
   name: string
   slug: string
@@ -47,7 +53,7 @@ interface GhRepo {
   html_url: string
   default_branch: string
   stargazers_count: number
-  topics: string[]
+  topics: string[] | null
   pushed_at: string
   license: { spdx_id: string } | null
   open_issues_count: number
@@ -113,6 +119,7 @@ async function fetchManifest(
   if (files.includes('Cargo.toml')) {
     const cargoToml = await fetch(
       `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Cargo.toml`,
+      { headers: rawHeaders() },
     )
       .then(r => r.text())
       .catch(() => '')
@@ -121,6 +128,7 @@ async function fetchManifest(
   } else if (files.includes('package.json')) {
     const pkg = await fetch(
       `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/package.json`,
+      { headers: rawHeaders() },
     )
       .then(r => r.json())
       .catch(() => ({}))
@@ -133,6 +141,7 @@ async function fetchReadme(owner: string, repo: string, branch: string): Promise
   for (const name of ['README.md', 'readme.md', 'README.MD', 'README']) {
     const res = await fetch(
       `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${name}`,
+      { headers: rawHeaders() },
     )
     if (res.ok) return res.text()
   }
@@ -149,6 +158,10 @@ function loadCachedIndex(): RegistryEntry[] | null {
 }
 
 async function main() {
+  if (!TOKEN) {
+    console.warn('[build-plugin-registry] GITHUB_TOKEN not set — using unauthenticated rate limits (60/hr). Set GITHUB_TOKEN to avoid throttling.')
+  }
+
   mkdirSync(PER_PLUGIN_DIR, { recursive: true })
 
   let repos: GhRepo[]
@@ -176,24 +189,28 @@ async function main() {
     }),
   )
 
-  const index: RegistryEntry[] = enrich.map(({ repo, info }) => repoToEntry(repo, info))
+  const entries = enrich.map(({ repo, info, readme }) => ({
+    entry: repoToEntry(repo, info),
+    repo,
+    readme,
+  }))
+  const index: RegistryEntry[] = entries.map(e => e.entry)
   const miniUniverse = index.map(e => ({ slug: e.slug, language: e.language, topics: e.topics }))
 
   writeFileSync(INDEX_PATH, JSON.stringify(index, null, 2))
   console.log(`[build-plugin-registry] wrote ${index.length} entries to plugins.json`)
 
-  for (const { repo, info, readme } of enrich) {
-    const base = repoToEntry(repo, info)
+  for (const { entry, repo, readme } of entries) {
     const full: FullEntry = {
-      ...base,
+      ...entry,
       readme_html: renderReadme(readme),
       license: repo.license?.spdx_id ?? null,
       open_issues: repo.open_issues_count,
-      related_slugs: relatedSlugs(base.slug, miniUniverse, 3),
+      related_slugs: relatedSlugs(entry.slug, miniUniverse, 3),
     }
-    writeFileSync(join(PER_PLUGIN_DIR, `${base.slug}.json`), JSON.stringify(full, null, 2))
+    writeFileSync(join(PER_PLUGIN_DIR, `${entry.slug}.json`), JSON.stringify(full, null, 2))
   }
-  console.log(`[build-plugin-registry] wrote ${enrich.length} per-plugin files`)
+  console.log(`[build-plugin-registry] wrote ${entries.length} per-plugin files`)
 }
 
 // Only run when invoked as a script, not when imported by tests.
