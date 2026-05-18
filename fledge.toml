@@ -8,8 +8,8 @@ lint = "cargo clippy --all-targets -- -D warnings"
 fmt = "cargo fmt --check"
 fmt-fix = "cargo fmt"
 spec-check = "cargo run -- spec check"
-docs-build = "mdbook build docs"
-docs-serve = "mdbook serve docs --open"
+docs-build = "cd site && bun run build"
+docs-serve = "cd site && bun run dev"
 
 [tasks.validate-templates]
 cmd = "cargo run -- templates validate templates/"
