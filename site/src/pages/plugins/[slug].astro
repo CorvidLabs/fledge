@@ -5,11 +5,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro'
 import Button from '../../components/Button.astro'
 import type { FullEntry } from '../../../scripts/build-plugin-registry'
 
+// We use process.cwd() (not fileURLToPath(import.meta.url) per the plan) because
+// Astro 5 / Vite transforms .astro files into Vite chunks — import.meta.url then
+// resolves to a /@fs/... chunk path that doesn't reach the source tree. cwd is
+// stable because both `astro dev` and `astro build` are invoked from `site/`.
 const PER_PLUGIN_DIR = join(process.cwd(), 'src', 'data', 'plugins')
 
 export async function getStaticPaths() {
   const dir = join(process.cwd(), 'src', 'data', 'plugins')
-  if (!existsSync(dir)) return []
+  if (!existsSync(dir)) return [] // (defensive: dir always exists after prebuild populates it; empty array fallback prevents a build hang when running ad-hoc from another directory)
   return readdirSync(dir)
     .filter(f => f.endsWith('.json'))
     .map(f => {
@@ -20,6 +24,7 @@ export async function getStaticPaths() {
 }
 
 const { plugin } = Astro.props as { plugin: FullEntry }
+const tierLabel = plugin.trust_tier.charAt(0).toUpperCase() + plugin.trust_tier.slice(1)
 const base = import.meta.env.BASE_URL
 
 // load related plugins from disk so we have title + description for cards
@@ -39,11 +44,11 @@ const related = plugin.related_slugs
     <h1>{plugin.name}</h1>
     <div class="plug-meta">
       <span class="plug-version">v{plugin.version}</span>
-      <span class={`tag tag-tier-${plugin.trust_tier}`}>{plugin.trust_tier}</span>
+      <span class={`tag tag-tier-${plugin.trust_tier}`}>{tierLabel}</span>
       <span class="tag tag-lang">{plugin.language}</span>
       <span class="dim">★ {plugin.stars}</span>
       <span class="dim">Updated {new Date(plugin.updated_at).toLocaleDateString()}</span>
-      <a href={plugin.repo} target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+      <a href={plugin.repo} target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
     </div>
   </div>
 </section>
