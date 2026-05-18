@@ -35,8 +35,51 @@ const isActive = (href: string) => current === href.replace(/\/$/, '')
       </a>
       <Button href={`${base}/docs/getting-started/installation`} variant="primary">Install</Button>
     </div>
+    <button class="hamburger" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-menu" type="button">
+      <span class="bar"></span>
+      <span class="bar"></span>
+      <span class="bar"></span>
+    </button>
+  </div>
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <ul class="mobile-links">
+      {links.map(l => (
+        <li>
+          <a href={l.href} class={isActive(l.href) ? 'active' : ''}
+             aria-current={isActive(l.href) ? 'page' : undefined}>{l.label}</a>
+        </li>
+      ))}
+    </ul>
+    <div class="mobile-cta">
+      <a href="https://github.com/CorvidLabs/fledge" class="btn btn-ghost"
+         aria-label="View on GitHub (opens in new tab)" target="_blank" rel="noopener noreferrer">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+      <Button href={`${base}/docs/getting-started/installation`} variant="primary">Install</Button>
+    </div>
   </div>
 </header>
+
+<script>
+  const hamburger = document.querySelector('.hamburger') as HTMLButtonElement | null
+  const mobileMenu = document.getElementById('mobile-menu') as HTMLElement | null
+
+  hamburger?.addEventListener('click', () => {
+    const expanded = hamburger.getAttribute('aria-expanded') === 'true'
+    hamburger.setAttribute('aria-expanded', String(!expanded))
+    if (mobileMenu) {
+      mobileMenu.hidden = expanded
+    }
+  })
+
+  // Close menu when a nav link is tapped
+  mobileMenu?.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (mobileMenu) mobileMenu.hidden = true
+      hamburger?.setAttribute('aria-expanded', 'false')
+    })
+  })
+</script>
 
 <style is:global>
   .site-header { border-bottom: 1px solid var(--border); position: sticky; top: 0;
@@ -58,5 +101,39 @@ const isActive = (href: string) => current === href.replace(/\/$/, '')
   .nav-links a:hover { color: var(--accent-bright); background: rgba(255,255,255,0.03); }
   .nav-links a.active { color: var(--accent-bright); background: var(--accent-muted); }
   .nav-cta { display: flex; gap: 8px; align-items: center; }
-  @media (max-width: 760px) { .nav-links { display: none; } }
+
+  /* Hamburger button — shown only on mobile */
+  .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px;
+    width: 44px; height: 44px; padding: 10px; border: none; background: transparent;
+    color: var(--text); cursor: pointer; flex-shrink: 0; border-radius: 6px; }
+  .hamburger:hover { background: rgba(255,255,255,0.05); }
+  .hamburger .bar { display: block; width: 20px; height: 2px;
+    background: currentColor; border-radius: 2px;
+    transition: transform 0.2s ease, opacity 0.2s ease; }
+  .hamburger[aria-expanded="true"] .bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .hamburger[aria-expanded="true"] .bar:nth-child(2) { opacity: 0; }
+  .hamburger[aria-expanded="true"] .bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+  /* Mobile menu panel */
+  .mobile-menu { background: rgba(12,10,9,0.97); border-bottom: 1px solid var(--border);
+    padding: 16px 24px 24px; }
+  .mobile-links { display: flex; flex-direction: column; gap: 4px; padding: 0; margin: 0; list-style: none; }
+  .mobile-links a { display: block; color: var(--text-muted); text-decoration: none;
+    font-size: 1rem; padding: 12px 14px; border-radius: 6px; min-height: 44px;
+    display: flex; align-items: center; }
+  .mobile-links a:hover { color: var(--accent-bright); background: rgba(255,255,255,0.03); }
+  .mobile-links a.active { color: var(--accent-bright); background: var(--accent-muted); }
+  .mobile-cta { display: flex; gap: 8px; align-items: center; margin-top: 16px;
+    padding-top: 16px; border-top: 1px solid var(--border); }
+
+  @media (max-width: 760px) {
+    .nav-links { display: none; }
+    .nav-cta { display: none; }
+    .hamburger { display: flex; }
+    .nav-inner { padding: 12px 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hamburger .bar { transition: none; }
+  }
 </style>

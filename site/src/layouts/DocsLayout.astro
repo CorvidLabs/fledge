@@ -20,6 +20,12 @@ const base = import.meta.env.BASE_URL
       <span class="sep" aria-hidden="true">/</span>
       <span>{title}</span>
     </nav>
+    <button class="contents-toggle" aria-expanded="false" aria-controls="sidebar-drawer" type="button">
+      <span class="contents-icon" aria-hidden="true">☰</span> On this page
+    </button>
+    <div class="sidebar-drawer" id="sidebar-drawer" hidden>
+      <Sidebar />
+    </div>
     <h1>{title}</h1>
     <div class="doc-body">
       <slot />
@@ -28,9 +34,30 @@ const base = import.meta.env.BASE_URL
 </div>
 </BaseLayout>
 
+<script>
+  const toggle = document.querySelector('.contents-toggle') as HTMLButtonElement | null
+  const drawer = document.getElementById('sidebar-drawer') as HTMLElement | null
+
+  toggle?.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true'
+    toggle.setAttribute('aria-expanded', String(!expanded))
+    if (drawer) {
+      drawer.hidden = expanded
+    }
+  })
+
+  // Close drawer when a sidebar link is tapped
+  drawer?.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (drawer) drawer.hidden = true
+      toggle?.setAttribute('aria-expanded', 'false')
+    })
+  })
+</script>
+
 <style>
   .docs-grid { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
-  .article { padding: 48px 56px; max-width: 800px; }
+  .article { padding: 48px 56px; max-width: 800px; min-width: 0; }
   .breadcrumb { display: flex; gap: 8px; align-items: center; color: var(--text-dim); font-size: 0.875rem; margin-bottom: 20px; flex-wrap: wrap; }
   .breadcrumb a { color: var(--text-muted); }
   .breadcrumb a:hover { color: var(--accent-bright); }
@@ -43,11 +70,36 @@ const base = import.meta.env.BASE_URL
   .doc-body :global(li) { margin-bottom: 6px; line-height: 1.7; }
   .doc-body :global(a) { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 3px; }
   .doc-body :global(code) { font-family: var(--mono); font-size: 0.875em; padding: 2px 6px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; color: var(--accent-bright); }
-  .doc-body :global(pre) { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; overflow-x: auto; margin-bottom: 20px; }
-  .doc-body :global(pre code) { background: transparent; border: 0; padding: 0; color: var(--text); }
+  .doc-body :global(pre) { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; max-width: 100%; overflow-x: auto; margin-bottom: 20px; }
+  .doc-body :global(pre code) { background: transparent; border: 0; padding: 0; color: var(--text); word-break: normal; white-space: pre; }
+
+  /* Contents toggle — hidden on desktop */
+  .contents-toggle { display: none; }
+
+  /* Sidebar drawer — hidden; shown by JS when toggle is active */
+  .sidebar-drawer { background: var(--bg-raised); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 24px; overflow: hidden; }
+  /* sidebar inside drawer removes its own border/padding so the drawer wraps it */
+  .sidebar-drawer :global(.sidebar) { border-right: none; padding: 16px 20px; }
+
   @media (max-width: 900px) {
     .docs-grid { grid-template-columns: 1fr; }
-    .sidebar { display: none; }
+    /* Hide the desktop sidebar; we show it via the inline drawer instead */
+    .docs-grid > :global(.sidebar) { display: none; }
     .article { padding: 28px 20px; }
+    .contents-toggle {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; padding: 12px 16px; margin-bottom: 20px;
+      background: var(--bg-raised); border: 1px solid var(--border-strong);
+      border-radius: 8px; color: var(--text-muted); font-size: 0.9375rem;
+      font-family: inherit; cursor: pointer; min-height: 44px; text-align: left;
+    }
+    .contents-toggle:hover { color: var(--accent-bright); border-color: var(--accent); }
+    .contents-toggle[aria-expanded="true"] { color: var(--accent-bright); border-color: var(--accent); background: var(--accent-muted); }
+    .contents-icon { font-size: 1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .contents-toggle { transition: none; }
   }
 </style>
