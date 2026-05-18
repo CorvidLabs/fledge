@@ -246,8 +246,8 @@ fledge plugins install yourname/fledge-deploy
 
 ### [plugin]
 
-| Field | Type | Required | |
-|-------|------|----------|-|
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | `name` | string | Yes | Plugin name |
 | `version` | string | Yes | Semver |
 | `description` | string | No | Short description (warned about if missing on `validate`) |
@@ -259,8 +259,8 @@ fledge plugins install yourname/fledge-deploy
 
 Each entry registers a subcommand.
 
-| Field | Type | Required | |
-|-------|------|----------|-|
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | `name` | string | Yes | Command name (`fledge plugins run <name>`) |
 | `description` | string | No | What it does |
 | `binary` | string | Yes | Path to executable (relative to plugin root) |
