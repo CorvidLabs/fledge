@@ -9,12 +9,12 @@ const base = import.meta.env.BASE_URL
 <BaseLayout title="fledge — get your projects ready to fly">
 <main id="main">
 
-<section class="hero">
+<section class="hero" aria-labelledby="hero-h">
   <div class="container">
     <div class="hero-grid">
       <div>
         <Badge dot>31 plugins shipping in v1.4</Badge>
-        <h1 class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
+        <h1 id="hero-h" class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
         <p class="hero-sub">One CLI for the dev loop. Any language. JSON by default. Scaffold, run, ship — without the bash spaghetti.</p>
         <div class="hero-actions">
           <Button href={`${base}docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
@@ -77,6 +77,7 @@ const base = import.meta.env.BASE_URL
       <h2 id="plug-h">31 plugins <em>and counting.</em></h2>
       <a href={`${base}plugins`} class="link">Browse the registry <span aria-hidden="true">→</span></a>
     </div>
+    {/* TODO(Phase 4): replace hardcoded list with getCollection('plugins').slice(0, 4) */}
     <ul class="plug-grid" id="plugin-spotlight">
       <li><a href={`${base}plugins/sql`} class="plug">
         <div class="plug-head"><span class="plug-name">fledge-plugin-sql</span><span class="plug-lang">rust</span></div>
@@ -185,8 +186,11 @@ const base = import.meta.env.BASE_URL
   .ex-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 32px; }
   .ex-card { display: block; padding: 26px; background: var(--bg-raised);
     border: 1px solid var(--border); border-radius: var(--radius);
-    transition: all .15s; }
-  .ex-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    transition: border-color .15s, transform .15s; }
+  .ex-card:hover { border-color: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) {
+    .ex-card:hover { transform: translateY(-2px); }
+  }
   .ex-tag { display: inline-block; padding: 4px 10px; border-radius: 4px;
     background: var(--accent-muted); color: var(--accent-bright);
     font-size: 0.8125rem; font-weight: 600;
