@@ -282,7 +282,7 @@ dir = "crates/core"
 
 ## Lane Examples
 
-#### CI Pipeline
+### CI Pipeline
 
 ```toml
 [lanes.ci]
@@ -294,7 +294,7 @@ steps = [
 ]
 ```
 
-#### Release
+### Release
 
 ```toml
 [lanes.release]
@@ -307,7 +307,7 @@ steps = [
 ]
 ```
 
-#### Full Audit
+### Full Audit
 
 ```toml
 [lanes.audit]
@@ -321,7 +321,7 @@ steps = [
 ]
 ```
 
-#### Real CI with conditional deploy and flake retries
+### Real CI with conditional deploy and flake retries
 
 ```toml
 [lanes.ci]
