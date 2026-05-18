@@ -67,7 +67,6 @@ const langCounts = list.reduce<Record<string, number>>((acc, p) => {
 <script>
   const $ = (sel: string) => document.querySelector(sel)
   const $$ = (sel: string) => Array.from(document.querySelectorAll(sel))
-  const grid = $('#grid') as HTMLUListElement
   const search = $('#q') as HTMLInputElement
   const meta = $('#result-meta') as HTMLElement
   const cards = $$('#grid > li') as HTMLLIElement[]
