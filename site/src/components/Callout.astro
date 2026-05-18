@@ -2,7 +2,7 @@
 interface Props { type?: 'note' | 'warn' | 'tip' }
 const { type = 'note' } = Astro.props
 ---
-<aside class={`callout callout-${type}`} role="note">
+<aside class={`callout callout-${type}`}>
   <slot />
 </aside>
 

@@ -40,7 +40,7 @@ const isActive = (href: string) => current === href.replace(/\/$/, '')
 
 <style is:global>
   .site-header { border-bottom: 1px solid var(--border); position: sticky; top: 0;
-    background: rgba(12,10,9,.85); backdrop-filter: blur(14px); z-index: 10; }
+    background: rgba(12,10,9,.85); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); z-index: 10; }
   .nav-inner { display: flex; align-items: center; justify-content: space-between;
     padding: 16px 32px; max-width: 1180px; margin: 0 auto; gap: 16px; }
   .nav-logo { display: flex; align-items: center; gap: 10px;
