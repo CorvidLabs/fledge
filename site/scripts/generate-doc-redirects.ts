@@ -20,12 +20,20 @@ export function redirectHtml(target: string): string {
 `
 }
 
-export function computeRedirects(mdFiles: string[]): Record<string, string> {
+export function computeRedirects(
+  mdFiles: string[],
+  skipStems: Set<string> = new Set(),
+): Record<string, string> {
   const out: Record<string, string> = {}
   for (const f of mdFiles) {
     if (f === 'SUMMARY.md') continue
+    // Only top-level files can shadow a sibling Astro pages/ directory at the
+    // site root, so the skip check is scoped to those.
+    const isTopLevel = !f.includes('/')
+    const stem = f.replace(/\.md$/, '')
+    if (isTopLevel && skipStems.has(stem)) continue
     const html = f.replace(/\.md$/, '.html')
-    const newPath = `${BASE}docs/${f.replace(/\.md$/, '')}`.replace(/\/+/g, '/')
+    const newPath = `${BASE}docs/${stem}`.replace(/\/+/g, '/')
     out[html] = newPath
   }
   return out
@@ -42,15 +50,32 @@ function walk(dir: string, prefix = ''): string[] {
   return out
 }
 
+function topLevelPageDirs(): Set<string> {
+  // GitHub Pages serves /foo by checking foo.html before foo/index.html, so a
+  // redirect we write at public/foo.html would shadow an Astro-built page at
+  // pages/foo/index.html. Skip any redirect whose stem matches one of these.
+  const pagesDir = join(__dirname, '..', 'src', 'pages')
+  return new Set(
+    readdirSync(pagesDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name),
+  )
+}
+
 function main() {
   // Source-of-truth = the migrated docs/ tree under site/src/content/docs
   const docsSrc = join(__dirname, '..', 'src', 'content', 'docs')
   const mdFiles = walk(docsSrc)
-  const mapped = computeRedirects(mdFiles)
+  const skip = topLevelPageDirs()
+  const mapped = computeRedirects(mdFiles, skip)
   for (const [oldPath, newPath] of Object.entries(mapped)) {
     const dest = join(PUBLIC_DIR, oldPath)
     mkdirSync(dirname(dest), { recursive: true })
     writeFileSync(dest, redirectHtml(newPath))
+  }
+  const skipped = mdFiles.filter((f) => !f.includes('/') && skip.has(f.replace(/\.md$/, '')))
+  if (skipped.length > 0) {
+    console.log(`[generate-doc-redirects] skipped ${skipped.length} colliding: ${skipped.join(', ')}`)
   }
   console.log(`[generate-doc-redirects] wrote ${Object.keys(mapped).length} redirect files`)
 }
