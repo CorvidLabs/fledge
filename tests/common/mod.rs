@@ -23,3 +23,15 @@ pub fn run_fledge_in(dir: &Path, args: &[&str]) -> std::process::Output {
         .output()
         .unwrap()
 }
+
+/// Run fledge with HOME pointed at a fresh tempdir so the invocation sees an
+/// empty plugin registry.  The caller owns the `TempDir` — keep it in scope
+/// for the duration of the test so the directory is not removed early.
+pub fn run_fledge_isolated(args: &[&str], home: &tempfile::TempDir) -> std::process::Output {
+    let bin = cargo_bin();
+    Command::new(&bin)
+        .args(args)
+        .env("HOME", home.path())
+        .output()
+        .unwrap()
+}
