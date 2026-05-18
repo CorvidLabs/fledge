@@ -91,11 +91,11 @@ Look for issues labeled [`good first issue`](https://github.com/CorvidLabs/fledg
 
 ### Templates
 
-Create new templates and publish them with `fledge templates publish`! See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/template-authoring.html) for the full format.
+Create new templates and publish them with `fledge templates publish`! See the [Template Authoring Guide](https://corvidlabs.github.io/fledge/docs/resources/template-authoring) for the full format.
 
 ### Plugins
 
-Build plugins that extend fledge with new commands. See the [Plugins Guide](https://corvidlabs.github.io/fledge/plugins.html) for the plugin format.
+Build plugins that extend fledge with new commands. See the [Plugins Guide](https://corvidlabs.github.io/fledge/docs/plugins) for the plugin format.
 
 ### Lanes
 
@@ -103,13 +103,13 @@ Share workflow pipelines via the community lane registry. Push a repo with a `fl
 
 ### Documentation
 
-Documentation lives in `docs/src/` and is built with [mdBook](https://rust-lang.github.io/mdBook/). To preview locally:
+Documentation lives in `site/` and is built with [Astro](https://astro.build/) + MDX. The docs collection is under `site/src/content/docs/`. To preview locally:
 
 ```bash
-# Install mdBook if you don't have it
-cargo install mdbook
+# Install dependencies (one-time)
+cd site && bun install
 
-# Serve locally
+# Serve locally with live reload
 fledge run docs-serve
 ```
 
