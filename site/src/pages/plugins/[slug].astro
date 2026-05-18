@@ -120,11 +120,12 @@ const related = plugin.related_slugs
   .install { padding: 24px 0; }
   .install-card { padding: 20px 24px; background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: var(--radius); }
   .install-label { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 8px; }
-  .install-cmd code { font-family: var(--mono); color: var(--accent-bright); font-size: 1rem; }
+  .install-cmd { overflow-x: auto; }
+  .install-cmd code { font-family: var(--mono); color: var(--accent-bright); font-size: 1rem; white-space: nowrap; }
   .plug-body { padding: 32px 0 60px; }
-  .plug-grid { display: grid; grid-template-columns: 1fr 240px; gap: 40px; align-items: start; min-width: 0; }
-  .plug-grid > * { min-width: 0; }
-  .readme { color: var(--text); line-height: 1.7; }
+  .plug-grid { display: grid; grid-template-columns: 1fr 240px; gap: 40px; align-items: start; min-width: 0; overflow-x: hidden; }
+  .plug-grid > * { min-width: 0; overflow-x: hidden; }
+  .readme { color: var(--text); line-height: 1.7; overflow-x: hidden; }
   .readme :global(h1) { font-size: 1.8rem; margin: 24px 0 12px; }
   .readme :global(h2) { font-size: 1.4rem; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   .readme :global(h3) { font-size: 1.15rem; margin: 20px 0 10px; }
@@ -152,6 +153,10 @@ const related = plugin.related_slugs
   .rel-desc { color: var(--text-muted); font-size: 0.875rem; }
   .cta-thin { padding: 60px 0; }
   @media (max-width: 900px) {
-    .plug-grid { grid-template-columns: 1fr; }
+    .plug-grid { grid-template-columns: 1fr; gap: 24px; }
+  }
+  @media (max-width: 480px) {
+    .plug-head h1 { font-size: 1.5rem; }
+    .install-card { padding: 16px; }
   }
 </style>
