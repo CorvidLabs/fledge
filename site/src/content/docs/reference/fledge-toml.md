@@ -9,7 +9,7 @@ order: 1
 
 If no `fledge.toml` exists, `fledge run` falls back to language-aware auto-detection. As soon as the file exists, it takes full precedence. There is no merging with auto-detection.
 
-For plugin manifests (`plugin.toml`), see [Extend: Plugins](./plugins.md). For global user config (`~/.config/fledge/config.toml`), see [Configuration](./configuration.md).
+For plugin manifests (`plugin.toml`), see [Extend: Plugins](../plugins). For global user config (`~/.config/fledge/config.toml`), see [Configuration](./configuration).
 
 ## Creating it
 
@@ -349,8 +349,8 @@ A few subtle but documented behaviors worth knowing:
 
 ## Related
 
-- [Run: Tasks and Lanes](./lanes.md). Workflow walkthrough, auto-detection, watch mode
-- [Configuration](./configuration.md). Global `~/.config/fledge/config.toml`
-- [Extend: Plugins](./plugins.md). `plugin.toml` reference and ecosystem
+- [Run: Tasks and Lanes](../lanes). Workflow walkthrough, auto-detection, watch mode
+- [Configuration](./configuration). Global `~/.config/fledge/config.toml`
+- [Extend: Plugins](../plugins). `plugin.toml` reference and ecosystem
 - [Plugin Protocol Spec](https://github.com/CorvidLabs/fledge/blob/main/specs/plugin/plugin-protocol.spec.md). `fledge-v1` JSON wire protocol
-- [CLI Reference](./cli-reference.md). Every subcommand and flag
+- [CLI Reference](./cli-reference). Every subcommand and flag

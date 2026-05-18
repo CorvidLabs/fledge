@@ -147,7 +147,7 @@ You can also just test it:
 fledge templates init test-output --template ./my-template --dry-run
 ```
 
-For the full format reference, see the [Template Authoring Guide](./template-authoring.md).
+For the full format reference, see the [Template Authoring Guide](../resources/template-authoring).
 
 ## Resolution Order
 

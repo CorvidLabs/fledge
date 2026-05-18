@@ -5,7 +5,7 @@ order: 5
 ---
 
 
-The Ship pillar takes a clean working tree to a tagged release. Branch, commit (with optional AI-generated messages), push, then bump version and tag. PR creation is via [`fledge github prs create`](./github-integration.md) (from `fledge-plugin-github`) or directly with `gh pr create`.
+The Ship pillar takes a clean working tree to a tagged release. Branch, commit (with optional AI-generated messages), push, then bump version and tag. PR creation is via [`fledge github prs create`](../resources/github-integration) (from `fledge-plugin-github`) or directly with `gh pr create`.
 
 ## Git workflow with `fledge work`
 
@@ -56,11 +56,11 @@ fledge github prs create --base develop
 
 Issues, PRs, and CI checks live in [`fledge-plugin-github`](https://github.com/CorvidLabs/fledge-plugin-github). Install with `fledge plugins install --defaults`.
 
-See [GitHub Integration](./github-integration.md) for the full command reference and setup instructions.
+See [GitHub Integration](../resources/github-integration) for the full command reference and setup instructions.
 
 ## Changelogs with `fledge changelog`
 
-Generate a changelog from git tags and conventional commits. See [Changelog](./changelog.md) for the commit format reference and full options.
+Generate a changelog from git tags and conventional commits. See [Changelog](../resources/changelog) for the commit format reference and full options.
 
 ## Releases with `fledge release`
 

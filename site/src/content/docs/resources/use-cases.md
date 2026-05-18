@@ -11,7 +11,7 @@ fledge works for solo devs, teams, and AI agents. This page covers real workflow
 
 ### Zero-config task runner
 
-`fledge run test` works immediately in any project. It auto-detects your stack from marker files. No config file needed. See [Existing Projects](./getting-started/existing-projects.md) for details.
+`fledge run test` works immediately in any project. It auto-detects your stack from marker files. No config file needed. See [Existing Projects](../getting-started/existing-projects) for details.
 
 ```bash
 fledge run test    # always works, regardless of language

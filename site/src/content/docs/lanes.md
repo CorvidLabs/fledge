@@ -419,10 +419,10 @@ fledge lanes import CorvidLabs/fledge-lanes@v1.0.0
 
 ### Related
 
-- [`fledge.toml` Reference](./fledge-toml.md). Full schema for tasks, lanes, release, and imported lanes
-- [Configuration](./configuration.md). Global config, GitHub tokens
-- [Extend: Plugins](./plugins.md). Community commands, use plugins in lanes
-- [CLI Reference](./cli-reference.md). Full `fledge lanes` subcommand reference
+- [`fledge.toml` Reference](../reference/fledge-toml). Full schema for tasks, lanes, release, and imported lanes
+- [Configuration](../reference/configuration). Global config, GitHub tokens
+- [Extend: Plugins](./plugins). Community commands, use plugins in lanes
+- [CLI Reference](../reference/cli-reference). Full `fledge lanes` subcommand reference
 - [Example Lanes](https://github.com/CorvidLabs/fledge-lanes). Official community lane collection
 
 ### Tips

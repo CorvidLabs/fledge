@@ -193,8 +193,8 @@ Per-project settings live in `fledge.toml` in your project root. This file defin
 For the full schema (every section, every key, every default), see the [`fledge.toml` Reference](./fledge-toml.md).
 
 Topical guides:
-- [Run: Tasks and Lanes](./lanes.md). Defining tasks/lanes, step types, parallel groups, importing community lanes
-- [Extend: Plugins](./plugins.md). `plugin.toml` and the plugin ecosystem
+- [Run: Tasks and Lanes](../lanes). Defining tasks/lanes, step types, parallel groups, importing community lanes
+- [Extend: Plugins](../plugins). `plugin.toml` and the plugin ecosystem
 
 ## Priority Order
 

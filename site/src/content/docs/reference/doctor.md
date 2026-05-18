@@ -94,7 +94,7 @@ Pass/fail totals only count the non-informational sections.
 - When AI commands fail. The `AI` section distinguishes "Claude not installed" from "Ollama daemon down" from "wrong provider configured"
 - After upgrading your toolchain or switching machines
 
-If doctor finds an issue, see [Troubleshooting](./troubleshooting.md) for detailed fixes.
+If doctor finds an issue, see [Troubleshooting](../resources/troubleshooting) for detailed fixes.
 
 ## JSON output
 

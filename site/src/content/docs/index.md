@@ -36,7 +36,7 @@ fledge plugins install --defaults
 
 That gets you `checks`/`issues`/`prs` (GitHub), `deps`, and `metrics`. See [Extend: Plugins](./plugins.md) for the full list and how to build your own.
 
-Plugins can also be **WASM modules**. Sandboxed, cross-platform, and secure by default. WASM plugins run in a Wasmtime runtime with no host access unless explicitly granted. Great for community plugins where you don't want to trust arbitrary native code. See [WASM Plugins](./wasm-plugins.md) for the authoring guide.
+Plugins can also be **WASM modules**. Sandboxed, cross-platform, and secure by default. WASM plugins run in a Wasmtime runtime with no host access unless explicitly granted. Great for community plugins where you don't want to trust arbitrary native code. See [WASM Plugins](../reference/wasm-plugins) for the authoring guide.
 
 ## Zero-config
 
