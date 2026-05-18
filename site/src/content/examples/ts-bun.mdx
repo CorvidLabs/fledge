@@ -8,4 +8,50 @@ description: "Language detection, lane composition, ship workflow."
 order: 2
 ---
 
-(Walkthrough stub — fill in before launch.)
+import Callout from '../../components/Callout.astro'
+
+Using fledge with Bun gives you a blazingly fast development loop. This walkthrough shows how fledge automates the lifecycle of a Bun-powered TypeScript API.
+
+## 1. Initialize
+
+```bash
+fledge templates init my-api -t ts-bun
+cd my-api
+```
+
+fledge scaffolds a project with `bun install` already run and a `fledge.toml` ready to go.
+
+## 2. Lane discovery
+
+Check what lanes are available for this project type:
+
+```bash
+fledge lanes list
+```
+
+You'll see `check`, `build`, and `ci` lanes pre-configured.
+
+## 3. Parallel checks
+
+Run the `check` lane, which executes `lint` and `test` in parallel using Bun's native speed:
+
+```bash
+fledge lanes run check
+```
+
+## 4. Work and Ship
+
+Use the standard ship workflow to move from branch to PR:
+
+```bash
+fledge work start feature/new-endpoint
+# ... make changes ...
+fledge work commit --ai
+fledge work push
+fledge github prs create --fill
+```
+
+<Callout type="tip">
+  **Tip:** fledge's `ts-bun` template includes a `Dockerfile` that fledge can use to build and tag your production images.
+</Callout>
+

@@ -4,7 +4,17 @@ import Badge from '../components/Badge.astro'
 import Button from '../components/Button.astro'
 import Terminal from '../components/Terminal.astro'
 import Pillar from '../components/Pillar.astro'
+import { getCollection } from 'astro:content'
+import plugins from '../data/plugins.json' with { type: 'json' }
+import type { RegistryEntry } from '../../scripts/build-plugin-registry'
+
 const base = import.meta.env.BASE_URL
+const examples = await getCollection('examples', ({ data }) => !data.draft)
+const featuredExamples = examples.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99)).slice(0, 3)
+
+const spotlight = (plugins as RegistryEntry[])
+  .filter(p => p.trust_tier === 'official')
+  .slice(0, 4)
 ---
 <BaseLayout title="fledge — get your projects ready to fly">
 <main id="main">
@@ -13,12 +23,12 @@ const base = import.meta.env.BASE_URL
   <div class="container">
     <div class="hero-grid">
       <div>
-        <Badge dot>31 plugins shipping in v1.4</Badge>
+        <Badge dot>{plugins.length} plugins shipping in v1.4</Badge>
         <h1 id="hero-h" class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
         <p class="hero-sub">One CLI for the dev loop. Any language. JSON by default. Scaffold, run, ship — without the bash spaghetti.</p>
         <div class="hero-actions">
           <Button href={`${base}/docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
-          <Button href={`${base}/plugins`} variant="secondary">Browse 31 plugins</Button>
+          <Button href={`${base}/plugins`} variant="secondary">Browse {plugins.length} plugins</Button>
         </div>
         <p class="hero-fineprint">Install in a single command: <code>cargo install fledge</code></p>
       </div>
@@ -44,7 +54,7 @@ const base = import.meta.env.BASE_URL
 <section class="stats" aria-label="Key numbers">
   <div class="container">
     <ul class="stats-grid">
-      <li class="stat"><div class="num">31</div><div class="lbl">plugins shipping</div><div class="sub">official + community</div></li>
+      <li class="stat"><div class="num">{plugins.length}</div><div class="lbl">plugins shipping</div><div class="sub">official + community</div></li>
       <li class="stat"><div class="num">6</div><div class="lbl">pillars</div><div class="sub">scaffold · run · spec · AI · ship · extend</div></li>
       <li class="stat"><div class="num">∞</div><div class="lbl">languages</div><div class="sub">Rust, TS, Python, Go, anything</div></li>
       <li class="stat"><div class="num">1</div><div class="lbl">binary</div><div class="sub">install, done</div></li>
@@ -74,27 +84,16 @@ const base = import.meta.env.BASE_URL
 <section class="plugins-strip" aria-labelledby="plug-h">
   <div class="container">
     <div class="strip-head">
-      <h2 id="plug-h">31 plugins <em>and counting.</em></h2>
+      <h2 id="plug-h">{plugins.length} plugins <em>and counting.</em></h2>
       <a href={`${base}/plugins`} class="link">Browse the registry <span aria-hidden="true">→</span></a>
     </div>
-    {/* TODO(Phase 4): replace hardcoded list with getCollection('plugins').slice(0, 4) */}
     <ul class="plug-grid" id="plugin-spotlight">
-      <li><a href={`${base}/plugins/sql`} class="plug">
-        <div class="plug-head"><span class="plug-name">fledge-plugin-sql</span><span class="plug-lang">rust</span></div>
-        <p>Postgres/SQLite migrations + query checks.</p>
-      </a></li>
-      <li><a href={`${base}/plugins/deps`} class="plug">
-        <div class="plug-head"><span class="plug-name">fledge-plugin-deps</span><span class="plug-lang">ts</span></div>
-        <p>Audit & update dependencies across the workspace.</p>
-      </a></li>
-      <li><a href={`${base}/plugins/todo`} class="plug">
-        <div class="plug-head"><span class="plug-name">fledge-plugin-todo</span><span class="plug-lang">rust</span></div>
-        <p>Scan, list, and triage TODO/FIXME markers.</p>
-      </a></li>
-      <li><a href={`${base}/plugins/coverage`} class="plug">
-        <div class="plug-head"><span class="plug-name">fledge-plugin-coverage</span><span class="plug-lang">rust</span></div>
-        <p>Aggregate coverage across languages, JSON-ready.</p>
-      </a></li>
+      {spotlight.map(p => (
+        <li><a href={`${base}/plugins/${p.slug}`} class="plug">
+          <div class="plug-head"><span class="plug-name">{p.name}</span><span class="plug-lang">{p.language}</span></div>
+          <p>{p.description}</p>
+        </a></li>
+      ))}
     </ul>
   </div>
 </section>
@@ -107,24 +106,14 @@ const base = import.meta.env.BASE_URL
       <p>End-to-end examples — every command, every file, every output.</p>
     </header>
     <ul class="ex-grid">
-      <li><a href={`${base}/examples/rust-cli`} class="ex-card">
-        <span class="ex-tag">Rust CLI</span>
-        <h3>Build a Rust CLI end-to-end</h3>
-        <p>From templates init through release bump, with conventional commits.</p>
-        <div class="ex-meta">8 steps · 12 min</div>
-      </a></li>
-      <li><a href={`${base}/examples/ts-bun`} class="ex-card">
-        <span class="ex-tag">TS + Bun</span>
-        <h3>TypeScript project with Bun</h3>
-        <p>Language detection, lane composition, ship workflow.</p>
-        <div class="ex-meta">6 steps · 8 min</div>
-      </a></li>
-      <li><a href={`${base}/examples/custom-plugin`} class="ex-card">
-        <span class="ex-tag">Plugins</span>
-        <h3>Wire up a custom plugin</h3>
-        <p>Build a fledge-plugin-* with the v1 protocol.</p>
-        <div class="ex-meta">10 steps · 20 min</div>
-      </a></li>
+      {featuredExamples.map(e => (
+        <li><a href={`${base}/examples/${e.slug}`} class="ex-card">
+          <span class="ex-tag">{e.data.tag}</span>
+          <h3>{e.data.title}</h3>
+          <p>{e.data.description}</p>
+          <div class="ex-meta">{e.data.steps} steps · {e.data.minutes} min</div>
+        </a></li>
+      ))}
     </ul>
   </div>
 </section>
