@@ -107,7 +107,7 @@ WASM plugins are ideal for pure-computation tasks (linting, formatting, analysis
 - 256 MB memory cap
 - Cross-platform single `.wasm` binary
 
-See the [WASM plugin guide](https://corvidlabs.github.io/fledge/wasm-plugins.html) for authoring details.
+See the [WASM plugin guide](https://corvidlabs.github.io/fledge/docs/reference/wasm-plugins) for authoring details.
 
 ## Built-in templates
 
@@ -124,10 +124,10 @@ Browse community templates: `fledge templates search <keyword>`
 ## Learn more
 
 - [Full documentation](https://corvidlabs.github.io/fledge/). Commands, configuration, guides
-- [Template authoring](https://corvidlabs.github.io/fledge/template-authoring.html). How to create and publish your own templates
-- [Lanes guide](https://corvidlabs.github.io/fledge/lanes.html). Task pipelines and workflow automation
-- [Plugins guide](https://corvidlabs.github.io/fledge/plugins.html). Extend fledge with community tools
-- [WASM plugins](https://corvidlabs.github.io/fledge/wasm-plugins.html). Build sandboxed plugins with Wasmtime
+- [Template authoring](https://corvidlabs.github.io/fledge/docs/resources/template-authoring). How to create and publish your own templates
+- [Lanes guide](https://corvidlabs.github.io/fledge/docs/lanes). Task pipelines and workflow automation
+- [Plugins guide](https://corvidlabs.github.io/fledge/docs/plugins). Extend fledge with community tools
+- [WASM plugins](https://corvidlabs.github.io/fledge/docs/reference/wasm-plugins). Build sandboxed plugins with Wasmtime
 
 ## Contributing
 

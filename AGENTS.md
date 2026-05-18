@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This page is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc.) using `fledge` alongside a human. Humans get `README.md` and `docs/`. Agents get this one page.
+This page is for AI agents (Claude Code, GPT-based coding agents, OpenHands, etc.) using `fledge` alongside a human. Humans get `README.md` and the docs site (Astro source in `site/src/content/docs/`, deployed at https://corvidlabs.github.io/fledge/docs). Agents get this one page.
 
 ## What fledge is, in one paragraph
 

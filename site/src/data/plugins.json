@@ -1,22 +1,18 @@
 [
   {
-    "name": "fledge-plugin-hub",
-    "slug": "hub",
-    "version": "unknown",
-    "description": "🏠 Local web dashboard for browsing and managing fledge templates, plugins, lanes, and config",
-    "language": "other",
+    "name": "fledge-plugin-standup",
+    "slug": "standup",
+    "version": "0.3.3",
+    "description": "Markdown standup post from your recent git commits, narrated by the active fledge LLM.",
+    "language": "rust",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-hub",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-hub",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-standup",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-standup",
     "topics": [
-      "cli",
-      "dashboard",
-      "developer-tools",
-      "fledge",
       "fledge-plugin"
     ],
     "stars": 2,
-    "updated_at": "2026-05-06T02:05:06Z",
+    "updated_at": "2026-05-07T16:42:21Z",
     "default_branch": "main"
   },
   {
@@ -36,19 +32,40 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-standup",
-    "slug": "standup",
+    "name": "fledge-plugin-github",
+    "slug": "github",
     "version": "unknown",
-    "description": "Markdown standup post from your recent git commits, narrated by the active fledge LLM.",
+    "description": "GitHub commands for fledge — checks, issues, prs via the gh CLI",
     "language": "other",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-standup",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-standup",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-github",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-github",
     "topics": [
+      "fledge",
       "fledge-plugin"
     ],
     "stars": 2,
-    "updated_at": "2026-05-07T16:42:21Z",
+    "updated_at": "2026-05-13T15:29:22Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-hub",
+    "slug": "hub",
+    "version": "0.8.0",
+    "description": "🏠 Local web dashboard for browsing and managing fledge templates, plugins, lanes, and config",
+    "language": "ts",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-hub",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-hub",
+    "topics": [
+      "cli",
+      "dashboard",
+      "developer-tools",
+      "fledge",
+      "fledge-plugin"
+    ],
+    "stars": 2,
+    "updated_at": "2026-05-06T02:05:06Z",
     "default_branch": "main"
   },
   {
@@ -72,20 +89,40 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-github",
-    "slug": "github",
+    "name": "fledge-plugin-bridge",
+    "slug": "bridge",
     "version": "unknown",
-    "description": "GitHub commands for fledge — checks, issues, prs via the gh CLI",
-    "language": "other",
+    "description": "🌉 Dev environment bridge - connect your machine to corvid-agent via WebSocket",
+    "language": "shell",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-github",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-github",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-bridge",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-bridge",
     "topics": [
+      "bridge",
+      "devtools",
       "fledge",
+      "fledge-plugin",
+      "kotlin",
+      "websocket"
+    ],
+    "stars": 0,
+    "updated_at": "2026-05-09T22:40:17Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-bench",
+    "slug": "bench",
+    "version": "0.2.0",
+    "description": "Run benchmarks, save a baseline, and flag regressions",
+    "language": "rust",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-bench",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-bench",
+    "topics": [
       "fledge-plugin"
     ],
-    "stars": 2,
-    "updated_at": "2026-05-13T15:29:22Z",
+    "stars": 1,
+    "updated_at": "2026-05-05T14:04:22Z",
     "default_branch": "main"
   },
   {
@@ -105,48 +142,11 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-bridge",
-    "slug": "bridge",
-    "version": "unknown",
-    "description": "🌉 Dev environment bridge - connect your machine to corvid-agent via WebSocket",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-bridge",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-bridge",
-    "topics": [
-      "bridge",
-      "devtools",
-      "fledge",
-      "fledge-plugin",
-      "kotlin",
-      "websocket"
-    ],
-    "stars": 0,
-    "updated_at": "2026-05-09T22:40:17Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-bench",
-    "slug": "bench",
-    "version": "unknown",
-    "description": "Run benchmarks, save a baseline, and flag regressions",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-bench",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-bench",
-    "topics": [
-      "fledge-plugin"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:04:22Z",
-    "default_branch": "main"
-  },
-  {
     "name": "fledge-plugin-hello",
     "slug": "hello",
     "version": "unknown",
     "description": "👋 Example fledge plugin (bash) demonstrating the fledge-v1 protocol",
-    "language": "other",
+    "language": "shell",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-hello",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-hello",
@@ -163,9 +163,9 @@
   {
     "name": "fledge-plugin-tz",
     "slug": "tz",
-    "version": "unknown",
+    "version": "0.1.0",
     "description": "Timezone utility for fledge — show, convert, and manage saved zones across distributed teams.",
-    "language": "other",
+    "language": "rust",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-tz",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-tz",
@@ -196,37 +196,6 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-deps",
-    "slug": "deps",
-    "version": "unknown",
-    "description": "Cross-ecosystem dependency health for fledge — outdated, audit, licenses across Rust, Node, Python",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-deps",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-deps",
-    "topics": [
-      "fledge",
-      "fledge-plugin"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:04:28Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-example",
-    "slug": "example",
-    "version": "unknown",
-    "description": "Example fledge plugin demonstrating command extension and lifecycle hooks",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-example",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-example",
-    "topics": [],
-    "stars": 0,
-    "updated_at": "2026-04-21T01:02:18Z",
-    "default_branch": "main"
-  },
-  {
     "name": "fledge-plugin-sql",
     "slug": "sql",
     "version": "unknown",
@@ -248,32 +217,42 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-localnet",
-    "slug": "localnet",
+    "name": "fledge-plugin-example",
+    "slug": "example",
     "version": "unknown",
-    "description": "⛓️ Algorand localnet lifecycle plugin - start, stop, reset, fund, accounts",
+    "description": "Example fledge plugin demonstrating command extension and lifecycle hooks",
+    "language": "shell",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-example",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-example",
+    "topics": [],
+    "stars": 0,
+    "updated_at": "2026-04-21T01:02:18Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-deps",
+    "slug": "deps",
+    "version": "unknown",
+    "description": "Cross-ecosystem dependency health for fledge — outdated, audit, licenses across Rust, Node, Python",
     "language": "other",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-localnet",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-localnet",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-deps",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-deps",
     "topics": [
-      "algokit",
-      "algorand",
-      "blockchain",
       "fledge",
-      "fledge-plugin",
-      "localnet"
+      "fledge-plugin"
     ],
-    "stars": 0,
-    "updated_at": "2026-05-07T15:20:16Z",
+    "stars": 1,
+    "updated_at": "2026-05-05T14:04:28Z",
     "default_branch": "main"
   },
   {
     "name": "fledge-plugin-algochat",
     "slug": "algochat",
-    "version": "unknown",
+    "version": "0.3.0",
     "description": "💬 Encrypted on-chain messaging - AlgoChat via Algorand",
-    "language": "other",
+    "language": "ts",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-algochat",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-algochat",
@@ -291,11 +270,75 @@
     "default_branch": "main"
   },
   {
+    "name": "fledge-plugin-localnet",
+    "slug": "localnet",
+    "version": "unknown",
+    "description": "⛓️ Algorand localnet lifecycle plugin - start, stop, reset, fund, accounts",
+    "language": "shell",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-localnet",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-localnet",
+    "topics": [
+      "algokit",
+      "algorand",
+      "blockchain",
+      "fledge",
+      "fledge-plugin",
+      "localnet"
+    ],
+    "stars": 0,
+    "updated_at": "2026-05-07T15:20:16Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-port",
+    "slug": "port",
+    "version": "0.1.0",
+    "description": "Find and kill processes bound to a TCP port — wraps lsof/netstat with a friendlier interface.",
+    "language": "rust",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-port",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-port",
+    "topics": [
+      "cli",
+      "devtools",
+      "fledge",
+      "fledge-plugin",
+      "lsof",
+      "rust"
+    ],
+    "stars": 0,
+    "updated_at": "2026-05-05T14:04:33Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-figma",
+    "slug": "figma",
+    "version": "unknown",
+    "description": "🎨 Sync Figma design tokens, export component specs, and diff design changes",
+    "language": "shell",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-figma",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-figma",
+    "topics": [
+      "design",
+      "design-tokens",
+      "figma",
+      "fledge",
+      "fledge-plugin",
+      "sync",
+      "ui"
+    ],
+    "stars": 1,
+    "updated_at": "2026-05-05T14:02:40Z",
+    "default_branch": "main"
+  },
+  {
     "name": "fledge-plugin-gitleaks",
     "slug": "gitleaks",
-    "version": "unknown",
+    "version": "0.1.0",
     "description": "Scan your repo for committed secrets via gitleaks, with a one-command pre-commit hook installer.",
-    "language": "other",
+    "language": "rust",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-gitleaks",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-gitleaks",
@@ -314,9 +357,9 @@
   {
     "name": "fledge-plugin-stats",
     "slug": "stats",
-    "version": "unknown",
+    "version": "0.1.0",
     "description": "📊 Example fledge plugin - project statistics using the fledge-v1 protocol",
-    "language": "other",
+    "language": "rust",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-stats",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-stats",
@@ -351,82 +394,6 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-port",
-    "slug": "port",
-    "version": "unknown",
-    "description": "Find and kill processes bound to a TCP port — wraps lsof/netstat with a friendlier interface.",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-port",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-port",
-    "topics": [
-      "cli",
-      "devtools",
-      "fledge",
-      "fledge-plugin",
-      "lsof",
-      "rust"
-    ],
-    "stars": 0,
-    "updated_at": "2026-05-05T14:04:33Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-figma",
-    "slug": "figma",
-    "version": "unknown",
-    "description": "🎨 Sync Figma design tokens, export component specs, and diff design changes",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-figma",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-figma",
-    "topics": [
-      "design",
-      "design-tokens",
-      "figma",
-      "fledge",
-      "fledge-plugin",
-      "sync",
-      "ui"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:02:40Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-metrics",
-    "slug": "metrics",
-    "version": "unknown",
-    "description": "Code metrics for fledge — LOC, churn, test ratio. Wraps tokei + git.",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-metrics",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-metrics",
-    "topics": [
-      "fledge",
-      "fledge-plugin"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:04:19Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-coverage",
-    "slug": "coverage",
-    "version": "unknown",
-    "description": "Run language-native test coverage and gate on a threshold",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-coverage",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-coverage",
-    "topics": [
-      "fledge-plugin"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:04:20Z",
-    "default_branch": "main"
-  },
-  {
     "name": "fledge-plugin-secrets",
     "slug": "secrets",
     "version": "unknown",
@@ -441,24 +408,75 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-scratch",
-    "slug": "scratch",
-    "version": "unknown",
-    "description": "Throwaway scratch notes scoped to your current repo — opens in $EDITOR, autosaved per-repo.",
-    "language": "other",
+    "name": "fledge-plugin-hangman",
+    "slug": "hangman",
+    "version": "0.1.0",
+    "description": "🎮 Hangman with identifiers from your codebase",
+    "language": "rust",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-scratch",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-scratch",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-hangman",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-hangman",
     "topics": [
-      "cli",
-      "devtools",
       "fledge",
       "fledge-plugin",
-      "notes",
-      "rust"
+      "games",
+      "terminal"
+    ],
+    "stars": 1,
+    "updated_at": "2026-05-05T14:54:52Z",
+    "default_branch": "master"
+  },
+  {
+    "name": "fledge-plugin-docker",
+    "slug": "docker",
+    "version": "unknown",
+    "description": "Docker build / push / compose helpers wired to your project",
+    "language": "other",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-docker",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-docker",
+    "topics": [
+      "fledge-plugin"
     ],
     "stars": 0,
-    "updated_at": "2026-05-05T14:04:38Z",
+    "updated_at": "2026-05-05T14:04:39Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-coverage",
+    "slug": "coverage",
+    "version": "0.2.0",
+    "description": "Run language-native test coverage and gate on a threshold",
+    "language": "rust",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-coverage",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-coverage",
+    "topics": [
+      "fledge-plugin"
+    ],
+    "stars": 1,
+    "updated_at": "2026-05-05T14:04:20Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-discord",
+    "slug": "discord",
+    "version": "0.2.0",
+    "description": "💬 Discord webhook plugin for CI failure notifications",
+    "language": "js",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-discord",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-discord",
+    "topics": [
+      "ci",
+      "discord",
+      "fledge",
+      "fledge-plugin",
+      "notifications",
+      "webhooks"
+    ],
+    "stars": 1,
+    "updated_at": "2026-05-05T14:01:41Z",
     "default_branch": "main"
   },
   {
@@ -497,27 +515,32 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-todo",
-    "slug": "todo",
-    "version": "unknown",
-    "description": "Extract TODO/FIXME/HACK/XXX comments from your codebase",
-    "language": "other",
+    "name": "fledge-plugin-scratch",
+    "slug": "scratch",
+    "version": "0.1.0",
+    "description": "Throwaway scratch notes scoped to your current repo — opens in $EDITOR, autosaved per-repo.",
+    "language": "rust",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-todo",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-todo",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-scratch",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-scratch",
     "topics": [
-      "fledge-plugin"
+      "cli",
+      "devtools",
+      "fledge",
+      "fledge-plugin",
+      "notes",
+      "rust"
     ],
     "stars": 0,
-    "updated_at": "2026-05-05T14:04:31Z",
+    "updated_at": "2026-05-05T14:04:38Z",
     "default_branch": "main"
   },
   {
     "name": "fledge-plugin-memory",
     "slug": "memory",
-    "version": "unknown",
+    "version": "0.4.0",
     "description": "🧠 Three-tier memory plugin - ephemeral (SQLite), mutable (ARC-69), permanent (on-chain)",
-    "language": "other",
+    "language": "ts",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-memory",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-memory",
@@ -535,67 +558,27 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-docker",
-    "slug": "docker",
-    "version": "unknown",
-    "description": "Docker build / push / compose helpers wired to your project",
-    "language": "other",
+    "name": "fledge-plugin-todo",
+    "slug": "todo",
+    "version": "0.2.0",
+    "description": "Extract TODO/FIXME/HACK/XXX comments from your codebase",
+    "language": "rust",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-docker",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-docker",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-todo",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-todo",
     "topics": [
       "fledge-plugin"
     ],
     "stars": 0,
-    "updated_at": "2026-05-05T14:04:39Z",
-    "default_branch": "main"
-  },
-  {
-    "name": "fledge-plugin-hangman",
-    "slug": "hangman",
-    "version": "unknown",
-    "description": "🎮 Hangman with identifiers from your codebase",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-hangman",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-hangman",
-    "topics": [
-      "fledge",
-      "fledge-plugin",
-      "games",
-      "terminal"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:54:52Z",
-    "default_branch": "master"
-  },
-  {
-    "name": "fledge-plugin-discord",
-    "slug": "discord",
-    "version": "unknown",
-    "description": "💬 Discord webhook plugin for CI failure notifications",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-discord",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-discord",
-    "topics": [
-      "ci",
-      "discord",
-      "fledge",
-      "fledge-plugin",
-      "notifications",
-      "webhooks"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:01:41Z",
+    "updated_at": "2026-05-05T14:04:31Z",
     "default_branch": "main"
   },
   {
     "name": "fledge-plugin-speedtest",
     "slug": "speedtest",
-    "version": "unknown",
+    "version": "0.1.2",
     "description": "Measure download and upload bandwidth via Cloudflare's speed test endpoints. Built in Rust.",
-    "language": "other",
+    "language": "rust",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-speedtest",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-speedtest",
@@ -607,11 +590,28 @@
     "default_branch": "main"
   },
   {
+    "name": "fledge-plugin-metrics",
+    "slug": "metrics",
+    "version": "0.2.1",
+    "description": "Code metrics for fledge — LOC, churn, test ratio. Wraps tokei + git.",
+    "language": "rust",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-metrics",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-metrics",
+    "topics": [
+      "fledge",
+      "fledge-plugin"
+    ],
+    "stars": 1,
+    "updated_at": "2026-05-05T14:04:19Z",
+    "default_branch": "main"
+  },
+  {
     "name": "fledge-plugin-canary-wasm",
     "slug": "canary-wasm",
-    "version": "unknown",
+    "version": "0.6.0",
     "description": "🛡️ WASM security canary - proves the Wasmtime sandbox blocks every attack the native canary exposes",
-    "language": "other",
+    "language": "rust",
     "trust_tier": "official",
     "install": "fledge plugins install CorvidLabs/fledge-plugin-canary-wasm",
     "repo": "https://github.com/CorvidLabs/fledge-plugin-canary-wasm",
@@ -661,26 +661,6 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-corvid-agent",
-    "slug": "corvid-agent",
-    "version": "unknown",
-    "description": "🐦‍⬛ Interact with a CorvidAgent server from the terminal",
-    "language": "other",
-    "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-corvid-agent",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-corvid-agent",
-    "topics": [
-      "ai",
-      "algorand",
-      "corvid-agent",
-      "fledge",
-      "fledge-plugin"
-    ],
-    "stars": 1,
-    "updated_at": "2026-05-05T14:01:45Z",
-    "default_branch": "main"
-  },
-  {
     "name": "fledge-plugin-bridge-client",
     "slug": "bridge-client",
     "version": "unknown",
@@ -692,6 +672,25 @@
     "topics": [],
     "stars": 0,
     "updated_at": "2026-05-09T23:21:09Z",
+    "default_branch": "main"
+  },
+  {
+    "name": "fledge-plugin-hello-rust",
+    "slug": "hello-rust",
+    "version": "0.1.0",
+    "description": "🦀 Example fledge plugin in Rust - demonstrates fledge-v1 protocol",
+    "language": "rust",
+    "trust_tier": "official",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-hello-rust",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-hello-rust",
+    "topics": [
+      "example",
+      "fledge",
+      "fledge-plugin",
+      "rust"
+    ],
+    "stars": 0,
+    "updated_at": "2026-05-05T14:02:47Z",
     "default_branch": "main"
   },
   {
@@ -714,22 +713,23 @@
     "default_branch": "main"
   },
   {
-    "name": "fledge-plugin-hello-rust",
-    "slug": "hello-rust",
-    "version": "unknown",
-    "description": "🦀 Example fledge plugin in Rust - demonstrates fledge-v1 protocol",
-    "language": "other",
+    "name": "fledge-plugin-corvid-agent",
+    "slug": "corvid-agent",
+    "version": "0.1.0",
+    "description": "🐦‍⬛ Interact with a CorvidAgent server from the terminal",
+    "language": "rust",
     "trust_tier": "official",
-    "install": "fledge plugins install CorvidLabs/fledge-plugin-hello-rust",
-    "repo": "https://github.com/CorvidLabs/fledge-plugin-hello-rust",
+    "install": "fledge plugins install CorvidLabs/fledge-plugin-corvid-agent",
+    "repo": "https://github.com/CorvidLabs/fledge-plugin-corvid-agent",
     "topics": [
-      "example",
+      "ai",
+      "algorand",
+      "corvid-agent",
       "fledge",
-      "fledge-plugin",
-      "rust"
+      "fledge-plugin"
     ],
-    "stars": 0,
-    "updated_at": "2026-05-05T14:02:47Z",
+    "stars": 1,
+    "updated_at": "2026-05-05T14:01:45Z",
     "default_branch": "main"
   },
   {
