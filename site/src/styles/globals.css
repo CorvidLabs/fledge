@@ -56,3 +56,26 @@ select:focus-visible, [tabindex]:focus-visible {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
+
+/* Touch-device tap targets: 44px minimum per WCAG 2.5.5 */
+@media (pointer: coarse) {
+  a, button {
+    min-height: 44px;
+  }
+  /* Restore intentionally-tiny utility elements */
+  a.skip-link {
+    min-height: auto;
+  }
+  /* Chips already have explicit height via padding; bump padding-block for coarse */
+  .chip {
+    padding-block: 12px;
+  }
+  /* Footer links */
+  .foot-col a {
+    padding-block: 12px;
+  }
+  /* Plugin card footer links */
+  .plug-foot a {
+    padding-block: 12px;
+  }
+}
