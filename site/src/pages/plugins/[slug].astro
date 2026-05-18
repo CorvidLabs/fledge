@@ -1,0 +1,147 @@
+---
+import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import Button from '../../components/Button.astro'
+import type { FullEntry } from '../../../scripts/build-plugin-registry'
+
+const PER_PLUGIN_DIR = join(process.cwd(), 'src', 'data', 'plugins')
+
+export async function getStaticPaths() {
+  const dir = join(process.cwd(), 'src', 'data', 'plugins')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter(f => f.endsWith('.json'))
+    .map(f => {
+      const slug = f.replace(/\.json$/, '')
+      const data = JSON.parse(readFileSync(join(dir, f), 'utf-8')) as FullEntry
+      return { params: { slug }, props: { plugin: data } }
+    })
+}
+
+const { plugin } = Astro.props as { plugin: FullEntry }
+const base = import.meta.env.BASE_URL
+
+// load related plugins from disk so we have title + description for cards
+const related = plugin.related_slugs
+  .map(s => {
+    const p = join(PER_PLUGIN_DIR, `${s}.json`)
+    return existsSync(p) ? (JSON.parse(readFileSync(p, 'utf-8')) as FullEntry) : null
+  })
+  .filter((x): x is FullEntry => !!x)
+---
+<BaseLayout title={`${plugin.name} — fledge plugin`} description={plugin.description}>
+<main id="main">
+
+<section class="plug-head">
+  <div class="container">
+    <a href={`${base}plugins`} class="back-link"><span aria-hidden="true">←</span> Back to plugins</a>
+    <h1>{plugin.name}</h1>
+    <div class="plug-meta">
+      <span class="plug-version">v{plugin.version}</span>
+      <span class={`tag tag-tier-${plugin.trust_tier}`}>{plugin.trust_tier}</span>
+      <span class="tag tag-lang">{plugin.language}</span>
+      <span class="dim">★ {plugin.stars}</span>
+      <span class="dim">Updated {new Date(plugin.updated_at).toLocaleDateString()}</span>
+      <a href={plugin.repo} target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="install">
+  <div class="container">
+    <div class="install-card">
+      <div class="install-label">Install with fledge</div>
+      <div class="install-cmd"><code>{plugin.install}</code></div>
+    </div>
+  </div>
+</section>
+
+<section class="plug-body">
+  <div class="container plug-grid">
+    <article class="readme">
+      {plugin.readme_html
+        ? <Fragment set:html={plugin.readme_html} />
+        : <p class="dim"><em>No README yet.</em></p>}
+    </article>
+    <aside class="plug-side">
+      <h2>Metadata</h2>
+      <dl>
+        <dt>License</dt><dd>{plugin.license ?? '—'}</dd>
+        <dt>Default branch</dt><dd>{plugin.default_branch}</dd>
+        <dt>Open issues</dt><dd>{plugin.open_issues}</dd>
+        <dt>Topics</dt><dd>{plugin.topics.length ? plugin.topics.join(', ') : '—'}</dd>
+      </dl>
+    </aside>
+  </div>
+</section>
+
+{related.length > 0 && (
+  <section class="related">
+    <div class="container">
+      <h2>Related plugins</h2>
+      <ul class="rel-grid">
+        {related.map(r => (
+          <li><a href={`${base}plugins/${r.slug}`} class="rel-card">
+            <div class="rel-name">{r.name}</div>
+            <div class="rel-desc">{r.description}</div>
+          </a></li>
+        ))}
+      </ul>
+    </div>
+  </section>
+)}
+
+<section class="cta-thin">
+  <div class="container" style="text-align: center;">
+    <p style="color: var(--text-muted); margin-bottom: 16px;">Built something similar?</p>
+    <Button href={`${base}docs/template-authoring`} variant="primary">Submit your plugin</Button>
+  </div>
+</section>
+
+</main>
+</BaseLayout>
+
+<style>
+  .plug-head { padding: 48px 0 24px; border-bottom: 1px solid var(--border); }
+  .back-link { color: var(--text-muted); font-size: 0.9375rem; display: inline-block; margin-bottom: 16px; }
+  .back-link:hover { color: var(--accent-bright); }
+  .plug-head h1 { font-family: var(--mono); font-size: 2rem; margin-bottom: 12px; word-break: break-all; }
+  .plug-meta { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 0.9375rem; }
+  .plug-meta .dim { color: var(--text-dim); }
+  .plug-meta a { color: var(--accent-bright); }
+  .plug-meta a:hover { text-decoration: underline; }
+  .plug-version { font-family: var(--mono); color: var(--text-dim); font-size: 0.875rem; }
+  .install { padding: 24px 0; }
+  .install-card { padding: 20px 24px; background: var(--bg-raised); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+  .install-label { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 8px; }
+  .install-cmd code { font-family: var(--mono); color: var(--accent-bright); font-size: 1rem; }
+  .plug-body { padding: 32px 0 60px; }
+  .plug-grid { display: grid; grid-template-columns: 1fr 240px; gap: 40px; align-items: start; }
+  .readme { color: var(--text); line-height: 1.7; }
+  .readme :global(h1) { font-size: 1.8rem; margin: 24px 0 12px; }
+  .readme :global(h2) { font-size: 1.4rem; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .readme :global(h3) { font-size: 1.15rem; margin: 20px 0 10px; }
+  .readme :global(p) { margin-bottom: 14px; }
+  .readme :global(code) { font-family: var(--mono); font-size: 0.875em; padding: 2px 6px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; color: var(--accent-bright); }
+  .readme :global(pre) { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; margin-bottom: 16px; }
+  .readme :global(pre code) { background: transparent; border: 0; padding: 0; color: var(--text); }
+  .readme :global(ul), .readme :global(ol) { padding-left: 24px; margin-bottom: 14px; }
+  .readme :global(a) { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 3px; }
+  .plug-side h2 { font-size: 0.875rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
+  .plug-side dt { color: var(--text-dim); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 12px; }
+  .plug-side dd { color: var(--text); font-size: 0.9375rem; margin-bottom: 4px; }
+  .plug-side dd:first-of-type { margin-top: 0; }
+  .related { padding: 40px 0; border-top: 1px solid var(--border); }
+  .related h2 { font-size: 1.4rem; margin-bottom: 20px; }
+  .rel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; list-style: none; padding: 0; margin: 0; }
+  .rel-card { display: block; padding: 18px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
+  .rel-card:hover { border-color: var(--accent); }
+  .rel-name { font-family: var(--mono); font-size: 0.9375rem; color: var(--text); margin-bottom: 6px; }
+  .rel-desc { color: var(--text-muted); font-size: 0.875rem; }
+  .cta-thin { padding: 60px 0; }
+  @media (max-width: 900px) {
+    .plug-grid { grid-template-columns: 1fr; }
+    .rel-grid { grid-template-columns: 1fr; }
+  }
+</style>
