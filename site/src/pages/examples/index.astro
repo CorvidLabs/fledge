@@ -22,7 +22,7 @@ const rest = all.filter(e => !e.data.featured)
 {featured && (
   <section class="featured">
     <div class="container">
-      <a href={`${base}examples/${featured.slug}`} class="featured-card">
+      <a href={`${base}/examples/${featured.slug}`} class="featured-card">
         <span class="tag">{featured.data.tag}</span>
         <h2>{featured.data.title}</h2>
         <p>{featured.data.description}</p>
@@ -40,7 +40,7 @@ const rest = all.filter(e => !e.data.featured)
   <div class="container">
     <ul class="ex-grid">
       {rest.map((e, i) => (
-        <li><a href={`${base}examples/${e.slug}`} class="ex-card">
+        <li><a href={`${base}/examples/${e.slug}`} class="ex-card">
           <div class="number">{String(i + 1).padStart(2, '0')}</div>
           <div>
             <span class="tag">{e.data.tag}</span>

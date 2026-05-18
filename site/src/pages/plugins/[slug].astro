@@ -40,7 +40,7 @@ const related = plugin.related_slugs
 
 <section class="plug-head">
   <div class="container">
-    <a href={`${base}plugins`} class="back-link"><span aria-hidden="true">←</span> Back to plugins</a>
+    <a href={`${base}/plugins`} class="back-link"><span aria-hidden="true">←</span> Back to plugins</a>
     <h1>{plugin.name}</h1>
     <div class="plug-meta">
       <span class="plug-version">v{plugin.version}</span>
@@ -87,7 +87,7 @@ const related = plugin.related_slugs
       <h2>Related plugins</h2>
       <ul class="rel-grid">
         {related.map(r => (
-          <li><a href={`${base}plugins/${r.slug}`} class="rel-card">
+          <li><a href={`${base}/plugins/${r.slug}`} class="rel-card">
             <div class="rel-name">{r.name}</div>
             <div class="rel-desc">{r.description}</div>
           </a></li>
@@ -100,7 +100,7 @@ const related = plugin.related_slugs
 <section class="cta-thin">
   <div class="container" style="text-align: center;">
     <p style="color: var(--text-muted); margin-bottom: 16px;">Built something similar?</p>
-    <Button href={`${base}docs/template-authoring`} variant="primary">Submit your plugin</Button>
+    <Button href={`${base}/docs/template-authoring`} variant="primary">Submit your plugin</Button>
   </div>
 </section>
 

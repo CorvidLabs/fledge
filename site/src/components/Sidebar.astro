@@ -12,7 +12,7 @@ const grouped = sectionOrder.map(name => ({
 const current = Astro.url.pathname.replace(/\/$/, '')
 const linkFor = (slug: string) => {
   const clean = slug === 'index' ? '' : `/${slug}`
-  return `${base}docs${clean}`.replace(/\/+/g, '/')
+  return `${base}/docs${clean}`.replace(/\/+/g, '/')
 }
 ---
 <aside class="sidebar" aria-label="Documentation navigation">

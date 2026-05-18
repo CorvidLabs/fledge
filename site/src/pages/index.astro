@@ -17,8 +17,8 @@ const base = import.meta.env.BASE_URL
         <h1 id="hero-h" class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
         <p class="hero-sub">One CLI for the dev loop. Any language. JSON by default. Scaffold, run, ship — without the bash spaghetti.</p>
         <div class="hero-actions">
-          <Button href={`${base}docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
-          <Button href={`${base}plugins`} variant="secondary">Browse 31 plugins</Button>
+          <Button href={`${base}/docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
+          <Button href={`${base}/plugins`} variant="secondary">Browse 31 plugins</Button>
         </div>
         <p class="hero-fineprint">Install in a single command: <code>cargo install fledge</code></p>
       </div>
@@ -75,23 +75,23 @@ const base = import.meta.env.BASE_URL
   <div class="container">
     <div class="strip-head">
       <h2 id="plug-h">31 plugins <em>and counting.</em></h2>
-      <a href={`${base}plugins`} class="link">Browse the registry <span aria-hidden="true">→</span></a>
+      <a href={`${base}/plugins`} class="link">Browse the registry <span aria-hidden="true">→</span></a>
     </div>
     {/* TODO(Phase 4): replace hardcoded list with getCollection('plugins').slice(0, 4) */}
     <ul class="plug-grid" id="plugin-spotlight">
-      <li><a href={`${base}plugins/sql`} class="plug">
+      <li><a href={`${base}/plugins/sql`} class="plug">
         <div class="plug-head"><span class="plug-name">fledge-plugin-sql</span><span class="plug-lang">rust</span></div>
         <p>Postgres/SQLite migrations + query checks.</p>
       </a></li>
-      <li><a href={`${base}plugins/deps`} class="plug">
+      <li><a href={`${base}/plugins/deps`} class="plug">
         <div class="plug-head"><span class="plug-name">fledge-plugin-deps</span><span class="plug-lang">ts</span></div>
         <p>Audit & update dependencies across the workspace.</p>
       </a></li>
-      <li><a href={`${base}plugins/todo`} class="plug">
+      <li><a href={`${base}/plugins/todo`} class="plug">
         <div class="plug-head"><span class="plug-name">fledge-plugin-todo</span><span class="plug-lang">rust</span></div>
         <p>Scan, list, and triage TODO/FIXME markers.</p>
       </a></li>
-      <li><a href={`${base}plugins/coverage`} class="plug">
+      <li><a href={`${base}/plugins/coverage`} class="plug">
         <div class="plug-head"><span class="plug-name">fledge-plugin-coverage</span><span class="plug-lang">rust</span></div>
         <p>Aggregate coverage across languages, JSON-ready.</p>
       </a></li>
@@ -107,19 +107,19 @@ const base = import.meta.env.BASE_URL
       <p>End-to-end examples — every command, every file, every output.</p>
     </header>
     <ul class="ex-grid">
-      <li><a href={`${base}examples/rust-cli`} class="ex-card">
+      <li><a href={`${base}/examples/rust-cli`} class="ex-card">
         <span class="ex-tag">Rust CLI</span>
         <h3>Build a Rust CLI end-to-end</h3>
         <p>From templates init through release bump, with conventional commits.</p>
         <div class="ex-meta">8 steps · 12 min</div>
       </a></li>
-      <li><a href={`${base}examples/ts-bun`} class="ex-card">
+      <li><a href={`${base}/examples/ts-bun`} class="ex-card">
         <span class="ex-tag">TS + Bun</span>
         <h3>TypeScript project with Bun</h3>
         <p>Language detection, lane composition, ship workflow.</p>
         <div class="ex-meta">6 steps · 8 min</div>
       </a></li>
-      <li><a href={`${base}examples/custom-plugin`} class="ex-card">
+      <li><a href={`${base}/examples/custom-plugin`} class="ex-card">
         <span class="ex-tag">Plugins</span>
         <h3>Wire up a custom plugin</h3>
         <p>Build a fledge-plugin-* with the v1 protocol.</p>
@@ -138,8 +138,8 @@ const base = import.meta.env.BASE_URL
       <code>cargo install fledge</code>
     </div>
     <div class="cta-actions">
-      <Button href={`${base}docs`} variant="primary">Read the docs</Button>
-      <Button href={`${base}plugins`} variant="secondary">Browse plugins</Button>
+      <Button href={`${base}/docs`} variant="primary">Read the docs</Button>
+      <Button href={`${base}/plugins`} variant="secondary">Browse plugins</Button>
     </div>
   </div>
 </section>

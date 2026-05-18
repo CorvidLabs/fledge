@@ -21,7 +21,7 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month:
       <p class="lede">Release notes, plugin spotlights, workflow deep-dives, and the occasional design rant.</p>
     </div>
     <div class="rss-row">
-      <a href={`${base}rss.xml`} class="rss"><span aria-hidden="true">⌗</span> RSS</a>
+      <a href={`${base}/rss.xml`} class="rss"><span aria-hidden="true">⌗</span> RSS</a>
     </div>
   </div>
 </section>
@@ -29,7 +29,7 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month:
 {featured && (
   <section class="featured">
     <div class="container">
-      <a href={`${base}blog/${featured.slug}`} class="feat-card">
+      <a href={`${base}/blog/${featured.slug}`} class="feat-card">
         <div class="feat-meta">
           <CategoryTag category={featured.data.category} />
           <span class="feat-date">{fmt(featured.data.date)} · {featured.data.readTime} min read</span>
@@ -56,8 +56,8 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month:
 
 <section class="read-more">
   <div class="container">
-    <a href={`${base}plugins`} class="rm-card">Browse 31 plugins <span aria-hidden="true">→</span></a>
-    <a href={`${base}docs`} class="rm-card">Read the docs <span aria-hidden="true">→</span></a>
+    <a href={`${base}/plugins`} class="rm-card">Browse 31 plugins <span aria-hidden="true">→</span></a>
+    <a href={`${base}/docs`} class="rm-card">Read the docs <span aria-hidden="true">→</span></a>
     <a href="https://github.com/CorvidLabs/fledge" class="rm-card">Star on GitHub <span aria-hidden="true">↗</span></a>
   </div>
 </section>

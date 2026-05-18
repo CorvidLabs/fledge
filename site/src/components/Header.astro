@@ -4,16 +4,16 @@ const base = import.meta.env.BASE_URL
 const current = Astro.url.pathname.replace(/\/$/, '') || base.replace(/\/$/, '')
 const VERSION = 'v1.4.1'
 const links = [
-  { href: `${base}plugins`, label: 'Plugins' },
-  { href: `${base}examples`, label: 'Examples' },
-  { href: `${base}docs`, label: 'Docs' },
-  { href: `${base}blog`, label: 'Blog' },
+  { href: `${base}/plugins`, label: 'Plugins' },
+  { href: `${base}/examples`, label: 'Examples' },
+  { href: `${base}/docs`, label: 'Docs' },
+  { href: `${base}/blog`, label: 'Blog' },
 ]
 const isActive = (href: string) => current === href.replace(/\/$/, '')
 ---
 <header class="site-header" role="banner">
   <div class="nav-inner">
-    <a href={base} class="nav-logo" aria-label="fledge home">
+    <a href={base + "/"} class="nav-logo" aria-label="fledge home">
       <span class="glyph" aria-hidden="true">f</span>
       <span>fledge</span>
       <span class="nav-version">{VERSION}</span>
@@ -33,7 +33,7 @@ const isActive = (href: string) => current === href.replace(/\/$/, '')
          aria-label="View on GitHub (opens in new tab)" target="_blank" rel="noopener noreferrer">
         GitHub <span aria-hidden="true">↗</span>
       </a>
-      <Button href={`${base}docs/getting-started/installation`} variant="primary">Install</Button>
+      <Button href={`${base}/docs/getting-started/installation`} variant="primary">Install</Button>
     </div>
   </div>
 </header>
