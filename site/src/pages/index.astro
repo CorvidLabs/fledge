@@ -1,10 +1,79 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
+import Badge from '../components/Badge.astro'
+import Button from '../components/Button.astro'
+import Terminal from '../components/Terminal.astro'
 const base = import.meta.env.BASE_URL
 ---
-<BaseLayout title="fledge — dev lifecycle CLI">
-  <main id="main" class="container" style="padding-top: 80px;">
-    <h1>fledge</h1>
-    <p>Marketing site under construction. <a href={`${base}docs`}>Docs →</a></p>
-  </main>
+<BaseLayout title="fledge — get your projects ready to fly">
+<main id="main">
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <Badge dot>31 plugins shipping in v1.4</Badge>
+        <h1 class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
+        <p class="hero-sub">One CLI for the dev loop. Any language. JSON by default. Scaffold, run, ship — without the bash spaghetti.</p>
+        <div class="hero-actions">
+          <Button href={`${base}docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
+          <Button href={`${base}plugins`} variant="secondary">Browse 31 plugins</Button>
+        </div>
+        <p class="hero-fineprint">Install in a single command: <code>cargo install fledge</code></p>
+      </div>
+      <div>
+        <Terminal title="~/my-cli — fledge">
+          <div class="term-line term-comment"># nothing → shipped, in three commands</div>
+          <div class="term-line"><span class="term-prompt">$ </span>fledge templates init my-cli -t rust-cli</div>
+          <div class="term-line term-out">  ✓ Scaffolded my-cli/</div>
+          <div class="term-line"><span class="term-prompt">$ </span>fledge lanes init</div>
+          <div class="term-line term-out">  ✓ fledge.toml: build, test, lint, ci</div>
+          <div class="term-line"><span class="term-prompt">$ </span>fledge lanes run ci</div>
+          <div class="term-line term-good">  ✓ build (1.8s)</div>
+          <div class="term-line term-good">  ✓ test (24 passed, 0.6s)</div>
+          <div class="term-line term-good">  ✓ lint</div>
+          <div class="term-line term-good">  ★ ci passed in 12s</div>
+          <div class="term-line"><span class="term-prompt">$ </span><span class="blink" aria-hidden="true" /></div>
+        </Terminal>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="stats" aria-label="Key numbers">
+  <div class="container">
+    <ul class="stats-grid">
+      <li class="stat"><div class="num">31</div><div class="lbl">plugins shipping</div><div class="sub">official + community</div></li>
+      <li class="stat"><div class="num">6</div><div class="lbl">pillars</div><div class="sub">scaffold · run · spec · AI · ship · extend</div></li>
+      <li class="stat"><div class="num">∞</div><div class="lbl">languages</div><div class="sub">Rust, TS, Python, Go, anything</div></li>
+      <li class="stat"><div class="num">1</div><div class="lbl">binary</div><div class="sub">install, done</div></li>
+    </ul>
+  </div>
+</section>
+
+</main>
 </BaseLayout>
+
+<style>
+  main { background-image: radial-gradient(ellipse 1200px 600px at 50% -200px, rgba(234,88,12,0.12), transparent 70%); }
+  .hero { padding: 80px 0 60px; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
+  .hero-h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: 1.05; letter-spacing: -0.025em; margin: 22px 0; }
+  .hero-h1 .fly { background: linear-gradient(120deg, var(--accent-bright) 0%, var(--accent) 60%, var(--accent-deep) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    font-style: italic; font-family: var(--serif); font-weight: 500; }
+  .hero-sub { color: var(--text-muted); font-size: 1.125rem; max-width: 480px; margin-bottom: 28px; line-height: 1.6; }
+  .hero-actions { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .hero-fineprint { color: var(--text-muted); font-size: 0.9375rem; }
+  .hero-fineprint code { background: var(--bg-raised); padding: 4px 8px; border-radius: 4px;
+    border: 1px solid var(--border); color: var(--accent-bright);
+    font-family: var(--mono); font-size: 0.875rem; }
+  .stats { padding: 60px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    margin-top: 40px; background: linear-gradient(180deg, transparent, rgba(234,88,12,0.025), transparent); }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+  .stat .num { font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--accent-bright); font-family: var(--serif); line-height: 1; }
+  .stat .lbl { color: var(--text); font-size: 1rem; margin-top: 8px; font-weight: 500; }
+  .stat .sub { color: var(--text-muted); font-size: 0.875rem; margin-top: 4px; }
+  @media (max-width: 900px) { .hero-grid, .stats-grid { grid-template-columns: 1fr; } }
+</style>
