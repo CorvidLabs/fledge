@@ -654,7 +654,12 @@ fn cli_plugin_list_json() {
 
 #[test]
 fn cli_plugin_update_no_plugins() {
-    let output = run_fledge(&["plugin", "update"]);
+    // Isolate HOME to a fresh tempdir so the test sees an empty plugin
+    // registry and cannot be affected by externally-installed plugins whose
+    // build hooks may require toolchains absent on the test host (e.g.
+    // fledge-plugin-bridge needing Java).
+    let home = tempfile::TempDir::new().unwrap();
+    let output = run_fledge_isolated(&["plugin", "update"], &home);
     assert!(output.status.success());
 }
 
