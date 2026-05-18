@@ -203,7 +203,7 @@ async function main() {
   for (const { entry, repo, readme } of entries) {
     const full: FullEntry = {
       ...entry,
-      readme_html: renderReadme(readme),
+      readme_html: renderReadme(readme, { repoUrl: repo.html_url, defaultBranch: repo.default_branch }),
       license: repo.license?.spdx_id ?? null,
       open_issues: repo.open_issues_count,
       related_slugs: relatedSlugs(entry.slug, miniUniverse, 3),

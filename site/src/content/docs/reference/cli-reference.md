@@ -12,7 +12,7 @@ Every command, every flag. If it's in fledge core, it's here. Plugin commands (`
 [Run](#run-tasks-and-lanes) |
 [Spec](#spec-spec-sync) |
 [AI](#ai-ask-and-review) |
-[Ship](#ship-branch-pr-release) |
+[Ship](#ship-branch-commit-push-release) |
 [Extend](#extend-plugins-config-tools)
 
 ## Scaffold: Templates
