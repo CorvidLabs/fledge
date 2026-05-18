@@ -57,6 +57,16 @@ select:focus-visible, [tabindex]:focus-visible {
   overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
+/* Code block overflow guard — wide blocks scroll inside their container, not the page */
+pre, .terminal {
+  max-width: 100%;
+  overflow-x: auto;
+}
+pre code {
+  word-break: normal;
+  white-space: pre;
+}
+
 /* Touch-device tap targets: 44px minimum per WCAG 2.5.5 */
 @media (pointer: coarse) {
   a, button {
