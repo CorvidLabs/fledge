@@ -20,8 +20,63 @@ fledge templates init my-cli -t rust-cli
 cd my-cli
 ```
 
-(... rest of walkthrough goes here — placeholder content acceptable for v1 ...)
+## 2. Configure Lanes
+
+Initialize your project lanes. fledge will detect your `Cargo.toml` and suggest a standard set of steps.
+
+```bash
+fledge lanes init
+```
+
+This creates a `fledge.toml` with `build`, `test`, `lint`, and `ci` definitions.
+
+## 3. Run the CI pipeline
+
+Verify everything works locally before you even think about pushing.
+
+```bash
+fledge lanes run ci
+```
+
+## 4. Feature work
+
+Start a new branch using the `work` command. This ensures your branch naming follows project conventions.
+
+```bash
+fledge work start auth-fix
+```
+
+## 5. Commit with AI
+
+Done with your changes? Let fledge's AI review your diff and draft a conventional commit message.
+
+```bash
+fledge work commit --ai
+```
+
+## 6. Push and PR
+
+Push your branch and open a PR in one flow (requires `fledge-plugin-github`).
+
+```bash
+fledge work push
+fledge github prs create --fill
+```
+
+## 7. Release
+
+Once merged, cut a new version. fledge will bump your `Cargo.toml`, generate the changelog, and create a git tag.
+
+```bash
+fledge release --dry-run
+fledge release
+```
+
+## 8. Profit
+
+Your Rust CLI is now versioned, tagged, and ready for distribution.
 
 <Callout type="tip">
-  **Tip:** `fledge lanes init` infers your build tooling from the manifest — no hand-editing needed.
+  **Tip:** Use `fledge watch test` while developing to automatically re-run your test suite on every save.
 </Callout>
+

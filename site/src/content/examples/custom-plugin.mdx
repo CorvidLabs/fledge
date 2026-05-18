@@ -8,4 +8,55 @@ description: "Build a fledge-plugin-* with the v1 protocol."
 order: 3
 ---
 
-(Walkthrough stub — fill in before launch.)
+import Callout from '../../components/Callout.astro'
+
+fledge is designed to be extended. This walkthrough shows how to build, test, and publish a custom plugin using the `fledge-v1` protocol.
+
+## 1. Scaffold a new plugin
+
+Use the `plugins create` command to generate a new plugin skeleton. We'll build a simple "uptime" plugin in Go.
+
+```bash
+fledge plugins create fledge-plugin-uptime --description "Check service status"
+```
+
+## 2. Implement the protocol
+
+fledge communicates with plugins via JSON over stdin/stdout. Your binary just needs to handle the `init` and `run` messages.
+
+```go
+// main.go snippet
+if msg.Action == "init" {
+    send(Response{Status: "ok", Version: "0.1.0"})
+}
+```
+
+## 3. Validate your manifest
+
+Ensure your `plugin.toml` matches the requirements for the registry.
+
+```bash
+fledge plugins validate .
+```
+
+## 4. Test locally
+
+Install your plugin from the local path to verify it works as expected.
+
+```bash
+fledge plugins install ./fledge-plugin-uptime
+fledge uptime https://fledge.dev
+```
+
+## 5. Publish
+
+Once you're ready, fledge can automate the GitHub repository creation and initial push.
+
+```bash
+fledge plugins publish .
+```
+
+<Callout type="tip">
+  **Tip:** Check the [Plugin Protocol](/fledge/docs/reference/wasm-plugins) reference for details on more advanced capabilities like persistent storage and network access.
+</Callout>
+
