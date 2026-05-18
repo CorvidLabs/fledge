@@ -25,7 +25,8 @@ export async function getStaticPaths() {
 
 const { plugin } = Astro.props as { plugin: FullEntry }
 const tierLabel = plugin.trust_tier.charAt(0).toUpperCase() + plugin.trust_tier.slice(1)
-const base = import.meta.env.BASE_URL
+const { base: _rawBase } = { base: import.meta.env.BASE_URL }
+const base = _rawBase.endsWith('/') ? _rawBase : _rawBase + '/'
 
 // load related plugins from disk so we have title + description for cards
 const related = plugin.related_slugs

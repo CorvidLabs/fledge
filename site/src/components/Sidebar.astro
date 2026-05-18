@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content'
-const base = import.meta.env.BASE_URL
+const { base: _rawBase } = { base: import.meta.env.BASE_URL }
+const base = _rawBase.endsWith('/') ? _rawBase : _rawBase + '/'
 const all = await getCollection('docs')
 const sectionOrder = ['Getting started', 'The six pillars', 'Reference', 'Resources'] as const
 const grouped = sectionOrder.map(name => ({

@@ -1,6 +1,7 @@
 ---
 import Button from './Button.astro'
-const base = import.meta.env.BASE_URL
+const { base: _rawBase } = { base: import.meta.env.BASE_URL }
+const base = _rawBase.endsWith('/') ? _rawBase : _rawBase + '/'
 const current = Astro.url.pathname.replace(/\/$/, '') || base.replace(/\/$/, '')
 const VERSION = 'v1.4.1'
 const links = [

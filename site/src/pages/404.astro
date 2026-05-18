@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro'
 import Button from '../components/Button.astro'
-const base = import.meta.env.BASE_URL
+const { base: _rawBase } = { base: import.meta.env.BASE_URL }
+const base = _rawBase.endsWith('/') ? _rawBase : _rawBase + '/'
 ---
 <BaseLayout title="404 — fledge">
   <main id="main" class="container" style="padding: 120px 0 80px; text-align: center;">

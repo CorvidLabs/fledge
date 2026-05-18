@@ -2,7 +2,8 @@
 import type { RegistryEntry } from '../../scripts/build-plugin-registry'
 interface Props { plugin: RegistryEntry }
 const { plugin } = Astro.props
-const base = import.meta.env.BASE_URL
+const { base: _rawBase } = { base: import.meta.env.BASE_URL }
+const base = _rawBase.endsWith('/') ? _rawBase : _rawBase + '/'
 const tierClass = `tag tag-tier-${plugin.trust_tier}`
 const tierLabel = plugin.trust_tier.charAt(0).toUpperCase() + plugin.trust_tier.slice(1)
 ---
