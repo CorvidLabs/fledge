@@ -67,6 +67,12 @@ pre code {
   white-space: pre;
 }
 
+/* Reduce container padding on very small viewports so 32px each side
+   doesn't eat too much of a 320px screen */
+@media (max-width: 480px) {
+  :root { --container-pad: 16px; }
+}
+
 /* Touch-device tap targets: 44px minimum per WCAG 2.5.5 */
 @media (pointer: coarse) {
   a, button {
