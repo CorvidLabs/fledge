@@ -285,9 +285,9 @@ fmt         = "cargo fmt --check"
 fmt-fix     = "cargo fmt"
 audit       = "cargo audit"
 
-[tasks.docs-serve]
-cmd = "mdbook serve docs --open"
-description = "Serve docs locally with live reload"
+[tasks.docs-open]
+cmd = "cargo doc --open"
+description = "Build rustdoc and open it in a browser"
 
 [tasks.deploy]
 cmd = "scripts/deploy.sh"
