@@ -27,7 +27,7 @@ const spotlight = (plugins as RegistryEntry[])
         <h1 id="hero-h" class="hero-h1">Get your projects<br>ready to <span class="fly">fly.</span></h1>
         <p class="hero-sub">One CLI for the dev loop. Any language. JSON by default. Scaffold, run, ship — without the bash spaghetti.</p>
         <div class="hero-actions">
-          <Button href={`${base}/docs/getting-started`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
+          <Button href={`${base}/docs/getting-started/installation`} variant="primary">Get started <span aria-hidden="true">→</span></Button>
           <Button href={`${base}/plugins`} variant="secondary">Browse {plugins.length} plugins</Button>
         </div>
         <p class="hero-fineprint">Install in a single command: <code>cargo install fledge</code></p>
@@ -76,7 +76,7 @@ const spotlight = (plugins as RegistryEntry[])
       <Pillar numeral="iii." title="Spec"    command="$ fledge spec check">Specs as constraints. Validate code matches spec. Agent-friendly source of truth.</Pillar>
       <Pillar numeral="iv."  title="AI"      command="$ fledge review">Spec-aware ask and review. Works with Claude, Ollama, OpenAI, any provider.</Pillar>
       <Pillar numeral="v."   title="Ship"    command="$ fledge work commit --ai">Branch → commit (AI optional) → push → release → changelog.</Pillar>
-      <Pillar numeral="vi."  title="Extend"  command="$ fledge plugins install">Plugin protocol in any language. 31 plugins to install. Or write your own.</Pillar>
+      <Pillar numeral="vi."  title="Extend"  command="$ fledge plugins install">Plugin protocol in any language. {plugins.length} plugins to install. Or write your own.</Pillar>
     </ul>
   </div>
 </section>

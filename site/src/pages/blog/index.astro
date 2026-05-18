@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content'
 import BaseLayout from '../../layouts/BaseLayout.astro'
 import PostCard from '../../components/PostCard.astro'
 import CategoryTag from '../../components/CategoryTag.astro'
+import plugins from '../../data/plugins.json' with { type: 'json' }
 const base = import.meta.env.BASE_URL
 const posts = (await getCollection('blog', p => !p.data.draft))
   .sort((a, b) => +b.data.date - +a.data.date)
@@ -56,7 +57,7 @@ const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month:
 
 <section class="read-more">
   <div class="container">
-    <a href={`${base}/plugins`} class="rm-card">Browse 31 plugins <span aria-hidden="true">→</span></a>
+    <a href={`${base}/plugins`} class="rm-card">Browse {plugins.length} plugins <span aria-hidden="true">→</span></a>
     <a href={`${base}/docs`} class="rm-card">Read the docs <span aria-hidden="true">→</span></a>
     <a href="https://github.com/CorvidLabs/fledge" class="rm-card">Star on GitHub <span aria-hidden="true">↗</span></a>
   </div>

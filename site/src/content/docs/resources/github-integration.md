@@ -58,4 +58,4 @@ fledge github checks --json
 ## Related
 
 - [Ship: Branch, Commit, Push, Release](./ship.md). Branch creation, commit, push, release workflow
-- [AI: Ask and Review](./review.md). Multi-model review panels, spec-awareness, output formats
+- [AI: Ask and Review](../ai.md). Multi-model review panels, spec-awareness, output formats
