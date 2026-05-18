@@ -1,0 +1,56 @@
+---
+const base = import.meta.env.BASE_URL
+---
+<footer role="contentinfo">
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <p class="logo"><span aria-hidden="true">◆</span> fledge</p>
+        <p class="tag">Dev lifecycle CLI. Get your projects ready to fly.</p>
+        <p class="tag">A <a href="https://corvidlabs.xyz">CorvidLabs</a> project.</p>
+      </div>
+      <div class="foot-col">
+        <h2>Product</h2>
+        <a href={`${base}plugins`}>Plugins</a>
+        <a href={`${base}examples`}>Examples</a>
+        <a href={`${base}docs/changelog`}>Changelog</a>
+      </div>
+      <div class="foot-col">
+        <h2>Resources</h2>
+        <a href={`${base}docs`}>Documentation</a>
+        <a href="https://github.com/CorvidLabs/fledge/blob/main/AGENTS.md">AGENTS.md</a>
+        <a href={`${base}blog`}>Blog</a>
+      </div>
+      <div class="foot-col">
+        <h2>Community</h2>
+        <a href="https://github.com/CorvidLabs/fledge">GitHub</a>
+        <a href="https://crates.io/crates/fledge">Crates.io</a>
+        <a href="https://github.com/CorvidLabs/homebrew-tap">Homebrew</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <p>© 2026 CorvidLabs · MIT licensed</p>
+      <p>Built with fledge <span aria-hidden="true">◆</span></p>
+    </div>
+  </div>
+</footer>
+
+<style is:global>
+  footer { border-top: 1px solid var(--border); padding: 60px 0 30px;
+    color: var(--text-muted); font-size: 0.9375rem; }
+  .foot-grid { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr);
+    gap: 40px; margin-bottom: 36px; }
+  .foot-brand { display: flex; flex-direction: column; gap: 12px; }
+  .foot-brand .logo { display: flex; align-items: center; gap: 8px;
+    color: var(--text); font-weight: 600; font-size: 1.0625rem; }
+  .foot-brand .tag { color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; }
+  .foot-brand .tag a { color: var(--accent-bright); }
+  .foot-brand .tag a:hover { text-decoration: underline; }
+  .foot-col h2 { color: var(--text); font-size: 0.9375rem; margin-bottom: 14px; font-weight: 600; }
+  .foot-col a { display: block; color: var(--text-muted); font-size: 0.9375rem; padding: 6px 0; }
+  .foot-col a:hover { color: var(--accent-bright); }
+  .foot-bottom { border-top: 1px solid var(--border); padding-top: 24px;
+    display: flex; justify-content: space-between; color: var(--text-dim);
+    font-size: 0.875rem; flex-wrap: wrap; gap: 12px; }
+  @media (max-width: 760px) { .foot-grid { grid-template-columns: 1fr; } }
+</style>
