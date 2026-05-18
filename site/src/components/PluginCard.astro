@@ -39,8 +39,9 @@ const tierLabel = plugin.trust_tier.charAt(0).toUpperCase() + plugin.trust_tier.
     border: 1px solid var(--border-strong); text-transform: lowercase; letter-spacing: 0; }
   .plug-desc { color: var(--text-muted); font-size: 0.9375rem; line-height: 1.55; flex: 1; }
   .plug-foot { display: flex; justify-content: space-between; align-items: center;
-    gap: 12px; padding-top: 12px; border-top: 1px dashed var(--border-strong); margin-top: 4px; }
+    gap: 12px; padding-top: 12px; border-top: 1px dashed var(--border-strong); margin-top: 4px;
+    min-width: 0; }
   .plug-install { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-bright);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
   .plug-meta-mini { color: var(--text-dim); font-size: 0.8125rem; display: flex; gap: 10px; flex-shrink: 0; }
 </style>

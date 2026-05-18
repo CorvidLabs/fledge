@@ -56,8 +56,9 @@ const base = import.meta.env.BASE_URL
 </script>
 
 <style>
-  .docs-grid { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; }
-  .article { padding: 48px 56px; max-width: 800px; min-width: 0; }
+  .docs-grid { display: grid; grid-template-columns: 260px 1fr; max-width: 1400px; margin: 0 auto; overflow-x: hidden; }
+  .docs-grid > :global(*) { min-width: 0; }
+  .article { padding: 48px 56px; max-width: 800px; min-width: 0; overflow-x: hidden; }
   .breadcrumb { display: flex; gap: 8px; align-items: center; color: var(--text-dim); font-size: 0.875rem; margin-bottom: 20px; flex-wrap: wrap; }
   .breadcrumb a { color: var(--text-muted); }
   .breadcrumb a:hover { color: var(--accent-bright); }
@@ -72,6 +73,10 @@ const base = import.meta.env.BASE_URL
   .doc-body :global(code) { font-family: var(--mono); font-size: 0.875em; padding: 2px 6px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; color: var(--accent-bright); }
   .doc-body :global(pre) { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; max-width: 100%; overflow-x: auto; margin-bottom: 20px; }
   .doc-body :global(pre code) { background: transparent; border: 0; padding: 0; color: var(--text); word-break: normal; white-space: pre; }
+  /* Tables in markdown content must scroll horizontally on narrow viewports */
+  .doc-body :global(table) { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; margin-bottom: 20px; -webkit-overflow-scrolling: touch; }
+  .doc-body :global(th), .doc-body :global(td) { padding: 8px 12px; border: 1px solid var(--border-strong); font-size: 0.9375rem; white-space: nowrap; }
+  .doc-body :global(th) { background: var(--bg-raised); font-weight: 600; }
 
   /* Contents toggle — hidden on desktop */
   .contents-toggle { display: none; }
