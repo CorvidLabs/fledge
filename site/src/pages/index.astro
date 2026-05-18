@@ -71,6 +71,33 @@ const base = import.meta.env.BASE_URL
   </div>
 </section>
 
+<section class="plugins-strip" aria-labelledby="plug-h">
+  <div class="container">
+    <div class="strip-head">
+      <h2 id="plug-h">31 plugins <em>and counting.</em></h2>
+      <a href={`${base}plugins`} class="link">Browse the registry <span aria-hidden="true">→</span></a>
+    </div>
+    <ul class="plug-grid" id="plugin-spotlight">
+      <li><a href={`${base}plugins/sql`} class="plug">
+        <div class="plug-head"><span class="plug-name">fledge-plugin-sql</span><span class="plug-lang">rust</span></div>
+        <p>Postgres/SQLite migrations + query checks.</p>
+      </a></li>
+      <li><a href={`${base}plugins/deps`} class="plug">
+        <div class="plug-head"><span class="plug-name">fledge-plugin-deps</span><span class="plug-lang">ts</span></div>
+        <p>Audit & update dependencies across the workspace.</p>
+      </a></li>
+      <li><a href={`${base}plugins/todo`} class="plug">
+        <div class="plug-head"><span class="plug-name">fledge-plugin-todo</span><span class="plug-lang">rust</span></div>
+        <p>Scan, list, and triage TODO/FIXME markers.</p>
+      </a></li>
+      <li><a href={`${base}plugins/coverage`} class="plug">
+        <div class="plug-head"><span class="plug-name">fledge-plugin-coverage</span><span class="plug-lang">rust</span></div>
+        <p>Aggregate coverage across languages, JSON-ready.</p>
+      </a></li>
+    </ul>
+  </div>
+</section>
+
 <section class="examples-teaser" aria-labelledby="ex-h">
   <div class="container">
     <header class="section-head">
@@ -183,4 +210,23 @@ const base = import.meta.env.BASE_URL
     border-radius: 10px; font-family: var(--mono); font-size: 1rem; }
   .cta-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
   @media (max-width: 900px) { .ex-grid { grid-template-columns: 1fr; } }
+  .plugins-strip { padding: 80px 0; }
+  .strip-head { display: flex; justify-content: space-between; align-items: end;
+    margin-bottom: 32px; gap: 16px; flex-wrap: wrap; }
+  .strip-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.015em; }
+  .strip-head h2 em { font-family: var(--serif); font-style: italic; color: var(--accent-bright); font-weight: 400; }
+  .strip-head .link { color: var(--accent-bright); font-size: 0.9375rem; padding: 8px 0; }
+  .strip-head .link:hover { text-decoration: underline; }
+  .plug-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .plug { display: block; padding: 20px; background: var(--bg-raised);
+    border: 1px solid var(--border); border-radius: 8px;
+    transition: border-color .15s; color: inherit; text-decoration: none; }
+  .plug:hover { border-color: var(--accent); }
+  .plug-head { display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px; }
+  .plug-name { font-family: var(--mono); font-size: 0.9375rem; color: var(--text); }
+  .plug-lang { font-size: 0.8125rem; padding: 3px 8px; border-radius: 4px;
+    background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+  .plug p { color: var(--text-muted); font-size: 0.9375rem; line-height: 1.5; }
+  @media (max-width: 900px) { .plug-grid { grid-template-columns: 1fr; } }
 </style>
