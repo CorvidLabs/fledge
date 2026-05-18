@@ -1,0 +1,46 @@
+---
+import type { RegistryEntry } from '../../scripts/build-plugin-registry'
+interface Props { plugin: RegistryEntry }
+const { plugin } = Astro.props
+const base = import.meta.env.BASE_URL
+const tierClass = `tag tag-tier-${plugin.trust_tier}`
+const tierLabel = plugin.trust_tier.charAt(0).toUpperCase() + plugin.trust_tier.slice(1)
+---
+<li><a href={`${base}plugins/${plugin.slug}`} class="plugin-card">
+  <div class="plug-top">
+    <div class="plug-name">{plugin.name}</div>
+    <div class="plug-version">v{plugin.version}</div>
+  </div>
+  <div class="plug-tags">
+    <span class={tierClass}>{tierLabel}</span>
+    <span class="tag tag-lang">{plugin.language}</span>
+  </div>
+  <p class="plug-desc">{plugin.description || 'No description.'}</p>
+  <div class="plug-foot">
+    <code class="plug-install">{plugin.install.replace(/^fledge plugins install /, '… install ')}</code>
+    <div class="plug-meta-mini">★ {plugin.stars}</div>
+  </div>
+</a></li>
+
+<style is:global>
+  .plugin-card { display: flex; flex-direction: column; gap: 14px;
+    padding: 24px; background: var(--bg-raised);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    transition: border-color .15s, transform .15s; color: inherit; text-decoration: none; }
+  .plugin-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .plug-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .plug-name { font-family: var(--mono); font-size: 1rem; color: var(--text); font-weight: 500; word-break: break-all; }
+  .plug-version { font-family: var(--mono); font-size: 0.8125rem; color: var(--text-dim); flex-shrink: 0; }
+  .plug-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag-tier-official    { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .tag-tier-community   { background: rgba(96,165,250,0.1); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+  .tag-tier-experimental{ background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .tag-lang { background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border-strong); text-transform: lowercase; letter-spacing: 0; }
+  .plug-desc { color: var(--text-muted); font-size: 0.9375rem; line-height: 1.55; flex: 1; }
+  .plug-foot { display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding-top: 12px; border-top: 1px dashed var(--border-strong); margin-top: 4px; }
+  .plug-install { font-family: var(--mono); font-size: 0.8125rem; color: var(--accent-bright);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plug-meta-mini { color: var(--text-dim); font-size: 0.8125rem; display: flex; gap: 10px; flex-shrink: 0; }
+</style>

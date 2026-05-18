@@ -3,7 +3,10 @@ Cargo.lock
 *.swp
 *.swo
 .DS_Store
-docs/book/
 .claude/
 .reviews/
 .fledge/
+.superpowers/
+site/node_modules
+site/dist
+site/.astro

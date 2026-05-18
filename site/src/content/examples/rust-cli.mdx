@@ -1,0 +1,27 @@
+---
+title: "Build a Rust CLI end-to-end"
+tag: "Rust CLI"
+steps: 8
+minutes: 12
+pillars: ["scaffold", "run", "ship"]
+description: "From templates init through release bump, with conventional commits."
+featured: true
+order: 1
+---
+
+import Callout from '../../components/Callout.astro'
+
+This walkthrough takes a Rust CLI from `templates init` to a tagged release in eight commands.
+
+## 1. Scaffold
+
+```bash
+fledge templates init my-cli -t rust-cli
+cd my-cli
+```
+
+(... rest of walkthrough goes here — placeholder content acceptable for v1 ...)
+
+<Callout type="tip">
+  **Tip:** `fledge lanes init` infers your build tooling from the manifest — no hand-editing needed.
+</Callout>

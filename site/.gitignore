@@ -1,0 +1,11 @@
+node_modules
+dist
+.astro
+src/data/plugins.json
+src/data/plugins/
+public/og-cards/
+# Generated redirect HTML files (written by generate-doc-redirects.ts at build time)
+public/*.html
+public/getting-started/
+public/reference/
+public/resources/
