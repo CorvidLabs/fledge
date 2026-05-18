@@ -132,6 +132,10 @@ const related = plugin.related_slugs
   .readme :global(code) { font-family: var(--mono); font-size: 0.875em; padding: 2px 6px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; color: var(--accent-bright); }
   .readme :global(pre) { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; margin-bottom: 16px; }
   .readme :global(pre code) { background: transparent; border: 0; padding: 0; color: var(--text); }
+  /* Tables in README content must scroll horizontally on narrow viewports */
+  .readme :global(table) { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .readme :global(th), .readme :global(td) { padding: 8px 12px; border: 1px solid var(--border-strong); font-size: 0.9375rem; white-space: nowrap; }
+  .readme :global(th) { background: var(--bg-raised); font-weight: 600; }
   .readme :global(ul), .readme :global(ol) { padding-left: 24px; margin-bottom: 14px; }
   .readme :global(a) { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 3px; }
   .plug-side h2 { font-size: 0.875rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }

@@ -88,4 +88,8 @@ pre code {
   .plug-foot a {
     padding-block: 12px;
   }
+  /* Inline brand link in footer tagline */
+  .foot-tagline a {
+    padding-block: 12px;
+  }
 }
