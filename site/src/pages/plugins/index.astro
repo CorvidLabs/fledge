@@ -138,6 +138,6 @@ const langCounts = list.reduce<Record<string, number>>((acc, p) => {
   .chip.active .count { color: var(--accent-bright); opacity: 0.7; }
   .results-meta { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 20px; }
   .results-meta strong { color: var(--text); }
-  .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; list-style: none; padding: 0; margin: 0; }
-  @media (max-width: 640px) { .plugin-grid { grid-template-columns: 1fr; } }
+  .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; list-style: none; padding: 0; margin: 0; }
+  .plugin-grid > li { min-width: 0; }
 </style>

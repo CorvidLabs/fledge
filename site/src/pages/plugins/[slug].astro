@@ -122,7 +122,8 @@ const related = plugin.related_slugs
   .install-label { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 8px; }
   .install-cmd code { font-family: var(--mono); color: var(--accent-bright); font-size: 1rem; }
   .plug-body { padding: 32px 0 60px; }
-  .plug-grid { display: grid; grid-template-columns: 1fr 240px; gap: 40px; align-items: start; }
+  .plug-grid { display: grid; grid-template-columns: 1fr 240px; gap: 40px; align-items: start; min-width: 0; }
+  .plug-grid > * { min-width: 0; }
   .readme { color: var(--text); line-height: 1.7; }
   .readme :global(h1) { font-size: 1.8rem; margin: 24px 0 12px; }
   .readme :global(h2) { font-size: 1.4rem; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
@@ -139,7 +140,8 @@ const related = plugin.related_slugs
   .plug-side dd:first-of-type { margin-top: 0; }
   .related { padding: 40px 0; border-top: 1px solid var(--border); }
   .related h2 { font-size: 1.4rem; margin-bottom: 20px; }
-  .rel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; list-style: none; padding: 0; margin: 0; }
+  .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; list-style: none; padding: 0; margin: 0; }
+  .rel-grid > li { min-width: 0; }
   .rel-card { display: block; padding: 18px; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px; color: inherit; text-decoration: none; }
   .rel-card:hover { border-color: var(--accent); }
   .rel-name { font-family: var(--mono); font-size: 0.9375rem; color: var(--text); margin-bottom: 6px; }
@@ -147,6 +149,5 @@ const related = plugin.related_slugs
   .cta-thin { padding: 60px 0; }
   @media (max-width: 900px) {
     .plug-grid { grid-template-columns: 1fr; }
-    .rel-grid { grid-template-columns: 1fr; }
   }
 </style>
