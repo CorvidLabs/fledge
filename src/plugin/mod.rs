@@ -593,10 +593,27 @@ fn remove_plugin_path(path: &Path) -> Result<()> {
     }
     let metadata =
         fs::symlink_metadata(path).with_context(|| format!("inspecting {}", path.display()))?;
-    if metadata.file_type().is_symlink() || metadata.is_file() {
-        fs::remove_file(path).with_context(|| format!("removing {}", path.display()))?;
+    if metadata.file_type().is_symlink() {
+        #[cfg(windows)]
+        {
+            if metadata.is_dir() {
+                fs::remove_dir(path)
+                    .with_context(|| format!("removing directory symlink {}", path.display()))?;
+            } else {
+                fs::remove_file(path)
+                    .with_context(|| format!("removing file symlink {}", path.display()))?;
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            fs::remove_file(path)
+                .with_context(|| format!("removing symlink {}", path.display()))?;
+        }
+    } else if metadata.is_file() {
+        fs::remove_file(path).with_context(|| format!("removing file {}", path.display()))?;
     } else {
-        fs::remove_dir_all(path).with_context(|| format!("removing {}", path.display()))?;
+        fs::remove_dir_all(path)
+            .with_context(|| format!("removing directory {}", path.display()))?;
     }
     Ok(())
 }

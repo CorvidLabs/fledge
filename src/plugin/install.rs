@@ -234,7 +234,7 @@ fn clone_git_source(
     cmd.args(&clone_args)
         .arg(plugin_dir)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped());
+        .stderr(std::process::Stdio::null());
     if is_github_clone_url(clone_url) {
         apply_git_auth(&mut cmd);
     }
@@ -264,7 +264,7 @@ fn clone_git_source(
             .args(["checkout", ref_str])
             .current_dir(plugin_dir)
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
             .status()
             .with_context(|| format!("checking out ref '{ref_str}'"))?;
         if !status.success() {
@@ -490,9 +490,18 @@ pub(crate) fn install_plugin(
         remove_plugin_path(&plugin_dir).context("removing existing plugin")?;
     }
 
-    materialize_source(&install_source, &plugin_dir, json)?;
+    if let Err(e) = materialize_source(&install_source, &plugin_dir, json) {
+        remove_plugin_path(&plugin_dir).ok();
+        return Err(e);
+    }
 
-    let manifest = read_manifest(&plugin_dir)?;
+    let manifest = match read_manifest(&plugin_dir) {
+        Ok(manifest) => manifest,
+        Err(e) => {
+            remove_plugin_path(&plugin_dir).ok();
+            return Err(e);
+        }
+    };
 
     let caps = &manifest.capabilities;
     let has_protocol_caps = caps.exec || caps.store || caps.metadata;
