@@ -13,6 +13,7 @@ Located in `src/trust.rs` under `#[cfg(test)] mod tests`:
 - `official_ssh_url` — `git@github.com:CorvidLabs/repo.git` classifies as `Official`
 - `official_with_ref` — `CorvidLabs/repo@v1.0.0` classifies as `Official` (ref stripped before classification)
 - `official_case_insensitive` — lowercase `corvidlabs/repo` classifies as `Official`
+- `local_path` — filesystem path sources classify as `Local`
 - `team_member_shorthand` — `0xLeif/repo` classifies as `Team`
 - `team_member_case_insensitive` — `0xleif/repo` classifies as `Team` (GitHub usernames compare case-insensitively)
 - `team_member_full_url` — `https://github.com/0xLeif/repo` classifies as `Team`
@@ -27,7 +28,7 @@ Located in `src/trust.rs` under `#[cfg(test)] mod tests`:
 - `parse_source_ref_without_tag` — leaves `someone/repo` unsplit, ref `None`
 - `parse_source_ref_full_url_with_tag` — splits `https://github.com/…/repo.git@v2.0.0` correctly
 - `parse_source_ref_credential_url_no_split` — credential URL `https://user:token@github.com/…` does NOT split on credential `@`
-- `labels` — `label()` returns `"official"`, `"team"`, `"unverified"`
+- `labels` — `label()` returns `"local"`, `"official"`, `"team"`, `"unverified"`
 
 ### Integration Tests
 
@@ -57,7 +58,7 @@ fledge search rust           # templates also show tier
 
 # JSON output uses lowercase labels (post-tier-C envelope: .plugins[])
 fledge plugins list --json | jq '.plugins[].trust_tier'
-# -> "official" / "team" / "unverified"
+# -> "local" / "official" / "team" / "unverified"
 ```
 
 ### Regression Watch

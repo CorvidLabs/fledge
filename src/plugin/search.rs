@@ -185,5 +185,5 @@ fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
         style(chosen.full_name()).green().bold()
     );
 
-    super::install::install_action(Some(&chosen.full_name()), false, false, false)
+    super::install::install_action(Some(&chosen.full_name()), false, false, false, false)
 }

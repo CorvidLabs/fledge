@@ -1047,12 +1047,12 @@ expression: output
       "subcommands": [
         {
           "name": "install",
-          "about": "Install a plugin from GitHub",
+          "about": "Install a plugin from a local path or git source",
           "aliases": [],
           "args": [
             {
               "name": "source",
-              "help": "GitHub repo (`owner/repo[@ref]`) or full URL — use `@tag` to pin a version. Omit when using `--defaults`",
+              "help": "Local path, git URL, or GitHub repo (`owner/repo[@ref]`). Omit when using `--defaults`",
               "required": false,
               "takes_value": true,
               "value_name": "SOURCE",
@@ -1071,6 +1071,14 @@ expression: output
               "long": "yes",
               "short": "y",
               "help": "Skip all confirmation prompts (accept defaults)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "copy",
+              "long": "copy",
+              "help": "Copy a local plugin into fledge's config dir instead of live-linking it",
               "required": false,
               "takes_value": false,
               "global": false

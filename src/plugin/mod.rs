@@ -200,6 +200,7 @@ pub enum PluginAction {
     Install {
         source: Option<String>,
         force: bool,
+        copy: bool,
         /// Install the curated set of default plugins (DEFAULT_PLUGINS)
         defaults: bool,
     },
@@ -254,8 +255,9 @@ pub fn run(opts: PluginOptions) -> Result<()> {
         PluginAction::Install {
             source,
             force,
+            copy,
             defaults,
-        } => install_action(source.as_deref(), force, defaults, opts.json),
+        } => install_action(source.as_deref(), force, copy, defaults, opts.json),
         PluginAction::Remove { name } => remove_plugin(&name, opts.json),
         PluginAction::Update { name, defaults } => {
             update_plugins(name.as_deref(), defaults, opts.json)
@@ -585,6 +587,61 @@ fn validate_plugin_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+fn remove_plugin_path(path: &Path) -> Result<()> {
+    if !path.exists() && !path.is_symlink() {
+        return Ok(());
+    }
+    let metadata =
+        fs::symlink_metadata(path).with_context(|| format!("inspecting {}", path.display()))?;
+    if metadata.file_type().is_symlink() {
+        #[cfg(windows)]
+        {
+            if path.is_dir() {
+                fs::remove_dir(path)
+                    .with_context(|| format!("removing directory symlink {}", path.display()))?;
+            } else {
+                fs::remove_file(path)
+                    .with_context(|| format!("removing file symlink {}", path.display()))?;
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            fs::remove_file(path)
+                .with_context(|| format!("removing symlink {}", path.display()))?;
+        }
+    } else if metadata.is_file() {
+        fs::remove_file(path).with_context(|| format!("removing file {}", path.display()))?;
+    } else {
+        fs::remove_dir_all(path)
+            .with_context(|| format!("removing directory {}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn copy_dir_all(source: &Path, destination: &Path) -> Result<()> {
+    fs::create_dir_all(destination)
+        .with_context(|| format!("creating {}", destination.display()))?;
+    for entry in fs::read_dir(source).with_context(|| format!("reading {}", source.display()))? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let metadata = fs::symlink_metadata(&source_path)
+            .with_context(|| format!("inspecting {}", source_path.display()))?;
+        if metadata.file_type().is_symlink() {
+            let target = fs::read_link(&source_path)
+                .with_context(|| format!("reading symlink {}", source_path.display()))?;
+            create_symlink(&target, &destination_path)
+                .with_context(|| format!("copying symlink {}", source_path.display()))?;
+        } else if metadata.is_dir() {
+            copy_dir_all(&source_path, &destination_path)?;
+        } else {
+            fs::copy(&source_path, &destination_path)
+                .with_context(|| format!("copying {}", source_path.display()))?;
+        }
+    }
+    Ok(())
+}
+
 // ─── Git auth helper ─────────────────────────────────────────────────────────
 
 fn apply_git_auth(cmd: &mut Command) {
@@ -643,6 +700,19 @@ fn create_symlink(original: &Path, link: &Path) -> Result<()> {
         // privileges.  Fall back to copying the file when symlink fails.
         std::os::windows::fs::symlink_file(original, link)
             .or_else(|_| std::fs::copy(original, link).map(|_| ()))?;
+    }
+    Ok(())
+}
+
+fn create_dir_symlink(original: &Path, link: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(original, link)?;
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(original, link)
+            .or_else(|_| copy_dir_all(original, link))?;
     }
     Ok(())
 }

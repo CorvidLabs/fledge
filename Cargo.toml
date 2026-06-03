@@ -34,8 +34,8 @@ sha2 = "0.11.0"
 base64 = "0.22"
 notify = "7"
 shell-words = "1.1.1"
-wasmtime = "43"
-wasmtime-wasi = "43"
+wasmtime = "44.0.2"
+wasmtime-wasi = "44.0.2"
 
 [build-dependencies]
 toml = "0.8"

@@ -1,6 +1,6 @@
 ---
 module: work
-version: 13
+version: 14
 status: active
 files:
   - src/work.rs
@@ -25,6 +25,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate work subcommand |
 | `WorkAction` | Enum of subcommands: Start, Commit, Push, Status, DeprecatedPr |
+| `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
 | `build_commit_message` | Builds a conventional-commit message string from type, optional scope, and message body |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
@@ -301,6 +302,7 @@ $ fledge work status --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14 | 2026-06-03 | Document `WorkConfig` in the export table to satisfy strict spec-sync validation |
 | 12 | 2026-05-01 | **Security:** `commit --ai --scope <s>` now validates `<s>` against `[A-Za-z0-9_-]{1,64}` before interpolating it into the LLM prompt or commit message. Scopes containing whitespace, shell metacharacters, template syntax, or anything that could be read as instructions to the model are rejected at the boundary with a clear error |
 | 11 | 2026-04-30 | Pure git split: removed `pr` subcommand (moved to `fledge-plugin-github`), added `commit` and `push` subcommands with `--ai` support and conventional-commit formatting. `status` drops PR info, adds `dirty` count, bumps schema to v2. `generate_body_from_commits` removed; `build_commit_message` added |
 | 10 | 2026-04-26 | Doc sync, behavioral examples for `work start/pr/status --json` updated to show the post-tier-D envelope shapes (with `schema_version` and `action`). No code change |

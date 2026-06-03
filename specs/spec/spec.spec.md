@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 10
+version: 11
 status: active
 files:
   - src/spec/mod.rs
@@ -51,6 +51,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `module_leaf` | (internal) Last `/`-separated segment of a module name; used to derive the spec filename for nested names |
 | `to_title_case` | (internal) Convert snake_case to Title Case for spec scaffolding |
 | `parse_frontmatter` | (internal) Parse YAML frontmatter and body from a spec file string |
+| `parse_yaml_frontmatter` | (internal) Parse YAML frontmatter fields into `SpecFrontmatter` |
 | `extract_sections` | (internal) Extract `## Section` headings from a spec body |
 | `extract_purpose` | (internal) Extract the first paragraph under `## Purpose` |
 | `ValidationIssue` | (internal) Individual validation issue with message and is_error flag |
@@ -269,6 +270,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11 | 2026-06-03 | Document `parse_yaml_frontmatter` in the export table to satisfy strict spec-sync validation |
 | 10 | 2026-05-11 | Accept nested module names with `/` for `fledge spec new` (#383). `validate_module_name` allows `game/board`-style names while still rejecting `\`, leading/trailing `/`, `//`, and any `..`/`.` segment. New `module_leaf` helper derives the spec filename for nested names (`game/board` → `board.spec.md`). `new_spec` writes nested directory layout and quotes registry keys containing `/` so the resulting TOML stays valid |
 | 9 | 2026-04-29 | Document all `pub(crate)` exports from module split (`mod.rs`, `parse.rs`, `validation.rs`, `commands.rs`) to satisfy strict spec-sync validation |
 | 8 | 2026-04-27 | Fix nested-spec resolution (#291). `IndexEntry` now carries the spec file's on-disk `path`. `specs_for_changed_files` matches via each spec's actual parent directory rather than the assumed `<specs_dir>/<name>/`, and `load_module_bundle` resolves the spec file through the index instead of guessing. Sub-specs that share a directory with another module (e.g. `specs/plugin/plugin-protocol.spec.md`) now resolve correctly |
