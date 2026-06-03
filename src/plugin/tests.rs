@@ -1,3 +1,4 @@
+use super::install::InstallSource;
 use super::*;
 use crate::trust::{parse_source_ref, TrustTier};
 
@@ -143,7 +144,7 @@ fn default_plugins_are_well_formed() {
 
 #[test]
 fn install_action_rejects_source_with_defaults() {
-    let err = install_action(Some("someone/foo"), false, true, false)
+    let err = install_action(Some("someone/foo"), false, false, true, false)
         .unwrap_err()
         .to_string();
     assert!(err.contains("--defaults"));
@@ -151,7 +152,7 @@ fn install_action_rejects_source_with_defaults() {
 
 #[test]
 fn install_action_requires_source_or_defaults() {
-    let err = install_action(None, false, false, false)
+    let err = install_action(None, false, false, false, false)
         .unwrap_err()
         .to_string();
     assert!(err.contains("--defaults"));
@@ -217,6 +218,78 @@ fn normalize_full_url() {
 fn normalize_ssh_url() {
     let url = "git@github.com:someone/fledge-deploy.git";
     assert_eq!(normalize_source(url), url);
+}
+
+#[test]
+fn install_source_parses_existing_local_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        tmp.path().join("plugin.toml"),
+        "[plugin]\nname = \"local-tool\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+
+    let source = InstallSource::parse(tmp.path().to_str().unwrap(), false).unwrap();
+    match source {
+        InstallSource::LocalPath {
+            canonical, copy, ..
+        } => {
+            assert_eq!(canonical, tmp.path().canonicalize().unwrap());
+            assert!(!copy);
+        }
+        InstallSource::Git { .. } => panic!("expected local source"),
+    }
+}
+
+#[test]
+fn install_source_parses_generic_git_url_without_github_normalization() {
+    let source = InstallSource::parse(
+        "https://gitlab.com/org/fledge-plugin-demo.git@v1.0.0",
+        false,
+    )
+    .unwrap();
+    match source {
+        InstallSource::Git {
+            clone_url,
+            registry_source,
+            git_ref,
+            repo_name,
+            ..
+        } => {
+            assert_eq!(clone_url, "https://gitlab.com/org/fledge-plugin-demo.git");
+            assert_eq!(
+                registry_source,
+                "https://gitlab.com/org/fledge-plugin-demo.git"
+            );
+            assert_eq!(git_ref.as_deref(), Some("v1.0.0"));
+            assert_eq!(repo_name, "fledge-plugin-demo");
+        }
+        InstallSource::LocalPath { .. } => panic!("expected git source"),
+    }
+}
+
+#[test]
+fn install_source_rejects_copy_for_git_source() {
+    let err = InstallSource::parse("someone/fledge-plugin-demo", true)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("--copy"));
+}
+
+#[test]
+fn remove_plugin_path_removes_symlink_without_removing_target() {
+    let tmp = tempfile::tempdir().unwrap();
+    let target = tmp.path().join("target");
+    let link = tmp.path().join("link");
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("plugin.toml"), "").unwrap();
+    create_dir_symlink(&target, &link).unwrap();
+
+    remove_plugin_path(&link).unwrap();
+
+    assert!(!link.exists());
+    assert!(target.exists());
+    assert!(target.join("plugin.toml").exists());
 }
 
 #[test]
@@ -887,9 +960,17 @@ fn trust_tier_unverified_no_org() {
 #[test]
 fn trust_tier_label_strings() {
     use crate::trust::TrustTier;
+    assert_eq!(TrustTier::Local.label(), "local");
     assert_eq!(TrustTier::Official.label(), "official");
     assert_eq!(TrustTier::Team.label(), "team");
     assert_eq!(TrustTier::Unverified.label(), "unverified");
+}
+
+#[test]
+fn trust_tier_local_path() {
+    use crate::trust::{determine_trust_tier, TrustTier};
+    assert_eq!(determine_trust_tier("/tmp/fledge-plugin"), TrustTier::Local);
+    assert_eq!(determine_trust_tier("./fledge-plugin"), TrustTier::Local);
 }
 
 #[test]

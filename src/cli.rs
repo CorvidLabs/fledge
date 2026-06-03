@@ -658,9 +658,9 @@ pub enum LaneSubcommand {
 
 #[derive(clap::Subcommand)]
 pub enum PluginSubcommand {
-    /// Install a plugin from GitHub
+    /// Install a plugin from a local path or git source
     Install {
-        /// GitHub repo (`owner/repo[@ref]`) or full URL — use `@tag` to pin a version. Omit when using `--defaults`.
+        /// Local path, git URL, or GitHub repo (`owner/repo[@ref]`). Omit when using `--defaults`.
         source: Option<String>,
         /// Reinstall if already present
         #[arg(long)]
@@ -668,6 +668,9 @@ pub enum PluginSubcommand {
         /// Skip all confirmation prompts (accept defaults)
         #[arg(short, long)]
         yes: bool,
+        /// Copy a local plugin into fledge's config dir instead of live-linking it
+        #[arg(long)]
+        copy: bool,
         /// Install fledge's curated set of default plugins (github, deps, metrics)
         #[arg(long, conflicts_with = "source")]
         defaults: bool,

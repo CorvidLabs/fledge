@@ -1,6 +1,6 @@
 ---
 module: plugin
-version: 28
+version: 29
 status: active
 files:
   - src/plugin/mod.rs
@@ -26,7 +26,7 @@ depends_on:
 
 ## Purpose
 
-Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, lane steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`).
+Plugin system for community extensions. Plugins are external executables that register as fledge subcommands, lane steps, or template post-processors. Discovery uses the same GitHub topic convention as templates (`fledge-plugin`), while installation supports local paths, generic git URLs, and GitHub shorthand.
 
 ## Public API
 
@@ -43,7 +43,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `PluginCapabilities` | `pub` | Declared capabilities — exec, store, metadata (all default false) |
 | `install_action` | `pub(crate)` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
 | `install_defaults` | `pub(crate)` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
-| `install_plugin` | `pub(crate)` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `install_plugin` | `pub(crate)` | Install a single plugin from a local path or git source. Returns a JSON report for the caller to envelope |
 | `list_plugins` | `pub(crate)` | List installed plugins with trust tier, version, and source info |
 | `audit_plugins` | `pub(crate)` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
 | `has_lifecycle_hooks` | `pub(crate)` | Check whether a plugin has any lifecycle hooks defined in its manifest |
@@ -77,9 +77,9 @@ Plugin system for community extensions. Plugins are external executables that re
 | `run` | `mod.rs` | `(PluginOptions) -> Result<()>` | Main entry — dispatch to install/list/remove/run/audit |
 | `resolve_plugin_command` | `mod.rs` | `(&str) -> Option<PathBuf>` | Find plugin executable by command name |
 | `run_lifecycle_hook` | `mod.rs` | `(&str) -> Result<()>` | Run a named lifecycle hook across all installed plugins |
-| `install_action` | `install.rs` | `(Option<&str>, bool, bool, bool) -> Result<()>` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
+| `install_action` | `install.rs` | `(Option<&str>, bool, bool, bool, bool) -> Result<()>` | Top-level dispatcher for `fledge plugins install`. Routes single-source installs vs `--defaults` bulk installs |
 | `install_defaults` | `install.rs` | `(bool, bool) -> Result<()>` | Install every entry in `DEFAULT_PLUGINS` with per-plugin error collection |
-| `install_plugin` | `install.rs` | `(&str, bool, bool) -> Result<Value>` | Install a single plugin from source ref. Returns a JSON report for the caller to envelope |
+| `install_plugin` | `install.rs` | `(&str, bool, bool, bool) -> Result<Value>` | Install a single plugin from a local path or git source. Returns a JSON report for the caller to envelope |
 | `list_plugins` | `list.rs` | `(bool) -> Result<()>` | List installed plugins with trust tier, version, and source info |
 | `audit_plugins` | `list.rs` | `(bool) -> Result<()>` | Security audit of installed plugins — trust tiers, capabilities, hooks, and warnings |
 | `has_lifecycle_hooks` | `list.rs` | `(&str) -> bool` | Check whether a plugin has any lifecycle hooks defined in its manifest |
@@ -88,7 +88,7 @@ Plugin system for community extensions. Plugins are external executables that re
 | `create_plugin` | `create.rs` | `(&str, &Path, Option<&str>, bool, bool) -> Result<()>` | Scaffold a new plugin directory with plugin.toml, entry-point script, README, and .gitignore |
 | `publish_plugin` | `publish.rs` | `(&Path, Option<&str>, bool, Option<&str>, bool, bool) -> Result<()>` | Validate and publish a plugin directory to GitHub with `fledge-plugin` topic |
 | `update_plugins` | `update.rs` | `(Option<&str>, bool, bool) -> Result<()>` | Update installed plugins via git pull + rebuild. Supports single, all, or `--defaults` scope |
-| `find_latest_tag` | `update.rs` | `(&Path) -> Option<String>` | Fetch tags and return the latest version-sorted tag for a plugin repo |
+| `find_latest_tag` | `update.rs` | `(&Path, &str) -> Option<String>` | Fetch tags and return the latest version-sorted tag for a plugin repo |
 | `validate_plugin` | `validate.rs` | `(&Path, bool, bool) -> Result<()>` | Validate a plugin.toml manifest: check name, version, binaries, and hooks |
 | `print_plugin_report` | `validate.rs` | `(&PluginValidationReport, bool, bool) -> Result<()>` | Print validation results in human or JSON format. Fails if errors (or warnings in strict mode) |
 | `search_plugins` | `search.rs` | `(Option<&str>, Option<&str>, Option<&str>, usize, bool, bool) -> Result<()>` | Search GitHub for plugins by query, author, topic, limit, interactive, json |
@@ -150,11 +150,12 @@ Plugins are classified by their source into trust tiers:
 
 | Tier | Criteria | Display |
 |------|----------|---------|
+| Local | Source is a filesystem path installed from the local machine | Magenta `[local]` |
 | Official | Source org is `CorvidLabs` (case-insensitive) | Green bold `[official]` |
 | Team | Source owner is a human member of the CorvidLabs org (`TEAM_MEMBERS` allowlist in `src/trust.rs`), or listed in `trust.orgs` or `trust.users` in the user's config | Cyan `[team]` |
 | Unverified | All other sources | Yellow `[unverified]` |
 
-Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins requesting `exec` or `network` capabilities are **blocked at install time** — the install is aborted, the partially-cloned directory is cleaned up, and the user is told to fork the plugin under a trusted source. Official and team-tier plugins are unaffected.
+Trust tiers are shown in `plugin list`, `plugin audit`, and during `plugin install`. Unverified plugins requesting `exec` or `network` capabilities are **blocked at install time** — the install is aborted, the partially-cloned directory is cleaned up, and the user is told to fork the plugin under a trusted source. Local, official, and team-tier plugins are unaffected by that block, but still require normal capability/hook confirmation.
 
 Users can extend the team tier via config without recompiling:
 
@@ -174,7 +175,13 @@ Plugins are discovered via:
 
 ### Plugin Installation
 
-`fledge plugins install <repo>[@ref]` clones the repo to `<config_dir>/fledge/plugins/<name>/`, optionally checks out a pinned git ref (tag, branch, or commit), reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks them.
+`fledge plugins install <source>` installs from one of three source forms:
+
+- Local paths (`./my-plugin`, `../my-plugin`, `/abs/my-plugin`) are live-linked into `<config_dir>/fledge/plugins/<name>/` by default. The plugin name comes from `plugin.toml`. Pass `--copy` to snapshot the directory into fledge's config dir instead.
+- Generic git URLs (`https://...`, `ssh://...`, `git://...`, `file://...`, `git@host:org/repo.git`) are cloned as-is.
+- GitHub shorthand (`owner/repo[@ref]`) remains supported and expands to `https://github.com/owner/repo.git`.
+
+After materializing the source, fledge reads `plugin.toml`, runs the `build` hook (or auto-detects the build system), validates binaries, and symlinks commands.
 
 ### Plugin Runtime Environment
 
@@ -214,12 +221,12 @@ pinned_ref = "v0.2.0"
 1. Plugins are installed to `<config_dir>/fledge/plugins/<name>/` (where `<config_dir>` = `dirs::config_dir()`)
 2. Plugin binaries are symlinked to `<config_dir>/fledge/plugins/bin/`
 3. `resolve_plugin_command` checks `plugins/bin/` then PATH for `fledge-<name>`
-4. `plugin install` clones the repo, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
-5. `plugin remove` deletes the plugin directory and its symlinks
-6. `plugin update` git pulls and rebuilds unpinned plugins; pinned plugins check for newer tags
+4. `plugin install` materializes the source, reads `plugin.toml`, runs build hook (or auto-detects), creates symlinks
+5. `plugin remove` deletes the installed plugin directory/symlink and command symlinks, but never deletes the original source behind a local live-link
+6. `plugin update` git pulls and rebuilds unpinned git plugins; pinned plugins check for newer tags; local plugins are skipped
 7. `plugin list` shows installed plugins with name, version, trust tier, source, runtime (`native`/`wasm`), and commands
 8. `plugin audit` shows trust tier, runtime/sandbox status, capabilities, lifecycle hooks, and warnings for each plugin
-9. `plugin search` uses GitHub topic search (same as template search). Optional `--trust-tier {official,team,unverified}` filter is applied client-side after fetching (the GitHub API has no concept of fledge tiers); each result's tier is computed via `determine_trust_tier_from_owner`
+9. `plugin search` uses GitHub topic search (same as template search). Optional `--trust-tier {local,official,team,unverified}` filter is applied client-side after fetching (the GitHub API has no concept of fledge tiers); each result's tier is computed via `determine_trust_tier_from_owner`, so local naturally returns no search results
 10. Plugin commands are dispatched via clap's `external_subcommand` and do **not** appear in `fledge --help` or `fledge introspect --json`. Discoverability of installed plugin verbs happens via `fledge plugins list` (or `--json`). This is intentional: the core help is a static contract, while installed plugin verbs are machine-dependent and live under the `plugins` namespace
 11. `plugin recommend` detects project language (via `run::detect_project_type`) and existing tooling (`Dockerfile`, `docker-compose.yml`, `.github/`), filters out already-installed plugins from the curated list, and emits language-specific suggestions. Interactive mode offers a single bulk-install confirmation
 12. `--json` (the global flag at the `plugins` parent command) outputs structured data for **every** plugin subcommand: `list`, `audit`, `search`, `recommend`, `install`, `install --defaults`, `remove`, `update`, `update --defaults`, `create`, `publish`, `validate`. Every output is a JSON **object** at the top level with `schema_version: 1`. The list/audit/search outputs use a named-array envelope: `{schema_version: 1, plugins: [...]}`, `{schema_version: 1, audit: [...]}`, `{schema_version: 1, results: [...]}`. Mutating commands use `{schema_version: 1, action, scope?, installed?|removed?|results?, summary?}`. Recommend uses `{schema_version: 1, action: "plugins_recommend", language, installed_count, recommendations: [{repo, reason}]}`. Scaffold/publish use `{schema_version: 1, action, path|repo, name|owner, files_created?|topic?, ...}`. Validate uses the report struct flattened with `schema_version` at top. **No top-level arrays** — agents `jq` the named key (`.plugins[]`, `.audit[]`, `.results[]`, `.recommendations[]`). Prose, spinners, and capability prompts are suppressed in JSON mode (warnings still go to stderr). Errors continue to surface via stderr with non-zero exit code — JSON mode never silently turns a failure into a success exit code
@@ -228,7 +235,7 @@ pinned_ref = "v0.2.0"
 15. `fledge plugins update --defaults` (mutually exclusive with a plugin name) updates only the installed plugins from the curated `DEFAULT_PLUGINS` set, matching by source string against either the shorthand (`owner/repo`) or the normalized URL form. Community plugins (e.g. `fledge-plugin-figma`) are left untouched. If none of the defaults are installed, the command suggests `fledge plugins install --defaults` and exits 0
 16. Protocol plugins without `exec` capability cannot run lifecycle hooks — `run_lifecycle_hook` skips them silently. Non-protocol plugins (no capability entry in the registry) are unaffected
 17. `plugin install` displays lifecycle hooks (with their shell commands) in the approval prompt alongside capabilities. Hooks-only plugins (no protocol capabilities) still require user approval before install completes
-18. `plugin install` rejects unverified plugins that request `exec` or `network` capabilities — the install is aborted before the approval prompt. Only official-tier and team-tier plugins may use these capabilities
+18. `plugin install` rejects unverified plugins that request `exec` or `network` capabilities — the install is aborted before the approval prompt. Local, official-tier, and team-tier plugins may use these capabilities after normal confirmation
 19. Trust tiers are extensible via config: `trust.orgs` and `trust.users` (list keys in `config.toml`) add entries to the team tier. Compared case-insensitively. Config entries never grant official tier — that remains hardcoded to `OFFICIAL_ORGS`
 
 ## Behavioral Examples
@@ -236,6 +243,21 @@ pinned_ref = "v0.2.0"
 ```
 # Install a plugin from GitHub
 $ fledge plugins install someone/fledge-deploy
+✅ Installed fledge-deploy v0.1.0
+  Commands: deploy
+
+# Install a plugin from a local path (live-linked)
+$ fledge plugins install ./my-tool
+✅ Installed my-tool v0.1.0
+  Commands: my-tool
+
+# Snapshot-copy a local plugin instead of live-linking it
+$ fledge plugins install ./my-tool --copy
+✅ Installed my-tool v0.1.0
+  Commands: my-tool
+
+# Install from a generic git URL
+$ fledge plugins install https://gitlab.com/org/fledge-deploy.git
 ✅ Installed fledge-deploy v0.1.0
   Commands: deploy
 
@@ -325,13 +347,14 @@ Installed plugins:
 | Error | When | Behavior |
 |-------|------|----------|
 | Plugin not found | install with invalid repo | Error with suggestion |
-| No plugin.toml | Repo missing manifest | Error explaining requirement |
+| No plugin.toml | Repo or local plugin path missing manifest | Error explaining requirement |
 | Already installed | install when present | Error with `--force` suggestion |
 | Not installed | remove when absent | Error listing installed plugins |
 | Binary not found | plugin.toml references missing binary | Error with build hint |
 | Build failed | build hook or auto-detect build fails | Error with toolchain suggestion |
 | Ref not found | `@ref` doesn't exist in repo | Error with `git ls-remote` hint |
 | Permission denied | Binary not executable | Error with guidance |
+| Copy with git source | `--copy` passed with a git source | Error explaining `--copy` is only for local paths |
 | Create dir exists | `create` target directory already exists | Error |
 | Validate no plugin.toml | `validate` path missing plugin.toml | Error |
 | Validate empty name | `plugin.name` is empty string | Validation error |
@@ -348,6 +371,7 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 29 | 2026-06-03 | Add local path and generic git URL plugin installs. Local path installs live-link by default, support `--copy` snapshots, classify as `[local]`, and are skipped by `plugins update`. Generic git URLs clone as-is while GitHub shorthand remains supported |
 | 28 | 2026-05-11 | `plugins update` skips workspace-managed plugins (no `.git` in install dir) with an informational `skipped` status instead of warning on a guaranteed-to-fail `git pull`. Detects both `.git` directories (standard clones) and `.git` files (worktrees / submodules). Lets host projects like Merlin register their internal plugins via `source = "owner/repo"` without triggering noisy errors on routine `fledge plugins update` runs (#382) |
 | 27 | 2026-05-07 | Frontmatter bump; no functional change |
 | 26 | 2026-05-05 | Add `--trust-tier {official,team,unverified}` filter to `plugins search`. Lets agents pre-filter results to first-party only (`official`) without post-processing. `TrustTier` now derives `clap::ValueEnum`. Filter is client-side (GitHub doesn't expose tier semantics). Invariant 9 updated |

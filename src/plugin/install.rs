@@ -1,15 +1,142 @@
 use anyhow::{bail, Context, Result};
 use console::style;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 
 use super::{
-    apply_git_auth, extract_name_from_source, link_commands, load_registry, normalize_source,
-    plugin_bin_dir, plugins_dir, run_build, run_hook, save_registry, validate_plugin_name,
-    PluginCapabilities, PluginEntry, PluginManifest, PLUGINS_INSTALL_SCHEMA,
+    apply_git_auth, copy_dir_all, create_dir_symlink, extract_name_from_source, link_commands,
+    load_registry, normalize_source, plugin_bin_dir, plugins_dir, remove_plugin_path, run_build,
+    run_hook, save_registry, validate_plugin_name, PluginCapabilities, PluginEntry, PluginManifest,
+    PLUGINS_INSTALL_SCHEMA,
 };
+
+#[derive(Debug)]
+pub(super) enum InstallSource {
+    LocalPath {
+        original: String,
+        canonical: PathBuf,
+        copy: bool,
+    },
+    Git {
+        original: String,
+        clone_url: String,
+        registry_source: String,
+        git_ref: Option<String>,
+        repo_name: String,
+    },
+}
+
+impl InstallSource {
+    pub(super) fn parse(source: &str, copy: bool) -> Result<Self> {
+        if let Some(local) = Self::local_path(source, copy)? {
+            return Ok(local);
+        }
+        if copy {
+            bail!("--copy is only valid when installing from a local path.");
+        }
+
+        let (base, git_ref) = parse_source_ref(source);
+        let clone_url = if Self::is_git_url(base) {
+            base.to_string()
+        } else {
+            normalize_source(source)
+        };
+        let repo_name = extract_name_from_source(source);
+        validate_plugin_name(&repo_name)?;
+        Ok(Self::Git {
+            original: source.to_string(),
+            clone_url,
+            registry_source: base.to_string(),
+            git_ref: git_ref.map(String::from),
+            repo_name,
+        })
+    }
+
+    fn local_path(source: &str, copy: bool) -> Result<Option<Self>> {
+        if source.starts_with("file://") {
+            return Ok(None);
+        }
+        let path = Path::new(source);
+        let looks_like_path = path.is_absolute()
+            || source.starts_with("./")
+            || source.starts_with("../")
+            || source == "."
+            || source == "..";
+        if !looks_like_path && !path.exists() {
+            return Ok(None);
+        }
+        if !path.exists() {
+            bail!("Local plugin path '{}' does not exist.", source);
+        }
+        let canonical = path
+            .canonicalize()
+            .with_context(|| format!("resolving local plugin path '{}'", source))?;
+        if !canonical.is_dir() {
+            bail!("Local plugin path '{}' is not a directory.", source);
+        }
+        Ok(Some(Self::LocalPath {
+            original: source.to_string(),
+            canonical,
+            copy,
+        }))
+    }
+
+    fn is_git_url(source: &str) -> bool {
+        source.starts_with("http://")
+            || source.starts_with("https://")
+            || source.starts_with("ssh://")
+            || source.starts_with("git://")
+            || source.starts_with("file://")
+            || source.starts_with("git@")
+    }
+
+    fn install_name(&self) -> Result<String> {
+        match self {
+            Self::LocalPath { canonical, .. } => {
+                let manifest = read_manifest(canonical)?;
+                validate_plugin_name(&manifest.plugin.name)?;
+                Ok(manifest.plugin.name)
+            }
+            Self::Git { repo_name, .. } => Ok(repo_name.clone()),
+        }
+    }
+
+    fn registry_source(&self) -> String {
+        match self {
+            Self::LocalPath { canonical, .. } => canonical.to_string_lossy().to_string(),
+            Self::Git {
+                registry_source, ..
+            } => registry_source.clone(),
+        }
+    }
+
+    fn display_source(&self) -> String {
+        match self {
+            Self::LocalPath {
+                original,
+                canonical,
+                copy,
+            } => {
+                if *copy {
+                    format!("{} ({}, copied)", canonical.display(), original)
+                } else {
+                    format!("{} ({}, linked)", canonical.display(), original)
+                }
+            }
+            Self::Git { clone_url, .. } => clone_url.clone(),
+        }
+    }
+
+    fn trust_tier(&self) -> TrustTier {
+        match self {
+            Self::LocalPath { .. } => TrustTier::Local,
+            Self::Git { original, .. } => determine_trust_tier(original),
+        }
+    }
+}
 
 pub(super) fn check_tier_capabilities(
     tier: TrustTier,
@@ -32,6 +159,132 @@ pub(super) fn check_tier_capabilities(
     }
 }
 
+fn read_manifest(plugin_dir: &Path) -> Result<PluginManifest> {
+    let manifest_path = plugin_dir.join("plugin.toml");
+    if !manifest_path.exists() {
+        bail!(
+            "Plugin directory '{}' has no plugin.toml manifest.\n  See {} for the plugin format.",
+            plugin_dir.display(),
+            style("https://github.com/CorvidLabs/fledge#plugins").cyan()
+        );
+    }
+    let manifest_content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
+    toml::from_str(&manifest_content).context("parsing plugin.toml")
+}
+
+fn materialize_source(source: &InstallSource, plugin_dir: &Path, json: bool) -> Result<()> {
+    match source {
+        InstallSource::LocalPath {
+            canonical, copy, ..
+        } => {
+            if *copy {
+                if !json {
+                    println!(
+                        "  {} Copying local plugin from {}",
+                        style("→").dim(),
+                        style(canonical.display()).cyan()
+                    );
+                }
+                copy_dir_all(canonical, plugin_dir)
+            } else {
+                if !json {
+                    println!(
+                        "  {} Linking local plugin from {}",
+                        style("→").dim(),
+                        style(canonical.display()).cyan()
+                    );
+                }
+                create_dir_symlink(canonical, plugin_dir)
+            }
+        }
+        InstallSource::Git {
+            original,
+            clone_url,
+            git_ref,
+            ..
+        } => clone_git_source(original, clone_url, git_ref.as_deref(), plugin_dir, json),
+    }
+}
+
+fn clone_git_source(
+    original: &str,
+    clone_url: &str,
+    git_ref: Option<&str>,
+    plugin_dir: &Path,
+    json: bool,
+) -> Result<()> {
+    let sp = if json {
+        None
+    } else {
+        let clone_msg = match git_ref {
+            Some(r) => format!("Cloning {}@{}:", clone_url, r),
+            None => format!("Cloning {}:", clone_url),
+        };
+        Some(crate::spinner::Spinner::start(&clone_msg))
+    };
+
+    let mut clone_args = vec!["clone"];
+    if git_ref.is_none() {
+        clone_args.push("--depth");
+        clone_args.push("1");
+    }
+    clone_args.push(clone_url);
+
+    let mut cmd = Command::new("git");
+    cmd.args(&clone_args)
+        .arg(plugin_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped());
+    if is_github_clone_url(clone_url) {
+        apply_git_auth(&mut cmd);
+    }
+
+    let status = cmd.status().context("running git clone")?;
+
+    if let Some(s) = sp {
+        s.finish();
+    }
+
+    if !status.success() {
+        bail!(
+            "Failed to clone '{}'. Check the repository URL and your network connection.",
+            original
+        );
+    }
+
+    if let Some(ref_str) = git_ref {
+        if ref_str.starts_with('-') {
+            remove_plugin_path(plugin_dir).ok();
+            bail!(
+                "Invalid git ref '{}': references cannot start with a hyphen.",
+                ref_str
+            );
+        }
+        let status = Command::new("git")
+            .args(["checkout", ref_str])
+            .current_dir(plugin_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .status()
+            .with_context(|| format!("checking out ref '{ref_str}'"))?;
+        if !status.success() {
+            remove_plugin_path(plugin_dir).ok();
+            bail!(
+                "Git ref '{}' not found in '{}'. Check available tags with:\n  {}",
+                ref_str,
+                original,
+                style(format!("git ls-remote --tags {clone_url}")).cyan()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn is_github_clone_url(clone_url: &str) -> bool {
+    clone_url.starts_with("https://github.com/") || clone_url.starts_with("git@github.com:")
+}
+
 /// Top-level dispatcher for `fledge plugins install`. Splits the
 /// single-source path from the `--defaults` bulk-install path so each
 /// caller stays simple. Reports a per-plugin pass/fail count when
@@ -39,12 +292,16 @@ pub(super) fn check_tier_capabilities(
 pub(crate) fn install_action(
     source: Option<&str>,
     force: bool,
+    copy: bool,
     defaults: bool,
     json: bool,
 ) -> Result<()> {
     if defaults {
         if source.is_some() {
             bail!("--defaults installs the curated set; do not pass a source ref alongside it.");
+        }
+        if copy {
+            bail!("--copy cannot be used with --defaults.");
         }
         return install_defaults(force, json);
     }
@@ -53,7 +310,7 @@ pub(crate) fn install_action(
             "Either pass a source ref (owner/repo[@ref]) or use --defaults to install the curated set."
         )
     })?;
-    let report = install_plugin(source, force, json)?;
+    let report = install_plugin(source, force, copy, json)?;
     if json {
         let result = serde_json::json!({
             "schema_version": PLUGINS_INSTALL_SCHEMA,
@@ -92,7 +349,7 @@ pub(crate) fn install_defaults(force: bool, json: bool) -> Result<()> {
             println!();
             println!("  {} {}", style("→").dim(), style(source).cyan());
         }
-        match install_plugin(source, force, json) {
+        match install_plugin(source, force, false, json) {
             Ok(report) => {
                 installed.push(report);
                 installed_sources.push(source);
@@ -153,22 +410,31 @@ pub(crate) fn install_defaults(force: bool, json: bool) -> Result<()> {
 /// Install a single plugin. Returns a JSON-serializable report describing
 /// what was installed; the caller is responsible for printing the JSON
 /// envelope (so single-install and bulk-install share one shape).
-pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<serde_json::Value> {
+pub(crate) fn install_plugin(
+    source: &str,
+    force: bool,
+    copy: bool,
+    json: bool,
+) -> Result<serde_json::Value> {
     let force = force || crate::utils::is_non_interactive();
-    let (_, git_ref) = parse_source_ref(source);
-    let url = normalize_source(source);
-    let repo_name = extract_name_from_source(source);
-    validate_plugin_name(&repo_name)?;
+    let install_source = InstallSource::parse(source, copy)?;
+    let repo_name = install_source.install_name()?;
+    let display_source = install_source.display_source();
 
-    let tier = determine_trust_tier(source);
+    let tier = install_source.trust_tier();
     if !json {
         println!(
             "\n{} Installing plugin from: {} [{}]",
             style("!").yellow().bold(),
-            style(&url).cyan(),
+            style(&display_source).cyan(),
             tier.styled_label()
         );
-        if tier == TrustTier::Official {
+        if tier == TrustTier::Local {
+            println!(
+                "  {} This is a local plugin. Changes in the source directory are live unless --copy is used.",
+                style("✓").magenta()
+            );
+        } else if tier == TrustTier::Official {
             println!(
                 "  {} This is an official CorvidLabs plugin.",
                 style("✓").green()
@@ -193,7 +459,9 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
             );
         }
         let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .with_prompt(format!("Install plugin '{repo_name}' from {url}?"))
+            .with_prompt(format!(
+                "Install plugin '{repo_name}' from {display_source}?"
+            ))
             .default(true)
             .interact()?;
         if !confirm {
@@ -219,85 +487,12 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                 style("--force").cyan()
             );
         }
-        fs::remove_dir_all(&plugin_dir).context("removing existing plugin")?;
+        remove_plugin_path(&plugin_dir).context("removing existing plugin")?;
     }
 
-    let sp = if json {
-        None
-    } else {
-        let clone_msg = match git_ref {
-            Some(r) => format!("Cloning {}@{}:", &url, r),
-            None => format!("Cloning {}:", &url),
-        };
-        Some(crate::spinner::Spinner::start(&clone_msg))
-    };
+    materialize_source(&install_source, &plugin_dir, json)?;
 
-    let mut clone_args = vec!["clone"];
-    if git_ref.is_none() {
-        clone_args.push("--depth");
-        clone_args.push("1");
-    }
-    clone_args.push(&url);
-
-    let mut cmd = Command::new("git");
-    cmd.args(&clone_args)
-        .arg(&plugin_dir)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped());
-    apply_git_auth(&mut cmd);
-
-    let status = cmd.status().context("running git clone")?;
-
-    if let Some(s) = sp {
-        s.finish();
-    }
-
-    if !status.success() {
-        bail!(
-            "Failed to clone '{}'. Check the repository URL and your network connection.",
-            source
-        );
-    }
-
-    if let Some(ref_str) = git_ref {
-        if ref_str.starts_with('-') {
-            fs::remove_dir_all(&plugin_dir).ok();
-            bail!(
-                "Invalid git ref '{}': references cannot start with a hyphen.",
-                ref_str
-            );
-        }
-        let status = Command::new("git")
-            .args(["checkout", ref_str])
-            .current_dir(&plugin_dir)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped())
-            .status()
-            .with_context(|| format!("checking out ref '{ref_str}'"))?;
-        if !status.success() {
-            fs::remove_dir_all(&plugin_dir).ok();
-            bail!(
-                "Git ref '{}' not found in '{}'. Check available tags with:\n  {}",
-                ref_str,
-                source,
-                style(format!("git ls-remote --tags {url}")).cyan()
-            );
-        }
-    }
-
-    let manifest_path = plugin_dir.join("plugin.toml");
-    if !manifest_path.exists() {
-        fs::remove_dir_all(&plugin_dir).ok();
-        bail!(
-            "Repository '{}' has no plugin.toml manifest.\n  See {} for the plugin format.",
-            source,
-            style("https://github.com/CorvidLabs/fledge#plugins").cyan()
-        );
-    }
-
-    let manifest_content = fs::read_to_string(&manifest_path).context("reading plugin.toml")?;
-    let manifest: PluginManifest =
-        toml::from_str(&manifest_content).context("parsing plugin.toml")?;
+    let manifest = read_manifest(&plugin_dir)?;
 
     let caps = &manifest.capabilities;
     let has_protocol_caps = caps.exec || caps.store || caps.metadata;
@@ -308,7 +503,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     let has_hooks = manifest.hooks.has_any();
 
     if let Err(blocked) = check_tier_capabilities(tier, caps) {
-        if let Err(e) = fs::remove_dir_all(&plugin_dir) {
+        if let Err(e) = remove_plugin_path(&plugin_dir) {
             eprintln!(
                 "Warning: failed to clean up partial install at {}: {e}",
                 plugin_dir.display()
@@ -403,7 +598,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                 style("WARN").yellow()
             );
         } else if !crate::utils::is_interactive() {
-            fs::remove_dir_all(&plugin_dir).ok();
+            remove_plugin_path(&plugin_dir).ok();
             bail!(
                 "Plugin permissions require confirmation in non-interactive mode.\n  \
                  Use --yes or --force to auto-grant."
@@ -422,14 +617,14 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                     .default(true)
                     .interact()?;
             if !confirm {
-                fs::remove_dir_all(&plugin_dir).ok();
+                remove_plugin_path(&plugin_dir).ok();
                 bail!("Plugin installation cancelled.");
             }
         }
     }
 
     if let Err(e) = run_build(&plugin_dir, &manifest) {
-        fs::remove_dir_all(&plugin_dir).ok();
+        remove_plugin_path(&plugin_dir).ok();
         return Err(e.context("build failed; installation rolled back"));
     }
 
@@ -443,7 +638,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                 );
                 super::wasm::compile_and_cache(&wasm_path)?;
             } else {
-                fs::remove_dir_all(&plugin_dir).ok();
+                remove_plugin_path(&plugin_dir).ok();
                 bail!(
                     "WASM binary '{}' not found after build.\n  \
                      Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
@@ -456,7 +651,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     }
 
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
-        fs::remove_dir_all(&plugin_dir).ok();
+        remove_plugin_path(&plugin_dir).ok();
     })?;
 
     // Run post_install hook BEFORE persisting to registry so a hook failure
@@ -468,12 +663,15 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
                 let link_path = bin_dir.join(format!("fledge-{cmd_name}"));
                 fs::remove_file(&link_path).ok();
             }
-            fs::remove_dir_all(&plugin_dir).ok();
+            remove_plugin_path(&plugin_dir).ok();
             return Err(e.context("post_install hook failed; installation rolled back"));
         }
     }
 
-    let (base_source, _) = parse_source_ref(source);
+    let pinned_ref = match &install_source {
+        InstallSource::Git { git_ref, .. } => git_ref.clone(),
+        InstallSource::LocalPath { .. } => None,
+    };
     let granted_caps = if manifest.plugin.protocol.is_some() {
         Some(manifest.capabilities.clone())
     } else {
@@ -481,11 +679,11 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     };
     let entry = PluginEntry {
         name: repo_name.clone(),
-        source: base_source.to_string(),
+        source: install_source.registry_source(),
         version: manifest.plugin.version.clone(),
         installed: chrono::Local::now().format("%Y-%m-%d").to_string(),
         commands: command_names.clone(),
-        pinned_ref: git_ref.map(String::from),
+        pinned_ref,
         capabilities: granted_caps,
         runtime: manifest.plugin.runtime.clone(),
     };
@@ -498,7 +696,7 @@ pub(crate) fn install_plugin(source: &str, force: bool, json: bool) -> Result<se
     save_registry(&registry)?;
 
     if !json {
-        if let Some(ref pinned) = git_ref {
+        if let Some(ref pinned) = entry.pinned_ref {
             println!(
                 "{} Installed {} v{} (pinned to {})",
                 style("✅").green().bold(),

@@ -1,5 +1,6 @@
 use console::style;
 use serde::Serialize;
+use std::path::Path;
 
 use crate::config::TrustConfig;
 
@@ -7,6 +8,7 @@ use crate::config::TrustConfig;
 #[serde(rename_all = "lowercase")]
 #[clap(rename_all = "lowercase")]
 pub enum TrustTier {
+    Local,
     Official,
     Team,
     Unverified,
@@ -15,6 +17,7 @@ pub enum TrustTier {
 impl TrustTier {
     pub fn label(&self) -> &'static str {
         match self {
+            TrustTier::Local => "local",
             TrustTier::Official => "official",
             TrustTier::Team => "team",
             TrustTier::Unverified => "unverified",
@@ -23,6 +26,7 @@ impl TrustTier {
 
     pub fn styled_label(&self) -> console::StyledObject<&'static str> {
         match self {
+            TrustTier::Local => style("local").magenta(),
             TrustTier::Official => style("official").green().bold(),
             TrustTier::Team => style("team").cyan(),
             TrustTier::Unverified => style("unverified").yellow(),
@@ -82,6 +86,16 @@ pub fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
 }
 
 pub fn determine_trust_tier(source: &str) -> TrustTier {
+    let path = Path::new(source);
+    if source.starts_with("local:")
+        || path.is_absolute()
+        || source.starts_with("./")
+        || source.starts_with("../")
+        || source.starts_with(".\\")
+        || source.starts_with("..\\")
+    {
+        return TrustTier::Local;
+    }
     let config = load_trust_config();
     classify_source(source, &config)
 }

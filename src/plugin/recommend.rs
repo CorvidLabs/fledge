@@ -192,7 +192,7 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
 
     println!();
     for r in &new_recs {
-        if let Err(e) = super::install::install_action(Some(r.repo), false, false, false) {
+        if let Err(e) = super::install::install_action(Some(r.repo), false, false, false, false) {
             eprintln!("  {} Failed to install {}: {}", style("✗").red(), r.repo, e);
         }
     }

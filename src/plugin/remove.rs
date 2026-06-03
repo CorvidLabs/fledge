@@ -3,8 +3,8 @@ use console::style;
 use std::fs;
 
 use super::{
-    load_registry, plugin_bin_dir, plugins_dir, run_hook, save_registry, PluginManifest,
-    PLUGINS_REMOVE_SCHEMA,
+    load_registry, plugin_bin_dir, plugins_dir, remove_plugin_path, run_hook, save_registry,
+    PluginManifest, PLUGINS_REMOVE_SCHEMA,
 };
 
 pub(crate) fn remove_plugin(name: &str, json: bool) -> Result<()> {
@@ -53,7 +53,7 @@ pub(crate) fn remove_plugin(name: &str, json: bool) -> Result<()> {
     }
 
     if plugin_dir.exists() {
-        fs::remove_dir_all(&plugin_dir).context("removing plugin directory")?;
+        remove_plugin_path(&plugin_dir).context("removing plugin directory")?;
     }
 
     let removed_name = entry.name.clone();

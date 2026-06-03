@@ -8,7 +8,7 @@ use super::{
     apply_git_auth, link_commands, load_registry, normalize_source, plugin_bin_dir, plugins_dir,
     run_build, save_registry, PluginManifest, PLUGINS_UPDATE_SCHEMA,
 };
-use crate::trust::parse_source_ref;
+use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 
 pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> Result<()> {
     use super::DEFAULT_PLUGINS;
@@ -125,6 +125,22 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             continue;
         }
 
+        if determine_trust_tier(&entry.source) == TrustTier::Local {
+            if !json {
+                println!(
+                    "  {} {} — local plugin, skipped",
+                    style("*").cyan().bold(),
+                    style(&entry.name).cyan()
+                );
+            }
+            results.push(serde_json::json!({
+                "name": entry.name,
+                "status": "skipped",
+                "detail": "local plugin — reinstall to refresh copied installs; live-linked installs use the source directory directly",
+            }));
+            continue;
+        }
+
         // Workspace-managed plugins (e.g. Merlin's bundled plugins under
         // `plugins/`) have no `.git` and are rebuilt by the host project's
         // init step. Skipping them silently keeps `plugins update` quiet
@@ -147,7 +163,7 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
         }
 
         if let Some(ref pinned) = entry.pinned_ref {
-            let latest = find_latest_tag(&plugin_dir);
+            let latest = find_latest_tag(&plugin_dir, &entry.source);
             match latest {
                 Some(ref tag) if tag != pinned => {
                     if defaults {
@@ -260,7 +276,9 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             .current_dir(&plugin_dir)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::piped());
-        apply_git_auth(&mut cmd);
+        if is_github_source(&entry.source) {
+            apply_git_auth(&mut cmd);
+        }
 
         let status = cmd
             .status()
@@ -472,13 +490,15 @@ fn is_git_repo(plugin_dir: &Path) -> bool {
     plugin_dir.join(".git").exists()
 }
 
-pub(crate) fn find_latest_tag(repo_dir: &Path) -> Option<String> {
+pub(crate) fn find_latest_tag(repo_dir: &Path, source: &str) -> Option<String> {
     let mut cmd = Command::new("git");
     cmd.args(["fetch", "--tags"])
         .current_dir(repo_dir)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
-    apply_git_auth(&mut cmd);
+    if is_github_source(source) {
+        apply_git_auth(&mut cmd);
+    }
 
     cmd.status().ok();
     let output = Command::new("git")
@@ -495,6 +515,12 @@ pub(crate) fn find_latest_tag(repo_dir: &Path) -> Option<String> {
         .next()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+}
+
+fn is_github_source(source: &str) -> bool {
+    source.starts_with("https://github.com/")
+        || source.starts_with("git@github.com:")
+        || (!source.contains("://") && !source.starts_with("git@") && source.contains('/'))
 }
 
 #[cfg(test)]

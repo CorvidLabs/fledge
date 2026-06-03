@@ -280,10 +280,12 @@ fn run() -> Result<()> {
                     source,
                     force,
                     yes,
+                    copy,
                     defaults,
                 } => plugin::PluginAction::Install {
                     source,
                     force: force || yes,
+                    copy,
                     defaults,
                 },
                 PluginSubcommand::Remove { name } => plugin::PluginAction::Remove { name },
