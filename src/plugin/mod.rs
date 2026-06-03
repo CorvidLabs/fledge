@@ -596,7 +596,7 @@ fn remove_plugin_path(path: &Path) -> Result<()> {
     if metadata.file_type().is_symlink() {
         #[cfg(windows)]
         {
-            if metadata.is_dir() {
+            if path.is_dir() {
                 fs::remove_dir(path)
                     .with_context(|| format!("removing directory symlink {}", path.display()))?;
             } else {

@@ -93,6 +93,8 @@ pub fn determine_trust_tier(source: &str) -> TrustTier {
         || source.starts_with("../")
         || source.starts_with(".\\")
         || source.starts_with("..\\")
+        || source.starts_with('/')
+        || source.starts_with('\\')
         || source == "."
         || source == ".."
     {
