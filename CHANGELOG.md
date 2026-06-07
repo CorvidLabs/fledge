@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.5.0] - 2026-06-07
+
+### Other
+
+- Add: API-only AI providers via corvid-ai; drop the claude CLI (1.5.0) (#415) (9c39222)
+- Add: task argument pass-through (fledge run <task> -- <args>) (#414) (f74440e)
+- Refactor: hoist per-call regex compilation to LazyLock (#413) (e19c63c)
+
 ## [v1.4.3] - 2026-06-03
 
 ### Other
