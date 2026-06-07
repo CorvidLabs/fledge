@@ -159,6 +159,7 @@ fn run_target(opts: &WatchOptions) {
             list: false,
             lang: None,
             json: false,
+            args: Vec::new(),
         })
     };
 

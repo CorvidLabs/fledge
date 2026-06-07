@@ -197,6 +197,13 @@ pub enum Commands {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+        /// Arguments passed through to the task's command, after a `--`
+        /// separator. Example: `fledge run test -- --nocapture` or
+        /// `fledge run set-version -- 1.2.3`. They are appended to the
+        /// command (or fill `$1`, `$@` if it references them) and never
+        /// spliced into the command string.
+        #[arg(last = true, value_name = "ARGS")]
+        args: Vec<String>,
     },
     /// Manage specs (check, init, new)
     Spec {
