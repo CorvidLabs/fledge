@@ -1,8 +1,23 @@
 use regex_lite::Regex;
+use std::sync::LazyLock;
+
+/// Top-level `version = "X.Y.Z"` (multi-line anchored). Compiled once.
+static TOP_LEVEL_VERSION_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?m)^version\s*=\s*"([^"]+)""#).unwrap());
+
+/// A bare `version = "X.Y.Z"` line within a section. Compiled once.
+static SECTION_VERSION_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"^\s*version\s*=\s*"([^"]+)"\s*$"#).unwrap());
+
+/// Capturing form that preserves the prefix/suffix around the version value so
+/// it can be rewritten in place. Compiled once.
+static SECTION_VERSION_REPLACE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"^(\s*version\s*=\s*")[^"]+("\s*)$"#).unwrap());
 
 pub(super) fn extract_toml_version(content: &str) -> Option<String> {
-    let re = Regex::new(r#"(?m)^version\s*=\s*"([^"]+)""#).unwrap();
-    re.captures(content).map(|c| c[1].to_string())
+    TOP_LEVEL_VERSION_RE
+        .captures(content)
+        .map(|c| c[1].to_string())
 }
 
 /// Extract `version = "X.Y.Z"` from a specific `[section]` table within a TOML
@@ -11,7 +26,6 @@ pub(super) fn extract_toml_version(content: &str) -> Option<String> {
 pub(super) fn extract_versioned_toml_section(content: &str, section: &str) -> Option<String> {
     let header = format!("[{section}]");
     let mut in_section = false;
-    let version_re = Regex::new(r#"^\s*version\s*=\s*"([^"]+)"\s*$"#).unwrap();
     for line in content.lines() {
         let trimmed = line.trim_start();
         if trimmed.starts_with('[') {
@@ -19,7 +33,7 @@ pub(super) fn extract_versioned_toml_section(content: &str, section: &str) -> Op
             continue;
         }
         if in_section {
-            if let Some(caps) = version_re.captures(line) {
+            if let Some(caps) = SECTION_VERSION_RE.captures(line) {
                 return Some(caps[1].to_string());
             }
         }
@@ -37,7 +51,6 @@ pub(super) fn replace_versioned_toml_section(
     new_version: &str,
 ) -> Option<String> {
     let header = format!("[{section}]");
-    let version_re = Regex::new(r#"^(\s*version\s*=\s*")[^"]+("\s*)$"#).unwrap();
     let crlf = content.contains("\r\n");
     let line_sep = if crlf { "\r\n" } else { "\n" };
     let trailing_newline = content.ends_with('\n');
@@ -55,7 +68,7 @@ pub(super) fn replace_versioned_toml_section(
             continue;
         }
         if in_section && !replaced {
-            if let Some(caps) = version_re.captures(line) {
+            if let Some(caps) = SECTION_VERSION_REPLACE_RE.captures(line) {
                 out_lines.push(format!("{}{}{}", &caps[1], new_version, &caps[2]));
                 replaced = true;
                 continue;

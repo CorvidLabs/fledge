@@ -1,5 +1,6 @@
 use std::io::IsTerminal;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 
 /// Global flag: when set, every prompt site must either auto-answer (because
 /// its command also has `--yes`/`--force` passed explicitly or now forced by
@@ -189,17 +190,22 @@ pub fn redact_secrets(input: &str) -> String {
     // (?i) = case-insensitive. Match the value to end-of-line so multi-token
     // header values (`Basic <base64>`, `token <opaque>`, etc.) are fully
     // redacted — `\S+` only catches the first whitespace-delimited token.
-    let auth = regex_lite::Regex::new(r"(?i)(authorization:)[^\n]*").unwrap();
-    let xat = regex_lite::Regex::new(r"(?i)(x-access-token:)[^\n]*").unwrap();
-    let bearer = regex_lite::Regex::new(r"(?i)(bearer )[^\s\n]+").unwrap();
+    // Patterns are compiled once and reused across calls.
+    static AUTH: LazyLock<regex_lite::Regex> =
+        LazyLock::new(|| regex_lite::Regex::new(r"(?i)(authorization:)[^\n]*").unwrap());
+    static XAT: LazyLock<regex_lite::Regex> =
+        LazyLock::new(|| regex_lite::Regex::new(r"(?i)(x-access-token:)[^\n]*").unwrap());
+    static BEARER: LazyLock<regex_lite::Regex> =
+        LazyLock::new(|| regex_lite::Regex::new(r"(?i)(bearer )[^\s\n]+").unwrap());
     // Credentials embedded in URLs: scheme://user:pass@host
-    let url_creds =
-        regex_lite::Regex::new(r"([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/@]+:[^\s/@]+@").unwrap();
+    static URL_CREDS: LazyLock<regex_lite::Regex> = LazyLock::new(|| {
+        regex_lite::Regex::new(r"([a-zA-Z][a-zA-Z0-9+.-]*://)[^\s/@]+:[^\s/@]+@").unwrap()
+    });
 
-    let s = auth.replace_all(input, "$1 [REDACTED]");
-    let s = xat.replace_all(&s, "$1[REDACTED]");
-    let s = bearer.replace_all(&s, "$1[REDACTED]");
-    let s = url_creds.replace_all(&s, "$1[REDACTED]@");
+    let s = AUTH.replace_all(input, "$1 [REDACTED]");
+    let s = XAT.replace_all(&s, "$1[REDACTED]");
+    let s = BEARER.replace_all(&s, "$1[REDACTED]");
+    let s = URL_CREDS.replace_all(&s, "$1[REDACTED]@");
     s.into_owned()
 }
 
@@ -340,6 +346,18 @@ mod tests {
     fn test_is_truthy_rejects_common_falsy_values() {
         for v in ["", "0", "false", "no", "off", "nope", "blue"] {
             assert!(!is_truthy(v), "expected '{v}' to be falsy");
+        }
+    }
+
+    #[test]
+    fn test_is_truthy_env_mirrors_is_truthy() {
+        // The public wrapper must accept/reject exactly what the private
+        // parser does so env-var spellings stay consistent across the CLI.
+        for v in ["1", "true", "Yes", "  on "] {
+            assert!(is_truthy_env(v), "expected '{v}' to be truthy");
+        }
+        for v in ["", "0", "false", "off", "blue"] {
+            assert!(!is_truthy_env(v), "expected '{v}' to be falsy");
         }
     }
 
