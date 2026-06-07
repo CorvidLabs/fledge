@@ -2,6 +2,7 @@ use anyhow::Result;
 use console::style;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use tera::Tera;
 use walkdir::WalkDir;
 
@@ -262,13 +263,16 @@ fn validate_single(path: &Path) -> Result<ValidationReport> {
 }
 
 fn extract_variables(content: &str) -> HashSet<String> {
-    let re = regex_lite::Regex::new(r"\{\{[\s]*([a-zA-Z_][a-zA-Z0-9_]*)").unwrap();
-    let dollar_re = regex_lite::Regex::new(r"\$\{\{").unwrap();
-    let dollar_positions: HashSet<usize> = dollar_re
+    static VAR_RE: LazyLock<regex_lite::Regex> =
+        LazyLock::new(|| regex_lite::Regex::new(r"\{\{[\s]*([a-zA-Z_][a-zA-Z0-9_]*)").unwrap());
+    static DOLLAR_RE: LazyLock<regex_lite::Regex> =
+        LazyLock::new(|| regex_lite::Regex::new(r"\$\{\{").unwrap());
+    let dollar_positions: HashSet<usize> = DOLLAR_RE
         .find_iter(content)
         .map(|m| m.start() + 1)
         .collect();
-    re.captures_iter(content)
+    VAR_RE
+        .captures_iter(content)
         .filter(|cap| {
             let start = cap.get(0).unwrap().start();
             !dollar_positions.contains(&start)
