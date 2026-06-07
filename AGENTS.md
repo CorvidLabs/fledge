@@ -61,7 +61,7 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [{name, checks: [...], informational}], passed, failed}`. Four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational, missing tools don't count toward `failed` | Debugging a broken setup |
 | `fledge changelog --json` | `{schema_version: 1, action: "changelog", releases: [{tag, date, sections}]}` | Generating release notes |
 | `fledge run --list --json` | `{schema_version: 1, action: "run_list", auto_detected, tasks: [...]}` | Discovering tasks defined in `fledge.toml` (or auto-detected) |
-| `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` | Running a task and capturing its output |
+| `fledge run <task> --json` | `{schema_version: 1, action: "run_task", task, command, exit_code, success, stdout, stderr}` (plus `args` when pass-through args are supplied) | Running a task and capturing its output. Forward extra args to the command with `fledge run <task> -- <args…>` |
 | `fledge run --init --json` | `{schema_version: 1, action: "run_init", file, project_type, files_created}` | Scaffolding a `fledge.toml` |
 | `fledge release --dry-run --json` | `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}` | Preview what a release would do |
 | `fledge release --json` | `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` | After a real release completes |

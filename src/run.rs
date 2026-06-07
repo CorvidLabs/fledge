@@ -82,6 +82,9 @@ pub struct RunOptions {
     pub list: bool,
     pub lang: Option<String>,
     pub json: bool,
+    /// Pass-through arguments for the target task's command (everything after
+    /// `--` on the CLI). Applied to the named task only, never its deps.
+    pub args: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -159,7 +162,82 @@ pub fn run(opts: RunOptions) -> Result<()> {
     }
 
     let mut visited = HashSet::new();
-    execute_task(task_name, &tasks, &project_dir, &mut visited, opts.json)
+    execute_task(
+        task_name,
+        &tasks,
+        &project_dir,
+        &mut visited,
+        opts.json,
+        &opts.args,
+    )
+}
+
+/// Does a shell command reference a positional parameter (`$1`..`$9`, `$@`,
+/// `$*`, or their `${...}` braced forms)? When it does, the task author is
+/// explicitly placing the pass-through args, so we must NOT also auto-append
+/// `"$@"` (which would duplicate them). POSIX-only concept; Windows always
+/// appends.
+fn references_positional(cmd: &str) -> bool {
+    let bytes = cmd.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'$' && i + 1 < bytes.len() {
+            // Skip an optional `{` for the `${1}` / `${@}` form.
+            let j = if bytes[i + 1] == b'{' { i + 2 } else { i + 1 };
+            if let Some(&c) = bytes.get(j) {
+                if c.is_ascii_digit() || c == b'@' || c == b'*' {
+                    return true;
+                }
+            }
+        }
+        i += 1;
+    }
+    false
+}
+
+/// Build the `Command` that runs a task's `cmd` string in a shell, wiring in
+/// any pass-through `args` safely.
+///
+/// On POSIX the args are passed as real positional parameters
+/// (`sh -c '<cmd> "$@"' fledge <args...>`) so the shell quotes them — they are
+/// never interpolated into the command string, so there is no injection
+/// surface. `"$@"` is auto-appended unless the command already references a
+/// positional. With no args, the invocation is byte-identical to before this
+/// feature existed.
+///
+/// On Windows (`cmd /C`) there is no `$@`; args are appended as separate argv
+/// entries (best-effort — complex quoting is less robust than the POSIX path).
+fn build_task_command(
+    cmd_str: &str,
+    work_dir: &Path,
+    env: &BTreeMap<String, String>,
+    args: &[String],
+) -> Command {
+    let shell = if cfg!(windows) { "cmd" } else { "sh" };
+    let flag = if cfg!(windows) { "/C" } else { "-c" };
+
+    let mut command = Command::new(shell);
+    command.arg(flag);
+
+    if cfg!(windows) {
+        command.arg(cmd_str);
+        command.args(args);
+    } else if args.is_empty() {
+        command.arg(cmd_str);
+    } else if references_positional(cmd_str) {
+        // Author placed the args themselves via $1/$@; don't double-append.
+        command.arg(cmd_str).arg("fledge").args(args);
+    } else {
+        // `$0` is set to "fledge" purely so $1.. line up with the user args.
+        command
+            .arg(format!("{cmd_str} \"$@\""))
+            .arg("fledge")
+            .args(args);
+    }
+
+    command.current_dir(work_dir);
+    command.envs(env);
+    command
 }
 
 fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
@@ -205,6 +283,7 @@ fn execute_task(
     project_dir: &Path,
     visited: &mut HashSet<String>,
     json: bool,
+    args: &[String],
 ) -> Result<()> {
     if visited.contains(name) {
         bail!(
@@ -218,8 +297,9 @@ fn execute_task(
         .get(name)
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found (referenced as dependency)", name))?;
 
+    // Pass-through args apply to the named task only — dependencies run clean.
     for dep in task.deps() {
-        execute_task(dep, tasks, project_dir, visited, json)?;
+        execute_task(dep, tasks, project_dir, visited, json, &[])?;
     }
 
     let cmd_str = task.cmd();
@@ -228,19 +308,14 @@ fn execute_task(
         None => project_dir.to_path_buf(),
     };
 
-    let shell = if cfg!(windows) { "cmd" } else { "sh" };
-    let flag = if cfg!(windows) { "/C" } else { "-c" };
+    let mut command = build_task_command(cmd_str, &work_dir, task.env(), args);
 
     if json {
-        let output = Command::new(shell)
-            .arg(flag)
-            .arg(cmd_str)
-            .current_dir(&work_dir)
-            .envs(task.env())
+        let output = command
             .output()
             .with_context(|| format!("running task '{name}'"))?;
 
-        let result = serde_json::json!({
+        let mut result = serde_json::json!({
             "schema_version": RUN_TASK_SCHEMA,
             "action": "run_task",
             "task": name,
@@ -250,6 +325,11 @@ fn execute_task(
             "stdout": String::from_utf8_lossy(&output.stdout),
             "stderr": String::from_utf8_lossy(&output.stderr),
         });
+        // Only surface `args` when present, so arg-less runs keep their exact
+        // existing envelope shape.
+        if !args.is_empty() {
+            result["args"] = serde_json::json!(args);
+        }
         println!("{}", serde_json::to_string_pretty(&result)?);
 
         if !output.status.success() {
@@ -262,13 +342,6 @@ fn execute_task(
             style("▶️").cyan().bold(),
             style(format!("Running task: {name}")).bold()
         );
-
-        let mut command = Command::new(shell);
-        command.arg(flag).arg(cmd_str).current_dir(&work_dir);
-
-        for (key, value) in task.env() {
-            command.env(key, value);
-        }
 
         let status = command
             .status()
@@ -521,6 +594,104 @@ mod tests {
     use super::*;
 
     #[test]
+    fn references_positional_detects_shell_positionals() {
+        for cmd in [
+            "echo $1",
+            "deploy $@",
+            "spread $*",
+            "braced ${1}",
+            "braced ${@}",
+            "later $9 args",
+            "mid $2 of cmd",
+        ] {
+            assert!(references_positional(cmd), "expected positional in: {cmd}");
+        }
+    }
+
+    #[test]
+    fn references_positional_ignores_non_positionals() {
+        for cmd in [
+            "cargo test",
+            "echo hi",
+            "npm run build",
+            "echo $HOME",
+            "echo $FOO_BAR",
+            "make $$", // PID, not a positional
+            "trailing dollar $",
+        ] {
+            assert!(
+                !references_positional(cmd),
+                "did not expect positional in: {cmd}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    fn run_cmd(cmd: &str, args: &[&str]) -> String {
+        let owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        let env = BTreeMap::new();
+        let out = build_task_command(cmd, &std::env::temp_dir(), &env, &owned)
+            .output()
+            .expect("spawn task command");
+        String::from_utf8_lossy(&out.stdout).into_owned()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passthrough_appends_args_when_no_positional() {
+        // `echo` has no positional ref → fledge appends `"$@"`.
+        assert_eq!(
+            run_cmd("echo", &["hello", "world"]).trim_end(),
+            "hello world"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passthrough_forwards_a_value() {
+        // The "version bump" use case: `fledge run set-version -- 1.2.3`.
+        assert_eq!(run_cmd("echo", &["1.2.3"]).trim_end(), "1.2.3");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passthrough_no_args_is_unchanged() {
+        // Backward-compat: with no pass-through args the command runs verbatim.
+        assert_eq!(run_cmd("echo hi", &[]).trim_end(), "hi");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passthrough_respects_explicit_positional_without_doubling() {
+        // Command references $1 itself → args fill positionals, no auto-append,
+        // so the second arg is NOT echoed a second time.
+        let out = run_cmd("printf 'first=%s\\n' \"$1\"", &["A", "B"]);
+        assert_eq!(out, "first=A\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passthrough_does_not_allow_command_injection() {
+        // A value that would be catastrophic if spliced into the shell string.
+        // It must be passed as one inert literal argument instead.
+        let tmp = tempfile::tempdir().unwrap();
+        let env = BTreeMap::new();
+        let payload = "; touch PWNED".to_string();
+        let out = build_task_command("echo", tmp.path(), &env, std::slice::from_ref(&payload))
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.contains("; touch PWNED"),
+            "literal not echoed: {stdout}"
+        );
+        assert!(
+            !tmp.path().join("PWNED").exists(),
+            "injection executed — PWNED file was created"
+        );
+    }
+
+    #[test]
     fn parse_short_tasks() {
         let toml_str = r#"
 [tasks]
@@ -587,7 +758,7 @@ deps = ["a"]
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         let project_dir = std::env::temp_dir();
         let mut visited = HashSet::new();
-        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false);
+        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false, &[]);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()

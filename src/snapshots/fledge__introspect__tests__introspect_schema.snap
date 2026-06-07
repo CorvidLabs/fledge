@@ -1,6 +1,5 @@
 ---
 source: src/introspect.rs
-assertion_line: 388
 expression: output
 ---
 {
@@ -1841,6 +1840,14 @@ expression: output
           "help": "Output results as JSON",
           "required": false,
           "takes_value": false,
+          "global": false
+        },
+        {
+          "name": "args",
+          "help": "Arguments passed through to the task's command, after a `--` separator. Example: `fledge run test -- --nocapture` or `fledge run set-version -- 1.2.3`. They are appended to the command (or fill `$1`, `$@` if it references them) and never spliced into the command string",
+          "required": false,
+          "takes_value": true,
+          "value_name": "ARGS",
           "global": false
         },
         {

@@ -122,6 +122,7 @@ fn run() -> Result<()> {
             list,
             lang,
             json,
+            args,
         } => {
             run::run(run::RunOptions {
                 task,
@@ -129,6 +130,7 @@ fn run() -> Result<()> {
                 list,
                 lang,
                 json,
+                args,
             })?;
         }
         Commands::Watch {

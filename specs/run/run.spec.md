@@ -1,6 +1,6 @@
 ---
 module: run
-version: 4
+version: 5
 status: active
 files:
   - src/run.rs
@@ -31,7 +31,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 
 | Type | Description |
 |------|-------------|
-| `RunOptions` | Options: `task`, `init`, `list`, `lang`, `json` |
+| `RunOptions` | Options: `task`, `init`, `list`, `lang`, `json`, `args` |
 
 ### Functions
 
@@ -53,6 +53,9 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 6. When auto-detecting, the task list header indicates tasks are auto-detected and suggests creating `fledge.toml` to customize
 7. `--json` outputs structured JSON for both task listing and task execution
 8. `--lang` overrides auto-detected project type (e.g. `rust`, `node`, `go`, `python`, `swift`, `ruby`, `java-gradle`, `java-maven`)
+9. Arguments after a `--` separator are passed through to the target task's command. They apply to the named task only — dependencies always run without them
+10. Pass-through is safe by construction: on POSIX the args become real shell positional parameters (`sh -c '<cmd> "$@"' fledge <args…>`), never interpolated into the command string. `"$@"` is auto-appended unless the command already references a positional (`$1`..`$9`, `$@`, `$*`, or their `${…}` forms), in which case the args fill those positionals without being doubled. With no pass-through args the invocation is identical to before the feature. On Windows (`cmd /C`) there is no `$@`; args are appended as argv (best-effort)
+11. `run <task> --json` includes an `args` array in the envelope only when pass-through args were supplied; arg-less runs keep their prior envelope shape
 
 ## Behavioral Examples
 
@@ -88,6 +91,19 @@ $ fledge run --init --json
 $ fledge run test --json
 {"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "..."}
 
+# Pass arguments through to the task command (after `--`)
+$ fledge run test -- --nocapture --test-threads=1
+▶️ Running task: test
+# → runs: cargo test --nocapture --test-threads=1
+
+# Pass a value through (e.g. a version)
+$ fledge run set-version -- 1.2.3
+# → runs: ./set-version.sh 1.2.3
+
+# Pass-through with JSON adds an `args` array to the envelope
+$ fledge run test --json -- --nocapture
+{"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "...", "args": ["--nocapture"]}
+
 # Override project type
 $ fledge run --lang node
 Available tasks:
@@ -114,6 +130,7 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-06-07 | Add task argument pass-through: `fledge run <task> -- <args…>` forwards args to the target task's command (named task only, not deps). POSIX uses real positional params (`"$@"`, auto-appended unless the command references `$1`/`$@`/…), so values are never interpolated into the command string — no injection surface. `--json` gains an `args` array when args are supplied. Additive and backward-compatible: arg-less runs are byte-identical to before. New `references_positional`/`build_task_command` helpers with unit + injection-safety tests |
 | 4 | 2026-04-26 | Doc sync, behavioral examples updated to show the post-tier-D envelope shapes for `run --json`, `run <task> --json`, and `run --init --json`. No code change |
 | 3 | 2026-04-26 | Tier-D 1.0 envelope: all three `--json` paths now emit `{schema_version: 1, action, ...}`. `run --init --json` previously emitted prose ("✅ Created fledge.toml"), now `{action: "run_init", file, project_type, files_created}`, a real fix not just a wrapping. `run --list --json` adds `action: "run_list"` (was bare `{auto_detected, tasks}`). `run <task> --json` adds `action: "run_task"` (was bare `{task, command, ...}`). Three new integration tests guard each shape |
 | 2 | 2026-04-23 | Add `--json` flag (list + execute), `--lang` override, `detect_node_runner` |
