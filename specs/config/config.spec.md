@@ -1,6 +1,6 @@
 ---
 module: config
-version: 12
+version: 13
 status: active
 files:
   - src/config.rs
@@ -26,7 +26,9 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `TemplatesConfig` | Struct holding additional template directory paths and remote repo references |
 | `GitHubConfig` | Struct holding optional GitHub token for authenticated access |
 | `AiConfig` | Struct holding LLM provider selection and per-provider settings |
-| `ClaudeConfig` | `{ model: Option<String>, api_key: Option<String> }` — optional default model passed to `claude --model`, plus optional Anthropic API key (falls back to `ANTHROPIC_API_KEY` env var) |
+| `AnthropicConfig` | `{ model: Option<String>, api_key: Option<String>, base_url: Option<String> }` — Anthropic provider settings (key falls back to `ANTHROPIC_API_KEY` env var) |
+| `OpenAiConfig` | `{ base_url: Option<String>, api_key: Option<String>, model: Option<String> }` — OpenAI-compatible provider: gateway `base_url`, key (falls back to `OPENAI_API_KEY`), required model id |
+| `ClaudeConfig` | `{ model: Option<String>, api_key: Option<String> }` — deprecated alias of `AnthropicConfig`, read as a fallback; removed in 2.0 |
 | `OllamaConfig` | `{ host: String, api_key: Option<String>, model: String, timeout_seconds: u64 }` — endpoint, auth, default model, and per-request timeout. `host`/`model`/`timeout_seconds` are `skip_serializing_if` default so `config unset` truly removes them from the TOML |
 | `TrustConfig` | `{ orgs: Vec<String>, users: Vec<String> }` — additional GitHub orgs and users to trust at team tier |
 | `load` | Loads config from disk or returns defaults if file is missing |
@@ -57,7 +59,9 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 | `TemplatesConfig` | Additional template directory paths and remote repo references |
 | `GitHubConfig` | Optional GitHub token for authenticated access |
 | `AiConfig` | Active provider and per-provider settings |
-| `ClaudeConfig` | Per-Claude settings: default model override |
+| `AnthropicConfig` | Anthropic provider: model, API key, optional base URL |
+| `OpenAiConfig` | OpenAI-compatible provider: base URL, API key, model id |
+| `ClaudeConfig` | Deprecated alias of `AnthropicConfig` (read as fallback) |
 | `OllamaConfig` | Per-Ollama settings: host URL, API key, default model, per-request timeout in seconds |
 | `TrustConfig` | Per-trust settings: additional GitHub orgs and users to classify as team tier |
 
@@ -209,6 +213,7 @@ Manages global user configuration from `~/.config/fledge/config.toml`. Provides 
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 13 | 2026-06-07 | 1.5.0 API-only AI: add `AnthropicConfig` (`ai.anthropic.{model,api_key,base_url}`) and `OpenAiConfig` (`ai.openai.{base_url,api_key,model}`) plus their get/set/unset/list/valid/secret-key dispatch. `ClaudeConfig` becomes a deprecated alias of `AnthropicConfig`, still read as a fallback. `ai.provider` accepts `anthropic`/`openai`/`ollama` (+ deprecated `claude`) |
 | 12 | 2026-05-11 | Add `ai.claude.api_key` (secret) so Claude provider users can configure the Anthropic API key alongside `ai.ollama.api_key` instead of relying solely on `ANTHROPIC_API_KEY` env (#379). `OllamaConfig.host`/`model`/`timeout_seconds` gain `skip_serializing_if = "is_default_*"` so `config unset` truly removes the field from the TOML rather than re-persisting the hardcoded default (#377) |
 | 11 | 2026-05-03 | Add `TrustConfig` struct and `trust.orgs`/`trust.users` list keys for extending the plugin trust system at runtime |
 | 10 | 2026-04-30 | Add `Config::is_secret_key(key) -> bool` — identifies keys whose values should be redacted in display (e.g. `github.token`, `ai.ollama.api_key`). Used by `config get` to avoid printing plaintext secrets to stdout |
