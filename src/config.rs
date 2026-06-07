@@ -57,7 +57,8 @@ pub struct GitHubConfig {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AiConfig {
     /// Active provider: `anthropic`, `openai`, or `ollama`. `None` defaults to
-    /// `anthropic`. `claude` is accepted as a deprecated alias for `anthropic`.
+    /// `ollama` (works locally with no key). `claude` is a deprecated alias of
+    /// `anthropic`.
     #[serde(default)]
     pub provider: Option<String>,
     #[serde(default, skip_serializing_if = "AnthropicConfig::is_empty")]

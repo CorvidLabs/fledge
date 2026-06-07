@@ -268,7 +268,7 @@ fn resolve_provider_with_source(config: &Config) -> Result<(ProviderKind, Source
     if let Some(v) = &config.ai.provider {
         return Ok((ProviderKind::parse(v)?, Source::ConfigFile));
     }
-    Ok((ProviderKind::Anthropic, Source::Default))
+    Ok((ProviderKind::Ollama, Source::Default))
 }
 
 fn resolve_anthropic_model(config: &Config) -> (Option<String>, Option<Source>) {
@@ -751,7 +751,7 @@ mod tests {
         clear_env();
         let config = Config::default();
         let (kind, src) = resolve_provider_with_source(&config).unwrap();
-        assert_eq!(kind, ProviderKind::Anthropic);
+        assert_eq!(kind, ProviderKind::Ollama);
         assert!(matches!(src, Source::Default));
     }
 

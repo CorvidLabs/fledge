@@ -14,7 +14,7 @@ depends_on:
 
 ## Purpose
 
-Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` delegate to an `LlmProvider` implementation, letting users pick a backend without the command code knowing which is active. As of 1.5.0 everything is plain HTTP: `anthropic` (default) and `openai` (any OpenAI-compatible endpoint) are served by the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate, and `ollama` keeps fledge's native client for local/cloud routing and `/api/tags`. There is no CLI shell-out. Spec-aware prompt composition is provider-agnostic; the same prompt text flows to whichever backend is selected.
+Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` delegate to an `LlmProvider` implementation, letting users pick a backend without the command code knowing which is active. As of 1.5.0 everything is plain HTTP: `ollama` is the default (local-or-cloud, no key needed to start) and keeps fledge's native client for cloud routing and `/api/tags`, while `anthropic` and `openai` (any OpenAI-compatible endpoint) are served by the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate. There is no CLI shell-out. Spec-aware prompt composition is provider-agnostic; the same prompt text flows to whichever backend is selected.
 
 ## Public API
 
@@ -68,7 +68,7 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` d
 
 ## Invariants
 
-1. Provider precedence (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > default `"anthropic"`.
+1. Provider precedence (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > default `"ollama"` (the most useful zero-config default: a local daemon needs no key, and it can also point at Ollama Cloud).
 2. Model precedence follows the same order: CLI `--model` > `FLEDGE_AI_MODEL` env > per-provider config field > provider default.
 3. `claude` is accepted everywhere `anthropic` is, as a deprecated alias. `build_provider` prints a one-line deprecation warning to stderr only when the user explicitly selected `claude` (not during status/introspection). Removed in fledge 2.0.
 4. `anthropic` is served by `corvid-ai`'s Anthropic Messages provider; it requires an API key (`ANTHROPIC_API_KEY` env > `ai.anthropic.api_key` > deprecated `ai.claude.api_key`). Model falls back `ai.anthropic.model` > deprecated `ai.claude.model` > crate default.
@@ -127,7 +127,7 @@ $ fledge review --provider claude --model claude-opus-4-8   # warns, routes to a
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 6 | 2026-06-07 | Drop the `claude` CLI shell-out. `anthropic` (new default) and `openai` (any OpenAI-compatible endpoint) are served over HTTP by the `corvid-ai` crate via `CorvidProvider`; `ProviderKind` becomes `Anthropic`/`OpenAi`/`Ollama` with `claude` a deprecated alias of `anthropic`. New `ai.anthropic.*` / `ai.openai.*` config (deprecated `ai.claude.*` still read). `ollama` and the `github`/`ensure_claude_cli` dependency are removed from this module |
+| 6 | 2026-06-07 | Drop the `claude` CLI shell-out. `anthropic` and `openai` (any OpenAI-compatible endpoint) are served over HTTP by the `corvid-ai` crate via `CorvidProvider`; `ProviderKind` becomes `Anthropic`/`OpenAi`/`Ollama` with `claude` a deprecated alias of `anthropic`. The default provider is now `ollama` (local-or-cloud, zero-config). New `ai.anthropic.*` / `ai.openai.*` config (deprecated `ai.claude.*` still read). `ollama` and the `github`/`ensure_claude_cli` dependency are removed from this module |
 | 5 | 2026-05-11 | `ClaudeProvider` gains `api_key`, forwarded to the `claude` CLI; Ollama errors append an `OLLAMA_HOST` hint |
 | 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST` |
 | 3 | 2026-04-27 | Document `normalize_ollama_host` scheme prepend |

@@ -251,7 +251,9 @@ pub struct ProviderOverride {
 ///   1. explicit override argument
 ///   2. `FLEDGE_AI_PROVIDER` env var
 ///   3. `ai.provider` in config
-///   4. default: `anthropic`
+///   4. default: `ollama` — works out of the box against a local daemon with no
+///      key, and can also point at Ollama Cloud, so it is the most useful
+///      zero-config default.
 pub fn resolve_provider_kind(
     config: &Config,
     override_provider: Option<&str>,
@@ -265,7 +267,7 @@ pub fn resolve_provider_kind(
     if let Some(v) = &config.ai.provider {
         return ProviderKind::parse(v);
     }
-    Ok(ProviderKind::Anthropic)
+    Ok(ProviderKind::Ollama)
 }
 
 /// The raw provider string the caller selected, in precedence order, so callers
@@ -440,13 +442,13 @@ mod tests {
     }
 
     #[test]
-    fn resolve_defaults_to_anthropic() {
+    fn resolve_defaults_to_ollama() {
         let _g = test_lock();
         clear_env();
         let config = Config::default();
         assert_eq!(
             resolve_provider_kind(&config, None).unwrap(),
-            ProviderKind::Anthropic
+            ProviderKind::Ollama
         );
     }
 

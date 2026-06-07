@@ -150,9 +150,9 @@ You can still pass `--yes`/`--force` per command if you prefer. They and `FLEDGE
 
 `fledge ai`, `fledge ask`, and `fledge review` go through a provider abstraction. All of it is plain HTTP over the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate — no CLI to install. Three providers ship in core:
 
-- **anthropic** (default). Anthropic Messages API. Needs `ANTHROPIC_API_KEY` (or `ai.anthropic.api_key`).
+- **ollama** (default). HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key and `-cloud` auto-routing. It is the default because it works with zero config (local, no key) and can also be a cloud API.
+- **anthropic**. Anthropic Messages API. Needs `ANTHROPIC_API_KEY` (or `ai.anthropic.api_key`).
 - **openai**. Any OpenAI-compatible Chat Completions endpoint: OpenAI, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, local servers. Set `ai.openai.base_url` for the gateway and `OPENAI_API_KEY` (or `ai.openai.api_key`). A model id is required.
-- **ollama**. HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key and `-cloud` auto-routing.
 
 > `claude` is a deprecated alias of `anthropic` (warns, routes to the API; removed in fledge 2.0).
 
@@ -178,7 +178,7 @@ fledge ask --provider ollama --model qwen3-coder:480b-cloud "..."
 fledge review --provider anthropic --model claude-opus-4-8
 ```
 
-Precedence: CLI flag > env var > config > default (`anthropic`).
+Precedence: CLI flag > env var > config > default (`ollama`).
 
 ### `fledge ask` is spec-aware by default
 
