@@ -15,7 +15,7 @@ fledge lanes init
 fledge lanes run ci
 ```
 
-Working with AI agents? See [AGENTS.md](./AGENTS.md). Every command emits `{schema_version: 1, ...}`, `FLEDGE_NON_INTERACTIVE=1` silences prompts, `fledge ask` and `fledge review` are spec-aware, and `fledge introspect --json` dumps the full command tree. Works with Claude CLI or any Ollama endpoint (local, cloud, or self-hosted).
+Working with AI agents? See [AGENTS.md](./AGENTS.md). Every command emits `{schema_version: 1, ...}`, `FLEDGE_NON_INTERACTIVE=1` silences prompts, `fledge ask` and `fledge review` are spec-aware, and `fledge introspect --json` dumps the full command tree. Talks to the Anthropic API, any OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, ...), or any Ollama endpoint (local, cloud, or self-hosted) over plain HTTP. No CLI required.
 
 ## Install
 

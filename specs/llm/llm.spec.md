@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 5
+version: 6
 status: active
 files:
   - src/llm.rs
@@ -8,14 +8,13 @@ files:
 db_tables: []
 depends_on:
   - config
-  - github
 ---
 
 # Llm
 
 ## Purpose
 
-Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` both delegate to an `LlmProvider` implementation, letting users choose between the Claude CLI (default) and any Ollama-compatible endpoint (local daemon, Ollama Cloud/Turbo, self-hosted mirrors) without the command code knowing which backend is active. Spec-aware prompt composition is provider-agnostic — the same prompt text flows to whichever backend the user selected.
+Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` delegate to an `LlmProvider` implementation, letting users pick a backend without the command code knowing which is active. As of 1.5.0 everything is plain HTTP: `anthropic` (default) and `openai` (any OpenAI-compatible endpoint) are served by the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate, and `ollama` keeps fledge's native client for local/cloud routing and `/api/tags`. There is no CLI shell-out. Spec-aware prompt composition is provider-agnostic; the same prompt text flows to whichever backend is selected.
 
 ## Public API
 
@@ -24,26 +23,26 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 | Export | Description |
 |--------|-------------|
 | `LlmProvider` | Trait all providers implement |
-| `ProviderKind` | Enum: `Claude`, `Ollama` |
-| `as_str` | `ProviderKind` method — returns `"claude"` or `"ollama"` for display / JSON output |
-| `parse` | `ProviderKind` method — case-insensitive parser; trims whitespace; errors on unknown values |
-| `ClaudeProvider` | Wraps the existing `claude` CLI shell-out |
+| `ProviderKind` | Enum: `Anthropic`, `OpenAi`, `Ollama` |
+| `as_str` | `ProviderKind` method — returns `"anthropic"`, `"openai"`, or `"ollama"` |
+| `parse` | `ProviderKind` method — case-insensitive; trims; `claude` is a deprecated alias of `anthropic`; errors on unknown values |
+| `CorvidProvider` | Wraps a `corvid-ai` provider (Anthropic native or any OpenAI-compatible endpoint) |
 | `OllamaProvider` | POSTs `{model, prompt, stream:false}` to `<host>/api/generate`, optional Bearer auth |
 | `ProviderOverride` | `{ provider: Option<String>, model: Option<String> }` — per-invocation overrides |
 | `resolve_provider_kind` | Determine active provider given config + override |
 | `build_provider` | Construct the concrete provider box from config + env + overrides |
-| `normalize_ollama_host` | Ensures `OllamaProvider.host` always has a scheme; prepends `http://` to bare `host:port` values |
+| `normalize_ollama_host` | Ensures `OllamaProvider.host` always has a scheme |
 | `resolve_effective_host` | Picks the Ollama host: env var > custom config > cloud auto-route > default localhost |
-| `is_cloud_model` | Returns `true` when a model tag contains `-cloud` (e.g. `qwen3-coder:480b-cloud`) |
-| `DEFAULT_OLLAMA_CLOUD_HOST` | `"https://ollama.com"` — the Ollama Cloud API endpoint |
-| `describe` | Human string: `"claude (sonnet-4.5)"` or `"ollama (llama3.3)"` |
+| `is_cloud_model` | Returns `true` when a model tag contains `-cloud` |
+| `DEFAULT_OLLAMA_CLOUD_HOST` | `"https://ollama.com"` |
+| `describe` | Human string: `"anthropic (claude-sonnet-4-6)"` or `"ollama (llama3.3)"` |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `ProviderKind` | `Claude` or `Ollama` |
-| `ClaudeProvider` | `{ model: Option<String>, api_key: Option<String> }` — `api_key` exported to the `claude` CLI as `ANTHROPIC_API_KEY` |
+| `ProviderKind` | `Anthropic`, `OpenAi`, or `Ollama` |
+| `CorvidProvider` | `{ inner: corvid_ai::Provider, timeout: Duration, kind: ProviderKind }` |
 | `OllamaProvider` | `{ host, api_key: Option<String>, model, timeout: Duration }` |
 | `ProviderOverride` | Per-invocation overrides (CLI flags bypass env and config) |
 | `OllamaGenerateResponse` | (private) The `{ response: String }` payload decoded from `/api/generate` |
@@ -58,86 +57,79 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` b
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `resolve_provider_kind` | `(&Config, Option<&str>) -> Result<ProviderKind>` | CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > `Claude` |
+| `resolve_provider_kind` | `(&Config, Option<&str>) -> Result<ProviderKind>` | CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > `Anthropic` |
 | `build_provider` | `(&Config, &ProviderOverride) -> Result<Box<dyn LlmProvider>>` | Builds a concrete provider; model follows the same precedence order |
-| `normalize_ollama_host` | `(&str) -> String` | Trims whitespace and trailing `/`; prepends `http://` when no scheme is present |
+| `normalize_ollama_host` | `(&str) -> String` | Trims whitespace and trailing `/`; prepends `http://` when no scheme |
 | `describe` | `(&dyn LlmProvider) -> String` | Pretty formatter for spinner messages and JSON payloads |
-| `resolve_effective_host` | `(&Config, &str, &Option<String>) -> String` | Cloud-aware host resolution: `OLLAMA_HOST` env > custom config > cloud auto-route (when API key + cloud model) > default localhost |
-| `is_cloud_model` | `(&str) -> bool` | True when model name contains `-cloud` qualifier |
-| `ProviderKind::parse` | `(&str) -> Result<Self>` | Case-insensitive parse; trims whitespace |
-| `ProviderKind::as_str` | `(&self) -> &'static str` | `"claude"` or `"ollama"` |
+| `resolve_effective_host` | `(&Config, &str, &Option<String>) -> String` | Cloud-aware Ollama host resolution |
+| `is_cloud_model` | `(&str) -> bool` | True when model name contains `-cloud` |
+| `ProviderKind::parse` | `(&str) -> Result<Self>` | Case-insensitive parse; `claude` aliases to `anthropic` |
+| `ProviderKind::as_str` | `(&self) -> &'static str` | `"anthropic"`, `"openai"`, or `"ollama"` |
 
 ## Invariants
 
-1. Precedence for active provider (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env var > `ai.provider` in config > default `"claude"`
-2. Precedence for active model follows the same order: CLI `--model` > `FLEDGE_AI_MODEL` env > per-provider config field > provider default
-3. `OllamaProvider.host` defaults to `http://localhost:11434`; `normalize_ollama_host` trims whitespace, strips trailing slashes, and prepends `http://` when no scheme is present (so bare `localhost:11434` becomes `http://localhost:11434`)
-4. When `OllamaProvider.api_key` is set (via `OLLAMA_API_KEY` env or `ai.ollama.api_key` config), the request sends `Authorization: Bearer <key>`; otherwise no auth header is sent
-5. `ClaudeProvider` preserves the exact behavior `ask` / `review` had before this module existed: shells out to `claude --print <prompt>` with optional `--model <name>`
-6. `OllamaProvider.invoke` POSTs `{"model": ..., "prompt": ..., "stream": false}` to `<host>/api/generate` and parses `{"response": "..."}` from the reply
-7. Network errors from Ollama surface with the full URL in the message so users can diagnose host / port / daemon-down issues quickly
-8. No provider implementation modifies the prompt text — spec context composition stays in `ask` / `review`
-9. `OllamaProvider.timeout` is resolved by `build_provider` with precedence `FLEDGE_AI_TIMEOUT` env var (seconds, integer) > `ai.ollama.timeout_seconds` config > default 600s; a non-integer env value is ignored and falls through to config
-10. When the model tag contains `-cloud` and an API key is available, `resolve_effective_host` auto-routes to `https://ollama.com` — bypassing the local daemon which cannot forward client Bearer tokens. An explicit `OLLAMA_HOST` env var or non-default config host always take priority over cloud auto-routing.
-11. `build_provider` bails early with a descriptive error when a cloud model is selected but no API key is configured (`OLLAMA_API_KEY` env or `ai.ollama.api_key` config)
-12. Empty API key strings (from config or env) are treated as absent — they do not trigger Bearer headers or cloud routing
+1. Provider precedence (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > default `"anthropic"`.
+2. Model precedence follows the same order: CLI `--model` > `FLEDGE_AI_MODEL` env > per-provider config field > provider default.
+3. `claude` is accepted everywhere `anthropic` is, as a deprecated alias. `build_provider` prints a one-line deprecation warning to stderr only when the user explicitly selected `claude` (not during status/introspection). Removed in fledge 2.0.
+4. `anthropic` is served by `corvid-ai`'s Anthropic Messages provider; it requires an API key (`ANTHROPIC_API_KEY` env > `ai.anthropic.api_key` > deprecated `ai.claude.api_key`). Model falls back `ai.anthropic.model` > deprecated `ai.claude.model` > crate default.
+5. `openai` is served by `corvid-ai`'s OpenAI-compatible provider against `ai.openai.base_url` (default OpenAI). A model id is required (no built-in default). Key is `OPENAI_API_KEY` env > `ai.openai.api_key`; a missing key for a keyless/local endpoint is allowed by the crate.
+6. `OllamaProvider` behavior is unchanged: `normalize_ollama_host` trims and adds a scheme; Bearer auth when a key is set; POSTs `{"model", "prompt", "stream": false}` to `<host>/api/generate` and parses `{"response"}`.
+7. Network errors from Ollama surface the full URL plus an `OLLAMA_HOST` hint when that env var is set.
+8. No provider implementation modifies the prompt text — spec context composition stays in `ask` / `review`.
+9. Ollama timeout precedence: `FLEDGE_AI_TIMEOUT` env (integer seconds) > `ai.ollama.timeout_seconds` > 600s. The corvid-backed providers use `FLEDGE_AI_TIMEOUT` when set, else the crate default.
+10. Ollama cloud auto-routing (`-cloud` model + key → `https://ollama.com`) is unchanged; explicit `OLLAMA_HOST` or non-default config host take priority.
+11. `build_provider` bails when an Ollama cloud model is selected with no key. The corvid-backed Anthropic path bails when no key is configured.
+12. Empty API key strings (config or env) are treated as absent.
 
 ## Behavioral Examples
 
-### Default provider is Claude (unchanged from pre-v0.13)
+### Default provider is Anthropic (API key required)
 ```
+$ export ANTHROPIC_API_KEY=sk-ant-...
 $ fledge ask "what does the trust module do?"
-● Thinking (claude):
-[Claude's answer]
+● Thinking [anthropic (claude-sonnet-4-6)]:
+[answer]
 ```
 
-### Switch to Ollama via env var
+### Any OpenAI-compatible gateway
 ```
-$ export FLEDGE_AI_PROVIDER=ollama
-$ fledge ask "what does the trust module do?"
-● Thinking (ollama (llama3.3)):
-[Local-model answer]
-```
-
-### Switch to Ollama Cloud (auto-routed)
-```
-$ fledge config set ai.provider ollama
-$ fledge config set ai.ollama.api_key sk-...
-$ fledge config set ai.ollama.model "qwen3-coder:480b-cloud"
+$ fledge config set ai.provider openai
+$ fledge config set ai.openai.base_url https://openrouter.ai/api/v1
+$ fledge config set ai.openai.api_key sk-or-...
+$ fledge config set ai.openai.model anthropic/claude-sonnet-4-6
 $ fledge ask "why does work sanitize branch names?"
-● Thinking [ollama (qwen3-coder:480b-cloud)]:
-# Host auto-routed to https://ollama.com (cloud model + API key)
 ```
 
-### Per-invocation override
+### Ollama (unchanged), and a deprecated alias
 ```
 $ fledge ask --provider ollama --model llama3.3:70b "quick question"
-$ fledge review --provider claude --model opus-4
+$ fledge review --provider claude --model claude-opus-4-8   # warns, routes to anthropic
 ```
 
 ## Error Cases
 
 | Error | When | Behavior |
 |-------|------|----------|
-| Unknown provider string | CLI/env/config contains something other than `claude` or `ollama` | Bail with "Unknown provider 'X'. Supported: claude, ollama" |
-| `claude` CLI not installed | Active provider is `claude` | Bail via existing `github::ensure_claude_cli` check |
+| Unknown provider string | Value other than `anthropic`/`openai`/`ollama`/`claude` | Bail "Unknown provider 'X'. Supported: anthropic, openai, ollama" |
+| Missing Anthropic key | Active provider `anthropic` and no key in env/config | Bail with API-key setup guidance (from `corvid-ai`) |
+| Missing OpenAI model | Active provider `openai` and no model set | Bail "missing model" (no default) |
 | Ollama host unreachable | POST to `<host>/api/generate` fails | Bail with the full URL and a "(is the Ollama server running?)" hint |
-| Malformed Ollama response | `/api/generate` returns non-JSON or missing `response` field | Bail with decoding error |
-| Cloud model without API key | Model tag contains `-cloud` but no `OLLAMA_API_KEY` env or `ai.ollama.api_key` config | Bail with "requires authentication" and setup instructions |
+| Cloud model without API key | `-cloud` model but no `OLLAMA_API_KEY` / `ai.ollama.api_key` | Bail with "requires authentication" |
 
 ## Dependencies
 
 - `config` module — reads `ai.*` section
-- `github` module — `ensure_claude_cli` check for the Claude path
-- `ureq` — HTTP to Ollama endpoints (already a fledge dep)
-- `serde_json` — request encoding, response decoding
+- `corvid-ai` — Anthropic + OpenAI-compatible HTTP (sync leaf crate)
+- `ureq` — HTTP to Ollama endpoints
+- `serde_json` — Ollama request encoding / response decoding
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 5 | 2026-05-11 | `ClaudeProvider` gains `api_key: Option<String>`, forwarded to the `claude` CLI via `ANTHROPIC_API_KEY` (#379). Ollama HTTP and connection errors append an `OLLAMA_HOST env var = …` hint when the env var is set, so users diagnose silent overrides quickly (#378) |
-| 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST`; `build_provider` bails on cloud models without API key; empty API keys treated as absent |
-| 3 | 2026-04-27 | Document `normalize_ollama_host`, ensures bare `host:port` values get an `http://` scheme; update invariant 3 to describe full normalization behavior |
-| 2 | 2026-04-24 | `OllamaProvider` gains a `timeout: Duration` field populated by `build_provider`; adds `ai.ollama.timeout_seconds` config fallback so the per-request timeout is tunable without env vars (`FLEDGE_AI_TIMEOUT` still wins) |
-| 1 | 2026-04-23 | Initial spec, provider abstraction with Claude + Ollama implementations, env-var and config resolution, CLI overrides |
+| 6 | 2026-06-07 | Drop the `claude` CLI shell-out. `anthropic` (new default) and `openai` (any OpenAI-compatible endpoint) are served over HTTP by the `corvid-ai` crate via `CorvidProvider`; `ProviderKind` becomes `Anthropic`/`OpenAi`/`Ollama` with `claude` a deprecated alias of `anthropic`. New `ai.anthropic.*` / `ai.openai.*` config (deprecated `ai.claude.*` still read). `ollama` and the `github`/`ensure_claude_cli` dependency are removed from this module |
+| 5 | 2026-05-11 | `ClaudeProvider` gains `api_key`, forwarded to the `claude` CLI; Ollama errors append an `OLLAMA_HOST` hint |
+| 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST` |
+| 3 | 2026-04-27 | Document `normalize_ollama_host` scheme prepend |
+| 2 | 2026-04-24 | `OllamaProvider` gains a `timeout` field; `ai.ollama.timeout_seconds` fallback |
+| 1 | 2026-04-23 | Initial spec, provider abstraction with Claude + Ollama implementations |

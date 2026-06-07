@@ -1,6 +1,6 @@
 ---
 module: ai
-version: 2
+version: 3
 status: active
 files:
   - src/ai.rs
@@ -18,8 +18,8 @@ depends_on:
 `fledge ai` is the ergonomic surface for picking an AI provider and model without editing `config.toml` or typing long env exports. Three subcommands:
 
 - `fledge ai status` — what's active right now, and where each value came from (env / config / default).
-- `fledge ai models` — live list of models available for a provider (Ollama: `/api/tags`; Claude: a short curated alias list).
-- `fledge ai use [provider] [model]` — interactive picker with a live model list for Ollama; fully scriptable via positional args.
+- `fledge ai models` — model list for a provider (Ollama: live `/api/tags`; Anthropic: a short curated model-id list; OpenAI-compatible: not enumerable).
+- `fledge ai use [provider] [model]` — interactive picker with a live model list for Ollama; fully scriptable via positional args. Providers: `anthropic`, `openai`, `ollama`.
 
 ## Public API
 
@@ -57,13 +57,13 @@ depends_on:
 1. `fledge ai status` reports the same provider/model/host that `build_provider` in `llm` would pick — precedence parity with `fledge ask` / `fledge review` is required; drift between the two is a bug
 2. `Source` distinguishes `Env`, `ConfigFile`, and `Default` so the user can see *why* a value is active; the label is rendered in the human output as `(from env)` / `(from config)` / `(from default)`
 3. `fledge ai models --provider ollama` queries `<host>/api/tags` live with a 5-second timeout; a failure surfaces the full URL plus a "(is the Ollama server running?)" hint, not a silent empty list
-4. `fledge ai models --provider claude` returns a small, intentionally curated alias list (not authoritative — claude CLI accepts arbitrary aliases); the human output prints a dim trailing note to that effect
+4. `fledge ai models --provider anthropic` returns a small, intentionally curated model-id list (not authoritative); `--provider openai` returns nothing (OpenAI-compatible gateways are not uniformly enumerable); the human output prints a dim trailing note
 5. `--search <q>` is a case-insensitive substring filter on `name`; applied after fetching, so the remote call is unchanged
 6. `--json` output is stable-shaped: `status` emits the full `StatusReport`, `models` emits `{provider, models: [...]}`; never an array at the top level
 7. `fledge ai use <provider> <model>` is fully non-interactive and writes to `~/.config/fledge/config.toml` — agents can script it without TTY detection
 8. `fledge ai use` with missing args enters an interactive picker; when stdin is not a TTY or `--non-interactive` is set, it errors via `utils::require_interactive("provider")` rather than hanging
 9. Interactive Ollama model picker queries the live `/api/tags` list and offers a `(custom…)` entry so the user can still pick a not-yet-pulled model; on endpoint failure it falls back to a free-text `Input`
-10. `fledge ai use` only writes the keys it resolves — if the user picks claude without a model, `ai.claude.model` is untouched (respecting "use claude's default")
+10. `fledge ai use` only writes the keys it resolves — if the user picks anthropic without a model, `ai.anthropic.model` is untouched (respecting "use the default"). `claude` is accepted as a deprecated alias and resolves to `anthropic`
 
 ## Behavioral Examples
 
@@ -126,5 +126,6 @@ $ fledge ai use                           # interactive picker
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3 | 2026-06-07 | Providers become `anthropic` (default) / `openai` / `ollama` for the 1.5.0 API-only move; `claude` is a deprecated alias of `anthropic`. `status` reports anthropic/openai key sources (env `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` or `ai.<provider>.api_key`, falling back to deprecated `ai.claude.*`) and `base_url` as the host; `models` curates Anthropic ids and leaves OpenAI-compatible unenumerated; `use` writes `ai.anthropic.*` / `ai.openai.*` |
 | 2 | 2026-04-26 | Tier-D 1.0 envelope: `ai status --json` and `ai models --json` now emit `{schema_version: 1, action: "ai_status"|"ai_models", ...}` envelopes. Previously emitted bare `StatusReport` / `ModelsReport` shapes that violated the AGENTS.md envelope contract. The dropped `ModelsReport` struct is unused; `ModelEntry` items are serialized inline under `models`. Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
 | 1 | 2026-04-24 | Initial spec, `fledge ai status` / `models` / `use`. Status reports the *source* of each resolved value so users can tell env from config from default. `ai use` is interactive by default with a live Ollama model picker and a non-interactive positional form (`fledge ai use <provider> [<model>]`) for agents. |

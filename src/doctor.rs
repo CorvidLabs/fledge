@@ -393,15 +393,11 @@ fn check_git(dir: &Path) -> Section {
 }
 
 fn check_ai() -> Section {
+    use crate::llm::ProviderKind;
     let mut checks = Vec::new();
 
-    let claude = check_tool(
-        "claude",
-        &["--version"],
-        "Install Claude CLI: https://docs.anthropic.com/en/docs/claude-code — then run `claude` to authenticate",
-    );
-    checks.push(claude.clone());
-
+    // Ollama is the only provider with a local binary worth checking; the
+    // others are plain HTTP APIs that just need a key.
     let ollama = check_tool(
         "ollama",
         &["--version"],
@@ -409,21 +405,17 @@ fn check_ai() -> Section {
     );
     checks.push(ollama.clone());
 
-    // Determine the active provider (config → env → default "claude") and
-    // report whether it's actually reachable.
     let config = crate::config::Config::load().ok().unwrap_or_default();
     let active = match crate::llm::resolve_provider_kind(&config, None) {
         Ok(k) => k,
         Err(e) => {
-            // Invalid ai.provider config / env — surface it explicitly rather
-            // than silently defaulting to Claude, which would mask the typo.
             checks.push(CheckResult {
                 name: "Active provider: (invalid)".to_string(),
                 status: CheckStatus::Error,
                 version: None,
                 detail: Some(format!("{e}")),
                 fix: Some(
-                    "Set ai.provider to 'claude' or 'ollama' (or unset FLEDGE_AI_PROVIDER)"
+                    "Set ai.provider to 'anthropic', 'openai', or 'ollama' (or unset FLEDGE_AI_PROVIDER)"
                         .to_string(),
                 ),
             });
@@ -435,75 +427,127 @@ fn check_ai() -> Section {
         }
     };
 
-    let active_status = match active {
-        crate::llm::ProviderKind::Claude => claude.status,
-        crate::llm::ProviderKind::Ollama => {
-            // Ollama can be a remote endpoint; the CLI check above doesn't tell
-            // us whether the configured host responds. Probe `/api/tags`.
+    let (status, detail, fix) = match active {
+        ProviderKind::Anthropic => {
+            let has_key = std::env::var("ANTHROPIC_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty())
+                .is_some()
+                || config
+                    .ai
+                    .anthropic
+                    .api_key
+                    .as_ref()
+                    .or(config.ai.claude.api_key.as_ref())
+                    .filter(|k| !k.is_empty())
+                    .is_some();
+            if has_key {
+                (
+                    CheckStatus::Ok,
+                    Some(
+                        "anthropic is the active provider and an API key is configured".to_string(),
+                    ),
+                    None,
+                )
+            } else {
+                (
+                    CheckStatus::Error,
+                    Some("anthropic is the active provider but no API key is set".to_string()),
+                    Some(
+                        "Set ANTHROPIC_API_KEY or run `fledge config set ai.anthropic.api_key <key>`"
+                            .to_string(),
+                    ),
+                )
+            }
+        }
+        ProviderKind::OpenAi => {
+            let has_key = std::env::var("OPENAI_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty())
+                .is_some()
+                || config
+                    .ai
+                    .openai
+                    .api_key
+                    .as_ref()
+                    .filter(|k| !k.is_empty())
+                    .is_some();
+            let has_model =
+                std::env::var("FLEDGE_AI_MODEL").is_ok() || config.ai.openai.model.is_some();
+            if has_key && has_model {
+                (
+                    CheckStatus::Ok,
+                    Some(
+                        "openai is the active provider with a key and model configured".to_string(),
+                    ),
+                    None,
+                )
+            } else if !has_key {
+                (
+                    CheckStatus::Error,
+                    Some("openai is the active provider but no API key is set".to_string()),
+                    Some(
+                        "Set OPENAI_API_KEY or run `fledge config set ai.openai.api_key <key>`"
+                            .to_string(),
+                    ),
+                )
+            } else {
+                (
+                    CheckStatus::Error,
+                    Some("openai is the active provider but no model is set".to_string()),
+                    Some(
+                        "OpenAI-compatible endpoints have no default; run `fledge config set ai.openai.model <id>`"
+                            .to_string(),
+                    ),
+                )
+            }
+        }
+        ProviderKind::Ollama => {
             let raw =
                 std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
             let host = crate::llm::normalize_ollama_host(&raw);
             if probe_ollama_host(&host) {
-                CheckStatus::Ok
+                let model = std::env::var("FLEDGE_AI_MODEL")
+                    .unwrap_or_else(|_| config.ai.ollama.model.clone());
+                (
+                    CheckStatus::Ok,
+                    Some(format!(
+                        "ollama is the active provider (model: {model}, host: {host})"
+                    )),
+                    None,
+                )
             } else if ollama.status == CheckStatus::Ok {
-                // Binary exists but endpoint unreachable — likely daemon not running
-                CheckStatus::Error
+                (
+                    CheckStatus::Error,
+                    Some(format!(
+                        "ollama CLI installed but endpoint {host} is not responding"
+                    )),
+                    Some(
+                        "Start the Ollama daemon (`ollama serve`) or correct OLLAMA_HOST / ai.ollama.host"
+                            .to_string(),
+                    ),
+                )
             } else {
-                CheckStatus::Missing
+                (
+                    CheckStatus::Missing,
+                    Some(format!(
+                        "ollama is the active provider but endpoint {host} is unreachable"
+                    )),
+                    Some(
+                        "Install Ollama or set `ai.provider = \"anthropic\"` (with ANTHROPIC_API_KEY)"
+                            .to_string(),
+                    ),
+                )
             }
         }
     };
 
-    let active_detail = match (active, &active_status) {
-        (crate::llm::ProviderKind::Claude, CheckStatus::Ok) => {
-            Some("claude is the active provider and is reachable".to_string())
-        }
-        (crate::llm::ProviderKind::Ollama, CheckStatus::Ok) => {
-            let raw =
-                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
-            let host = crate::llm::normalize_ollama_host(&raw);
-            let model =
-                std::env::var("FLEDGE_AI_MODEL").unwrap_or_else(|_| config.ai.ollama.model.clone());
-            Some(format!(
-                "ollama is the active provider (model: {model}, host: {host})"
-            ))
-        }
-        (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => {
-            let raw =
-                std::env::var("OLLAMA_HOST").unwrap_or_else(|_| config.ai.ollama.host.clone());
-            let host = crate::llm::normalize_ollama_host(&raw);
-            Some(format!(
-                "ollama CLI installed but endpoint {host} is not responding"
-            ))
-        }
-        (provider, _) => Some(format!(
-            "{} is the active provider but is not available",
-            provider.as_str()
-        )),
-    };
-
-    let active_fix = match (active, &active_status) {
-        (_, CheckStatus::Ok) => None,
-        (crate::llm::ProviderKind::Ollama, CheckStatus::Error) => Some(
-            "Start the Ollama daemon (`ollama serve`) or correct OLLAMA_HOST / ai.ollama.host"
-                .to_string(),
-        ),
-        (crate::llm::ProviderKind::Claude, _) => Some(
-            "Install Claude CLI or set `ai.provider = \"ollama\"` to use Ollama instead"
-                .to_string(),
-        ),
-        (crate::llm::ProviderKind::Ollama, _) => Some(
-            "Install Ollama or set `ai.provider = \"claude\"` to use Claude CLI instead"
-                .to_string(),
-        ),
-    };
-
     checks.push(CheckResult {
         name: format!("Active provider: {}", active.as_str()),
-        status: active_status,
+        status,
         version: None,
-        detail: active_detail,
-        fix: active_fix,
+        detail,
+        fix,
     });
 
     Section {

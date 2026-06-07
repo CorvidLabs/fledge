@@ -53,8 +53,8 @@ Specs (`specs/<name>/*.spec.md` and companion files) are the source of truth for
 | `fledge spec list --json` | `{schema_version: 1, action: "spec_list", specs: [{name, version, status, sections, companions, ...}]}` | Orienting to a new codebase |
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {name, version, status, sections, companions, ...}}` | Need structured view of one module |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs: [...], totals, strict}` | Spec-sync validation as data |
-| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, provider_source, model, model_source, host, host_source}`. All six keys always present. `provider_source` is `"env" \| "config" \| "default"`. `model`/`host` and their `*_source` may be `null` (e.g. Claude has no host) | Verifying provider config before invoking the LLM |
-| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}`. Ollama hits `/api/tags`, Claude returns curated aliases | Picking a specific model |
+| `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, provider_source, model, model_source, host, host_source}`. All six keys always present. `provider_source` is `"env" \| "config" \| "default"`. `model`/`host` and their `*_source` may be `null` (host is the `base_url`, shown only when set) | Verifying provider config before invoking the LLM |
+| `fledge ai models --provider {anthropic,openai,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}`. Ollama hits `/api/tags`, Anthropic returns curated model ids, OpenAI-compatible is not enumerable | Picking a specific model |
 | `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` from the active LLM | Answering a question about the code |
 | `fledge review --json` | Single-model: `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review \| error, provider, model}`. Top-level `provider`/`model` always present when panel size is 1; `review` (success) or `error` (slot failed) is the discriminator. Per-slot `reviews[]` items follow the same `review \| error` pattern | Before opening a PR |
 | `fledge review --with-model <ref> --json` | Multi-model panel: `{schema_version: 1, action: "review", base, ..., reviews: [{provider, model, elapsed_seconds, review|error}, ...]}` | Comparing models on the same diff |
@@ -148,32 +148,37 @@ You can still pass `--yes`/`--force` per command if you prefer. They and `FLEDGE
 
 ## AI commands
 
-`fledge ai`, `fledge ask`, and `fledge review` go through a provider abstraction. Two providers ship in core:
+`fledge ai`, `fledge ask`, and `fledge review` go through a provider abstraction. All of it is plain HTTP over the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate — no CLI to install. Three providers ship in core:
 
-- **Claude** (default). Shells out to the `claude` CLI, which must be installed and authenticated on the host.
-- **Ollama**. HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key.
+- **anthropic** (default). Anthropic Messages API. Needs `ANTHROPIC_API_KEY` (or `ai.anthropic.api_key`).
+- **openai**. Any OpenAI-compatible Chat Completions endpoint: OpenAI, OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, local servers. Set `ai.openai.base_url` for the gateway and `OPENAI_API_KEY` (or `ai.openai.api_key`). A model id is required.
+- **ollama**. HTTP to any Ollama-speaking endpoint: local daemon (`http://localhost:11434`), Ollama Cloud / Turbo, or self-hosted. Supports a Bearer API key and `-cloud` auto-routing.
+
+> `claude` is a deprecated alias of `anthropic` (warns, routes to the API; removed in fledge 2.0).
 
 ### Picking a provider, three ways
 
 ```bash
 # 1. fledge ai use (writes to ~/.config/fledge/config.toml, persists)
 fledge ai use ollama qwen3-coder:480b-cloud
-fledge ai use claude opus-4.7
+fledge ai use anthropic claude-sonnet-4-6
 fledge ai status                           # show the active triplet + source of each value
 
 # 2. Env vars (per-shell-session)
-export FLEDGE_AI_PROVIDER=ollama
+export FLEDGE_AI_PROVIDER=openai
+export ANTHROPIC_API_KEY=sk-ant-...        # anthropic
+export OPENAI_API_KEY=sk-...               # openai-compatible
 export OLLAMA_HOST=https://ollama.com
 export OLLAMA_API_KEY=sk-...
-export FLEDGE_AI_MODEL=gpt-oss:120b-cloud
-export FLEDGE_AI_TIMEOUT=600                # seconds, Ollama only
+export FLEDGE_AI_MODEL=claude-sonnet-4-6
+export FLEDGE_AI_TIMEOUT=600               # seconds
 
 # 3. Per-invocation (highest precedence)
 fledge ask --provider ollama --model qwen3-coder:480b-cloud "..."
-fledge review --provider claude --model opus-4.7
+fledge review --provider anthropic --model claude-opus-4-8
 ```
 
-Precedence: CLI flag > env var > config > default (`claude`).
+Precedence: CLI flag > env var > config > default (`anthropic`).
 
 ### `fledge ask` is spec-aware by default
 
@@ -200,7 +205,7 @@ fledge review --model opus --format checklist --json
 
 # Multi-model panel: same diff, parallel critiques
 fledge review --with-model ollama:gpt-oss:120b-cloud --with-model ollama:qwen3-coder:480b-cloud --json
-fledge review --no-active --with-model claude:opus-4.7,ollama:gpt-oss:120b-cloud --json
+fledge review --no-active --with-model anthropic:claude-opus-4-8,ollama:gpt-oss:120b-cloud --json
 ```
 
 The JSON output's `reviews[]` array contains one entry per slot with `provider`, `model`, `elapsed_seconds`, and either `review` or `error`. Per-slot failures don't abort the panel.
@@ -269,7 +274,7 @@ This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 ## When things go wrong
 
 - **A command hung**: you probably skipped `--yes` or `--force`. Cancel, re-run with the bypass flag (or set `FLEDGE_NON_INTERACTIVE=1` once).
-- **`fledge ask` / `review` errored with auth**: the host's `claude` CLI isn't set up, or your Ollama config is wrong. Run `fledge ai status` to see what fledge thinks is active, then `fledge doctor` to verify the provider is reachable.
+- **`fledge ask` / `review` errored with auth**: the active provider has no API key (set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, or `ai.<provider>.api_key`), or your Ollama config is wrong. Run `fledge ai status` to see what fledge thinks is active, then `fledge doctor` to verify the provider is reachable.
 - **`fledge spec check` fails**: read the error. Almost always a missing section, missing source file, or unknown status. Don't "fix" it by editing the validator.
 - **`fledge work push` fails**: check `fledge work status --json` for ahead/dirty counts. If there's nothing to push (ahead=0), commit first. If you're not on a tracking branch, `fledge work push` sets `-u origin` automatically.
 - **`fledge checks` (or any command) says "unrecognized subcommand"**: the corresponding plugin isn't installed. Run `fledge plugins install --defaults` for the curated set.

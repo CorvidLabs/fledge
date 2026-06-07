@@ -56,23 +56,80 @@ pub struct GitHubConfig {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AiConfig {
-    /// Active provider. `None` defaults to `"claude"` for backwards compatibility.
+    /// Active provider: `anthropic`, `openai`, or `ollama`. `None` defaults to
+    /// `anthropic`. `claude` is accepted as a deprecated alias for `anthropic`.
     #[serde(default)]
     pub provider: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "AnthropicConfig::is_empty")]
+    pub anthropic: AnthropicConfig,
+    #[serde(default, skip_serializing_if = "OpenAiConfig::is_empty")]
+    pub openai: OpenAiConfig,
+    /// Deprecated alias of `anthropic`. Still read so existing configs keep
+    /// working; removed in fledge 2.0.
+    #[serde(default, skip_serializing_if = "ClaudeConfig::is_empty")]
     pub claude: ClaudeConfig,
     #[serde(default)]
     pub ollama: OllamaConfig,
 }
 
+/// Native Anthropic provider config, served over HTTP by the `corvid-ai` crate.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct AnthropicConfig {
+    /// Model id (e.g. `claude-sonnet-4-6`). When None, the crate default applies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// API key. Read from `ANTHROPIC_API_KEY` env var when None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    /// Endpoint base URL override (default `https://api.anthropic.com`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+}
+
+impl AnthropicConfig {
+    fn is_empty(&self) -> bool {
+        self.model.is_none() && self.api_key.is_none() && self.base_url.is_none()
+    }
+}
+
+/// Generic OpenAI-compatible provider config (OpenAI, OpenRouter, Groq, Together,
+/// DeepSeek, Mistral, xAI, local servers, ...). The gateway is chosen by
+/// `base_url`.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct OpenAiConfig {
+    /// Endpoint base URL (e.g. `https://openrouter.ai/api/v1`). Default is OpenAI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    /// API key. Read from `OPENAI_API_KEY` env var when None.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    /// Model id. Required: OpenAI-compatible endpoints have no built-in default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+}
+
+impl OpenAiConfig {
+    fn is_empty(&self) -> bool {
+        self.base_url.is_none() && self.api_key.is_none() && self.model.is_none()
+    }
+}
+
+/// Deprecated alias of [`AnthropicConfig`]. Read as a fallback for existing
+/// `ai.claude.*` configs; removed in fledge 2.0.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClaudeConfig {
-    /// Default model name passed to the `claude` CLI via `--model`. When None,
-    /// `claude` uses its own default.
+    /// Deprecated. Use `ai.anthropic.model`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-    /// Anthropic API key. Read from `ANTHROPIC_API_KEY` env var if this field
-    /// is None. Surface via `fledge ai status` and `fledge config list`.
+    /// Deprecated. Use `ai.anthropic.api_key` or `ANTHROPIC_API_KEY`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+}
+
+impl ClaudeConfig {
+    fn is_empty(&self) -> bool {
+        self.model.is_none() && self.api_key.is_none()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -138,7 +195,7 @@ fn is_default_ollama_timeout_seconds(secs: &u64) -> bool {
     *secs == default_ollama_timeout_seconds()
 }
 
-const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, trust.orgs, trust.users, ai.provider, ai.claude.model, ai.claude.api_key, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
+const VALID_KEYS_HINT: &str = "Valid keys: defaults.author, defaults.github_org, defaults.license, github.token, templates.paths, templates.repos, trust.orgs, trust.users, ai.provider, ai.anthropic.model, ai.anthropic.api_key, ai.anthropic.base_url, ai.openai.model, ai.openai.api_key, ai.openai.base_url, ai.ollama.host, ai.ollama.api_key, ai.ollama.model, ai.ollama.timeout_seconds";
 
 impl Config {
     pub fn valid_keys_hint() -> &'static str {
@@ -201,6 +258,12 @@ impl Config {
             "templates.paths" => Some(self.templates.paths.join("\n")),
             "templates.repos" => Some(self.templates.repos.join("\n")),
             "ai.provider" => self.ai.provider.clone(),
+            "ai.anthropic.model" => self.ai.anthropic.model.clone(),
+            "ai.anthropic.api_key" => self.ai.anthropic.api_key.clone(),
+            "ai.anthropic.base_url" => self.ai.anthropic.base_url.clone(),
+            "ai.openai.model" => self.ai.openai.model.clone(),
+            "ai.openai.api_key" => self.ai.openai.api_key.clone(),
+            "ai.openai.base_url" => self.ai.openai.base_url.clone(),
             "ai.claude.model" => self.ai.claude.model.clone(),
             "ai.claude.api_key" => self.ai.claude.api_key.clone(),
             "ai.ollama.host" => Some(self.ai.ollama.host.clone()),
@@ -216,7 +279,11 @@ impl Config {
     pub fn is_secret_key(key: &str) -> bool {
         matches!(
             key,
-            "github.token" | "ai.claude.api_key" | "ai.ollama.api_key"
+            "github.token"
+                | "ai.anthropic.api_key"
+                | "ai.openai.api_key"
+                | "ai.claude.api_key"
+                | "ai.ollama.api_key"
         )
     }
 
@@ -232,6 +299,12 @@ impl Config {
                 | "trust.orgs"
                 | "trust.users"
                 | "ai.provider"
+                | "ai.anthropic.model"
+                | "ai.anthropic.api_key"
+                | "ai.anthropic.base_url"
+                | "ai.openai.model"
+                | "ai.openai.api_key"
+                | "ai.openai.base_url"
                 | "ai.claude.model"
                 | "ai.claude.api_key"
                 | "ai.ollama.host"
@@ -249,11 +322,23 @@ impl Config {
             "github.token" => self.github.token = Some(value.to_string()),
             "ai.provider" => {
                 let normalized = value.trim().to_ascii_lowercase();
-                if normalized != "claude" && normalized != "ollama" {
-                    anyhow::bail!("Invalid provider '{}'. Supported: claude, ollama", value);
+                if !matches!(
+                    normalized.as_str(),
+                    "anthropic" | "openai" | "ollama" | "claude"
+                ) {
+                    anyhow::bail!(
+                        "Invalid provider '{}'. Supported: anthropic, openai, ollama",
+                        value
+                    );
                 }
                 self.ai.provider = Some(normalized);
             }
+            "ai.anthropic.model" => self.ai.anthropic.model = Some(value.to_string()),
+            "ai.anthropic.api_key" => self.ai.anthropic.api_key = Some(value.to_string()),
+            "ai.anthropic.base_url" => self.ai.anthropic.base_url = Some(value.to_string()),
+            "ai.openai.model" => self.ai.openai.model = Some(value.to_string()),
+            "ai.openai.api_key" => self.ai.openai.api_key = Some(value.to_string()),
+            "ai.openai.base_url" => self.ai.openai.base_url = Some(value.to_string()),
             "ai.claude.model" => self.ai.claude.model = Some(value.to_string()),
             "ai.claude.api_key" => self.ai.claude.api_key = Some(value.to_string()),
             "ai.ollama.host" => self.ai.ollama.host = value.to_string(),
@@ -291,6 +376,12 @@ impl Config {
             "trust.orgs" => self.trust.orgs.clear(),
             "trust.users" => self.trust.users.clear(),
             "ai.provider" => self.ai.provider = None,
+            "ai.anthropic.model" => self.ai.anthropic.model = None,
+            "ai.anthropic.api_key" => self.ai.anthropic.api_key = None,
+            "ai.anthropic.base_url" => self.ai.anthropic.base_url = None,
+            "ai.openai.model" => self.ai.openai.model = None,
+            "ai.openai.api_key" => self.ai.openai.api_key = None,
+            "ai.openai.base_url" => self.ai.openai.base_url = None,
             "ai.claude.model" => self.ai.claude.model = None,
             "ai.claude.api_key" => self.ai.claude.api_key = None,
             "ai.ollama.host" => self.ai.ollama.host = default_ollama_host(),

@@ -81,10 +81,19 @@ fn status(json: bool) -> Result<()> {
     let (kind, provider_source) = resolve_provider_with_source(&config)?;
 
     let (model, model_source, host, host_source, api_key_source, cloud_routed) = match kind {
-        ProviderKind::Claude => {
-            let (m, s) = resolve_claude_model(&config);
-            let aks = resolve_claude_api_key_source(&config);
-            (m, s, None, None, aks, None)
+        ProviderKind::Anthropic => {
+            let (m, s) = resolve_anthropic_model(&config);
+            let aks = resolve_anthropic_api_key_source(&config);
+            let host = config.ai.anthropic.base_url.clone();
+            let host_source = host.as_ref().map(|_| Source::ConfigFile);
+            (m, s, host, host_source, aks, None)
+        }
+        ProviderKind::OpenAi => {
+            let (m, s) = resolve_openai_model(&config);
+            let aks = resolve_openai_api_key_source(&config);
+            let host = config.ai.openai.base_url.clone();
+            let host_source = host.as_ref().map(|_| Source::ConfigFile);
+            (m, s, host, host_source, aks, None)
         }
         ProviderKind::Ollama => {
             let (m, ms) = resolve_ollama_model(&config);
@@ -184,40 +193,55 @@ fn status(json: bool) -> Result<()> {
             style(cloud_note).dim()
         );
     }
-    if report.provider == "ollama" {
-        match &report.api_key_source {
-            Some(src) => println!(
-                "   {} {} {}",
-                style("API Key:").bold(),
-                style("***").green(),
-                style(format!("(from {})", src.label())).dim()
-            ),
-            None => println!(
-                "   {} {}",
-                style("API Key:").bold(),
-                style("(not set — required for cloud models)").dim()
-            ),
+    let not_set_hint = match report.provider.as_str() {
+        "ollama" => "(not set — required for cloud models)",
+        "openai" => {
+            "(not set — export OPENAI_API_KEY or run `fledge config set ai.openai.api_key <key>`)"
         }
-    } else if report.provider == "claude" {
-        match &report.api_key_source {
-            Some(src) => println!(
-                "   {} {} {}",
-                style("API Key:").bold(),
-                style("***").green(),
-                style(format!("(from {})", src.label())).dim()
-            ),
-            None => println!(
-                "   {} {}",
-                style("API Key:").bold(),
-                style("(not set — export ANTHROPIC_API_KEY or run `fledge config set ai.claude.api_key <key>`)").dim()
-            ),
+        _ => {
+            "(not set — export ANTHROPIC_API_KEY or run `fledge config set ai.anthropic.api_key <key>`)"
         }
+    };
+    match &report.api_key_source {
+        Some(src) => println!(
+            "   {} {} {}",
+            style("API Key:").bold(),
+            style("***").green(),
+            style(format!("(from {})", src.label())).dim()
+        ),
+        None => println!(
+            "   {} {}",
+            style("API Key:").bold(),
+            style(not_set_hint).dim()
+        ),
     }
     Ok(())
 }
 
-fn resolve_claude_api_key_source(config: &Config) -> Option<Source> {
+fn resolve_anthropic_api_key_source(config: &Config) -> Option<Source> {
     if std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return Some(Source::Env);
+    }
+    // Prefer the new key, fall back to the deprecated `ai.claude.api_key`.
+    let configured = config
+        .ai
+        .anthropic
+        .api_key
+        .as_ref()
+        .or(config.ai.claude.api_key.as_ref())
+        .filter(|k| !k.is_empty());
+    if configured.is_some() {
+        return Some(Source::ConfigFile);
+    }
+    None
+}
+
+fn resolve_openai_api_key_source(config: &Config) -> Option<Source> {
+    if std::env::var("OPENAI_API_KEY")
         .ok()
         .filter(|k| !k.is_empty())
         .is_some()
@@ -226,7 +250,7 @@ fn resolve_claude_api_key_source(config: &Config) -> Option<Source> {
     }
     if config
         .ai
-        .claude
+        .openai
         .api_key
         .as_ref()
         .filter(|k| !k.is_empty())
@@ -244,14 +268,31 @@ fn resolve_provider_with_source(config: &Config) -> Result<(ProviderKind, Source
     if let Some(v) = &config.ai.provider {
         return Ok((ProviderKind::parse(v)?, Source::ConfigFile));
     }
-    Ok((ProviderKind::Claude, Source::Default))
+    Ok((ProviderKind::Anthropic, Source::Default))
 }
 
-fn resolve_claude_model(config: &Config) -> (Option<String>, Option<Source>) {
+fn resolve_anthropic_model(config: &Config) -> (Option<String>, Option<Source>) {
     if let Ok(v) = std::env::var("FLEDGE_AI_MODEL") {
         return (Some(v), Some(Source::Env));
     }
-    if let Some(v) = &config.ai.claude.model {
+    // Prefer the new key, fall back to the deprecated `ai.claude.model`.
+    if let Some(v) = config
+        .ai
+        .anthropic
+        .model
+        .as_ref()
+        .or(config.ai.claude.model.as_ref())
+    {
+        return (Some(v.clone()), Some(Source::ConfigFile));
+    }
+    (None, None)
+}
+
+fn resolve_openai_model(config: &Config) -> (Option<String>, Option<Source>) {
+    if let Ok(v) = std::env::var("FLEDGE_AI_MODEL") {
+        return (Some(v), Some(Source::Env));
+    }
+    if let Some(v) = &config.ai.openai.model {
         return (Some(v.clone()), Some(Source::ConfigFile));
     }
     (None, None)
@@ -335,10 +376,11 @@ struct OllamaTagDetails {
     quantization_level: Option<String>,
 }
 
-/// Curated, intentionally short list of Claude aliases agents commonly reach
-/// for. Claude CLI accepts arbitrary aliases, so this is guidance — not the
-/// authoritative catalog.
-const CLAUDE_WELL_KNOWN_MODELS: &[&str] = &["opus-4.7", "opus-4.6", "sonnet-4.6", "haiku-4.5"];
+/// Curated, intentionally short list of Anthropic model ids agents commonly
+/// reach for. The Messages API accepts the exact id, so this is guidance, not
+/// the authoritative catalog.
+const ANTHROPIC_WELL_KNOWN_MODELS: &[&str] =
+    &["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"];
 
 #[derive(Debug, Serialize)]
 struct ModelEntry {
@@ -364,7 +406,7 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
 
     let entries = match kind {
         ProviderKind::Ollama => list_ollama_models(&config)?,
-        ProviderKind::Claude => CLAUDE_WELL_KNOWN_MODELS
+        ProviderKind::Anthropic => ANTHROPIC_WELL_KNOWN_MODELS
             .iter()
             .map(|n| ModelEntry {
                 name: (*n).to_string(),
@@ -375,6 +417,9 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
                 remote_host: None,
             })
             .collect(),
+        // OpenAI-compatible endpoints aren't uniformly enumerable; the user
+        // picks a model id for whatever gateway base_url points at.
+        ProviderKind::OpenAi => Vec::new(),
     };
 
     let filtered: Vec<ModelEntry> = match search {
@@ -401,10 +446,10 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
 
     if filtered.is_empty() {
         println!("  No models found.");
-        if matches!(kind, ProviderKind::Claude) {
+        if matches!(kind, ProviderKind::Anthropic | ProviderKind::OpenAi) {
             println!(
                 "  {}",
-                style("(claude models aren't live-enumerable — pass any alias to --model)").dim()
+                style("(API models aren't live-enumerable — pass any model id to --model)").dim()
             );
         }
         return Ok(());
@@ -445,11 +490,10 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
         }
         println!("{line}");
     }
-    if matches!(kind, ProviderKind::Claude) {
+    if matches!(kind, ProviderKind::Anthropic) {
         println!(
             "\n  {}",
-            style("(curated list — pass any alias to --model; claude CLI won't validate ahead of time)")
-                .dim()
+            style("(curated list — pass any model id to --model)").dim()
         );
     }
     Ok(())
@@ -523,7 +567,7 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
         Some(p) => ProviderKind::parse(&p)?,
         None => {
             utils::require_interactive("provider")?;
-            let items = ["claude", "ollama"];
+            let items = ["anthropic", "openai", "ollama"];
             let selection = Select::with_theme(&ColorfulTheme::default())
                 .with_prompt("Select AI provider")
                 .items(&items)
@@ -572,9 +616,14 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
     // Persist to config.
     config.set("ai.provider", kind.as_str())?;
     match kind {
-        ProviderKind::Claude => {
+        ProviderKind::Anthropic => {
             if let Some(m) = &chosen_model {
-                config.set("ai.claude.model", m)?;
+                config.set("ai.anthropic.model", m)?;
+            }
+        }
+        ProviderKind::OpenAi => {
+            if let Some(m) = &chosen_model {
+                config.set("ai.openai.model", m)?;
             }
         }
         ProviderKind::Ollama => {
@@ -641,15 +690,15 @@ fn prompt_for_model(kind: ProviderKind, config: &Config) -> Result<Option<String
                 }
             }
         }
-        ProviderKind::Claude => {
-            let mut items: Vec<String> = CLAUDE_WELL_KNOWN_MODELS
+        ProviderKind::Anthropic => {
+            let mut items: Vec<String> = ANTHROPIC_WELL_KNOWN_MODELS
                 .iter()
                 .map(|s| s.to_string())
                 .collect();
-            items.push("(use claude default)".to_string());
+            items.push("(use default)".to_string());
             items.push("(custom…)".to_string());
             let selection = Select::with_theme(&ColorfulTheme::default())
-                .with_prompt("Select Claude model")
+                .with_prompt("Select Anthropic model")
                 .items(&items)
                 .default(0)
                 .interact()
@@ -658,13 +707,22 @@ fn prompt_for_model(kind: ProviderKind, config: &Config) -> Result<Option<String
                 Ok(None)
             } else if selection == items.len() - 1 {
                 let input: String = Input::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Model alias")
+                    .with_prompt("Model id")
                     .interact_text()
                     .context("reading custom model input")?;
                 Ok(Some(input))
             } else {
                 Ok(Some(items[selection].clone()))
             }
+        }
+        ProviderKind::OpenAi => {
+            // No uniform catalog across OpenAI-compatible gateways; free-text.
+            let input: String = Input::with_theme(&ColorfulTheme::default())
+                .with_prompt("Model id (e.g. gpt-4o, anthropic/claude-sonnet-4-6)")
+                .allow_empty(true)
+                .interact_text()
+                .context("reading model input")?;
+            Ok(if input.is_empty() { None } else { Some(input) })
         }
     }
 }
@@ -693,7 +751,7 @@ mod tests {
         clear_env();
         let config = Config::default();
         let (kind, src) = resolve_provider_with_source(&config).unwrap();
-        assert_eq!(kind, ProviderKind::Claude);
+        assert_eq!(kind, ProviderKind::Anthropic);
         assert!(matches!(src, Source::Default));
     }
 
@@ -792,11 +850,11 @@ mod tests {
     }
 
     #[test]
-    fn claude_model_absent_when_unset() {
+    fn anthropic_model_absent_when_unset() {
         let _g = test_lock();
         clear_env();
         let config = Config::default();
-        let (m, src) = resolve_claude_model(&config);
+        let (m, src) = resolve_anthropic_model(&config);
         assert!(m.is_none());
         assert!(src.is_none());
     }

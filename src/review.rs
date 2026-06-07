@@ -688,16 +688,23 @@ mod tests {
 
     #[test]
     fn parse_model_ref_provider_only() {
-        let r = parse_model_ref("claude").unwrap();
-        assert_eq!(r.provider, "claude");
+        let r = parse_model_ref("anthropic").unwrap();
+        assert_eq!(r.provider, "anthropic");
         assert_eq!(r.model, None);
     }
 
     #[test]
     fn parse_model_ref_provider_and_model() {
-        let r = parse_model_ref("claude:opus-4.7").unwrap();
-        assert_eq!(r.provider, "claude");
-        assert_eq!(r.model.as_deref(), Some("opus-4.7"));
+        let r = parse_model_ref("anthropic:claude-opus-4-8").unwrap();
+        assert_eq!(r.provider, "anthropic");
+        assert_eq!(r.model.as_deref(), Some("claude-opus-4-8"));
+    }
+
+    #[test]
+    fn parse_model_ref_claude_alias_normalizes_to_anthropic() {
+        let r = parse_model_ref("claude:claude-sonnet-4-6").unwrap();
+        assert_eq!(r.provider, "anthropic");
+        assert_eq!(r.model.as_deref(), Some("claude-sonnet-4-6"));
     }
 
     #[test]
