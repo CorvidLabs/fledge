@@ -428,77 +428,36 @@ fn check_ai() -> Section {
     };
 
     let (status, detail, fix) = match active {
-        ProviderKind::Anthropic => {
-            let has_key = std::env::var("ANTHROPIC_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty())
-                .is_some()
-                || config
-                    .ai
-                    .anthropic
-                    .api_key
-                    .as_ref()
-                    .or(config.ai.claude.api_key.as_ref())
-                    .filter(|k| !k.is_empty())
-                    .is_some();
-            if has_key {
+        // API providers (anthropic, openai, and the gateways): a key is what
+        // makes them usable.
+        ProviderKind::Anthropic
+        | ProviderKind::OpenAi
+        | ProviderKind::OpenRouter
+        | ProviderKind::Gemini
+        | ProviderKind::DeepSeek
+        | ProviderKind::Groq
+        | ProviderKind::Mistral
+        | ProviderKind::Xai
+        | ProviderKind::Together => {
+            let name = active.as_str();
+            if crate::llm::provider_has_key(active, &config) {
                 (
                     CheckStatus::Ok,
-                    Some(
-                        "anthropic is the active provider and an API key is configured".to_string(),
-                    ),
+                    Some(format!(
+                        "{name} is the active provider and an API key is configured"
+                    )),
                     None,
                 )
             } else {
                 (
                     CheckStatus::Error,
-                    Some("anthropic is the active provider but no API key is set".to_string()),
-                    Some(
-                        "Set ANTHROPIC_API_KEY or run `fledge config set ai.anthropic.api_key <key>`"
-                            .to_string(),
-                    ),
-                )
-            }
-        }
-        ProviderKind::OpenAi => {
-            let has_key = std::env::var("OPENAI_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty())
-                .is_some()
-                || config
-                    .ai
-                    .openai
-                    .api_key
-                    .as_ref()
-                    .filter(|k| !k.is_empty())
-                    .is_some();
-            let has_model =
-                std::env::var("FLEDGE_AI_MODEL").is_ok() || config.ai.openai.model.is_some();
-            if has_key && has_model {
-                (
-                    CheckStatus::Ok,
-                    Some(
-                        "openai is the active provider with a key and model configured".to_string(),
-                    ),
-                    None,
-                )
-            } else if !has_key {
-                (
-                    CheckStatus::Error,
-                    Some("openai is the active provider but no API key is set".to_string()),
-                    Some(
-                        "Set OPENAI_API_KEY or run `fledge config set ai.openai.api_key <key>`"
-                            .to_string(),
-                    ),
-                )
-            } else {
-                (
-                    CheckStatus::Error,
-                    Some("openai is the active provider but no model is set".to_string()),
-                    Some(
-                        "OpenAI-compatible endpoints have no default; run `fledge config set ai.openai.model <id>`"
-                            .to_string(),
-                    ),
+                    Some(format!(
+                        "{name} is the active provider but no API key is set"
+                    )),
+                    Some(format!(
+                        "Set {} or configure a key for {name}",
+                        active.env_var()
+                    )),
                 )
             }
         }

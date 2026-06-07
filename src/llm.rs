@@ -6,37 +6,145 @@ use crate::config::Config;
 
 /// Which LLM backend a command should use.
 ///
-/// `Anthropic` and `OpenAi` are served by the `corvid-ai` crate over plain
-/// HTTP (Anthropic Messages API and any OpenAI-compatible Chat Completions
-/// endpoint). `Ollama` keeps fledge's native client so local/cloud routing and
-/// the `/api/tags` model list behave exactly as before.
+/// Every variant except `Ollama` is served by the `corvid-ai` crate over plain
+/// HTTP. `Ollama` keeps fledge's native client so local/cloud routing and the
+/// `/api/tags` model list behave exactly as before. The non-`Ollama` names mirror
+/// `corvid-ai`'s registry so `fledge` and `spec-sync` expose the same providers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderKind {
     Anthropic,
     OpenAi,
+    OpenRouter,
+    Gemini,
+    DeepSeek,
+    Groq,
+    Mistral,
+    Xai,
+    Together,
     Ollama,
 }
+
+/// Auto-detect order: Ollama first (it ranks ahead of API providers when keyed),
+/// then API providers. Used when nothing is explicitly selected.
+pub const AUTO_ORDER: &[ProviderKind] = &[
+    ProviderKind::Ollama,
+    ProviderKind::Anthropic,
+    ProviderKind::OpenAi,
+    ProviderKind::OpenRouter,
+    ProviderKind::Gemini,
+    ProviderKind::DeepSeek,
+    ProviderKind::Groq,
+    ProviderKind::Mistral,
+    ProviderKind::Xai,
+    ProviderKind::Together,
+];
 
 impl ProviderKind {
     pub fn as_str(&self) -> &'static str {
         match self {
             ProviderKind::Anthropic => "anthropic",
             ProviderKind::OpenAi => "openai",
+            ProviderKind::OpenRouter => "openrouter",
+            ProviderKind::Gemini => "gemini",
+            ProviderKind::DeepSeek => "deepseek",
+            ProviderKind::Groq => "groq",
+            ProviderKind::Mistral => "mistral",
+            ProviderKind::Xai => "xai",
+            ProviderKind::Together => "together",
             ProviderKind::Ollama => "ollama",
         }
     }
 
-    /// Parse a provider name. `claude` is accepted as a deprecated alias for
-    /// `anthropic` (the deprecation warning is emitted by `build_provider`, so
-    /// this stays pure for status/introspection).
-    pub fn parse(s: &str) -> Result<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "anthropic" | "claude" => Ok(ProviderKind::Anthropic),
-            "openai" => Ok(ProviderKind::OpenAi),
-            "ollama" => Ok(ProviderKind::Ollama),
-            other => bail!("Unknown provider '{other}'. Supported: anthropic, openai, ollama"),
+    /// The environment variable that supplies this provider's API key (mirrors
+    /// the `corvid-ai` registry).
+    pub fn env_var(&self) -> &'static str {
+        match self {
+            ProviderKind::Anthropic => "ANTHROPIC_API_KEY",
+            ProviderKind::OpenAi => "OPENAI_API_KEY",
+            ProviderKind::OpenRouter => "OPENROUTER_API_KEY",
+            ProviderKind::Gemini => "GEMINI_API_KEY",
+            ProviderKind::DeepSeek => "DEEPSEEK_API_KEY",
+            ProviderKind::Groq => "GROQ_API_KEY",
+            ProviderKind::Mistral => "MISTRAL_API_KEY",
+            ProviderKind::Xai => "XAI_API_KEY",
+            ProviderKind::Together => "TOGETHER_API_KEY",
+            ProviderKind::Ollama => "OLLAMA_API_KEY",
         }
     }
+
+    /// Parse a provider name. `claude` is a deprecated alias for `anthropic`
+    /// (the deprecation warning is emitted by `build_provider`, so this stays
+    /// pure for status/introspection).
+    pub fn parse(s: &str) -> Result<Self> {
+        let lower = s.trim().to_ascii_lowercase();
+        if lower == "claude" {
+            return Ok(ProviderKind::Anthropic);
+        }
+        AUTO_ORDER
+            .iter()
+            .copied()
+            .find(|k| k.as_str() == lower)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown provider '{lower}'. Supported: {}, ollama (and the deprecated alias 'claude')",
+                    AUTO_ORDER
+                        .iter()
+                        .filter(|k| !matches!(k, ProviderKind::Ollama))
+                        .map(|k| k.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            })
+    }
+}
+
+/// Does the given provider have an API key available (env var, or config for the
+/// three providers fledge stores keys for)? "Configured" providers drive
+/// auto-detection. A keyless local Ollama is *not* configured — it is only the
+/// zero-config default.
+pub fn provider_has_key(kind: ProviderKind, config: &Config) -> bool {
+    if std::env::var(kind.env_var())
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some()
+    {
+        return true;
+    }
+    match kind {
+        ProviderKind::Anthropic => config
+            .ai
+            .anthropic
+            .api_key
+            .as_ref()
+            .or(config.ai.claude.api_key.as_ref())
+            .filter(|k| !k.is_empty())
+            .is_some(),
+        ProviderKind::OpenAi => config
+            .ai
+            .openai
+            .api_key
+            .as_ref()
+            .filter(|k| !k.is_empty())
+            .is_some(),
+        ProviderKind::Ollama => config
+            .ai
+            .ollama
+            .api_key
+            .as_ref()
+            .filter(|k| !k.is_empty())
+            .is_some(),
+        // Gateways are env-var-only in fledge (no per-provider config section).
+        _ => false,
+    }
+}
+
+/// The providers that are "configured" (have a key), in auto-detect order.
+pub fn configured_providers(config: &Config) -> Vec<ProviderKind> {
+    AUTO_ORDER
+        .iter()
+        .copied()
+        .filter(|k| provider_has_key(*k, config))
+        .collect()
 }
 
 pub const DEFAULT_OLLAMA_CLOUD_HOST: &str = "https://ollama.com";
@@ -251,9 +359,15 @@ pub struct ProviderOverride {
 ///   1. explicit override argument
 ///   2. `FLEDGE_AI_PROVIDER` env var
 ///   3. `ai.provider` in config
-///   4. default: `ollama` — works out of the box against a local daemon with no
-///      key, and can also point at Ollama Cloud, so it is the most useful
-///      zero-config default.
+///   4. auto-detect: the first **configured** provider (one with a key), in
+///      `AUTO_ORDER` (Ollama-via-key first, then the API providers). When no
+///      provider is configured, fall back to keyless local `ollama` — the most
+///      useful zero-config default.
+///
+/// This is the deterministic answer used by `ai status` and the non-interactive
+/// path. When *multiple* providers are configured and the session is
+/// interactive, callers (e.g. `ask`) may instead prompt via
+/// [`configured_providers`].
 pub fn resolve_provider_kind(
     config: &Config,
     override_provider: Option<&str>,
@@ -267,7 +381,10 @@ pub fn resolve_provider_kind(
     if let Some(v) = &config.ai.provider {
         return ProviderKind::parse(v);
     }
-    Ok(ProviderKind::Ollama)
+    Ok(configured_providers(config)
+        .first()
+        .copied()
+        .unwrap_or(ProviderKind::Ollama))
 }
 
 /// The raw provider string the caller selected, in precedence order, so callers
@@ -317,7 +434,7 @@ pub fn build_provider(
                 .or_else(|| config.ai.anthropic.model.clone())
                 .or_else(|| config.ai.claude.model.clone());
             build_corvid(
-                "anthropic",
+                ProviderKind::Anthropic,
                 model,
                 api_key,
                 config.ai.anthropic.base_url.clone(),
@@ -333,7 +450,12 @@ pub fn build_provider(
                 .clone()
                 .or(env_model)
                 .or_else(|| config.ai.openai.model.clone());
-            build_corvid("openai", model, api_key, config.ai.openai.base_url.clone())
+            build_corvid(
+                ProviderKind::OpenAi,
+                model,
+                api_key,
+                config.ai.openai.base_url.clone(),
+            )
         }
         ProviderKind::Ollama => {
             let api_key = std::env::var("OLLAMA_API_KEY")
@@ -363,28 +485,34 @@ pub fn build_provider(
                 timeout,
             }))
         }
+        // OpenAI-compatible gateways (openrouter, gemini, deepseek, groq,
+        // mistral, xai, together). fledge has no per-provider config for these,
+        // so corvid-ai resolves the key from `<PROVIDER>_API_KEY` and the
+        // base_url + default model from its registry. `--model` / `FLEDGE_AI_MODEL`
+        // still override.
+        gateway => {
+            let model = overrides.model.clone().or(env_model);
+            build_corvid(gateway, model, None, None)
+        }
     }
 }
 
-/// Resolve a `corvid-ai` provider (anthropic / openai) from fledge's already
-/// precedence-resolved key, model, and base URL.
+/// Resolve a `corvid-ai`-backed provider from fledge's already precedence-resolved
+/// key, model, and base URL. `api_key`/`base_url` of `None` let `corvid-ai`
+/// resolve them from the `<PROVIDER>_API_KEY` env var and its registry.
 fn build_corvid(
-    name: &str,
+    kind: ProviderKind,
     model: Option<String>,
     api_key: Option<String>,
     base_url: Option<String>,
 ) -> Result<Box<dyn LlmProvider>> {
-    let mut settings = corvid_ai::Settings::provider(name);
+    let mut settings = corvid_ai::Settings::provider(kind.as_str());
     settings.model = model;
     settings.api_key = api_key;
     settings.base_url = base_url;
     settings.timeout_secs = ai_timeout_override();
 
     let (provider, timeout) = corvid_ai::resolve(&settings).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let kind = match name {
-        "openai" => ProviderKind::OpenAi,
-        _ => ProviderKind::Anthropic,
-    };
     Ok(Box::new(CorvidProvider {
         inner: provider,
         timeout,
@@ -415,10 +543,12 @@ mod tests {
         std::env::remove_var("FLEDGE_AI_PROVIDER");
         std::env::remove_var("FLEDGE_AI_MODEL");
         std::env::remove_var("OLLAMA_HOST");
-        std::env::remove_var("OLLAMA_API_KEY");
-        std::env::remove_var("ANTHROPIC_API_KEY");
-        std::env::remove_var("OPENAI_API_KEY");
         std::env::remove_var("FLEDGE_AI_TIMEOUT");
+        // Clear every provider key so auto-detect lands on the keyless Ollama
+        // default regardless of the developer/CI environment.
+        for k in AUTO_ORDER {
+            std::env::remove_var(k.env_var());
+        }
     }
 
     #[test]

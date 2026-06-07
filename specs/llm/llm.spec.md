@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 6
+version: 7
 status: active
 files:
   - src/llm.rs
@@ -14,7 +14,7 @@ depends_on:
 
 ## Purpose
 
-Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` delegate to an `LlmProvider` implementation, letting users pick a backend without the command code knowing which is active. As of 1.5.0 everything is plain HTTP: `ollama` is the default (local-or-cloud, no key needed to start) and keeps fledge's native client for cloud routing and `/api/tags`, while `anthropic` and `openai` (any OpenAI-compatible endpoint) are served by the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate. There is no CLI shell-out. Spec-aware prompt composition is provider-agnostic; the same prompt text flows to whichever backend is selected.
+Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` delegate to an `LlmProvider` implementation, letting users pick a backend without the command code knowing which is active. As of 1.5.0 everything is plain HTTP (no CLI shell-out). `ollama` keeps fledge's native client (cloud routing, `/api/tags`); every other provider — `anthropic`, `openai`, `openrouter`, `gemini`, `deepseek`, `groq`, `mistral`, `xai`, `together` — is served by the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate, so `fledge` and `spec-sync` expose the same provider names. When nothing is explicitly selected, the active provider is **auto-detected**: the first provider with a key (in `AUTO_ORDER` — Ollama-via-key first, then the API providers), falling back to keyless local Ollama. Spec-aware prompt composition is provider-agnostic; the same prompt flows to whichever backend is selected.
 
 ## Public API
 
@@ -23,13 +23,17 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` d
 | Export | Description |
 |--------|-------------|
 | `LlmProvider` | Trait all providers implement |
-| `ProviderKind` | Enum: `Anthropic`, `OpenAi`, `Ollama` |
-| `as_str` | `ProviderKind` method — returns `"anthropic"`, `"openai"`, or `"ollama"` |
+| `ProviderKind` | Enum: `Anthropic`, `OpenAi`, `OpenRouter`, `Gemini`, `DeepSeek`, `Groq`, `Mistral`, `Xai`, `Together`, `Ollama` |
+| `AUTO_ORDER` | `&[ProviderKind]` — auto-detect order (Ollama first, then API providers) |
+| `as_str` | `ProviderKind` method — the lowercase provider name |
+| `env_var` | `ProviderKind` method — the `<PROVIDER>_API_KEY` env var for the provider |
 | `parse` | `ProviderKind` method — case-insensitive; trims; `claude` is a deprecated alias of `anthropic`; errors on unknown values |
-| `CorvidProvider` | Wraps a `corvid-ai` provider (Anthropic native or any OpenAI-compatible endpoint) |
+| `provider_has_key` | `(ProviderKind, &Config) -> bool` — is the provider configured (env or config key)? |
+| `configured_providers` | `(&Config) -> Vec<ProviderKind>` — configured providers in auto-detect order |
+| `CorvidProvider` | Wraps any `corvid-ai` provider (Anthropic native, OpenAI-compatible, or Gemini) |
 | `OllamaProvider` | POSTs `{model, prompt, stream:false}` to `<host>/api/generate`, optional Bearer auth |
 | `ProviderOverride` | `{ provider: Option<String>, model: Option<String> }` — per-invocation overrides |
-| `resolve_provider_kind` | Determine active provider given config + override |
+| `resolve_provider_kind` | Determine active provider given config + override (auto-detects when nothing explicit) |
 | `build_provider` | Construct the concrete provider box from config + env + overrides |
 | `normalize_ollama_host` | Ensures `OllamaProvider.host` always has a scheme |
 | `resolve_effective_host` | Picks the Ollama host: env var > custom config > cloud auto-route > default localhost |
@@ -68,7 +72,7 @@ Provider abstraction for LLM-backed commands. `fledge ask` and `fledge review` d
 
 ## Invariants
 
-1. Provider precedence (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > default `"ollama"` (the most useful zero-config default: a local daemon needs no key, and it can also point at Ollama Cloud).
+1. Provider precedence (highest to lowest): explicit CLI override > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > **auto-detect**. Auto-detect = the first provider in `AUTO_ORDER` (Ollama, Anthropic, OpenAi, OpenRouter, Gemini, DeepSeek, Groq, Mistral, Xai, Together) that has a key (`provider_has_key`); when none is configured, keyless local Ollama. A keyless local Ollama is *only* the zero-config default — a set `<PROVIDER>_API_KEY` wins over it (no daemon probe). This matches `spec-sync` exactly.
 2. Model precedence follows the same order: CLI `--model` > `FLEDGE_AI_MODEL` env > per-provider config field > provider default.
 3. `claude` is accepted everywhere `anthropic` is, as a deprecated alias. `build_provider` prints a one-line deprecation warning to stderr only when the user explicitly selected `claude` (not during status/introspection). Removed in fledge 2.0.
 4. `anthropic` is served by `corvid-ai`'s Anthropic Messages provider; it requires an API key (`ANTHROPIC_API_KEY` env > `ai.anthropic.api_key` > deprecated `ai.claude.api_key`). Model falls back `ai.anthropic.model` > deprecated `ai.claude.model` > crate default.
@@ -127,6 +131,7 @@ $ fledge review --provider claude --model claude-opus-4-8   # warns, routes to a
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-06-07 | Expand the provider surface to the full corvid-ai registry (`openrouter`, `gemini`, `deepseek`, `groq`, `mistral`, `xai`, `together` alongside `anthropic`/`openai`/`ollama`) so fledge and spec-sync share provider names. Add key-based **auto-detect** (`AUTO_ORDER`, `provider_has_key`, `configured_providers`, `ProviderKind::env_var`): when nothing is explicitly selected, the first configured provider wins (no Ollama daemon probe), falling back to keyless local Ollama. Gateways are env-var-driven (no per-provider config) |
 | 6 | 2026-06-07 | Drop the `claude` CLI shell-out. `anthropic` and `openai` (any OpenAI-compatible endpoint) are served over HTTP by the `corvid-ai` crate via `CorvidProvider`; `ProviderKind` becomes `Anthropic`/`OpenAi`/`Ollama` with `claude` a deprecated alias of `anthropic`. The default provider is now `ollama` (local-or-cloud, zero-config). New `ai.anthropic.*` / `ai.openai.*` config (deprecated `ai.claude.*` still read). `ollama` and the `github`/`ensure_claude_cli` dependency are removed from this module |
 | 5 | 2026-05-11 | `ClaudeProvider` gains `api_key`, forwarded to the `claude` CLI; Ollama errors append an `OLLAMA_HOST` hint |
 | 4 | 2026-05-08 | Add cloud auto-routing: `resolve_effective_host`, `is_cloud_model`, `DEFAULT_OLLAMA_CLOUD_HOST` |

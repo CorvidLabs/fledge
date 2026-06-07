@@ -42,7 +42,7 @@ pub enum Commands {
         no_spec_index: bool,
         /// LLM provider: claude (default) or ollama. Overrides
         /// FLEDGE_AI_PROVIDER and ai.provider in config.
-        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "ollama", "claude"])]
+        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Model name. Overrides FLEDGE_AI_MODEL and
         /// ai.{claude,ollama}.model in config.
@@ -167,7 +167,7 @@ pub enum Commands {
         no_auto_specs: bool,
         /// LLM provider: claude (default) or ollama. Overrides
         /// FLEDGE_AI_PROVIDER and ai.provider in config.
-        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "ollama", "claude"])]
+        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Add another model to the review panel — runs in parallel against
         /// the same diff + spec context. Format: `provider[:model]`, e.g.
@@ -441,7 +441,7 @@ pub enum WorkSubcommand {
         #[arg(long)]
         ai: bool,
         /// Override AI provider for --ai (claude or ollama)
-        #[arg(long, value_parser = ["anthropic", "openai", "ollama", "claude"])]
+        #[arg(long, value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Override AI model for --ai
         #[arg(long)]
@@ -484,7 +484,7 @@ pub enum AiSubcommand {
     /// List available models for the active (or specified) provider
     Models {
         /// Provider: claude or ollama (default: active provider)
-        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "ollama", "claude"])]
+        #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Filter models by substring (case-insensitive)
         #[arg(long, value_name = "QUERY")]
@@ -498,7 +498,7 @@ pub enum AiSubcommand {
     #[command(name = "use")]
     Use {
         /// Provider: claude or ollama
-        #[arg(value_parser = ["anthropic", "openai", "ollama", "claude"])]
+        #[arg(value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Model name (e.g. qwen3-coder:480b-cloud)
         model: Option<String>,

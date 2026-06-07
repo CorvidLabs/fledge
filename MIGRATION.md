@@ -15,8 +15,16 @@ core:
   OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, local servers), selected by
   `ai.openai.base_url`.
 
-The default provider changed from `claude` (CLI) to `ollama` (HTTP). If you
-relied on the default to use Claude, set `ai.provider = "anthropic"` explicitly.
+The default provider changed from `claude` (CLI) to **auto-detect**: the first
+provider with an API key (Ollama-via-key first, then the API providers), falling
+back to keyless local Ollama when no key is set. A set `<PROVIDER>_API_KEY` beats
+an unkeyed local Ollama (no daemon probe). If you relied on the default to use
+Claude, set `ai.provider = "anthropic"` (and `ANTHROPIC_API_KEY`).
+
+`fledge` also exposes the OpenAI-compatible gateways `openrouter`, `groq`,
+`deepseek`, `mistral`, `xai`, `together`, and `gemini` as named providers
+(key via `<PROVIDER>_API_KEY`) — the same names `spec-sync` uses. When several
+providers are configured, `fledge ask` prompts you to pick (interactive only).
 
 ### What you need to do
 

@@ -387,7 +387,18 @@ pub fn interactive_config_edit() -> Result<()> {
         ConfigKey {
             key: "ai.provider",
             desc: "LLM backend",
-            kind: KeyKind::Enum(&["anthropic", "openai", "ollama"]),
+            kind: KeyKind::Enum(&[
+                "anthropic",
+                "openai",
+                "openrouter",
+                "gemini",
+                "deepseek",
+                "groq",
+                "mistral",
+                "xai",
+                "together",
+                "ollama",
+            ]),
         },
         ConfigKey {
             key: "ai.anthropic.model",

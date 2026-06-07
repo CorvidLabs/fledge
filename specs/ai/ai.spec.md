@@ -1,6 +1,6 @@
 ---
 module: ai
-version: 3
+version: 4
 status: active
 files:
   - src/ai.rs
@@ -29,6 +29,7 @@ depends_on:
 |--------|-------------|
 | `run` | Entry point — dispatches to the three subcommand handlers |
 | `AiAction` | Enum with `Status`, `Models`, `Use` variants from CLI parsing |
+| `pick_when_multiple` | `(&Config) -> Result<Option<(String, Option<String>)>>` — interactive provider+model picker used by `ask` when several providers are configured; `None` when <2 configured or non-interactive |
 
 ### Structs & Enums
 
@@ -126,6 +127,7 @@ $ fledge ai use                           # interactive picker
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-06-07 | Expand to the full corvid-ai provider surface (openrouter/gemini/deepseek/groq/mistral/xai/together) and key-based auto-detect; `status`/`models`/`use` generalized over all providers (gateways show the registry default model, free-text model picker). Add `pick_when_multiple`: when several providers are configured and nothing is explicitly selected, `ask` prompts for provider + model (interactive only; CI/MCP fall through to auto-detect) |
 | 3 | 2026-06-07 | Providers become `anthropic` / `openai` / `ollama` (the default) for the 1.5.0 move to HTTP providers; `claude` is a deprecated alias of `anthropic`. `status` reports anthropic/openai key sources (env `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` or `ai.<provider>.api_key`, falling back to deprecated `ai.claude.*`) and `base_url` as the host; `models` curates Anthropic ids and leaves OpenAI-compatible unenumerated; `use` writes `ai.anthropic.*` / `ai.openai.*` |
 | 2 | 2026-04-26 | Tier-D 1.0 envelope: `ai status --json` and `ai models --json` now emit `{schema_version: 1, action: "ai_status"|"ai_models", ...}` envelopes. Previously emitted bare `StatusReport` / `ModelsReport` shapes that violated the AGENTS.md envelope contract. The dropped `ModelsReport` struct is unused; `ModelEntry` items are serialized inline under `models`. Closes the gap where tier C (#274) only migrated plugins/lanes/templates |
 | 1 | 2026-04-24 | Initial spec, `fledge ai status` / `models` / `use`. Status reports the *source* of each resolved value so users can tell env from config from default. `ai use` is interactive by default with a live Ollama model picker and a non-interactive positional form (`fledge ai use <provider> [<model>]`) for agents. |

@@ -178,7 +178,9 @@ fledge ask --provider ollama --model qwen3-coder:480b-cloud "..."
 fledge review --provider anthropic --model claude-opus-4-8
 ```
 
-Precedence: CLI flag > env var > config > default (`ollama`).
+Beyond `anthropic`/`openai`/`ollama`, the OpenAI-compatible gateways `openrouter`, `groq`, `deepseek`, `mistral`, `xai`, `together`, and `gemini` are also valid providers (key via `<PROVIDER>_API_KEY`; same names as spec-sync).
+
+Precedence: CLI flag > `FLEDGE_AI_PROVIDER` env > `ai.provider` config > **auto-detect**. Auto-detect picks the first provider with a key (Ollama-via-key first, then the API providers); with no key anywhere it falls back to keyless local Ollama. A set `<PROVIDER>_API_KEY` beats an unkeyed local Ollama (no daemon probe). When several providers are configured and the session is interactive, `fledge ask` prompts you to pick.
 
 ### `fledge ask` is spec-aware by default
 

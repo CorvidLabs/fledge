@@ -1407,10 +1407,10 @@ fn cli_ai_use_non_interactive_without_provider_fails() {
 
 #[test]
 fn cli_ai_models_rejects_unknown_provider_at_parse_time() {
-    let output = run_fledge(&["ai", "models", "--provider", "gemini"]);
+    let output = run_fledge(&["ai", "models", "--provider", "notaprovider"]);
     assert!(
         !output.status.success(),
-        "clap should reject --provider gemini on `ai models`"
+        "clap should reject an unknown --provider on `ai models`"
     );
 }
 

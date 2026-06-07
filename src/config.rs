@@ -323,15 +323,9 @@ impl Config {
             "github.token" => self.github.token = Some(value.to_string()),
             "ai.provider" => {
                 let normalized = value.trim().to_ascii_lowercase();
-                if !matches!(
-                    normalized.as_str(),
-                    "anthropic" | "openai" | "ollama" | "claude"
-                ) {
-                    anyhow::bail!(
-                        "Invalid provider '{}'. Supported: anthropic, openai, ollama",
-                        value
-                    );
-                }
+                // Validate against the single source of truth (also accepts the
+                // deprecated `claude` alias).
+                crate::llm::ProviderKind::parse(&normalized)?;
                 self.ai.provider = Some(normalized);
             }
             "ai.anthropic.model" => self.ai.anthropic.model = Some(value.to_string()),

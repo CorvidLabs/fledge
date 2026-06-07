@@ -24,11 +24,28 @@ pub fn run(options: AskOptions) -> Result<()> {
     let prompt = build_prompt(&options.question, options.json, spec_context.as_deref());
 
     let config = Config::load().context("loading config")?;
+
+    // Honor explicit selection (flag / env / config). Otherwise, when several
+    // providers are configured and we're interactive (and not emitting JSON),
+    // let the user pick. Non-TTY / CI / `--json` fall through to the
+    // deterministic auto-detect in `build_provider`.
+    let explicit = options.provider.is_some()
+        || std::env::var("FLEDGE_AI_PROVIDER").is_ok()
+        || config.ai.provider.is_some();
+    let (provider_sel, model_sel) = if explicit || options.json {
+        (options.provider.clone(), options.model.clone())
+    } else {
+        match crate::ai::pick_when_multiple(&config)? {
+            Some((p, m)) => (Some(p), m.or_else(|| options.model.clone())),
+            None => (options.provider.clone(), options.model.clone()),
+        }
+    };
+
     let provider = llm::build_provider(
         &config,
         &ProviderOverride {
-            provider: options.provider.clone(),
-            model: options.model.clone(),
+            provider: provider_sel,
+            model: model_sel,
         },
     )?;
 
