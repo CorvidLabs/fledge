@@ -109,21 +109,6 @@ pub fn github_api_get(
     serde_json::from_str(&text).map_err(|e| anyhow::anyhow!("parsing GitHub API response: {}", e))
 }
 
-pub fn ensure_claude_cli() -> Result<()> {
-    if Command::new("claude")
-        .arg("--version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .is_err()
-    {
-        bail!(
-            "Claude CLI is not installed. Install it from https://docs.anthropic.com/en/docs/claude-code and run `claude` to authenticate."
-        );
-    }
-    Ok(())
-}
-
 pub fn ensure_git_repo() -> Result<()> {
     let output = Command::new("git")
         .args(["rev-parse", "--is-inside-work-tree"])

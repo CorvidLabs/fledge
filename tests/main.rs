@@ -1343,14 +1343,16 @@ fn cli_ask_rejects_unknown_provider_at_parse_time() {
 
 #[test]
 fn cli_review_rejects_unknown_provider_at_parse_time() {
-    let output = run_fledge(&["review", "--provider", "gemini"]);
+    let output = run_fledge(&["review", "--provider", "notaprovider"]);
     assert!(
         !output.status.success(),
-        "expected clap to reject --provider gemini"
+        "expected clap to reject --provider notaprovider"
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("gemini") || stderr.contains("invalid") || stderr.contains("possible"),
+        stderr.contains("notaprovider")
+            || stderr.contains("invalid")
+            || stderr.contains("possible"),
         "stderr should mention the bad value, got: {stderr}"
     );
 }
@@ -1407,10 +1409,10 @@ fn cli_ai_use_non_interactive_without_provider_fails() {
 
 #[test]
 fn cli_ai_models_rejects_unknown_provider_at_parse_time() {
-    let output = run_fledge(&["ai", "models", "--provider", "gemini"]);
+    let output = run_fledge(&["ai", "models", "--provider", "notaprovider"]);
     assert!(
         !output.status.success(),
-        "clap should reject --provider gemini on `ai models`"
+        "clap should reject an unknown --provider on `ai models`"
     );
 }
 

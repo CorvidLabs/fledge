@@ -81,11 +81,6 @@ fn status(json: bool) -> Result<()> {
     let (kind, provider_source) = resolve_provider_with_source(&config)?;
 
     let (model, model_source, host, host_source, api_key_source, cloud_routed) = match kind {
-        ProviderKind::Claude => {
-            let (m, s) = resolve_claude_model(&config);
-            let aks = resolve_claude_api_key_source(&config);
-            (m, s, None, None, aks, None)
-        }
         ProviderKind::Ollama => {
             let (m, ms) = resolve_ollama_model(&config);
             let aks = resolve_ollama_api_key_source(&config);
@@ -120,6 +115,14 @@ fn status(json: bool) -> Result<()> {
                 aks,
                 Some(routed_to_cloud),
             )
+        }
+        // All other providers are corvid-ai-backed API providers.
+        api => {
+            let (m, s) = resolve_api_model(&config, api);
+            let aks = resolve_api_key_source(&config, api);
+            let host = api_base_url(&config, api);
+            let host_source = host.as_ref().map(|_| Source::ConfigFile);
+            (m, s, host, host_source, aks, None)
         }
     };
 
@@ -184,57 +187,59 @@ fn status(json: bool) -> Result<()> {
             style(cloud_note).dim()
         );
     }
-    if report.provider == "ollama" {
-        match &report.api_key_source {
-            Some(src) => println!(
-                "   {} {} {}",
-                style("API Key:").bold(),
-                style("***").green(),
-                style(format!("(from {})", src.label())).dim()
-            ),
-            None => println!(
-                "   {} {}",
-                style("API Key:").bold(),
-                style("(not set — required for cloud models)").dim()
-            ),
-        }
-    } else if report.provider == "claude" {
-        match &report.api_key_source {
-            Some(src) => println!(
-                "   {} {} {}",
-                style("API Key:").bold(),
-                style("***").green(),
-                style(format!("(from {})", src.label())).dim()
-            ),
-            None => println!(
-                "   {} {}",
-                style("API Key:").bold(),
-                style("(not set — export ANTHROPIC_API_KEY or run `fledge config set ai.claude.api_key <key>`)").dim()
-            ),
-        }
+    let not_set_hint = match kind {
+        ProviderKind::Ollama => "(not set — required for cloud models)".to_string(),
+        _ => format!("(not set — export {} or configure a key)", kind.env_var()),
+    };
+    match &report.api_key_source {
+        Some(src) => println!(
+            "   {} {} {}",
+            style("API Key:").bold(),
+            style("***").green(),
+            style(format!("(from {})", src.label())).dim()
+        ),
+        None => println!(
+            "   {} {}",
+            style("API Key:").bold(),
+            style(not_set_hint).dim()
+        ),
     }
     Ok(())
 }
 
-fn resolve_claude_api_key_source(config: &Config) -> Option<Source> {
-    if std::env::var("ANTHROPIC_API_KEY")
+/// Where the API key for a corvid-ai-backed provider comes from (env var, or
+/// config for the providers fledge stores keys for). `None` means unset.
+fn resolve_api_key_source(config: &Config, kind: ProviderKind) -> Option<Source> {
+    if std::env::var(kind.env_var())
         .ok()
         .filter(|k| !k.is_empty())
         .is_some()
     {
         return Some(Source::Env);
     }
-    if config
-        .ai
-        .claude
-        .api_key
-        .as_ref()
-        .filter(|k| !k.is_empty())
-        .is_some()
-    {
-        return Some(Source::ConfigFile);
+    let configured = match kind {
+        // Prefer the new key, fall back to the deprecated `ai.claude.api_key`.
+        ProviderKind::Anthropic => config.ai.anthropic.api_key.as_ref().or(config
+            .ai
+            .claude
+            .api_key
+            .as_ref()),
+        ProviderKind::OpenAi => config.ai.openai.api_key.as_ref(),
+        // Gateways are env-var-only in fledge.
+        _ => None,
     }
-    None
+    .filter(|k| !k.is_empty());
+    configured.map(|_| Source::ConfigFile)
+}
+
+/// The configured base-URL override for a provider, if any (anthropic/openai
+/// only; gateways use the corvid-ai registry default).
+fn api_base_url(config: &Config, kind: ProviderKind) -> Option<String> {
+    match kind {
+        ProviderKind::Anthropic => config.ai.anthropic.base_url.clone(),
+        ProviderKind::OpenAi => config.ai.openai.base_url.clone(),
+        _ => None,
+    }
 }
 
 fn resolve_provider_with_source(config: &Config) -> Result<(ProviderKind, Source)> {
@@ -244,17 +249,34 @@ fn resolve_provider_with_source(config: &Config) -> Result<(ProviderKind, Source
     if let Some(v) = &config.ai.provider {
         return Ok((ProviderKind::parse(v)?, Source::ConfigFile));
     }
-    Ok((ProviderKind::Claude, Source::Default))
+    // Auto-detect: first configured provider, else keyless local Ollama. Source
+    // is `Default` either way (the user made no explicit selection).
+    let detected = crate::llm::configured_providers(config)
+        .first()
+        .copied()
+        .unwrap_or(ProviderKind::Ollama);
+    Ok((detected, Source::Default))
 }
 
-fn resolve_claude_model(config: &Config) -> (Option<String>, Option<Source>) {
+/// Resolve the model + its source for a corvid-ai-backed API provider.
+fn resolve_api_model(config: &Config, kind: ProviderKind) -> (Option<String>, Option<Source>) {
     if let Ok(v) = std::env::var("FLEDGE_AI_MODEL") {
         return (Some(v), Some(Source::Env));
     }
-    if let Some(v) = &config.ai.claude.model {
-        return (Some(v.clone()), Some(Source::ConfigFile));
+    let configured = match kind {
+        // Prefer the new key, fall back to the deprecated `ai.claude.model`.
+        ProviderKind::Anthropic => config.ai.anthropic.model.as_ref().or(config
+            .ai
+            .claude
+            .model
+            .as_ref()),
+        ProviderKind::OpenAi => config.ai.openai.model.as_ref(),
+        _ => None,
+    };
+    match configured {
+        Some(v) => (Some(v.clone()), Some(Source::ConfigFile)),
+        None => (None, None),
     }
-    (None, None)
 }
 
 fn resolve_ollama_model(config: &Config) -> (String, Source) {
@@ -335,10 +357,11 @@ struct OllamaTagDetails {
     quantization_level: Option<String>,
 }
 
-/// Curated, intentionally short list of Claude aliases agents commonly reach
-/// for. Claude CLI accepts arbitrary aliases, so this is guidance — not the
-/// authoritative catalog.
-const CLAUDE_WELL_KNOWN_MODELS: &[&str] = &["opus-4.7", "opus-4.6", "sonnet-4.6", "haiku-4.5"];
+/// Curated, intentionally short list of Anthropic model ids agents commonly
+/// reach for. The Messages API accepts the exact id, so this is guidance, not
+/// the authoritative catalog.
+const ANTHROPIC_WELL_KNOWN_MODELS: &[&str] =
+    &["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"];
 
 #[derive(Debug, Serialize)]
 struct ModelEntry {
@@ -355,6 +378,17 @@ struct ModelEntry {
     remote_host: Option<String>,
 }
 
+fn model_entry(name: &str) -> ModelEntry {
+    ModelEntry {
+        name: name.to_string(),
+        family: None,
+        parameter_size: None,
+        quantization: None,
+        size_bytes: None,
+        remote_host: None,
+    }
+}
+
 fn models(provider: Option<String>, search: Option<String>, json: bool) -> Result<()> {
     let config = Config::load().context("loading config")?;
     let kind = match provider {
@@ -362,19 +396,18 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
         None => resolve_provider_with_source(&config)?.0,
     };
 
-    let entries = match kind {
+    let entries: Vec<ModelEntry> = match kind {
         ProviderKind::Ollama => list_ollama_models(&config)?,
-        ProviderKind::Claude => CLAUDE_WELL_KNOWN_MODELS
+        ProviderKind::Anthropic => ANTHROPIC_WELL_KNOWN_MODELS
             .iter()
-            .map(|n| ModelEntry {
-                name: (*n).to_string(),
-                family: None,
-                parameter_size: None,
-                quantization: None,
-                size_bytes: None,
-                remote_host: None,
-            })
+            .map(|n| model_entry(n))
             .collect(),
+        // API gateways aren't uniformly enumerable; surface the registry's
+        // default model (if any) as a starting point, else nothing.
+        other => corvid_ai::registry::lookup(other.as_str())
+            .and_then(|s| s.default_model)
+            .map(|m| vec![model_entry(m)])
+            .unwrap_or_default(),
     };
 
     let filtered: Vec<ModelEntry> = match search {
@@ -401,10 +434,10 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
 
     if filtered.is_empty() {
         println!("  No models found.");
-        if matches!(kind, ProviderKind::Claude) {
+        if matches!(kind, ProviderKind::Anthropic | ProviderKind::OpenAi) {
             println!(
                 "  {}",
-                style("(claude models aren't live-enumerable — pass any alias to --model)").dim()
+                style("(API models aren't live-enumerable — pass any model id to --model)").dim()
             );
         }
         return Ok(());
@@ -445,11 +478,10 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
         }
         println!("{line}");
     }
-    if matches!(kind, ProviderKind::Claude) {
+    if matches!(kind, ProviderKind::Anthropic) {
         println!(
             "\n  {}",
-            style("(curated list — pass any alias to --model; claude CLI won't validate ahead of time)")
-                .dim()
+            style("(curated list — pass any model id to --model)").dim()
         );
     }
     Ok(())
@@ -523,7 +555,8 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
         Some(p) => ProviderKind::parse(&p)?,
         None => {
             utils::require_interactive("provider")?;
-            let items = ["claude", "ollama"];
+            // Ollama first (the default), then the API providers in AUTO_ORDER.
+            let items: Vec<&str> = crate::llm::AUTO_ORDER.iter().map(|k| k.as_str()).collect();
             let selection = Select::with_theme(&ColorfulTheme::default())
                 .with_prompt("Select AI provider")
                 .items(&items)
@@ -572,14 +605,29 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
     // Persist to config.
     config.set("ai.provider", kind.as_str())?;
     match kind {
-        ProviderKind::Claude => {
+        ProviderKind::Anthropic => {
             if let Some(m) = &chosen_model {
-                config.set("ai.claude.model", m)?;
+                config.set("ai.anthropic.model", m)?;
+            }
+        }
+        ProviderKind::OpenAi => {
+            if let Some(m) = &chosen_model {
+                config.set("ai.openai.model", m)?;
             }
         }
         ProviderKind::Ollama => {
             if let Some(m) = &chosen_model {
                 config.set("ai.ollama.model", m)?;
+            }
+        }
+        // Gateways have no per-provider model config slot in fledge.
+        _ => {
+            if chosen_model.is_some() {
+                eprintln!(
+                    "  {} {} has no per-provider model config; pass the model with --model or FLEDGE_AI_MODEL.",
+                    style("note:").dim(),
+                    kind.as_str()
+                );
             }
         }
     }
@@ -595,6 +643,28 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
         }
     );
     Ok(())
+}
+
+/// When several providers are configured and nothing was explicitly selected,
+/// let the user pick a provider (and model) interactively. Returns `None` when
+/// fewer than two providers are configured or the session is not interactive —
+/// callers then fall through to the deterministic auto-detect, so MCP-over-stdio
+/// and CI never block.
+pub fn pick_when_multiple(config: &Config) -> Result<Option<(String, Option<String>)>> {
+    let configured = crate::llm::configured_providers(config);
+    if configured.len() < 2 || !utils::is_interactive() {
+        return Ok(None);
+    }
+    let items: Vec<&str> = configured.iter().map(|k| k.as_str()).collect();
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .with_prompt("Multiple AI providers are configured — pick one")
+        .items(&items)
+        .default(0)
+        .interact()
+        .context("reading provider selection")?;
+    let kind = configured[selection];
+    let model = prompt_for_model(kind, config)?;
+    Ok(Some((kind.as_str().to_string(), model)))
 }
 
 /// Interactive model picker. Returns `None` when the user declines or no
@@ -641,15 +711,15 @@ fn prompt_for_model(kind: ProviderKind, config: &Config) -> Result<Option<String
                 }
             }
         }
-        ProviderKind::Claude => {
-            let mut items: Vec<String> = CLAUDE_WELL_KNOWN_MODELS
+        ProviderKind::Anthropic => {
+            let mut items: Vec<String> = ANTHROPIC_WELL_KNOWN_MODELS
                 .iter()
                 .map(|s| s.to_string())
                 .collect();
-            items.push("(use claude default)".to_string());
+            items.push("(use default)".to_string());
             items.push("(custom…)".to_string());
             let selection = Select::with_theme(&ColorfulTheme::default())
-                .with_prompt("Select Claude model")
+                .with_prompt("Select Anthropic model")
                 .items(&items)
                 .default(0)
                 .interact()
@@ -658,13 +728,23 @@ fn prompt_for_model(kind: ProviderKind, config: &Config) -> Result<Option<String
                 Ok(None)
             } else if selection == items.len() - 1 {
                 let input: String = Input::with_theme(&ColorfulTheme::default())
-                    .with_prompt("Model alias")
+                    .with_prompt("Model id")
                     .interact_text()
                     .context("reading custom model input")?;
                 Ok(Some(input))
             } else {
                 Ok(Some(items[selection].clone()))
             }
+        }
+        // OpenAI-compatible gateways (openai, openrouter, groq, gemini, ...):
+        // no uniform catalog, so free-text.
+        _ => {
+            let input: String = Input::with_theme(&ColorfulTheme::default())
+                .with_prompt("Model id (e.g. gpt-4o, anthropic/claude-sonnet-4-6)")
+                .allow_empty(true)
+                .interact_text()
+                .context("reading model input")?;
+            Ok(if input.is_empty() { None } else { Some(input) })
         }
     }
 }
@@ -684,7 +764,11 @@ mod tests {
         std::env::remove_var("FLEDGE_AI_PROVIDER");
         std::env::remove_var("FLEDGE_AI_MODEL");
         std::env::remove_var("OLLAMA_HOST");
-        std::env::remove_var("OLLAMA_API_KEY");
+        // Clear every provider key so auto-detect lands on the keyless Ollama
+        // default regardless of the developer/CI environment.
+        for k in crate::llm::AUTO_ORDER {
+            std::env::remove_var(k.env_var());
+        }
     }
 
     #[test]
@@ -693,7 +777,7 @@ mod tests {
         clear_env();
         let config = Config::default();
         let (kind, src) = resolve_provider_with_source(&config).unwrap();
-        assert_eq!(kind, ProviderKind::Claude);
+        assert_eq!(kind, ProviderKind::Ollama);
         assert!(matches!(src, Source::Default));
     }
 
@@ -792,12 +876,24 @@ mod tests {
     }
 
     #[test]
-    fn claude_model_absent_when_unset() {
+    fn anthropic_model_absent_when_unset() {
         let _g = test_lock();
         clear_env();
         let config = Config::default();
-        let (m, src) = resolve_claude_model(&config);
+        let (m, src) = resolve_api_model(&config, ProviderKind::Anthropic);
         assert!(m.is_none());
         assert!(src.is_none());
+    }
+
+    #[test]
+    fn auto_detect_default_is_ollama_with_no_keys() {
+        let _g = test_lock();
+        clear_env();
+        std::env::remove_var("ANTHROPIC_API_KEY");
+        std::env::remove_var("OPENAI_API_KEY");
+        let config = Config::default();
+        let (kind, src) = resolve_provider_with_source(&config).unwrap();
+        assert_eq!(kind, ProviderKind::Ollama);
+        assert!(matches!(src, Source::Default));
     }
 }

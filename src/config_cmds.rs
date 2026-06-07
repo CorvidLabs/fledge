@@ -149,30 +149,67 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             print_config_described(
                 "ai.provider",
                 &config.ai.provider,
-                "LLM backend: claude or ollama",
+                "LLM backend: anthropic, openai, or ollama",
             );
             print_config_described(
-                "ai.claude.model",
-                &config.ai.claude.model,
-                "Claude model name",
+                "ai.anthropic.model",
+                &config.ai.anthropic.model,
+                "Anthropic model id",
             );
 
-            let claude_key_env = std::env::var("ANTHROPIC_API_KEY")
+            let anthropic_key_env = std::env::var("ANTHROPIC_API_KEY")
                 .ok()
                 .filter(|k| !k.is_empty());
-            if claude_key_env.is_some() {
+            if anthropic_key_env.is_some() {
                 print_config_value_described(
-                    "ai.claude.api_key",
+                    "ai.anthropic.api_key",
                     &format!("*** {}", style("(from ANTHROPIC_API_KEY env)").dim()),
                     "Anthropic API key",
                 );
             } else {
                 print_config_described(
-                    "ai.claude.api_key",
-                    &config.ai.claude.api_key.as_ref().map(|_| "***".to_string()),
+                    "ai.anthropic.api_key",
+                    &config
+                        .ai
+                        .anthropic
+                        .api_key
+                        .as_ref()
+                        .map(|_| "***".to_string()),
                     "Anthropic API key (or export ANTHROPIC_API_KEY)",
                 );
             }
+            if let Some(b) = &config.ai.anthropic.base_url {
+                print_config_value_described("ai.anthropic.base_url", b, "Anthropic base URL");
+            }
+
+            if let Some(b) = &config.ai.openai.base_url {
+                print_config_value_described(
+                    "ai.openai.base_url",
+                    b,
+                    "OpenAI-compatible base URL (gateway)",
+                );
+            }
+            let openai_key_env = std::env::var("OPENAI_API_KEY")
+                .ok()
+                .filter(|k| !k.is_empty());
+            if openai_key_env.is_some() {
+                print_config_value_described(
+                    "ai.openai.api_key",
+                    &format!("*** {}", style("(from OPENAI_API_KEY env)").dim()),
+                    "OpenAI-compatible API key",
+                );
+            } else {
+                print_config_described(
+                    "ai.openai.api_key",
+                    &config.ai.openai.api_key.as_ref().map(|_| "***".to_string()),
+                    "OpenAI-compatible API key (or export OPENAI_API_KEY)",
+                );
+            }
+            print_config_described(
+                "ai.openai.model",
+                &config.ai.openai.model,
+                "OpenAI-compatible model id",
+            );
 
             let host_override = std::env::var("OLLAMA_HOST").ok();
             if host_override.is_some() {
@@ -350,17 +387,48 @@ pub fn interactive_config_edit() -> Result<()> {
         ConfigKey {
             key: "ai.provider",
             desc: "LLM backend",
-            kind: KeyKind::Enum(&["claude", "ollama"]),
+            kind: KeyKind::Enum(&[
+                "anthropic",
+                "openai",
+                "openrouter",
+                "gemini",
+                "deepseek",
+                "groq",
+                "mistral",
+                "xai",
+                "together",
+                "ollama",
+            ]),
         },
         ConfigKey {
-            key: "ai.claude.model",
-            desc: "Claude model name",
+            key: "ai.anthropic.model",
+            desc: "Anthropic model id",
             kind: KeyKind::Text,
         },
         ConfigKey {
-            key: "ai.claude.api_key",
+            key: "ai.anthropic.api_key",
             desc: "Anthropic API key (or export ANTHROPIC_API_KEY)",
             kind: KeyKind::Secret,
+        },
+        ConfigKey {
+            key: "ai.anthropic.base_url",
+            desc: "Anthropic base URL override",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.openai.base_url",
+            desc: "OpenAI-compatible base URL (OpenAI, OpenRouter, Groq, ...)",
+            kind: KeyKind::Text,
+        },
+        ConfigKey {
+            key: "ai.openai.api_key",
+            desc: "OpenAI-compatible API key (or export OPENAI_API_KEY)",
+            kind: KeyKind::Secret,
+        },
+        ConfigKey {
+            key: "ai.openai.model",
+            desc: "OpenAI-compatible model id",
+            kind: KeyKind::Text,
         },
         ConfigKey {
             key: "ai.ollama.host",
