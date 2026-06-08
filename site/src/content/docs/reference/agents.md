@@ -45,7 +45,7 @@ Every `--json` output is `{schema_version: 1, ...}`. Two patterns coexist:
 | `fledge spec show <name> --json` | `{schema_version: 1, action: "spec_show", spec: {...}}` |
 | `fledge spec check --json` | `{schema_version: 1, action: "spec_check", specs, totals, strict}` |
 | `fledge ai status --json` | `{schema_version: 1, action: "ai_status", provider, model, host, *_source}`. What's active and the source of each value |
-| `fledge ai models --provider {claude,ollama} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}` |
+| `fledge ai models --provider {ollama,anthropic,openai,...} --json` | `{schema_version: 1, action: "ai_models", provider, models: [...]}` |
 | `fledge ask "..." --json` | `{schema_version: 1, action: "ask", question, answer, provider, model}` |
 | `fledge review --json` | `{schema_version: 1, action: "review", base, file, diff_stats, spec_context, reviews: [...], review?, provider?, model?}`. Top-level `review`/`provider`/`model` only when panel size is 1 |
 | `fledge doctor --json` | `{schema_version: 1, action: "doctor", sections: [...], passed, failed}`. Four sections (`fledge`, `Git`, `AI`, `Toolchains`). `Toolchains` is informational, missing tools render dimmed and aren't counted toward `failed` |
@@ -90,12 +90,14 @@ Commands covered: `fledge templates init`, `fledge templates create`, `fledge te
 
 ### AI-powered commands
 
-`fledge ai`, `fledge ask`, and `fledge review` route through a provider abstraction. Two providers ship in core:
+`fledge ai`, `fledge ask`, and `fledge review` route through a provider abstraction — all plain HTTP via the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate, no CLI. The default is auto-detect: the first provider with a key (Ollama-via-key first), falling back to keyless local Ollama. Providers:
 
 | Provider | Transport | Auth | Use case |
 |----------|-----------|------|----------|
-| `claude` (default) | `claude` CLI shell-out | Whatever `claude` is already authenticated with | Best-in-class reasoning, paid |
-| `ollama` | HTTP to `<host>/api/generate` | Optional Bearer token | Local-only, offline, cloud alternatives, self-hosted |
+| `ollama` (default fallback) | HTTP to `<host>/api/generate` | Optional Bearer token | Local-only, offline, cloud, self-hosted |
+| `anthropic` | Anthropic Messages API | `ANTHROPIC_API_KEY` | Best-in-class reasoning, paid (`claude` is a deprecated alias) |
+| `openai` | OpenAI-compatible Chat Completions | `OPENAI_API_KEY` | OpenAI or any gateway via `base_url` |
+| `openrouter` / `gemini` / `deepseek` / `groq` / `mistral` / `xai` / `together` | OpenAI-compatible / Gemini | `<PROVIDER>_API_KEY` | Named gateways (endpoint + default model from the corvid-ai registry) |
 
 Select via `fledge ai use <provider> [model]` (writes to config), `FLEDGE_AI_PROVIDER=ollama`, or `--provider ollama` per invocation. `fledge ai status` reports the active triplet and the source of each value.
 
@@ -110,7 +112,7 @@ Pass `--with-model <provider[:model]>` (repeatable, comma-separated) to run mult
 ```bash
 fledge review --json
 fledge review --with-model ollama --json
-fledge review --no-active --with-model claude:sonnet,ollama --json
+fledge review --no-active --with-model anthropic:claude-sonnet-4-6,ollama --json
 ```
 
 ## Typical agent workflow

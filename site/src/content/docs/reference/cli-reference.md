@@ -335,7 +335,7 @@ fledge spec show plugin --json
 
 ### fledge ai `<action>`
 
-Manage AI provider and model selection, the daily-driver way to switch between Claude and any Ollama-speaking endpoint.
+Manage AI provider and model selection, the daily-driver way to switch between Ollama, Anthropic, OpenAI, and any OpenAI-compatible gateway (all over HTTP, no CLI).
 
 ```text
 fledge ai <status|models|use> [OPTIONS]
@@ -344,7 +344,7 @@ fledge ai <status|models|use> [OPTIONS]
 **Subcommands:**
 
 - `status [--json]`: Show active provider, model, and host with a `(from env / config / default)` source tag on each value
-- `models --provider {claude,ollama} [--search <q>] [--json]`: Live list of available models (Ollama hits `/api/tags`; Claude returns curated aliases)
+- `models --provider {ollama,anthropic,openai,...} [--search <q>] [--json]`: Model list (Ollama hits `/api/tags`; Anthropic returns curated ids; OpenAI-compatible gateways aren't enumerable)
 - `use [provider] [model]`: Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`
 
 ```bash
@@ -368,7 +368,7 @@ fledge review [OPTIONS]
 - `-b, --base <BRANCH>`: Base branch [default: auto-detect]
 - `-f, --file <FILE>`: Review a single file
 - `-m, --model <MODEL>`: Override the active provider's model
-- `--provider {claude,ollama}`: Override the active provider
+- `--provider {ollama,anthropic,openai,openrouter,gemini,deepseek,groq,mistral,xai,together}`: Override the active provider
 - `-p, --prompt <TEXT>`: Append a custom focus prompt
 - `--format {summary,checklist,inline}`: Output format [default: summary]
 - `--with-specs <NAMES>`: Force-include specs (comma-separated, repeatable)
@@ -382,7 +382,7 @@ fledge review [OPTIONS]
 ```bash
 fledge review                                                 # active model
 fledge review --with-model ollama                             # active + 1 more
-fledge review --no-active --with-model claude:sonnet,ollama   # exactly two models, no active
+fledge review --no-active --with-model anthropic:claude-sonnet-4-6,ollama   # exactly two models, no active
 fledge review --json | jq '.reviews[].provider'
 ```
 
@@ -398,7 +398,7 @@ fledge ask <question> [OPTIONS]
 
 **Options:**
 - `-m, --model <MODEL>`: Override active model
-- `--provider {claude,ollama}`: Override active provider
+- `--provider {ollama,anthropic,openai,openrouter,gemini,deepseek,groq,mistral,xai,together}`: Override active provider
 - `--with-specs <NAMES>`: Include full spec + companions for these modules (comma-separated; pass `all` for everything)
 - `--no-spec-index`: Skip the spec-index injection (for off-topic questions)
 - `--json`: JSON output
@@ -442,7 +442,7 @@ fledge work <start|commit|push|status> [OPTIONS]
 - `-s, --scope <SCOPE>`: Scope for conventional commit (e.g. `work`, `cli`)
 - `-a, --all`: Stage all changes (including untracked) before committing
 - `--ai`: Generate the commit message via the configured LLM from the staged diff
-- `--provider {claude,ollama}`: Override AI provider for `--ai`
+- `--provider {ollama,anthropic,openai,openrouter,gemini,deepseek,groq,mistral,xai,together}`: Override AI provider for `--ai`
 - `--model <MODEL>`: Override AI model for `--ai`
 - `--json`: Emit `{schema_version, action, hash, message, branch}`
 
@@ -699,7 +699,9 @@ fledge config <get|set|unset|add|remove|edit|list|path|init>
 - `defaults.author`, `defaults.github_org`, `defaults.license`
 - `github.token`
 - `templates.paths`, `templates.repos`
-- `ai.provider`, `ai.claude.model`
+- `ai.provider`
+- `ai.anthropic.model`, `ai.anthropic.api_key`, `ai.anthropic.base_url`
+- `ai.openai.model`, `ai.openai.api_key`, `ai.openai.base_url`
 - `ai.ollama.host`, `ai.ollama.api_key`, `ai.ollama.model`, `ai.ollama.timeout_seconds`
 
 ```bash
@@ -717,7 +719,7 @@ Diagnose fledge's environment health. Reports four sections:
 
 - **`fledge`**: config loads cleanly
 - **`Git`**: git installed; repo initialized; remote configured; working tree clean
-- **`AI`**: Claude CLI present, Ollama reachable, the active provider's status
+- **`AI`**: active provider's readiness (API key present for `anthropic`/`openai`/gateways, or Ollama reachable)
 - **`Toolchains`** *(informational)*: probes 16 toolchains across rust (`rustc`, `cargo`), node (`node`, `npm`, `pnpm`, `bun`, `yarn`), python (`python3`, `uv`, `poetry`), `go`, `ruby`, `swift`, JVM (`java`, `gradle`, `mvn`). Missing entries render dimmed (`· tool (not installed)`) and don't pollute the pass/fail totals. A Python project shouldn't fail because Swift is absent.
 
 ```text

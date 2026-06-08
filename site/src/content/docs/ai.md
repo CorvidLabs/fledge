@@ -5,20 +5,22 @@ order: 4
 ---
 
 
-The AI pillar is the daily-driver path for asking questions about your code and reviewing diffs before they land. Provider-agnostic (Claude or any Ollama-speaking endpoint), spec-aware, and capable of running multiple models in parallel against the same diff.
+The AI pillar is the daily-driver path for asking questions about your code and reviewing diffs before they land. It talks to every provider over plain HTTP through the [`corvid-ai`](https://crates.io/crates/corvid-ai) crate — no CLI to install — is spec-aware, and can run multiple models in parallel against the same diff.
+
+Providers: `ollama` (local or cloud), `anthropic`, `openai`, and the OpenAI-compatible gateways `openrouter`, `gemini`, `deepseek`, `groq`, `mistral`, `xai`, `together`. `claude` is a deprecated alias of `anthropic` (removed in 2.0).
 
 ## Pick your provider and model
 
 ```bash
 fledge ai use                                  # interactive picker
 fledge ai use ollama llama3.2:latest           # scriptable
-fledge ai use claude sonnet
+fledge ai use anthropic claude-sonnet-4-6
 fledge ai status                               # shows provider, model, host, and where each value came from
 fledge ai models --provider ollama             # live list of installed/cloud models
-fledge ai models --provider ollama --search cloud
+fledge ai models --provider anthropic          # curated model ids
 ```
 
-Per-invocation overrides via `--provider` / `--model` flags work on every AI command and take precedence over config and env vars.
+When nothing is configured, fledge **auto-detects**: the first provider with an API key (`<PROVIDER>_API_KEY`, Ollama-via-key first), falling back to a keyless local Ollama (`http://localhost:11434`) — so it works out of the box with a local daemon and no key. A set API key beats an unkeyed local Ollama (no daemon probe). Per-invocation `--provider` / `--model` flags take precedence over config and env vars.
 
 ## AI Code Review
 
@@ -41,7 +43,7 @@ Pass `--with-model <provider[:model]>` to add another slot to the panel. All slo
 fledge review --with-model ollama
 
 # Comma-separated, exclude active config
-fledge review --no-active --with-model claude:sonnet,ollama:llama3.2:latest
+fledge review --no-active --with-model anthropic:claude-sonnet-4-6,ollama:llama3.2:latest
 
 # JSON output gains a reviews[] array; legacy fields preserved when panel size is 1
 fledge review --with-model ollama --json

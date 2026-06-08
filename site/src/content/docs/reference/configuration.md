@@ -65,12 +65,21 @@ repos = ["CorvidLabs/fledge-templates", "myorg/templates"]
 
 AI provider and model settings. Written by `fledge ai use` or `fledge config set`/`edit`:
 
+All providers are reached over plain HTTP (no CLI). `provider` is one of `ollama`, `anthropic`, `openai`, `openrouter`, `gemini`, `deepseek`, `groq`, `mistral`, `xai`, `together` (`claude` is a deprecated alias of `anthropic`). When unset, fledge auto-detects the first provider with a key, falling back to keyless local Ollama.
+
 ```toml
 [ai]
-provider = "ollama"             # "claude" or "ollama"
+provider = "anthropic"          # ollama | anthropic | openai | openrouter | gemini | deepseek | groq | mistral | xai | together
 
-[ai.claude]
-model = "sonnet"               # model name passed to claude CLI
+[ai.anthropic]
+model = "claude-sonnet-4-6"     # default if unset
+api_key = "sk-ant-..."          # or export ANTHROPIC_API_KEY
+# base_url = "..."              # optional override
+
+[ai.openai]                     # any OpenAI-compatible gateway
+base_url = "https://openrouter.ai/api/v1"
+api_key = "sk-..."              # or export OPENAI_API_KEY
+model = "anthropic/claude-sonnet-4-6"  # required (no default)
 
 [ai.ollama]
 host = "http://localhost:11434" # Ollama API endpoint (always normalized to include scheme)
@@ -79,14 +88,21 @@ api_key = "sk-..."             # for Ollama Cloud / authenticated endpoints
 timeout_seconds = 600          # request timeout (default: 600)
 ```
 
-> **Tip:** Run `fledge ai models --provider ollama` or `fledge ai models --provider claude` to see available models. Use `fledge ai use` for an interactive picker.
+> The OpenAI-compatible gateways (`openrouter`, `groq`, `deepseek`, `mistral`, `xai`, `together`, `gemini`) are key-driven: set `<PROVIDER>_API_KEY` (e.g. `GROQ_API_KEY`); their endpoint and default model come from the corvid-ai registry.
+
+> **Tip:** Run `fledge ai models --provider ollama` (live) or `--provider anthropic` (curated) to see models. Use `fledge ai use` for an interactive picker.
 
 | Key | What it does | Default |
 |-----|-------------|---------|
-| `ai.provider` | Active LLM backend | `claude` |
-| `ai.claude.model` | Model name for Claude CLI | Claude CLI default |
+| `ai.provider` | Active LLM backend | auto-detect → keyless local Ollama |
+| `ai.anthropic.model` | Anthropic model id | `claude-sonnet-4-6` |
+| `ai.anthropic.api_key` | Anthropic key (or `ANTHROPIC_API_KEY`) | (none) |
+| `ai.anthropic.base_url` | Anthropic endpoint override | `https://api.anthropic.com` |
+| `ai.openai.base_url` | OpenAI-compatible gateway URL | OpenAI |
+| `ai.openai.api_key` | OpenAI-compatible key (or `OPENAI_API_KEY`) | (none) |
+| `ai.openai.model` | Model id (required — no default) | (none) |
 | `ai.ollama.host` | Ollama API endpoint URL | `http://localhost:11434` |
-| `ai.ollama.model` | Ollama model name | first available |
+| `ai.ollama.model` | Ollama model name | `llama3.3` |
 | `ai.ollama.api_key` | Bearer token for authenticated endpoints | (none) |
 | `ai.ollama.timeout_seconds` | Request timeout in seconds | `600` |
 
@@ -159,10 +175,10 @@ users = ["corvid-agent"]
 token = "ghp_..."
 
 [ai]
-provider = "claude"
+provider = "anthropic"
 
-[ai.claude]
-model = "sonnet"
+[ai.anthropic]
+model = "claude-sonnet-4-6"
 
 [ai.ollama]
 host = "http://localhost:11434"
@@ -178,9 +194,12 @@ timeout_seconds = 600
 | `FLEDGE_TRUST_HOOKS` | Truthy authorizes `post_create` hook execution for **ad-hoc remote** templates passed to `fledge templates init`. Same as passing `--trust-hooks`. Has no effect on templates reached through `templates.paths` or `templates.repos` (those already follow the `--yes` consent path). Hooks run arbitrary shell commands; only set this for sources you trust. |
 | `FLEDGE_GITHUB_TOKEN` | GitHub token (highest priority) |
 | `GITHUB_TOKEN` | GitHub token (fallback after FLEDGE_GITHUB_TOKEN) |
-| `FLEDGE_AI_PROVIDER` | AI provider override (`claude` or `ollama`) |
+| `FLEDGE_AI_PROVIDER` | AI provider override (`ollama`, `anthropic`, `openai`, `openrouter`, `gemini`, `deepseek`, `groq`, `mistral`, `xai`, `together`) |
 | `FLEDGE_AI_MODEL` | AI model override |
-| `FLEDGE_AI_TIMEOUT` | Ollama request timeout in seconds |
+| `FLEDGE_AI_TIMEOUT` | Request timeout in seconds |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OPENAI_API_KEY` | OpenAI-compatible API key |
+| `<PROVIDER>_API_KEY` | Gateway key, e.g. `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY` |
 | `OLLAMA_HOST` | Ollama API endpoint URL |
 | `OLLAMA_API_KEY` | Ollama Bearer token |
 

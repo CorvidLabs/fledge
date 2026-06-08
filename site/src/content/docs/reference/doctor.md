@@ -31,9 +31,8 @@ Doctor reports four sections:
 
 ### `AI`
 
-- `claude` CLI is installed (powers `fledge review` and `fledge ask` when the active provider is `claude`)
 - `ollama` binary is installed (powers the `ollama` provider)
-- The active provider's reachability. When Ollama is active, doctor probes `<host>/api/tags` with a 3-second timeout to distinguish "daemon down" from "not installed"
+- The active provider's readiness. For an API provider (`anthropic` / `openai` / a gateway) doctor checks that a key is set (`<PROVIDER>_API_KEY` or config). When Ollama is active, doctor probes `<host>/api/tags` with a 3-second timeout to distinguish "daemon down" from "not installed". AI is plain HTTP — no `claude` CLI involved.
 
 ### `Toolchains` *(informational)*
 
@@ -66,7 +65,6 @@ $ fledge doctor
     ✅ working tree, clean
 
   AI
-    ✅ claude 2.1.119
     ✅ ollama 0.21.2
     ✅ Active provider: ollama (model: llama3.2:latest, host: http://localhost:11434)
 
@@ -91,7 +89,7 @@ Pass/fail totals only count the non-informational sections.
 
 - Before your first `fledge templates init`, to make sure your environment is ready
 - When `fledge run` can't find the right command for your project type. The `Toolchains` section will tell you what's missing
-- When AI commands fail. The `AI` section distinguishes "Claude not installed" from "Ollama daemon down" from "wrong provider configured"
+- When AI commands fail. The `AI` section distinguishes "API key missing" from "Ollama daemon down" from "wrong provider configured"
 - After upgrading your toolchain or switching machines
 
 If doctor finds an issue, see [Troubleshooting](./troubleshooting.md) for detailed fixes.
