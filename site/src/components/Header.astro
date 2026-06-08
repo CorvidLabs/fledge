@@ -1,8 +1,9 @@
 ---
 import Button from './Button.astro'
+import { VERSION_TAG } from '../data/version'
 const base = import.meta.env.BASE_URL
 const current = Astro.url.pathname.replace(/\/$/, '') || base.replace(/\/$/, '')
-const VERSION = 'v1.4.2'
+const VERSION = VERSION_TAG
 const links = [
   { href: `${base}/plugins`, label: 'Plugins' },
   { href: `${base}/examples`, label: 'Examples' },
