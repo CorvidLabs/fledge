@@ -103,13 +103,14 @@ fledge ai status
 fledge doctor        # the AI section will diagnose the issue
 ```
 
-**If using Claude (default):** Make sure the `claude` CLI is installed and authenticated:
+**If using an API provider (`anthropic` / `openai` / a gateway):** Make sure a key is set. AI is plain HTTP — there's no CLI to install.
 
 ```bash
-claude --version
+export ANTHROPIC_API_KEY=sk-ant-...        # or OPENAI_API_KEY, GROQ_API_KEY, etc.
+# or: fledge config set ai.anthropic.api_key <key>
 ```
 
-If Claude isn't installed, see [Claude CLI docs](https://docs.anthropic.com/en/docs/claude-code/overview) for setup instructions.
+A 401 from the provider means the key is wrong or missing. If no provider is configured at all, fledge falls back to a keyless local Ollama.
 
 **If using Ollama:** Make sure the Ollama daemon is running and the host is correct:
 

@@ -33,7 +33,7 @@ spec-sync. Every module declares a contract (`specs/<name>/<name>.spec.md` plus 
 
 ## AI
 
-Provider-agnostic AI in the daily-driver path. Switch between Claude CLI and any Ollama-speaking endpoint in one line. Ask questions about your codebase. Review your diff with one model or a panel of them in parallel.
+Provider-agnostic AI in the daily-driver path, all over plain HTTP (no CLI). Switch between Ollama, Anthropic, OpenAI, and any OpenAI-compatible gateway in one line. Ask questions about your codebase. Review your diff with one model or a panel of them in parallel.
 
 **Commands:** `ai` (`status`, `models`, `use`), `ask`, `review`
 
