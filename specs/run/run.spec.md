@@ -1,6 +1,6 @@
 ---
 module: run
-version: 5
+version: 6
 status: active
 files:
   - src/run.rs
@@ -92,17 +92,17 @@ $ fledge run test --json
 {"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "..."}
 
 # Pass arguments through to the task command (after `--`)
-$ fledge run test -- --nocapture --test-threads=1
+$ fledge run test -- --release --quiet
 ▶️ Running task: test
-# → runs: cargo test --nocapture --test-threads=1
+# → runs: cargo test --release --quiet
 
 # Pass a value through (e.g. a version)
 $ fledge run set-version -- 1.2.3
 # → runs: ./set-version.sh 1.2.3
 
 # Pass-through with JSON adds an `args` array to the envelope
-$ fledge run test --json -- --nocapture
-{"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "...", "args": ["--nocapture"]}
+$ fledge run test --json -- --release
+{"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "...", "args": ["--release"]}
 
 # Override project type
 $ fledge run --lang node
@@ -130,6 +130,7 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-06-11 | Fix `run --init` generic template emitting an unclosed quote in the commented `# lint = "echo 'add your linter'"` example (uncommenting it made fledge.toml unparseable). Pass-through examples now use flags valid when appended to `cargo test` (`--release`) instead of `--nocapture`, which cargo only accepts after its own `--` separator |
 | 5 | 2026-06-07 | Add task argument pass-through: `fledge run <task> -- <args…>` forwards args to the target task's command (named task only, not deps). POSIX uses real positional params (`"$@"`, auto-appended unless the command references `$1`/`$@`/…), so values are never interpolated into the command string — no injection surface. `--json` gains an `args` array when args are supplied. Additive and backward-compatible: arg-less runs are byte-identical to before. New `references_positional`/`build_task_command` helpers with unit + injection-safety tests |
 | 4 | 2026-04-26 | Doc sync, behavioral examples updated to show the post-tier-D envelope shapes for `run --json`, `run <task> --json`, and `run --init --json`. No code change |
 | 3 | 2026-04-26 | Tier-D 1.0 envelope: all three `--json` paths now emit `{schema_version: 1, action, ...}`. `run --init --json` previously emitted prose ("✅ Created fledge.toml"), now `{action: "run_init", file, project_type, files_created}`, a real fix not just a wrapping. `run --list --json` adds `action: "run_list"` (was bare `{auto_detected, tasks}`). `run <task> --json` adds `action: "run_task"` (was bare `{task, command, ...}`). Three new integration tests guard each shape |

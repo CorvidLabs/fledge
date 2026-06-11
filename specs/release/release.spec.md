@@ -1,6 +1,6 @@
 ---
 module: release
-version: 5
+version: 6
 status: active
 files:
   - src/release/mod.rs
@@ -54,7 +54,7 @@ Provides a unified release workflow: version bumping across language ecosystems,
 10. The plugin.toml bumper is scoped to the `[plugin]` table — a `version` key in another table (e.g. a `[[commands]]` row) is left untouched
 11. When a Rust plugin carries both `Cargo.toml` and `plugin.toml`, both are bumped in the same release commit so they stay in sync
 12. All git commands use explicit `current_dir` for correctness in any working directory context
-13. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations
+13. Release has its own `classify_for_changelog()` function that mirrors `changelog::classify_commit()` — same type labels but independent implementations. Both match prefixes case-insensitively, accept breaking `!` markers, and map CorvidLabs-style `Add:` → Features, `Update:` → Changes, `Remove:` → Removals; `strip_conventional_prefix` strips the same prefixes case-insensitively
 
 ## Behavioral Examples
 
@@ -133,6 +133,7 @@ Then version.txt is bumped alongside auto-detected files
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-06-11 | `classify_for_changelog` and `strip_conventional_prefix` are now case-insensitive, accept breaking `!` markers, and recognize the CorvidLabs commit style (`Add:` → Features, `Update:` → Changes, `Remove:` → Removals) instead of grouping those commits under Other |
 | 5 | 2026-05-01 | **1.0 contract finalize, last-mile fix:** `release --dry-run --json` `files_to_bump` array now includes `[release].files` extras (e.g. `flake.nix`) so the dry-run envelope accurately previews what a real run writes. Previously, `detect_version_files` only looked at the hardcoded language candidates while `bump_version_files` (the real write path) also processed `[release].files` from `fledge.toml` — so dry-run reported `["Cargo.toml"]` while a real run also bumped `flake.nix`. Mirrored the bumper's existence + version-line-regex check in the detection path. Three new tests pin the contract. Caught in independent third-pass review pre-tag |
 | 4 | 2026-04-26 | Pre-release lane no longer pollutes `--json` stdout. When `--json` is set, `run_pre_lane` calls a new silent path `crate::lanes::run_for_pre_release(name, dry_run)` that runs steps with subprocess output suppressed and emits no envelope of its own. Fixes a double-envelope regression where `release --json --pre-lane <lane>` previously emitted lane and release envelopes back-to-back on stdout. Failure path unchanged: lane bails with a plain stderr error and exit code 1 |
 | 3 | 2026-04-26 | Add `--json` flag. `release X.Y.Z --dry-run --json` emits `{schema_version: 1, action: "release", dry_run: true, version, no_bump, files_to_bump, will_changelog, will_tag, will_push, tag}`. `release X.Y.Z --json` (real run) emits `{schema_version: 1, action: "release", dry_run: false, version, old_version, files_bumped, changelog_updated, commit_created, tag_created, tag, pushed}` and suppresses prose output. Helper functions (`generate_changelog_entry`, `create_release_commit`, `create_tag`, `push_release`) gained a `quiet` param threaded from `opts.json`. New integration tests `cli_release_dry_run_json_emits_envelope` and `cli_release_dry_run_json_no_bump_flag` |

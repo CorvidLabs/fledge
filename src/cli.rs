@@ -198,7 +198,7 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
         /// Arguments passed through to the task's command, after a `--`
-        /// separator. Example: `fledge run test -- --nocapture` or
+        /// separator. Example: `fledge run test -- --release` or
         /// `fledge run set-version -- 1.2.3`. They are appended to the
         /// command (or fill `$1`, `$@` if it references them) and never
         /// spliced into the command string.

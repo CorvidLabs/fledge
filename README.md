@@ -44,7 +44,7 @@ Already have a project? `cd` into it, fledge auto-detects the stack:
 ```bash
 fledge run test       # runs your language's test command
 fledge run build      # same for build
-fledge run test -- --nocapture   # pass extra args through to the command after --
+fledge run test -- --release    # pass extra args through to the command after --
 fledge review         # AI code review against the default branch
 fledge review --with-model ollama:gpt-oss:120b-cloud,ollama:qwen3-coder:480b-cloud
               # multi-model panel, parallel critiques on the same diff

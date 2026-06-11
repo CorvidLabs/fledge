@@ -1,6 +1,6 @@
 ---
 module: changelog
-version: 4
+version: 5
 status: active
 files:
   - src/changelog.rs
@@ -40,14 +40,14 @@ Generate changelogs from git tags and conventional commit messages. Groups commi
 
 1. Lists tags sorted by version (newest first) using `git tag --sort=-version:refname`
 2. Groups commits between adjacent tags using conventional commit prefixes
-3. Recognizes prefixes: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+3. Recognizes prefixes case-insensitively: feat, fix, docs, style, refactor, perf, test, build, ci, chore, plus the CorvidLabs-style add (→ Features), update (→ Changes), and remove (→ Removals). `Fix:` and `fix:` classify identically
 4. Handles scoped commits like `fix(parser): message`
 5. Non-conventional commits are grouped under "Other"
 6. `--unreleased` shows commits since the latest tag
 7. `--tag` shows a single release
 8. `--json` outputs structured JSON
 9. Merge commits are excluded via `--no-merges`
-10. Breaking change indicators (`!` after type, `BREAKING CHANGE:` footer) are not parsed separately — commits with `!` are classified by their base type (e.g. `feat!:` → Features)
+10. Breaking change indicators (`!` after type, `BREAKING CHANGE:` footer) are not parsed separately — commits with `!` (`feat!:`, `fix(core)!:`) are classified by their base type (e.g. `feat!:` → Features)
 
 ## Behavioral Examples
 
@@ -98,6 +98,7 @@ None (uses only git CLI and standard library)
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-06-11 | Prefix matching is now case-insensitive and understands the CorvidLabs commit style: `Add:` → Features, `Update:` → Changes, `Remove:` → Removals, `Fix:`/`Refactor:`/etc. map to their lowercase categories instead of landing in Other. Breaking `!` markers (`feat!:`, `fix(core)!:`) now classify by base type, matching invariant 10 |
 | 4 | 2026-04-26 | Doc sync, behavioral example updated to show the post-tier-D envelope shape (was still showing the pre-1.0 bare-array form). No code change |
 | 3 | 2026-04-26 | **Breaking (tier D, 1.0):** `changelog --json` migrated from a bare top-level array to `{schema_version: 1, action: "changelog", releases: [...]}`. Same shape break tier C (#274) applied to the three pillars, this caught a remaining bare-array output. Last-chance shape break before 1.0 freezes the contract. Consumers reading `result[0]` now read `result.releases[0]` |
 | 2 | 2026-04-22 | Document that breaking changes are not parsed separately; note no types filter config |

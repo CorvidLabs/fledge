@@ -9,6 +9,15 @@ const VALID_BRANCH_TYPES: &[&str] = &[
     "feat", "feature", "fix", "bug", "chore", "task", "docs", "hotfix", "refactor",
 ];
 
+/// Commit types recognized as an existing conventional-commit prefix on a
+/// `-m` message: the valid branch types plus the remaining standard
+/// conventional-commit types and the capitalized `Add:`/`Update:`/`Remove:`
+/// style used across CorvidLabs repos. Matching is case-insensitive.
+const CONVENTIONAL_COMMIT_TYPES: &[&str] = &[
+    "feat", "feature", "fix", "bug", "chore", "task", "docs", "hotfix", "refactor", "style",
+    "perf", "test", "build", "ci", "add", "update", "remove",
+];
+
 /// Per-command JSON schema versions for `work` subcommands. See lanes.rs for
 /// rationale.
 const WORK_START_SCHEMA: u32 = 1;
@@ -614,8 +623,33 @@ fn commits_ahead_of(branch: &str, base: &str) -> Result<usize> {
     Ok(output.parse().unwrap_or(0))
 }
 
+/// Does the message already start with a conventional-commit prefix, i.e.
+/// `type:`, `type(scope):`, or a breaking-change variant (`type!:`,
+/// `type(scope)!:`) where `type` is a known commit type (case-insensitive)?
+fn has_conventional_prefix(message: &str) -> bool {
+    let Some(colon) = message.find(':') else {
+        return false;
+    };
+    let head = &message[..colon];
+    let head = head.strip_suffix('!').unwrap_or(head);
+    let base = match head.find('(') {
+        Some(open) if head.ends_with(')') => &head[..open],
+        Some(_) => return false,
+        None => head,
+    };
+    CONVENTIONAL_COMMIT_TYPES
+        .iter()
+        .any(|known| base.eq_ignore_ascii_case(known))
+}
+
 pub fn build_commit_message(commit_type: &str, scope: Option<&str>, message: &str) -> String {
-    let mut chars = message.trim().chars();
+    let trimmed = message.trim();
+    // Already conventional-commit formatted — use it verbatim instead of
+    // double-prefixing (e.g. `feat: feat: ...`).
+    if has_conventional_prefix(trimmed) {
+        return trimmed.to_string();
+    }
+    let mut chars = trimmed.chars();
     let msg = match chars.next() {
         Some(c) => c.to_lowercase().to_string() + chars.as_str(),
         None => String::new(),
@@ -886,6 +920,66 @@ test = "cargo test"
         assert_eq!(
             build_commit_message("fix", Some("ui"), "\tFix padding\n"),
             "fix(ui): fix padding"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_already_prefixed() {
+        assert_eq!(
+            build_commit_message("feat", None, "feat: note change"),
+            "feat: note change"
+        );
+        assert_eq!(
+            build_commit_message("feat", None, "fix: handle empty branch"),
+            "fix: handle empty branch"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_already_prefixed_with_scope() {
+        assert_eq!(
+            build_commit_message("feat", Some("cli"), "fix(parser): handle empty input"),
+            "fix(parser): handle empty input"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_already_prefixed_case_insensitive() {
+        assert_eq!(
+            build_commit_message("feat", None, "Fix: broken link"),
+            "Fix: broken link"
+        );
+        assert_eq!(
+            build_commit_message("fix", None, "Add: search command"),
+            "Add: search command"
+        );
+        assert_eq!(
+            build_commit_message("feat", None, "Update: dependency pins"),
+            "Update: dependency pins"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_already_prefixed_breaking() {
+        assert_eq!(
+            build_commit_message("feat", None, "feat!: drop legacy config"),
+            "feat!: drop legacy config"
+        );
+        assert_eq!(
+            build_commit_message("feat", None, "fix(core)!: change defaults"),
+            "fix(core)!: change defaults"
+        );
+    }
+
+    #[test]
+    fn test_build_commit_message_non_type_colon_still_prefixed() {
+        assert_eq!(
+            build_commit_message("feat", None, "note: change"),
+            "feat: note: change"
+        );
+        assert_eq!(
+            build_commit_message("feat", None, "support http: and https: URLs"),
+            "feat: support http: and https: URLs"
         );
     }
 }

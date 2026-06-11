@@ -217,6 +217,16 @@ fn build_release(tag: &str, date: &str, prev: Option<&str>) -> Result<Release> {
     })
 }
 
+/// Case-insensitive `str::strip_prefix` for ASCII prefixes.
+fn strip_prefix_ignore_case<'msg>(msg: &'msg str, prefix: &str) -> Option<&'msg str> {
+    let head = msg.get(..prefix.len())?;
+    if head.eq_ignore_ascii_case(prefix) {
+        Some(&msg[prefix.len()..])
+    } else {
+        None
+    }
+}
+
 fn classify_commit(msg: &str) -> (String, String) {
     let prefixes = [
         ("feat", "Features"),
@@ -229,19 +239,29 @@ fn classify_commit(msg: &str) -> (String, String) {
         ("build", "Build"),
         ("ci", "CI"),
         ("chore", "Chores"),
+        // CorvidLabs-style prefixes (`Add:`, `Update:`, `Remove:`) — matched
+        // case-insensitively like every other prefix.
+        ("add", "Features"),
+        ("update", "Changes"),
+        ("remove", "Removals"),
     ];
 
     for (prefix, label) in &prefixes {
-        if let Some(rest) = msg.strip_prefix(prefix) {
-            if let Some(rest) = rest.strip_prefix(':') {
-                return (label.to_string(), rest.trim().to_string());
-            }
-            if let Some(rest) = rest.strip_prefix('(') {
-                if let Some(after_scope) = rest.find("):") {
-                    return (
-                        label.to_string(),
-                        rest[after_scope + 2..].trim().to_string(),
-                    );
+        let Some(rest) = strip_prefix_ignore_case(msg, prefix) else {
+            continue;
+        };
+        // Optional breaking-change marker: `type!:`.
+        let bare = rest.strip_prefix('!').unwrap_or(rest);
+        if let Some(after) = bare.strip_prefix(':') {
+            return (label.to_string(), after.trim().to_string());
+        }
+        // Scoped form: `type(scope):` or `type(scope)!:`.
+        if let Some(scoped) = rest.strip_prefix('(') {
+            if let Some(close) = scoped.find(')') {
+                let tail = &scoped[close + 1..];
+                let tail = tail.strip_prefix('!').unwrap_or(tail);
+                if let Some(after) = tail.strip_prefix(':') {
+                    return (label.to_string(), after.trim().to_string());
                 }
             }
         }
@@ -318,5 +338,55 @@ mod tests {
         let (kind, msg) = classify_commit("fix(core):handle edge case");
         assert_eq!(kind, "Fixes");
         assert_eq!(msg, "handle edge case");
+    }
+
+    #[test]
+    fn classify_case_insensitive() {
+        let (kind, msg) = classify_commit("Fix: broken link in README");
+        assert_eq!(kind, "Fixes");
+        assert_eq!(msg, "broken link in README");
+
+        let (kind, msg) = classify_commit("Feat: new command");
+        assert_eq!(kind, "Features");
+        assert_eq!(msg, "new command");
+
+        let (kind, _) = classify_commit("FIX(parser): uppercase scope");
+        assert_eq!(kind, "Fixes");
+    }
+
+    #[test]
+    fn classify_corvidlabs_styles() {
+        let cases = vec![
+            ("Add: search command", "Features", "search command"),
+            ("Fix: null pointer", "Fixes", "null pointer"),
+            ("Update: dependency pins", "Changes", "dependency pins"),
+            ("Remove: dead code", "Removals", "dead code"),
+            ("Refactor: extract helper", "Refactoring", "extract helper"),
+        ];
+        for (input, expected_kind, expected_msg) in cases {
+            let (kind, msg) = classify_commit(input);
+            assert_eq!(kind, expected_kind, "failed for input: {input}");
+            assert_eq!(msg, expected_msg, "failed for input: {input}");
+        }
+    }
+
+    #[test]
+    fn classify_breaking_change_marker() {
+        let (kind, msg) = classify_commit("feat!: drop legacy config");
+        assert_eq!(kind, "Features");
+        assert_eq!(msg, "drop legacy config");
+
+        let (kind, msg) = classify_commit("fix(core)!: change defaults");
+        assert_eq!(kind, "Fixes");
+        assert_eq!(msg, "change defaults");
+    }
+
+    #[test]
+    fn classify_prefix_requires_separator() {
+        // A prefix word without `:` or `(scope):` is not conventional.
+        let (kind, _) = classify_commit("Update readme");
+        assert_eq!(kind, "Other");
+        let (kind, _) = classify_commit("fixes: plural is not a type");
+        assert_eq!(kind, "Other");
     }
 }

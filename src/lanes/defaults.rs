@@ -123,7 +123,7 @@ pub(crate) fn init_lanes(json: bool) -> Result<()> {
             style("✅").green().bold(),
             style("fledge.toml").cyan()
         );
-        println!("  Run {} to see them.", style("fledge lane").cyan());
+        println!("  Run {} to see them.", style("fledge lanes list").cyan());
     }
     Ok(())
 }
