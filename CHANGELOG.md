@@ -14,17 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixes
 
 - five hands-on findings from 1.5.0 release testing (#418) (1c43cb6)
+  - `fledge work commit` no longer double-prefixes the conventional type: `-m` messages that already start with `type:` / `type(scope):` (case-insensitive, including breaking `!` variants) are committed verbatim instead of becoming `feat: feat: ...`
+  - Changelog prefix matching (`fledge changelog` and `fledge release`) is now case-insensitive and understands the CorvidLabs commit style: `Add:` → Features, `Update:` → Changes, `Remove:` → Removals, `Fix:`/`Refactor:`/etc. map to their lowercase categories instead of landing in "Other"
+  - `fledge run --init` generic template no longer emits an unclosed quote in the commented `# lint = ...` example, which made the file unparseable when uncommented
+  - `fledge lanes init` hint now points at `fledge lanes list` (previously `fledge lane`, which exits with a usage error)
+  - `fledge run --help` pass-through example now uses a flag that works when appended to `cargo test` (`-- --release` instead of `-- --nocapture`)
 - derive marketing site version from Cargo.toml (#417) (af41b8e)
-
-## [Unreleased]
-
-### Fixes
-
-- `fledge work commit` no longer double-prefixes the conventional type: `-m` messages that already start with `type:` / `type(scope):` (case-insensitive, including breaking `!` variants) are committed verbatim instead of becoming `feat: feat: ...`
-- Changelog prefix matching (`fledge changelog` and `fledge release`) is now case-insensitive and understands the CorvidLabs commit style: `Add:` → Features, `Update:` → Changes, `Remove:` → Removals, `Fix:`/`Refactor:`/etc. map to their lowercase categories instead of landing in "Other"
-- `fledge run --init` generic template no longer emits an unclosed quote in the commented `# lint = ...` example, which made the file unparseable when uncommented
-- `fledge lanes init` hint now points at `fledge lanes list` (previously `fledge lane`, which exits with a usage error)
-- `fledge run --help` pass-through example now uses a flag that works when appended to `cargo test` (`-- --release` instead of `-- --nocapture`)
 
 ## [v1.5.0] - 2026-06-07
 
