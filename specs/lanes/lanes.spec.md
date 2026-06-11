@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 24
+version: 25
 status: active
 files:
   - src/lanes/mod.rs
@@ -207,6 +207,7 @@ $ fledge lanes run check
 # Init default lanes
 $ fledge lanes init
 ✅ Added default lanes to fledge.toml
+  Run fledge lanes list to see them.
 
 # Search community lanes on GitHub
 $ fledge lanes search
@@ -333,6 +334,7 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 25 | 2026-06-11 | `lanes init` follow-up hint now points at `fledge lanes list` — it previously printed `fledge lane`, which is the subcommand alias without an action and exits with a usage error |
 | 24 | 2026-05-04 | Follow-up polish: (a) New `retry_delay` step option (seconds, default 1) — overrides the inter-attempt sleep, supports immediate retry with `retry_delay = 0`. (b) Windows process tree reaping via Job Object + `TerminateJobObject` — mirrors the Unix `process_group` + `killpg` fix from v23 so timeout no longer leaks grandchildren on Windows either. (c) `evaluate_when` now exposes a closure-injected `evaluate_when_with` so tests can supply a `HashMap` instead of mutating process-global env vars (edition-2024 prep) |
 | 23 | 2026-05-04 | Follow-up review fixes: (a) Process group kill on Unix — `timeout` now reaps the entire process tree via `killpg(SIGKILL)`, no more orphaned grandchildren from `sh -c "a && b"`. (b) Skipped step JSON entries normalized to include `success: null, duration_ms: null, error: null` so the per-step shape is consistent across completed and skipped rows; `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` reverted to 1 (additive only). (c) `--from <name>` on a parallel step now emits a specific error pointing at index targeting instead of the generic "no match" |
 | 22 | 2026-05-04 | Review fixes: (a) 1-second retry delay between attempts. (b) Timeout is per-attempt — each retry gets a fresh deadline. (c) Bump `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` from 1 → 2 for new fields (later reverted in v23). (d) Fix spec: remove private fns from Exported Functions, document process tree limitation on timeout |

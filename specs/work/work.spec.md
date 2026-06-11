@@ -1,6 +1,6 @@
 ---
 module: work
-version: 14
+version: 15
 status: active
 files:
   - src/work.rs
@@ -27,7 +27,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 | `WorkAction` | Enum of subcommands: Start, Commit, Push, Status, DeprecatedPr |
 | `WorkConfig` | Deserializable config with `branch_format` and `default_type` fields |
 | `sanitize_branch_name` | Normalizes a string into a valid git branch name (lowercase, hyphens, no leading/trailing hyphens) |
-| `build_commit_message` | Builds a conventional-commit message string from type, optional scope, and message body |
+| `build_commit_message` | Builds a conventional-commit message string from type, optional scope, and message body. Messages that already carry a conventional prefix are returned verbatim |
 | `build_branch_name` | (test-only) Constructs a branch name from components using WorkConfig |
 
 ### Structs & Enums
@@ -72,6 +72,7 @@ Provides opinionated git workflow commands for feature branch development. `fled
 9. `--prefix` bypasses type validation and format template, using raw `prefix/name`
 10. `--issue N` prepends the issue number to the branch name segment: `N-name`
 11. `commit` infers the commit type from the current branch prefix (e.g. `feat/` → `feat`) when `--type` is not provided; falls back to `WorkConfig.default_type`
+12. `commit -m` messages that already start with a conventional-commit prefix (`type:`, `type(scope):`, or the breaking `type!:` / `type(scope)!:` variants) are used verbatim — the inferred type is never prepended a second time. The type is matched case-insensitively against the valid branch types plus `style`, `perf`, `test`, `build`, `ci`, and the CorvidLabs-style `add`/`update`/`remove`
 13. `commit --all` runs `git add -A` before committing
 14. `commit` requires staged changes; bails if nothing is staged (separate message if working tree is clean vs unstaged)
 15. `commit` without `-m` or `--ai` prompts interactively via `dialoguer::Input`; non-interactive shells must provide `-m` or `--ai`
@@ -149,6 +150,13 @@ $ fledge work commit -m "add search index"
 $ fledge work commit --all -m "wire up search"
 ✅ Committed d4e5f6a on leif/feat/add-search
   feat: wire up search
+```
+
+### work commit — message already conventionally prefixed (used verbatim)
+```
+$ fledge work commit --all -m "feat: note change"
+✅ Committed e7f8a9b on leif/feat/add-search
+  feat: note change
 ```
 
 ### work commit — AI-generated message
@@ -302,6 +310,7 @@ $ fledge work status --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 15 | 2026-06-11 | `commit` no longer double-prefixes the conventional type: `-m` messages that already start with `type:` / `type(scope):` (case-insensitive, incl. breaking `!` variants and CorvidLabs-style `Add:`/`Update:`/`Remove:`) are committed verbatim instead of becoming e.g. `feat: feat: …`. New invariant 12; `has_conventional_prefix` helper added |
 | 14 | 2026-06-03 | Document `WorkConfig` in the export table to satisfy strict spec-sync validation |
 | 12 | 2026-05-01 | **Security:** `commit --ai --scope <s>` now validates `<s>` against `[A-Za-z0-9_-]{1,64}` before interpolating it into the LLM prompt or commit message. Scopes containing whitespace, shell metacharacters, template syntax, or anything that could be read as instructions to the model are rejected at the boundary with a clear error |
 | 11 | 2026-04-30 | Pure git split: removed `pr` subcommand (moved to `fledge-plugin-github`), added `commit` and `push` subcommands with `--ai` support and conventional-commit formatting. `status` drops PR info, adds `dirty` count, bumps schema to v2. `generate_body_from_commits` removed; `build_commit_message` added |

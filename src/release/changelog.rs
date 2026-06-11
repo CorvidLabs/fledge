@@ -102,11 +102,24 @@ pub(super) fn classify_for_changelog(msg: &str) -> &'static str {
         ("ci", "CI"),
         ("chore", "Chores"),
         ("style", "Style"),
+        // CorvidLabs-style prefixes (`Add:`, `Update:`, `Remove:`) — matched
+        // case-insensitively like every other prefix.
+        ("add", "Features"),
+        ("update", "Changes"),
+        ("remove", "Removals"),
     ];
 
     for (prefix, label) in &prefixes {
-        if msg.starts_with(prefix) && msg[prefix.len()..].starts_with([':', '(']) {
-            return label;
+        let Some(head) = msg.get(..prefix.len()) else {
+            continue;
+        };
+        if head.eq_ignore_ascii_case(prefix) {
+            // Optional breaking-change marker: `type!:`.
+            let rest = &msg[prefix.len()..];
+            let rest = rest.strip_prefix('!').unwrap_or(rest);
+            if rest.starts_with([':', '(']) {
+                return label;
+            }
         }
     }
 
@@ -117,6 +130,7 @@ pub(super) fn strip_conventional_prefix(msg: &str) -> &str {
     if let Some(colon_pos) = msg.find(':') {
         let prefix = &msg[..colon_pos];
         let after = msg[colon_pos + 1..].trim_start();
+        let prefix = prefix.strip_suffix('!').unwrap_or(prefix);
         let base = if let Some(paren) = prefix.find('(') {
             &prefix[..paren]
         } else {
@@ -124,8 +138,9 @@ pub(super) fn strip_conventional_prefix(msg: &str) -> &str {
         };
         let known = [
             "feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore",
+            "add", "update", "remove",
         ];
-        if known.contains(&base) {
+        if known.iter().any(|k| base.eq_ignore_ascii_case(k)) {
             return after;
         }
     }

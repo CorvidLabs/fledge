@@ -1,6 +1,6 @@
 ---
 module: main
-version: 10
+version: 11
 status: active
 files:
   - src/main.rs
@@ -143,6 +143,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 11 | 2026-06-11 | Help-text-only change in `src/cli.rs`: the `run` pass-through args example now shows `fledge run test -- --release` (valid when appended to `cargo test`) instead of `-- --nocapture`, which cargo rejects unless preceded by its own `--` |
 | 10 | 2026-04-29 | Document all public exports from `cli.rs`, `config_cmds.rs`, and `template_cmds.rs` now that these files are listed in spec frontmatter. No API changes |
 | 9 | 2026-04-26 | `templates list` empty case now exits 0 in both modes. JSON mode emits `{schema_version: 1, templates: [], hint}`; non-JSON prints "No templates configured" + hint. Previously both bailed with non-zero exit, breaking agents that call `templates list --json` defensively |
 | 8 | 2026-04-25 | **Breaking (tier C, #272):** `templates search --json` migrated from bare top-level array to `{schema_version: 1, results: [...]}`. Last-chance shape break before 1.0 |

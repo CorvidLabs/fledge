@@ -431,9 +431,9 @@ lint = "mvn checkstyle:check""#
 test = "swift test"
 # lint = "swiftlint"  # uncomment if swiftlint is installed"#
             .to_string(),
-        _ => r#"# build = "make build"
+        _ => r##"# build = "make build"
 # test = "make test"
-# lint = "echo 'add your linter'"#
+# lint = "echo 'add your linter'""##
             .to_string(),
     }
 }
@@ -884,6 +884,32 @@ dir = "client"
                 "Invalid TOML for {}: {:?}",
                 project_type,
                 result.err()
+            );
+        }
+    }
+
+    #[test]
+    fn task_defaults_are_valid_toml_when_uncommented() {
+        // Commented-out example tasks (`# lint = "..."`) must stay valid TOML
+        // once the user uncomments them.
+        let dir = tempfile::tempdir().unwrap();
+        for project_type in &["python", "swift", "generic"] {
+            let defaults = task_defaults(project_type, dir.path());
+            let uncommented: String = defaults
+                .lines()
+                .map(|line| {
+                    let line = line.strip_prefix("# ").unwrap_or(line);
+                    format!("{line}\n")
+                })
+                .collect();
+            let toml_str = format!("[tasks]\n{}", uncommented);
+            let result: Result<FledgeFile, _> = toml::from_str(&toml_str);
+            assert!(
+                result.is_ok(),
+                "Invalid TOML for {} after uncommenting: {:?}\n{}",
+                project_type,
+                result.err(),
+                toml_str
             );
         }
     }

@@ -251,6 +251,64 @@ fn classify_conventional_commits() {
 }
 
 #[test]
+fn classify_case_insensitive_and_corvidlabs_styles() {
+    assert_eq!(
+        changelog::classify_for_changelog("Fix: broken link"),
+        "Fixes"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("Add: search command"),
+        "Features"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("Update: dependency pins"),
+        "Changes"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("Remove: dead code"),
+        "Removals"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("Refactor: extract helper"),
+        "Refactoring"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("FIX(parser): uppercase scope"),
+        "Fixes"
+    );
+    assert_eq!(
+        changelog::classify_for_changelog("feat!: breaking change"),
+        "Features"
+    );
+    // A prefix word without `:` or `(` stays unclassified.
+    assert_eq!(changelog::classify_for_changelog("Update readme"), "Other");
+}
+
+#[test]
+fn strip_prefix_case_insensitive_and_corvidlabs_styles() {
+    assert_eq!(
+        changelog::strip_conventional_prefix("Fix: broken link"),
+        "broken link"
+    );
+    assert_eq!(
+        changelog::strip_conventional_prefix("Add: search command"),
+        "search command"
+    );
+    assert_eq!(
+        changelog::strip_conventional_prefix("Update: dependency pins"),
+        "dependency pins"
+    );
+    assert_eq!(
+        changelog::strip_conventional_prefix("Remove: dead code"),
+        "dead code"
+    );
+    assert_eq!(
+        changelog::strip_conventional_prefix("feat!: breaking change"),
+        "breaking change"
+    );
+}
+
+#[test]
 fn strip_prefix_simple() {
     assert_eq!(
         changelog::strip_conventional_prefix("feat: add release"),
