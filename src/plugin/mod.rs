@@ -169,7 +169,7 @@ impl PluginHooks {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct PluginsRegistry {
     #[serde(default)]
     pub(super) plugins: Vec<PluginEntry>,
@@ -387,23 +387,57 @@ fn registry_path() -> PathBuf {
 }
 
 fn load_registry() -> Result<PluginsRegistry> {
-    let path = registry_path();
+    load_registry_from(&registry_path())
+}
+
+fn load_registry_from(path: &Path) -> Result<PluginsRegistry> {
     if !path.exists() {
         return Ok(PluginsRegistry {
             plugins: Vec::new(),
         });
     }
-    let content = fs::read_to_string(&path).context("reading plugins.toml")?;
+    match read_and_parse_registry(path) {
+        Ok(registry) => Ok(registry),
+        Err(first_error) => {
+            // A registration by an older fledge (pre-atomic-write) may be
+            // mid-rewrite; one short retry rides out the window instead of
+            // resolving every plugin subcommand to "unrecognized".
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            read_and_parse_registry(path).map_err(|_| {
+                eprintln!(
+                    "warning: plugins.toml at {} is unreadable or corrupt — plugin \
+                     subcommands will not resolve this invocation: {first_error:#}",
+                    path.display()
+                );
+                first_error
+            })
+        }
+    }
+}
+
+fn read_and_parse_registry(path: &Path) -> Result<PluginsRegistry> {
+    let content = fs::read_to_string(path).context("reading plugins.toml")?;
     toml::from_str(&content).context("parsing plugins.toml")
 }
 
 fn save_registry(registry: &PluginsRegistry) -> Result<()> {
-    let path = registry_path();
+    save_registry_to(&registry_path(), registry)
+}
+
+fn save_registry_to(path: &Path, registry: &PluginsRegistry) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
     let content = toml::to_string_pretty(registry).context("serializing plugins.toml")?;
-    fs::write(&path, content).context("writing plugins.toml")
+    // Write-then-rename so concurrent readers never observe a truncated
+    // file. `fs::write` truncates in place, and any fledge invocation
+    // that reads the registry during the rewrite parses partial TOML —
+    // dispatch then reports a perfectly registered plugin command as
+    // "unrecognized subcommand". Same-directory rename is atomic on
+    // POSIX, so readers see either the old registry or the new one.
+    let tmp = path.with_extension(format!("toml.tmp.{}", std::process::id()));
+    fs::write(&tmp, content).context("writing plugins.toml temp file")?;
+    fs::rename(&tmp, path).context("atomically replacing plugins.toml")
 }
 
 // ─── Source helpers ──────────────────────────────────────────────────────────

@@ -1445,3 +1445,58 @@ fn team_tier_allows_exec() {
     };
     assert!(check_tier_capabilities(TrustTier::Team, &caps).is_ok());
 }
+
+#[test]
+fn registry_save_is_atomic_under_concurrent_readers() {
+    // Regression for the "unrecognized subcommand" race: `fs::write`
+    // truncates plugins.toml in place, so a reader racing a re-registration
+    // parsed partial TOML and dispatch dropped every plugin command. With
+    // write-then-rename, readers must see a complete registry every time.
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("plugins.toml");
+    let entry = super::PluginEntry {
+        name: "fledge-plugin-augur".to_string(),
+        source: "CorvidLabs/fledge-plugin-augur".to_string(),
+        version: "0.2.0".to_string(),
+        installed: "2026-06-12".to_string(),
+        commands: vec!["augur".to_string(); 64],
+        pinned_ref: None,
+        capabilities: None,
+        runtime: None,
+    };
+    let registry = super::PluginsRegistry {
+        plugins: vec![entry; 24],
+    };
+    super::save_registry_to(&path, &registry).unwrap();
+
+    let writer_path = path.clone();
+    let writer_registry = registry.clone();
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let writer_stop = stop.clone();
+    let writer = std::thread::spawn(move || {
+        while !writer_stop.load(std::sync::atomic::Ordering::Relaxed) {
+            super::save_registry_to(&writer_path, &writer_registry).unwrap();
+        }
+    });
+
+    for _ in 0..400 {
+        let loaded = super::load_registry_from(&path)
+            .expect("reader must never observe a truncated registry");
+        assert_eq!(loaded.plugins.len(), 24);
+        assert_eq!(loaded.plugins[0].commands.len(), 64);
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    writer.join().unwrap();
+}
+
+#[test]
+fn registry_load_reports_corruption_instead_of_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("plugins.toml");
+    std::fs::write(&path, "[[plugins]]\nname = \"trunc").unwrap();
+    let result = super::load_registry_from(&path);
+    assert!(
+        result.is_err(),
+        "corrupt registry must surface an error, not parse as empty"
+    );
+}
