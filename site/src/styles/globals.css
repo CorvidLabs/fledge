@@ -1,32 +1,60 @@
+/* ============================================================
+   fledge site — CorvidLabs design system.
+   Brand tokens are the single source of truth (public/brand/tokens.css,
+   imported in BaseLayout's <head>). This file maps the site's legacy
+   variable names onto the brand tokens so existing components theme for
+   free, then layers on base styles, syntax-highlight wiring, and chrome.
+   No hardcoded brand colors here — everything resolves to a brand token.
+   ============================================================ */
+
 :root {
-  --bg: #0c0a09;
-  --bg-raised: #18120e;
-  --bg-raised-2: #1c1917;
-  --border: #2a201a;
-  --border-strong: #3a2c22;
-  --text: #f5f5f4;
-  --text-muted: #c2b9b1;
-  --text-dim: #9c948d;
-  --accent: #ea580c;
-  --accent-bright: #fdba74;
-  --accent-deep: #9a3412;
-  --accent-muted: rgba(234, 88, 12, 0.10);
-  --accent-glow: rgba(234, 88, 12, 0.15);
-  --focus: #fdba74;
-  --radius: 10px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  --serif: "Iowan Old Style", "Apple Garamond", "Baskerville", Georgia, serif;
-  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  /* --- Legacy → brand token bridge (light + dark handled by tokens.css) --- */
+  --bg: var(--paper);
+  --bg-raised: var(--surface);
+  --bg-raised-2: var(--surface-strong);
+  --border: var(--hairline);
+  --border-strong: var(--ink-12);
+  --text: var(--ink);
+  --text-muted: var(--ink-70);
+  --text-dim: var(--ink-45);
+  --accent: var(--sheen);
+  --accent-bright: var(--sheen-strong);
+  --accent-deep: var(--sheen-strong);
+  --accent-muted: var(--ink-06);
+  --accent-glow: transparent;
+  --focus: var(--sheen);
+
+  /* Square corners are part of the standard. */
+  --radius: 0px;
+
+  --font: var(--font-display);
+  --serif: var(--font-display);
+  --mono: var(--font-mono);
+
   --tap: 44px;
   --max-w: 1180px;
   --container-pad: 32px;
+
+  /* Shiki css-variables theme → brand code tokens. */
+  --astro-code-foreground: var(--ink);
+  --astro-code-background: transparent;
+  --astro-code-token-keyword: var(--code-keyword);
+  --astro-code-token-string: var(--code-string);
+  --astro-code-token-string-expression: var(--code-string);
+  --astro-code-token-number: var(--code-number);
+  --astro-code-token-constant: var(--code-number);
+  --astro-code-token-function: var(--code-function);
+  --astro-code-token-parameter: var(--ink);
+  --astro-code-token-comment: var(--code-comment);
+  --astro-code-token-punctuation: var(--ink-70);
+  --astro-code-token-link: var(--sheen);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 100%; -webkit-text-size-adjust: 100%; }
 body {
-  background: var(--bg); color: var(--text);
-  font-family: var(--font); font-size: 1rem; line-height: 1.6;
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-display); font-size: 1rem; line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 ul, ol { list-style: none; }
@@ -38,15 +66,15 @@ button { font-family: inherit; cursor: pointer; }
 
 a:focus-visible, button:focus-visible, input:focus-visible,
 select:focus-visible, [tabindex]:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--sheen);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .skip-link {
   position: absolute; top: -100px; left: 8px;
-  background: var(--accent); color: #1a0f08;
-  padding: 12px 18px; border-radius: 8px;
+  background: var(--sheen); color: var(--paper);
+  padding: 12px 18px; border-radius: 0;
   font-weight: 600; text-decoration: none; z-index: 100;
   transition: top .15s;
 }
@@ -98,4 +126,10 @@ pre code {
   .foot-tagline a {
     padding-block: 12px;
   }
+  /* The theme toggle keeps its compact 34px box even on coarse pointers */
+  .corvid-theme-toggle { min-height: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }

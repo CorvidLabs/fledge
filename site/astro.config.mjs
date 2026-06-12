@@ -13,9 +13,11 @@ export default defineConfig({
     // cross-page references resolve at runtime instead of 404'ing.
     remarkPlugins: [remarkResolveDocLinks],
     shikiConfig: {
-      // github-dark-high-contrast passes WCAG AA for all token colors
-      // (#6A737D comment color in github-dark fails 3.05:1 on its #24292e bg)
-      theme: 'github-dark-high-contrast',
+      // The 'css-variables' theme emits --astro-code-* custom properties
+      // instead of baked-in colors, so highlighting resolves to the brand
+      // --code-* tokens (mapped in src/styles/globals.css) and themes with
+      // light/dark for free. WCAG AA holds in both modes.
+      theme: 'css-variables',
     },
   },
 })
