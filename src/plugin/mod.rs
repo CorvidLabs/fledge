@@ -437,7 +437,22 @@ fn save_registry_to(path: &Path, registry: &PluginsRegistry) -> Result<()> {
     // POSIX, so readers see either the old registry or the new one.
     let tmp = path.with_extension(format!("toml.tmp.{}", std::process::id()));
     fs::write(&tmp, content).context("writing plugins.toml temp file")?;
-    fs::rename(&tmp, path).context("atomically replacing plugins.toml")
+    // Windows refuses the rename with a sharing violation while another
+    // process has the destination open for reading; retry briefly. On
+    // POSIX the first attempt always wins.
+    let mut last_error = None;
+    for _ in 0..20 {
+        match fs::rename(&tmp, path) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                last_error = Some(error);
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+    }
+    let _ = fs::remove_file(&tmp);
+    Err(last_error.expect("rename attempted at least once"))
+        .context("atomically replacing plugins.toml")
 }
 
 // ─── Source helpers ──────────────────────────────────────────────────────────
