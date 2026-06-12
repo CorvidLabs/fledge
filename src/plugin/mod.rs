@@ -436,7 +436,10 @@ fn save_registry_to(path: &Path, registry: &PluginsRegistry) -> Result<()> {
     // "unrecognized subcommand". Same-directory rename is atomic on
     // POSIX, so readers see either the old registry or the new one.
     let tmp = path.with_extension(format!("toml.tmp.{}", std::process::id()));
-    fs::write(&tmp, content).context("writing plugins.toml temp file")?;
+    if let Err(error) = fs::write(&tmp, content) {
+        let _ = fs::remove_file(&tmp);
+        return Err(error).context("writing plugins.toml temp file");
+    }
     // Windows refuses the rename with a sharing violation while another
     // process has the destination open for reading; retry briefly. On
     // POSIX the first attempt always wins.
