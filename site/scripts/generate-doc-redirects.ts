@@ -1,21 +1,26 @@
 import { readdirSync, statSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { HUB_DOCS } from '../src/data/hub'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = join(__dirname, '..', 'public')
-const BASE = '/fledge/'
+
+// The standalone site is retired: every legacy mdBook `.html` path now
+// redirects straight to the CorvidLabs hub docs index (no internal hop).
+const TARGET = HUB_DOCS
 
 export function redirectHtml(target: string): string {
   return `<!DOCTYPE html>
-<html><head>
+<html lang="en"><head>
 <meta charset="utf-8">
-<title>Redirecting…</title>
+<title>Moved to CorvidLabs</title>
 <link rel="canonical" href="${target}">
 <meta http-equiv="refresh" content="0; url=${target}">
+<meta name="robots" content="noindex">
 <script>location.replace(${JSON.stringify(target)})</script>
 </head><body>
-<p>This page has moved. <a href="${target}">Continue →</a></p>
+<p>This page has moved. <a href="${target}">This site has moved to CorvidLabs →</a></p>
 </body></html>
 `
 }
@@ -33,8 +38,7 @@ export function computeRedirects(
     const stem = f.replace(/\.md$/, '')
     if (isTopLevel && skipStems.has(stem)) continue
     const html = f.replace(/\.md$/, '.html')
-    const newPath = `${BASE}docs/${stem}`.replace(/\/+/g, '/')
-    out[html] = newPath
+    out[html] = TARGET
   }
   return out
 }
@@ -66,7 +70,10 @@ function main() {
   // Source-of-truth = the migrated docs/ tree under site/src/content/docs
   const docsSrc = join(__dirname, '..', 'src', 'content', 'docs')
   const mdFiles = walk(docsSrc)
-  const skip = topLevelPageDirs()
+  // index.md would emit public/index.html and shadow the root redirect page
+  // (src/pages/index.astro → the hub marketing URL). Skip it so the root keeps
+  // pointing at marketing rather than the docs index.
+  const skip = topLevelPageDirs().add('index')
   const mapped = computeRedirects(mdFiles, skip)
   for (const [oldPath, newPath] of Object.entries(mapped)) {
     const dest = join(PUBLIC_DIR, oldPath)

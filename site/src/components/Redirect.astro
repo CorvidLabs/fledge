@@ -1,0 +1,74 @@
+---
+/**
+ * Full-page redirect to the CorvidLabs hub.
+ *
+ * The standalone fledge site has been retired — both its marketing pages and
+ * its docs now live on the CorvidLabs hub. Every route on this site renders
+ * this component so that, however a visitor (or crawler) arrives, they land on
+ * the canonical hub URL.
+ *
+ * Emits, per the retirement plan:
+ *   - <meta http-equiv="refresh"> for immediate browser redirect
+ *   - <link rel="canonical"> so search engines fold ranking into the hub URL
+ *   - a visible "This site has moved to CorvidLabs →" link for no-JS users
+ */
+interface Props {
+  /** Absolute hub URL to redirect to. */
+  to: string
+}
+
+const { to } = Astro.props as Props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Moved to CorvidLabs</title>
+    <link rel="canonical" href={to} />
+    <meta http-equiv="refresh" content={`0; url=${to}`} />
+    <meta name="robots" content="noindex" />
+    <script is:inline define:vars={{ to }}>
+      location.replace(to)
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0a0a0a;
+        color: #ededed;
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      main {
+        max-width: 32rem;
+      }
+      a {
+        color: #fb923c;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      p {
+        color: #a3a3a3;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>This page has moved.</p>
+      <p>
+        <a href={to}>This site has moved to CorvidLabs &rarr;</a>
+      </p>
+    </main>
+  </body>
+</html>

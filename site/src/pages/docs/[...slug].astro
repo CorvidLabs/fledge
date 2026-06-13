@@ -1,17 +1,15 @@
 ---
 import { getCollection } from 'astro:content'
-import DocsLayout from '../../layouts/DocsLayout.astro'
+import Redirect from '../../components/Redirect.astro'
+import { HUB_DOCS } from '../../data/hub'
 
+// Each retired doc URL still builds and redirects to the hub docs index.
+// Deep per-page mapping is intentionally collapsed to the docs index.
 export async function getStaticPaths() {
   const entries = await getCollection('docs')
   return entries
     .filter(e => e.slug !== 'index')
-    .map(entry => ({ params: { slug: entry.slug }, props: { entry } }))
+    .map(entry => ({ params: { slug: entry.slug } }))
 }
-
-const { entry } = Astro.props
-const { Content } = await entry.render()
 ---
-<DocsLayout title={entry.data.title} description={entry.data.description} section={entry.data.section}>
-  <Content />
-</DocsLayout>
+<Redirect to={HUB_DOCS} />
