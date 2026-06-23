@@ -1,12 +1,13 @@
 ---
 module: spec
-version: 11
+version: 12
 status: active
 files:
   - src/spec/mod.rs
   - src/spec/parse.rs
   - src/spec/validation.rs
   - src/spec/commands.rs
+  - src/spec/engine.rs
   - src/spec/tests.rs
 
 db_tables: []
@@ -35,8 +36,11 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `all_module_names` | Sorted list of every module name with a `.spec.md` file |
 | `specs_for_changed_files` | Module names whose `files:` or whose spec file's parent directory intersects a given set of paths |
 | `commands` | (internal) Submodule containing spec subcommand implementations |
+| `engine` | (internal) Submodule that delegates `spec check` to the real `specsync` binary when installed |
 | `parse` | (internal) Submodule for frontmatter and section parsing |
 | `validation` | (internal) Submodule for spec validation logic |
+| `find_specsync` | (internal) Locate the `specsync` binary on `PATH`, or `None` if not installed |
+| `try_check_via_specsync` | (internal) Run `spec check` via `specsync` when present; `Ok(None)` to fall back to the structural check |
 | `COMPANION_FILES` | (internal) List of expected companion filenames: requirements.md, tasks.md, context.md, testing.md |
 | `SPEC_CHECK_SCHEMA` | (internal) JSON schema version for `spec check --json` output |
 | `SPEC_LIST_SCHEMA` | (internal) JSON schema version for `spec list --json` output |
@@ -270,6 +274,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12 | 2026-06-22 | `spec check` now delegates to the real `specsync` binary when it is on `PATH`, giving local runs the same export-coverage validation as CI (identical to `CorvidLabs/spec-sync`); falls back to the built-in structural check (with an install hint) when absent. New `engine` submodule (`src/spec/engine.rs`) holds `find_specsync` and `try_check_via_specsync`. JSON output gains an `engine` field (`"specsync"` or `"structural"`) |
 | 11 | 2026-06-03 | Document `parse_yaml_frontmatter` in the export table to satisfy strict spec-sync validation |
 | 10 | 2026-05-11 | Accept nested module names with `/` for `fledge spec new` (#383). `validate_module_name` allows `game/board`-style names while still rejecting `\`, leading/trailing `/`, `//`, and any `..`/`.` segment. New `module_leaf` helper derives the spec filename for nested names (`game/board` → `board.spec.md`). `new_spec` writes nested directory layout and quotes registry keys containing `/` so the resulting TOML stays valid |
 | 9 | 2026-04-29 | Document all `pub(crate)` exports from module split (`mod.rs`, `parse.rs`, `validation.rs`, `commands.rs`) to satisfy strict spec-sync validation |
