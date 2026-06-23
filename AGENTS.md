@@ -282,6 +282,81 @@ This repo defines its own lanes in `fledge.toml`. The key ones for agents:
 - **`fledge checks` (or any command) says "unrecognized subcommand"**: the corresponding plugin isn't installed. Run `fledge plugins install --defaults` for the curated set.
 - **A multi-model `fledge review` panel had one slot fail**: that slot's `error` field has the cause, the other slots' reviews are still valid. `--with-model` is fault-tolerant by design.
 
+## Working on fledge's own codebase
+
+The sections above are about *using* fledge. This one is for agents *modifying fledge itself*.
+
+### Build & test
+
+```bash
+cargo build
+cargo test
+cargo clippy -- -D warnings
+cargo fmt --check
+```
+
+Or via fledge's own lanes: `fledge lanes run pre-commit` (fmt + lint + test + spec-check).
+
+### Source map
+
+**Entry point & CLI**
+- `src/main.rs` — CLI entry point, top-level dispatch
+- `src/cli.rs` — Clap derive types for all subcommands
+- `src/config_cmds.rs` — Config subcommand handlers
+- `src/template_cmds.rs` — Template subcommand handlers
+
+**Core commands (single-file modules)**
+- `src/init.rs` — Project initialization
+- `src/run.rs` — Task runner (fledge.toml, language detection)
+- `src/watch.rs` — File watcher / re-run on change
+- `src/work.rs` — Work branch and PR workflow
+- `src/changelog.rs` — Changelog generation from git tags
+- `src/review.rs` — AI-powered code review
+- `src/ask.rs` — AI-powered codebase Q&A
+- `src/ai.rs` — General-purpose AI assistant subcommand
+- `src/doctor.rs` — Environment diagnostics
+- `src/introspect.rs` — JSON command-tree dump (for agents/automation)
+
+**Multi-file modules (folder modules with `mod.rs`)**
+- `src/plugin/` — Plugin install/list/run/create/publish/update/remove/validate; lifecycle hooks
+- `src/lanes/` — Composable workflow pipelines (execute, community, create, publish, validate, defaults)
+- `src/protocol/` — fledge-v1 plugin protocol (detect, exec, metadata, store, UI)
+- `src/spec/` — Spec-sync management (commands, parse, validation, engine)
+- `src/release/` — Release workflow (bump, changelog, git, version, toml_utils)
+
+**Templates**
+- `src/templates.rs` — Template loading and Tera rendering
+- `src/create_template.rs` — Template scaffolding
+- `src/validate.rs` — Template validation
+- `src/publish.rs` — Template publishing to GitHub
+- `src/search.rs` — Template discovery via GitHub
+- `src/remote.rs` — Remote template fetching and caching
+
+**Shared infra**
+- `src/trust.rs` — Plugin trust-tier classification
+- `src/config.rs` — Global config (~/.config/fledge/config.toml)
+- `src/prompts.rs` — Interactive prompts (dialoguer)
+- `src/spinner.rs` — Terminal spinner UI
+- `src/llm.rs` — LLM backend selection
+- `src/github.rs` — Shared GitHub API helpers
+- `src/versioning.rs` — Version parsing/comparison
+- `src/meta.rs` — Project metadata used by introspect
+- `src/utils.rs` — Shared utilities (e.g. non-interactive flag)
+
+**Other directories**
+- `specs/` — spec-sync specifications (source of truth)
+- `templates/` — Built-in project templates (embedded via `include_dir!`)
+- `docs/` — mdBook documentation site
+- `flake.nix` — Nix flake
+- `install.sh` — Curl-pipe installer
+
+### Conventions
+
+- Specs are the source of truth — read before modifying code
+- Run `fledge spec check` before committing. It delegates to the `specsync` binary when installed (matching CI's export-coverage validation) and falls back to a structural check otherwise
+- No direct commits to main — use feature branches
+- Releases bump `Cargo.toml` and `flake.nix` together (see `[release].files` in `fledge.toml`); the Homebrew formula in `CorvidLabs/homebrew-tap` is updated by `post-release-formula.yml`
+
 ## Extending fledge for better agent support
 
 If a command you want doesn't expose `--json`, or a workflow isn't automatable, the right fix is:
