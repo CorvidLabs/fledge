@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.6.0] - 2026-06-23
+
+### Changes
+
+- standardize GitHub Actions (path filters, concurrency, runners) (#423) (1295857)
+
+### Features
+
+- delegate `fledge spec check` to the real specsync binary for CI parity (#424) (9d228be)
+
+### Fixes
+
+- atomic plugins.toml writes — registry race made plugin subcommands vanish (#419) (12547a3)
+- fold handwritten Unreleased fixes into the v1.5.1 changelog section (f260171)
+
+### Other
+
+- Update redirect URLs for marketing and docs (#422) (212c591)
+- Retire: redirect the standalone fledge site to the CorvidLabs hub (#421) (28956b1)
+
+### Refactoring
+
+- unify agent docs — merge CLAUDE.md into AGENTS.md, symlink the rest (#425) (14cec6e)
+
 ## [v1.5.1] - 2026-06-11
 
 ### Changes

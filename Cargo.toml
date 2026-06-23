@@ -1,6 +1,6 @@
 [package]
 name = "fledge"
-version = "1.5.1"
+version = "1.6.0"
 edition = "2021"
 authors = ["0xLeif <leif.algo@pm.me>"]
 description = "Dev lifecycle CLI. One tool for the dev loop, any language."
