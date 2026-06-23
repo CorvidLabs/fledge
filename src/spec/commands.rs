@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use super::{
-    classify_companions, find_spec_files, load_config, module_leaf, parse, to_title_case,
+    classify_companions, engine, find_spec_files, load_config, module_leaf, parse, to_title_case,
     validate_module_name, validation, SPEC_CHECK_SCHEMA, SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
 };
 
@@ -36,6 +36,29 @@ pub(crate) struct SpecDetail {
 }
 
 pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
+    // Prefer the real `specsync` binary when installed: it performs the same
+    // export-coverage validation as CI, so a local pass guarantees a CI pass.
+    // `?` propagates a delegated failure as a non-zero exit; `None` means
+    // specsync is absent, so we fall back to the built-in structural check.
+    if engine::try_check_via_specsync(root, strict, json)?.is_some() {
+        return Ok(());
+    }
+
+    if !json {
+        println!(
+            "{} {}",
+            style("ℹ").cyan(),
+            style("specsync not found — running fledge's structural check only.").dim()
+        );
+        println!(
+            "  {} {} {}",
+            style("Install").dim(),
+            style("cargo install specsync").cyan(),
+            style("for full CI-parity export-coverage checks.").dim()
+        );
+        println!();
+    }
+
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
 
@@ -145,6 +168,7 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
         let payload = serde_json::json!({
             "schema_version": SPEC_CHECK_SCHEMA,
             "action": "spec_check",
+            "engine": "structural",
             "specs": specs_payload,
             "totals": {
                 "checked": results.len(),

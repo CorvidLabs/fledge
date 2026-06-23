@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 pub(crate) mod commands;
+pub(crate) mod engine;
 pub(crate) mod parse;
 #[cfg(test)]
 mod tests;
