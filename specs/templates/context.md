@@ -19,7 +19,7 @@ spec: templates.spec.md
 
 ## Current Status
 
-- 8 built-in starter templates embedded in the binary via `include_dir!`: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`. Additional community templates discoverable via `fledge templates search` (filters on the `fledge-template` GitHub topic).
+- 8 built-in language starter templates embedded in the binary via `include_dir!`: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`. Plus two setup-only (no language scaffolding) templates: `fledge-plugin` (plugin scaffold) and `corvid-stack` (CorvidLabs trust toolchain: fledge + spec-sync + augur + attest config). Additional community templates discoverable via `fledge templates search` (filters on the `fledge-template` GitHub topic).
 - Template discovery from built-in, local, and remote sources all working
 - Full rendering pipeline: glob matching, Tera rendering, .tera extension stripping, path variable rendering
 - Embedded template extraction with version-stamped caching

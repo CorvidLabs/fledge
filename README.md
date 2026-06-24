@@ -112,7 +112,9 @@ See the [WASM plugin guide](https://corvidlabs.github.io/fledge/docs/reference/w
 
 ## Built-in templates
 
-`rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`, `kotlin-kmp`, `kotlin-ktor-api`
+Language starters: `rust-cli`, `ts-bun`, `python-cli`, `go-cli`, `ts-node`, `static-site`, `kotlin-kmp`, `kotlin-ktor-api`
+
+Setup-only: `corvid-stack` (CorvidLabs trust toolchain — fledge + spec-sync + augur + attest, no language scaffolding), `fledge-plugin` (plugin scaffold)
 
 Browse community templates: `fledge templates search <keyword>`
 

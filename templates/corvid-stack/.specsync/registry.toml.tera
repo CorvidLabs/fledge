@@ -1,0 +1,6 @@
+[registry]
+name = "{{ project_name }}"
+
+[specs]
+# One entry per module spec, e.g.:
+#   auth = "specs/auth/auth.spec.md"

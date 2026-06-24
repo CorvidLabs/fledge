@@ -1009,7 +1009,8 @@ ignore = ["template.toml"]
             "missing kotlin-ktor-api"
         );
         assert!(names.contains(&"fledge-plugin"), "missing fledge-plugin");
-        assert_eq!(names.len(), 9, "expected exactly 9 built-in templates");
+        assert!(names.contains(&"corvid-stack"), "missing corvid-stack");
+        assert_eq!(names.len(), 10, "expected exactly 10 built-in templates");
     }
 
     #[test]

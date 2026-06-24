@@ -1,0 +1,44 @@
+# {{ project_name }}
+
+{{ description }}
+
+Scaffolded with the **CorvidLabs trust toolchain** — a language-agnostic setup
+that gates every change through four tools. See https://corvidlabs.xyz/integrate/.
+
+## What's here
+
+| File | Purpose |
+|------|---------|
+| `fledge.toml` | Tasks + the `verify` lane (the single CI gate) |
+| `.specsync/config.toml` | spec-sync configuration (spec-as-contract validation) |
+| `.attest.json` | attestation policy (provenance verification) |
+| `.github/workflows/trust.yml` | CI: fledge → spec-sync → augur → attest |
+| `AGENTS.md` | Agent/human rules, incl. the managed trust-toolchain block |
+
+## Setup
+
+```bash
+# Install the toolchain (macOS shown; see the guide for Linux/cargo)
+brew install CorvidLabs/tap/fledge
+cargo install specsync
+# augur + attest run as GitHub Actions in trust.yml
+
+# Wire up your stack's tasks (auto-detects Rust, Node, Go, Python, Ruby, Java, Swift)
+fledge run --init
+
+# Run the gate locally
+fledge lanes run verify
+```
+
+Then fill in the `[tasks]` in `fledge.toml`, add a `*.spec.md` per module under
+`specs/`, and register it in `.specsync/registry.toml`.
+
+## The gate
+
+Every push and PR runs `.github/workflows/trust.yml`:
+
+1. **fledge** `lanes run verify` — fmt + lint + test + build
+2. **spec-sync** — specs match code (soft until specs land)
+3. **augur** — diff-risk verdict; a `block` halts the merge
+4. **attest** — provenance verified against `.attest.json`
+5. The managed `AGENTS.md` rules block must be present
