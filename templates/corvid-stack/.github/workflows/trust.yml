@@ -1,0 +1,86 @@
+name: Trust
+
+# The CorvidLabs trust gate as parallel checks: fledge (quality), spec-sync
+# (contract), augur (risk), attest (provenance), and the AGENTS.md rules marker.
+# Each job is an independent PR check, so a failure points straight at the tool.
+# Tools: https://corvidlabs.xyz/integrate/
+#
+# These run in parallel because, in verify form, they are independent. If you
+# later switch attest to `sign --from-augur augur.json --tests-passed`, attest
+# depends on augur + tests: add `needs: [augur, fledge]` and pass augur.json
+# between the jobs with upload-artifact / download-artifact.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # 1) fledge: the quality gate (the `verify` lane: fmt + lint + test + build).
+  fledge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # fledge has no setup action; install the prebuilt binary (fast). Swap for
+      # `cargo install fledge --locked` or `brew install corvidlabs/tap/fledge`
+      # if you prefer.
+      - name: Install fledge
+        run: curl -fsSL https://raw.githubusercontent.com/CorvidLabs/fledge/main/install.sh | sh
+      - name: Verify (fledge lane)
+        run: fledge lanes run verify
+
+  # 2) spec-sync: spec-as-contract validation.
+  #    Soft until specs land; drop continue-on-error once you have specs.
+  spec-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: CorvidLabs/spec-sync@v4
+        continue-on-error: true
+        with:
+          strict: true
+          comment: false
+
+  # 3) augur: deterministic diff-risk gate. Fails at/above `threshold`.
+  augur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # range needs full git history
+      - uses: CorvidLabs/augur@v0
+        with:
+          # PR: base..head. Push: the single pushed commit. Avoids the empty
+          # range that a hardcoded origin/main..HEAD gives on push to main.
+          range: ${{ github.event_name == 'pull_request' && format('origin/{0}..HEAD', github.base_ref) || format('{0}~1..{0}', github.sha) }}
+          threshold: block
+
+  # 4) attest: signed provenance verification against .attest.json.
+  #    The shipped policy is permissive; soft until you tighten it.
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch provenance notes
+        run: git fetch origin "+refs/notes/*:refs/notes/*" 2>/dev/null || true
+      - uses: CorvidLabs/attest@v0
+        continue-on-error: true
+        with:
+          range: ${{ github.event_name == 'pull_request' && format('origin/{0}..HEAD', github.base_ref) || format('{0}~1..{0}', github.sha) }}
+          policy: .attest.json
+
+  # 5) The managed agent-rules block must be present and intact.
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check AGENTS.md trust marker
+        run: |
+          grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md \
+            || { echo "::error::AGENTS.md is missing the managed CorvidLabs trust toolchain block"; exit 1; }

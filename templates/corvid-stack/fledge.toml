@@ -1,0 +1,15 @@
+# fledge.toml: tasks and lanes for the CorvidLabs trust toolchain.
+# Docs: https://github.com/CorvidLabs/fledge
+
+# Fill these in for your stack. `fledge run --init` auto-detects Rust, Node, Go,
+# Python, Ruby, Java, or Swift and can populate them for you.
+[tasks]
+fmt = "echo 'TODO: format-check command (e.g. cargo fmt --check)'"
+lint = "echo 'TODO: lint command (e.g. cargo clippy -- -D warnings)'"
+test = "echo 'TODO: test command (e.g. cargo test)'"
+build = "echo 'TODO: build command (e.g. cargo build)'"
+
+# The single quality gate. `.github/workflows/trust.yml` runs `fledge lanes run verify`.
+[lanes.verify]
+description = "The single quality gate"
+steps = ["fmt", "lint", "test", "build"]

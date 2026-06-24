@@ -1,0 +1,6 @@
+{
+  "requireAttestation": false,
+  "requireTestsPassed": false,
+  "requireSignature": false,
+  "requireHumanApprovalWhenVerdictAtLeast": "block"
+}

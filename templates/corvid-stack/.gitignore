@@ -1,0 +1,6 @@
+# CorvidLabs trust toolchain
+augur.json          # per-run augur artifact: never commit
+
+# OS / editor noise
+.DS_Store
+*.swp

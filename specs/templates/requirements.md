@@ -13,7 +13,7 @@ spec: templates.spec.md
 
 ## Acceptance Criteria
 
-- `discover_templates()` finds all built-in templates (8 starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`)
+- `discover_templates()` finds all built-in templates (8 language starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`; plus setup-only `fledge-plugin` and `corvid-stack`)
 - Extra paths from config are searched for template directories
 - Remote repos from config are fetched and searched for templates
 - Templates are returned sorted alphabetically by name
