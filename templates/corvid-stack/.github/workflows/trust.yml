@@ -1,8 +1,14 @@
 name: Trust
 
-# The single CorvidLabs trust gate: fledge (quality) → spec-sync (contract) →
-# augur (risk) → attest (provenance), plus a check that the managed AGENTS.md
-# rules block is present. Tools: https://corvidlabs.xyz/integrate/
+# The CorvidLabs trust gate as parallel checks: fledge (quality), spec-sync
+# (contract), augur (risk), attest (provenance), and the AGENTS.md rules marker.
+# Each job is an independent PR check, so a failure points straight at the tool.
+# Tools: https://corvidlabs.xyz/integrate/
+#
+# These run in parallel because, in verify form, they are independent. If you
+# later switch attest to `sign --from-augur augur.json --tests-passed`, attest
+# depends on augur + tests — add `needs: [augur, fledge]` and pass augur.json
+# between the jobs with upload-artifact / download-artifact.
 on:
   push:
     branches: [main]
@@ -12,48 +18,65 @@ permissions:
   contents: read
 
 jobs:
-  trust:
+  # 1) fledge — the quality gate (the `verify` lane: fmt + lint + test + build).
+  fledge:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0          # augur/attest ranges need full git history
-
-      # 1) fledge — the single quality gate (the `verify` lane: fmt+lint+test+build).
-      #    Swap brew for `cargo install fledge --locked` if you prefer.
+          fetch-depth: 0
+      # fledge has no setup action; install the CLI. Swap brew for
+      # `cargo install fledge --locked` if you prefer.
       - name: Install fledge
         run: brew install corvidlabs/tap/fledge
       - name: Verify (fledge lane)
         run: fledge lanes run verify
 
-      # 2) spec-sync — spec-as-contract validation.
-      #    Soft until specs land; drop continue-on-error once you have specs.
-      - name: Spec-sync
-        uses: CorvidLabs/spec-sync@v4
+  # 2) spec-sync — spec-as-contract validation.
+  #    Soft until specs land; drop continue-on-error once you have specs.
+  spec-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: CorvidLabs/spec-sync@v4
         continue-on-error: true
         with:
           strict: true
           comment: false
 
-      # 3) augur — deterministic diff-risk gate. Fails at/above `threshold`.
-      - name: Augur risk gate
-        uses: CorvidLabs/augur@v0
+  # 3) augur — deterministic diff-risk gate. Fails at/above `threshold`.
+  augur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # range needs full git history
+      - uses: CorvidLabs/augur@v0
         with:
           range: origin/main..HEAD
           threshold: block
 
-      # 4) attest — signed provenance verification against .attest.json.
-      #    The shipped policy is permissive; soft until you tighten it.
+  # 4) attest — signed provenance verification against .attest.json.
+  #    The shipped policy is permissive; soft until you tighten it.
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Fetch provenance notes
         run: git fetch origin "+refs/notes/*:refs/notes/*" 2>/dev/null || true
-      - name: Attest verify
-        uses: CorvidLabs/attest@v0
+      - uses: CorvidLabs/attest@v0
         continue-on-error: true
         with:
           range: origin/main..HEAD
           policy: .attest.json
 
-      # 5) The managed agent-rules block must be present and intact.
+  # 5) The managed agent-rules block must be present and intact.
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Check AGENTS.md trust marker
         run: |
           grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md \
