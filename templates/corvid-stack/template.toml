@@ -1,12 +1,12 @@
 [template]
 name = "corvid-stack"
-description = "CorvidLabs trust toolchain (fledge + spec-sync + augur + attest) — language-agnostic stack setup, config only"
+description = "CorvidLabs trust toolchain (fledge + spec-sync + augur + attest): language-agnostic stack setup, config only"
 min_fledge_version = "1.0.0"
 
 [prompts]
 description = { message = "Project description", default = "A {{ project_name }} project" }
 
-# This template scaffolds setup/config only — no source code. Files that need
+# This template scaffolds setup/config only, no source code. Files that need
 # project variables carry a `.tera` extension and are rendered; everything else
 # (notably the workflow YAML with its ${{ }} expressions and .attest.json) is
 # copied verbatim.

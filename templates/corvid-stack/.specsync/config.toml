@@ -1,6 +1,8 @@
 # spec-sync v4 configuration
 # Docs: https://github.com/CorvidLabs/spec-sync
 specs_dir = "specs"
+# Set this to match your project's source layout, e.g. ["lib"], ["app"],
+# ["pkg"], or ["."] for a root-level layout.
 source_dirs = ["src"]
 exclude_dirs = []
 exclude_patterns = []

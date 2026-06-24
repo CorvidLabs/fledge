@@ -2,18 +2,22 @@
 
 {{ description }}
 
-Scaffolded with the **CorvidLabs trust toolchain** — a language-agnostic setup
+Scaffolded with the **CorvidLabs trust toolchain**, a language-agnostic setup
 that gates every change through four tools. See https://corvidlabs.xyz/integrate/.
 
 ## What's here
 
 | File | Purpose |
 |------|---------|
-| `fledge.toml` | Tasks + the `verify` lane (the single CI gate) |
+| `fledge.toml` | Tasks plus the `verify` lane (the single quality gate) |
 | `.specsync/config.toml` | spec-sync configuration (spec-as-contract validation) |
 | `.attest.json` | attestation policy (provenance verification) |
-| `.github/workflows/trust.yml` | CI: fledge → spec-sync → augur → attest |
+| `.github/workflows/trust.yml` | CI: fledge, spec-sync, augur, attest |
 | `AGENTS.md` | Agent/human rules, incl. the managed trust-toolchain block |
+
+> Dropping this onto an existing repo? Merge the `.gitignore` and `AGENTS.md`
+> entries into your files rather than replacing them. (Via `fledge templates
+> init` the project dir is created fresh, so there is nothing to overwrite.)
 
 ## Setup
 
@@ -30,7 +34,8 @@ fledge run --init
 fledge lanes run verify
 ```
 
-Then fill in the `[tasks]` in `fledge.toml`, add a `*.spec.md` per module under
+Then fill in the `[tasks]` in `fledge.toml`, set `source_dirs` in
+`.specsync/config.toml` to match your layout, add a `*.spec.md` per module under
 `specs/`, and register it in `.specsync/registry.toml`.
 
 ## The gate
@@ -38,11 +43,11 @@ Then fill in the `[tasks]` in `fledge.toml`, add a `*.spec.md` per module under
 Every push and PR runs `.github/workflows/trust.yml` as **five parallel checks**,
 so a failure points straight at the tool:
 
-- **fledge** `lanes run verify` — fmt + lint + test + build
-- **spec-sync** — specs match code (soft until specs land)
-- **augur** — diff-risk verdict; a `block` halts the merge
-- **attest** — provenance verified against `.attest.json`
-- **rules** — the managed `AGENTS.md` trust block must be present
+- **fledge** `lanes run verify`: fmt + lint + test + build
+- **spec-sync**: specs match code (soft until specs land)
+- **augur**: diff-risk verdict; a `block` halts the merge
+- **attest**: provenance verified against `.attest.json`
+- **rules**: the managed `AGENTS.md` trust block must be present
 
 They run independently because, in verify form, none consumes another's output.
 If you later switch attest to `sign --from-augur` (which needs augur's verdict
