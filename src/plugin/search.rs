@@ -188,13 +188,16 @@ fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
 /// Unicode scalar count), appending an ellipsis when it overflows. Char-based
 /// so it never panics on a multi-byte UTF-8 boundary, unlike a byte slice, and
 /// uses `saturating_sub` so a zero width cannot underflow.
-fn truncate_display(line: String, max_width: usize) -> String {
+fn truncate_display(mut line: String, max_width: usize) -> String {
     if line.chars().count() > max_width {
-        let truncated: String = line.chars().take(max_width.saturating_sub(1)).collect();
-        format!("{truncated}…")
-    } else {
-        line
+        // Truncate in place at the char boundary and append the ellipsis,
+        // avoiding the extra String allocation of collect() + format!.
+        let keep = max_width.saturating_sub(1);
+        let end = line.char_indices().nth(keep).map_or(line.len(), |(i, _)| i);
+        line.truncate(end);
+        line.push('…');
     }
+    line
 }
 
 #[cfg(test)]
