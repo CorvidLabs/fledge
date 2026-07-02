@@ -235,38 +235,48 @@ impl Config {
     /// corrupt or lose the file, and this file holds API keys — the same
     /// torn-write class PR #419 fixed for plugins.toml. Same-directory rename
     /// is atomic on POSIX, so readers see either the old config or the new one.
-    /// On unix the temp file is created (and pinned) 0600 since it holds
-    /// secrets, and the rename carries those perms onto the target.
+    /// On unix the temp file is created 0600 (owner-only) via an exclusive
+    /// create, since it holds secrets, and the rename carries those perms onto
+    /// the target.
     fn save_to(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let content = toml::to_string_pretty(self)?;
-        let tmp = path.with_extension(format!("toml.tmp.{}", std::process::id()));
+
+        // Unique temp name: pid + a per-process atomic counter, so two saves in
+        // the same process never collide on the temp path.
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+        let seq = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let tmp = path.with_extension(format!("toml.tmp.{}.{seq}", std::process::id()));
 
         #[cfg(unix)]
         let write_result: Result<()> = {
             use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
-            use std::os::unix::fs::PermissionsExt;
+            // create_new = exclusive create: it never reuses or truncates a
+            // stale temp file, and mode(0o600) makes the file owner-only from
+            // birth. So the secrets file is never briefly group/world-readable
+            // and there is no path-based chmod TOCTTOU window.
             std::fs::OpenOptions::new()
                 .write(true)
-                .create(true)
-                .truncate(true)
+                .create_new(true)
                 .mode(0o600)
                 .open(&tmp)
-                .and_then(|mut file| {
-                    file.write_all(content.as_bytes())?;
-                    // mode() only applies when the temp file is freshly created;
-                    // pin 0600 explicitly so a reused/stale temp path can't leave
-                    // the secrets file group/world-readable.
-                    std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))
-                })
+                .and_then(|mut file| file.write_all(content.as_bytes()))
                 .map_err(anyhow::Error::from)
         };
         #[cfg(not(unix))]
-        let write_result: Result<()> =
-            std::fs::write(&tmp, content.as_bytes()).map_err(anyhow::Error::from);
+        let write_result: Result<()> = {
+            use std::io::Write;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&tmp)
+                .and_then(|mut file| file.write_all(content.as_bytes()))
+                .map_err(anyhow::Error::from)
+        };
 
         if let Err(error) = write_result {
             let _ = std::fs::remove_file(&tmp);
