@@ -138,13 +138,22 @@ jobs:
           NEW_VERSION: ${{ steps.tag.outputs.version }}
         run: |
           set -euo pipefail
-          # Read the just-pushed formula via the Contents API (not the CDN, which
-          # can lag) and assert the version actually took effect. This turns a
-          # silent no-op push into a red run instead of leaving brew users stale.
-          formula="$(gh api repos/CorvidLabs/homebrew-tap/contents/Formula/fledge.rb --jq '.content' | base64 --decode)"
-          tap_version="$(printf '%s' "$formula" | sed -n 's/^[[:space:]]*version[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+          # Assert the pushed formula version actually took effect. GitHub's
+          # Contents API can serve a cached blob for several seconds after a
+          # push, so poll with a short backoff before declaring failure —
+          # otherwise a sync that DID land false-fails as "did not take effect"
+          # (observed on the v1.6.0 backfill). This still turns a genuine no-op
+          # push into a red run, just without the propagation race.
+          tap_version=""
+          for attempt in 1 2 3 4 5 6; do
+            formula="$(gh api repos/CorvidLabs/homebrew-tap/contents/Formula/fledge.rb --jq '.content' | base64 --decode)"
+            tap_version="$(printf '%s' "$formula" | sed -n 's/^[[:space:]]*version[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+            [ "$tap_version" = "$NEW_VERSION" ] && break
+            echo "Formula still reports '$tap_version' (attempt $attempt/6); waiting for Contents API to propagate..."
+            sleep 10
+          done
           if [ "$tap_version" != "$NEW_VERSION" ]; then
-            echo "::error::homebrew-tap Formula/fledge.rb reports '$tap_version', expected '$NEW_VERSION' — formula sync did not take effect."
+            echo "::error::homebrew-tap Formula/fledge.rb reports '$tap_version', expected '$NEW_VERSION' after retries — formula sync did not take effect."
             exit 1
           fi
           echo "Verified homebrew-tap Formula/fledge.rb at v$NEW_VERSION."
