@@ -176,9 +176,9 @@ fn status(json: bool) -> Result<()> {
     }
     if let (Some(h), Some(src)) = (&report.host, &report.host_source) {
         let cloud_note = if report.cloud_routed == Some(true) {
-            " (auto-routed to cloud)".to_string()
+            "(auto-routed to cloud)".to_string()
         } else {
-            format!(" (from {})", src.label())
+            format!("(from {})", src.label())
         };
         println!(
             "      {} {} {}",
@@ -554,7 +554,10 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
     let kind = match provider {
         Some(p) => ProviderKind::parse(&p)?,
         None => {
-            utils::require_interactive("provider")?;
+            utils::require_interactive_hint(
+                "Pass a provider and model, e.g. `fledge ai use ollama qwen3-coder:480b-cloud` \
+                 or `fledge ai use anthropic claude-sonnet-4-6`",
+            )?;
             // Ollama first (the default), then the API providers in AUTO_ORDER.
             let items: Vec<&str> = crate::llm::AUTO_ORDER.iter().map(|k| k.as_str()).collect();
             let selection = Select::with_theme(&ColorfulTheme::default())
