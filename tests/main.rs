@@ -613,9 +613,35 @@ fn cli_config_add_remove_list_key() {
 
 #[test]
 fn cli_config_init_default() {
-    let output = run_fledge(&["config", "init"]);
-    // Should succeed (creates default config if none exists, or reports it already exists)
-    let _ = output.status;
+    // Isolate to a fresh tempdir via FLEDGE_CONFIG_DIR so the test never
+    // touches the developer's real ~/.config/fledge/config.toml. Setting the
+    // env var on the child process (not the test process) keeps this safe
+    // under parallel test execution.
+    let tmp = TempDir::new().unwrap();
+    let config_dir = tmp.path().join("fledge-config");
+    std::fs::create_dir_all(&config_dir).unwrap();
+
+    let output = Command::new(cargo_bin())
+        .args(["config", "init"])
+        .env("FLEDGE_CONFIG_DIR", &config_dir)
+        .output()
+        .unwrap();
+
+    // A fresh dir has no config yet, so init creates the default and succeeds.
+    assert!(
+        output.status.success(),
+        "config init failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Created"),
+        "expected creation message, got: {stdout}"
+    );
+    assert!(
+        config_dir.join("config.toml").exists(),
+        "config init did not write config.toml into the isolated dir"
+    );
 }
 
 // ──────────────────────────────────────────────────────────
