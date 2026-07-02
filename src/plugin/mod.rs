@@ -336,7 +336,9 @@ pub fn run_lifecycle_hook(event: &str) -> Result<()> {
             _ => &None,
         };
         if let Some(hook_cmd) = hook {
-            println!(
+            // Progress goes to stderr so it never corrupts a `--json` stdout
+            // envelope (lifecycle hooks fire mid-command, e.g. `work start --json`).
+            eprintln!(
                 "  {} {} ({})",
                 style("▶️").cyan().bold(),
                 style(format!("Plugin hook: {event}")).dim(),
