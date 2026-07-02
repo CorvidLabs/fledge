@@ -357,12 +357,24 @@ struct CapabilityDelta {
 
 impl CapabilityDelta {
     fn compute(old: Option<&PluginCapabilities>, new: &PluginCapabilities) -> Self {
-        // Filesystem is an escalation ladder (none → project → plugin/custom);
-        // any change to a non-"none" mode grants new host access, so treat it
-        // as newly added. A missing entry (`None`) is equivalent to "none".
+        // Filesystem is an escalation ladder: none < project < plugin. Only a
+        // move UP the ladder grants new host access; a downgrade (e.g.
+        // plugin → project, which drops plugin-data write while keeping project
+        // read) or a same-level change is not an escalation and must not
+        // re-prompt. An unrecognized mode is treated as the most-privileged
+        // rung (fail-closed) so a novel mode always re-prompts. A missing entry
+        // (`None`) is equivalent to "none". (Kyntrin + Gemini review #437)
+        fn fs_rank(mode: &str) -> u8 {
+            match mode {
+                "none" => 0,
+                "project" => 1,
+                "plugin" => 2,
+                _ => 3,
+            }
+        }
         let old_fs = old.and_then(|c| c.filesystem.as_deref()).unwrap_or("none");
         let new_fs = new.filesystem.as_deref().unwrap_or("none");
-        let added_filesystem = new_fs != "none" && new_fs != old_fs;
+        let added_filesystem = fs_rank(new_fs) > fs_rank(old_fs);
         Self {
             added_exec: new.exec && !old.is_some_and(|c| c.exec),
             added_store: new.store && !old.is_some_and(|c| c.store),
@@ -444,53 +456,65 @@ fn rebuild_after_fetch(
             }));
         }
 
-        if !json {
-            println!(
-                "\n  {} {} v{} requests new capabilities:",
-                style("!").yellow().bold(),
-                style(&entry.name).cyan(),
-                manifest.plugin.version
-            );
-            if delta.added_exec {
-                println!("    {} exec — run shell commands", style("+").yellow());
-            }
-            if delta.added_store {
-                println!(
-                    "    {} store — persist data between runs",
+        // Show the requested capabilities before prompting. In --json mode this
+        // goes to stderr so stdout stays a clean JSON document, but an
+        // interactive operator still sees exactly what they are being asked to
+        // grant (the dialoguer confirm below also renders on stderr). Without
+        // this, `--json` on a TTY would prompt to grant caps it never showed.
+        // (Gemini review #437)
+        let mut cap_lines = vec![format!(
+            "\n  {} {} v{} requests new capabilities:",
+            style("!").yellow().bold(),
+            style(&entry.name).cyan(),
+            manifest.plugin.version
+        )];
+        if delta.added_exec {
+            cap_lines.push(format!(
+                "    {} exec — run shell commands",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_store {
+            cap_lines.push(format!(
+                "    {} store — persist data between runs",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_metadata {
+            cap_lines.push(format!(
+                "    {} metadata — read project metadata and environment",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_filesystem {
+            match delta.new_filesystem.as_deref() {
+                Some("project") => cap_lines.push(format!(
+                    "    {} filesystem (project) — read-only access to project directory",
                     style("+").yellow()
-                );
-            }
-            if delta.added_metadata {
-                println!(
-                    "    {} metadata — read project metadata and environment",
+                )),
+                Some("plugin") => cap_lines.push(format!(
+                    "    {} filesystem (plugin) — read-only project access + read-write plugin data",
                     style("+").yellow()
-                );
+                )),
+                Some(other) => cap_lines.push(format!(
+                    "    {} filesystem ({}) — access host files",
+                    style("+").yellow(),
+                    other
+                )),
+                None => {}
             }
-            if delta.added_filesystem {
-                match delta.new_filesystem.as_deref() {
-                    Some("project") => println!(
-                        "    {} filesystem (project) — read-only access to project directory",
-                        style("+").yellow()
-                    ),
-                    Some("plugin") => println!(
-                        "    {} filesystem (plugin) — read-only project access + read-write plugin data",
-                        style("+").yellow()
-                    ),
-                    Some(other) => println!(
-                        "    {} filesystem ({}) — access host files",
-                        style("+").yellow(),
-                        other
-                    ),
-                    None => {}
-                }
-            }
-            if delta.added_network {
-                println!(
-                    "    {} network — make outbound network requests (unrestricted)",
-                    style("+").yellow()
-                );
-            }
-            println!();
+        }
+        if delta.added_network {
+            cap_lines.push(format!(
+                "    {} network — make outbound network requests (unrestricted)",
+                style("+").yellow()
+            ));
+        }
+        let cap_summary = cap_lines.join("\n");
+        if json {
+            eprintln!("{cap_summary}\n");
+        } else {
+            println!("{cap_summary}\n");
         }
 
         if !crate::utils::is_interactive() {
@@ -702,6 +726,19 @@ mod tests {
     fn delta_ignores_filesystem_downgrade() {
         let old = caps(false, false, false, Some("plugin"), false);
         let new = caps(false, false, false, Some("none"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(!d.added_filesystem);
+        assert!(!d.has_new_caps());
+    }
+
+    #[test]
+    fn delta_ignores_filesystem_downgrade_plugin_to_project() {
+        // Kyntrin review #437: plugin -> project drops plugin-data write while
+        // keeping project read — a privilege reduction, not an escalation. Must
+        // not re-prompt. Escalation is ranked (none < project < plugin), not a
+        // bare "changed to non-none" test.
+        let old = caps(false, false, false, Some("plugin"), false);
+        let new = caps(false, false, false, Some("project"), false);
         let d = CapabilityDelta::compute(Some(&old), &new);
         assert!(!d.added_filesystem);
         assert!(!d.has_new_caps());
