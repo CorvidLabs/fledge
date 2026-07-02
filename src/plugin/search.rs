@@ -158,11 +158,7 @@ fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
                 tier.label(),
                 r.description
             );
-            if line.len() > max_item_width {
-                format!("{}…", &line[..max_item_width - 1])
-            } else {
-                line
-            }
+            truncate_display(line, max_item_width)
         })
         .collect();
 
@@ -186,4 +182,48 @@ fn interactive_search(results: &[crate::search::SearchResult]) -> Result<()> {
     );
 
     super::install::install_action(Some(&chosen.full_name()), false, false, false, false)
+}
+
+/// Truncate a display line to at most `max_width` columns (approximated by
+/// Unicode scalar count), appending an ellipsis when it overflows. Char-based
+/// so it never panics on a multi-byte UTF-8 boundary, unlike a byte slice, and
+/// uses `saturating_sub` so a zero width cannot underflow.
+fn truncate_display(mut line: String, max_width: usize) -> String {
+    if line.chars().count() > max_width {
+        // Truncate in place at the char boundary and append the ellipsis,
+        // avoiding the extra String allocation of collect() + format!.
+        let keep = max_width.saturating_sub(1);
+        let end = line.char_indices().nth(keep).map_or(line.len(), |(i, _)| i);
+        line.truncate(end);
+        line.push('…');
+    }
+    line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_display;
+
+    #[test]
+    fn truncate_display_leaves_short_lines() {
+        let line = "short line".to_string();
+        assert_eq!(truncate_display(line.clone(), 40), line);
+    }
+
+    #[test]
+    fn truncate_display_does_not_panic_on_multibyte_boundary() {
+        // A run of 3-byte chars where the old byte cutoff `&line[..max-1]`
+        // landed mid-char and panicked with "not a char boundary".
+        let line = "日本語テストの説明文です".to_string();
+        let out = truncate_display(line, 5);
+        assert!(out.ends_with('…'));
+        assert_eq!(out.chars().count(), 5);
+    }
+
+    #[test]
+    fn truncate_display_zero_width_does_not_underflow() {
+        // max_item_width becomes 0 when the terminal is narrower than 5 cols;
+        // the old `max_item_width - 1` underflowed here.
+        assert_eq!(truncate_display("anything".to_string(), 0), "…");
+    }
 }
