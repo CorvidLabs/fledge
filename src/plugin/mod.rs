@@ -17,6 +17,7 @@ mod run_plugin;
 mod search;
 mod update;
 mod validate;
+#[cfg(feature = "wasm")]
 mod wasm;
 
 #[cfg(test)]

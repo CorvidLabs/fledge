@@ -15,10 +15,20 @@ mod ui;
 #[cfg(test)]
 mod tests;
 
+// These re-exports exist solely for the WASM runtime's host bridge
+// (`crate::protocol::*` calls in `plugin::wasm`). Within this module the
+// handlers are reached via their submodule paths, so when the `wasm` feature
+// is disabled the re-exports would be unused — gate them to keep that build
+// warning-free.
+#[cfg(feature = "wasm")]
 pub(crate) use detect::detect_project_context;
+#[cfg(feature = "wasm")]
 pub(crate) use exec::handle_exec;
+#[cfg(feature = "wasm")]
 pub(crate) use metadata::handle_metadata;
+#[cfg(feature = "wasm")]
 pub(crate) use store::{handle_load, handle_store};
+#[cfg(feature = "wasm")]
 pub(crate) use ui::handle_log;
 
 #[cfg(test)]

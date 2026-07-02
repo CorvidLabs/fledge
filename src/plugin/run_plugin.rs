@@ -57,27 +57,38 @@ pub(super) fn run_plugin_cmd(name: &str, args: &[String]) -> Result<()> {
         resolve_protocol_info(name)?
     {
         if runtime.as_deref() == Some("wasm") {
-            let manifest_path = plugin_dir.join("plugin.toml");
-            let content = std::fs::read_to_string(&manifest_path)
-                .context("reading plugin.toml for WASM plugin")?;
-            let manifest: PluginManifest =
-                toml::from_str(&content).context("parsing plugin.toml for WASM plugin")?;
-            let wasm_binary = manifest
-                .commands
-                .iter()
-                .find(|c| c.name == name)
-                .or_else(|| manifest.commands.first())
-                .map(|c| plugin_dir.join(&c.binary))
-                .ok_or_else(|| anyhow::anyhow!("WASM plugin has no commands defined"))?;
+            #[cfg(feature = "wasm")]
+            {
+                let manifest_path = plugin_dir.join("plugin.toml");
+                let content = std::fs::read_to_string(&manifest_path)
+                    .context("reading plugin.toml for WASM plugin")?;
+                let manifest: PluginManifest =
+                    toml::from_str(&content).context("parsing plugin.toml for WASM plugin")?;
+                let wasm_binary = manifest
+                    .commands
+                    .iter()
+                    .find(|c| c.name == name)
+                    .or_else(|| manifest.commands.first())
+                    .map(|c| plugin_dir.join(&c.binary))
+                    .ok_or_else(|| anyhow::anyhow!("WASM plugin has no commands defined"))?;
 
-            return super::wasm::run_wasm_plugin(
-                &wasm_binary,
-                args,
-                &plugin_name,
-                &plugin_version,
-                &plugin_dir,
-                &capabilities,
-            );
+                return super::wasm::run_wasm_plugin(
+                    &wasm_binary,
+                    args,
+                    &plugin_name,
+                    &plugin_version,
+                    &plugin_dir,
+                    &capabilities,
+                );
+            }
+            #[cfg(not(feature = "wasm"))]
+            {
+                bail!(
+                    "Plugin '{}' requires the WASM runtime, which was not compiled in \
+                     (rebuild with --features wasm).",
+                    name
+                );
+            }
         }
 
         return crate::protocol::run_protocol_plugin(

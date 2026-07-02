@@ -646,24 +646,36 @@ pub(crate) fn install_plugin(
     }
 
     if manifest.plugin.is_wasm() {
-        for cmd in &manifest.commands {
-            let wasm_path = plugin_dir.join(&cmd.binary);
-            if wasm_path.exists() {
-                println!(
-                    "  {} Pre-compiling WASM module...",
-                    style("▶").cyan().bold()
-                );
-                super::wasm::compile_and_cache(&wasm_path)?;
-            } else {
-                remove_plugin_path(&plugin_dir).ok();
-                bail!(
-                    "WASM binary '{}' not found after build.\n  \
-                     Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
-                     Expected: {}",
-                    cmd.binary,
-                    wasm_path.display()
-                );
+        #[cfg(feature = "wasm")]
+        {
+            for cmd in &manifest.commands {
+                let wasm_path = plugin_dir.join(&cmd.binary);
+                if wasm_path.exists() {
+                    println!(
+                        "  {} Pre-compiling WASM module...",
+                        style("▶").cyan().bold()
+                    );
+                    super::wasm::compile_and_cache(&wasm_path)?;
+                } else {
+                    remove_plugin_path(&plugin_dir).ok();
+                    bail!(
+                        "WASM binary '{}' not found after build.\n  \
+                         Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
+                         Expected: {}",
+                        cmd.binary,
+                        wasm_path.display()
+                    );
+                }
             }
+        }
+        #[cfg(not(feature = "wasm"))]
+        {
+            remove_plugin_path(&plugin_dir).ok();
+            bail!(
+                "Plugin '{}' requires the WASM runtime, which was not compiled in \
+                 (rebuild with --features wasm).",
+                manifest.plugin.name
+            );
         }
     }
 
