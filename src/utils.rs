@@ -71,6 +71,27 @@ pub fn require_interactive(flag_name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Like [`require_interactive`], but for commands whose required input is a
+/// positional argument rather than a `--flag`. `how_to_provide` is spliced into
+/// the error verbatim (e.g. "pass a provider and model, e.g. `fledge ai use
+/// ollama <model>`"), so the message names the real arguments instead of a
+/// `--flag` that may not exist.
+pub fn require_interactive_hint(how_to_provide: &str) -> anyhow::Result<()> {
+    if is_non_interactive() {
+        anyhow::bail!(
+            "This command requires interactive input but --non-interactive (or FLEDGE_NON_INTERACTIVE) is set.\n  \
+             {how_to_provide}, or unset FLEDGE_NON_INTERACTIVE / omit --non-interactive to run interactively."
+        );
+    }
+    if !is_interactive() {
+        anyhow::bail!(
+            "This command requires interactive input but stdin is not a TTY.\n  \
+             {how_to_provide}."
+        );
+    }
+    Ok(())
+}
+
 pub fn to_kebab_case(s: &str) -> String {
     s.chars()
         .map(|c| {
