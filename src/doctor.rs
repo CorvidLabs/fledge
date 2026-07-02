@@ -375,11 +375,13 @@ fn check_git(dir: &Path) -> Section {
                 fix: None,
             });
         } else {
+            let count = changed.len();
+            let noun = if count == 1 { "file" } else { "files" };
             checks.push(CheckResult {
                 name: "working tree".to_string(),
                 status: CheckStatus::Error,
                 version: None,
-                detail: Some(format!("uncommitted changes ({} files)", changed.len())),
+                detail: Some(format!("uncommitted changes ({count} {noun})")),
                 fix: Some("git add . && git commit".to_string()),
             });
         }
