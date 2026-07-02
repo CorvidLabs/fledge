@@ -24,7 +24,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
       - run: cargo clippy -- -D warnings
-      - run: cargo test --verbose
+      - run: cargo test --verbose --locked
 
   build:
     needs: [test]
@@ -66,10 +66,10 @@ jobs:
         if: matrix.cross == true
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} --locked
       - name: Build (native)
         if: matrix.cross != true
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} --locked
       - name: Rename binary
         shell: bash
         run: |
