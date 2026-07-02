@@ -343,14 +343,23 @@ fn execute_task(
             style(format!("Running task: {name}")).bold()
         );
 
+        let started = std::time::Instant::now();
         let status = command
             .status()
             .with_context(|| format!("running task '{name}'"))?;
+        let elapsed = started.elapsed();
 
         if !status.success() {
             let code = status.code().unwrap_or(1);
             bail!("Task '{}' failed with exit code {}", name, code);
         }
+
+        println!(
+            "{} {} ({:.1}s)",
+            style("✅").green().bold(),
+            style(name).bold(),
+            elapsed.as_secs_f64()
+        );
     }
 
     Ok(())
