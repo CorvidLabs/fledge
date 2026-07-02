@@ -94,6 +94,11 @@ fn recommendations_for_language(lang: &str) -> Vec<Recommendation> {
         });
     }
 
+    // Dedup by repo: the base list already recommends fledge-plugin-github, and
+    // the `.github` branch above can add it a second time. Keep the first entry.
+    let mut seen = std::collections::HashSet::new();
+    recs.retain(|r| seen.insert(r.repo));
+
     recs
 }
 
@@ -103,20 +108,23 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
 
     let registry =
         super::load_registry().unwrap_or_else(|_| super::PluginsRegistry { plugins: vec![] });
-    let installed: Vec<&str> = registry.plugins.iter().map(|p| p.name.as_str()).collect();
+    // Match on the registry `source`, normalized so a shorthand recommendation
+    // repo ("CorvidLabs/fledge-plugin-github") and an install recorded as a full
+    // URL ("https://github.com/CorvidLabs/fledge-plugin-github.git") compare
+    // equal. The old code compared a prefix-stripped "github" against the registry
+    // *name* ("fledge-plugin-github"), which never matched, so installed plugins
+    // were always re-recommended. HashSet keeps the lookup O(1).
+    let installed_count = registry.plugins.len();
+    let installed_sources: std::collections::HashSet<String> = registry
+        .plugins
+        .iter()
+        .map(|p| super::normalize_source(&p.source))
+        .collect();
 
     let recs = recommendations_for_language(lang);
     let new_recs: Vec<&Recommendation> = recs
         .iter()
-        .filter(|r| {
-            let name = r
-                .repo
-                .rsplit('/')
-                .next()
-                .unwrap_or("")
-                .replace("fledge-plugin-", "");
-            !installed.iter().any(|i| *i == name)
-        })
+        .filter(|r| !installed_sources.contains(&super::normalize_source(r.repo)))
         .collect();
 
     if json {
@@ -133,7 +141,7 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
             "schema_version": PLUGINS_RECOMMEND_SCHEMA,
             "action": "plugins_recommend",
             "language": lang,
-            "installed_count": installed.len(),
+            "installed_count": installed_count,
             "recommendations": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -198,4 +206,28 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn recommendations_have_no_duplicate_repos() {
+        // The base list recommends fledge-plugin-github, and a `.github` dir adds
+        // it again; dedup must collapse them. Checked across every language arm.
+        for lang in ["rust", "node", "python", "go", "swift", "unknown"] {
+            let recs = recommendations_for_language(lang);
+            let mut seen = HashSet::new();
+            for r in &recs {
+                assert!(
+                    seen.insert(r.repo),
+                    "duplicate repo {} in recommendations for {}",
+                    r.repo,
+                    lang
+                );
+            }
+        }
+    }
 }
