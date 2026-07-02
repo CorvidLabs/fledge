@@ -555,7 +555,7 @@ fn use_provider(provider: Option<String>, model: Option<String>) -> Result<()> {
         Some(p) => ProviderKind::parse(&p)?,
         None => {
             utils::require_interactive_hint(
-                "pass a provider and model, e.g. `fledge ai use ollama qwen3-coder:480b-cloud` \
+                "Pass a provider and model, e.g. `fledge ai use ollama qwen3-coder:480b-cloud` \
                  or `fledge ai use anthropic claude-sonnet-4-6`",
             )?;
             // Ollama first (the default), then the API providers in AUTO_ORDER.
