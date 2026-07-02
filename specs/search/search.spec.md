@@ -1,6 +1,6 @@
 ---
 module: search
-version: 4
+version: 5
 status: active
 files:
   - src/search.rs
@@ -25,6 +25,7 @@ The split is intentional: discovering "GitHub repos tagged with topic X" is a ge
 |--------|-------------|
 | `SearchResult` | A single matching repository with metadata |
 | `full_name` | Method on `SearchResult` returning `owner/repo` string |
+| `to_json` | Method on `SearchResult` returning the canonical `--json` entry shared by every `*/search` command |
 | `build_search_query_ex` | Constructs a GitHub search query string with topic + optional keyword/author |
 | `build_search_query` | Extended query builder with support for an additional topic filter |
 | `parse_search_response` | Parses GitHub API JSON response into `Vec<SearchResult>` |
@@ -42,6 +43,7 @@ The split is intentional: discovering "GitHub repos tagged with topic X" is a ge
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `full_name` | `(&self) -> String` | Returns `owner/repo` format string for a `SearchResult` |
+| `to_json` | `(&self, trust_tier: &str) -> serde_json::Value` | Canonical `--json` entry every `*/search` command emits: `{owner, name, full_name, description, stars, url, topics, trust_tier}` |
 | `build_search_query_ex` | `(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String` | Constructs a GitHub search query string |
 | `build_search_query` | `(keyword: Option<&str>, author: Option<&str>, topic: &str, extra_topic: Option<&str>) -> String` | Extended query builder with additional topic filter |
 | `parse_search_response` | `(body: &serde_json::Value) -> Result<Vec<SearchResult>>` | Parses GitHub search API JSON |
@@ -55,6 +57,7 @@ The split is intentional: discovering "GitHub repos tagged with topic X" is a ge
 3. `parse_search_response` is tolerant: missing `description` becomes `"No description"`; missing `stargazers_count` becomes `0`; missing `topics` becomes an empty list. An item without an `owner.login` is skipped
 4. `format_stars` uses `1.0k` formatting under 10k and `123k` (no decimal) above
 5. `urlencod` keeps `[A-Za-z0-9-_.~]` unreserved per RFC 3986 and percent-encodes everything else; spaces become `%20` (not `+`)
+6. `to_json` is the single source of truth for a search `results[]` entry: all three of `plugins`/`lanes`/`templates search` render entries through it, so their shapes cannot diverge. It always includes `topics` (`[]` when empty) and both `owner` and `full_name`
 
 ## Behavioral Examples
 
@@ -109,6 +112,7 @@ urlencod("topic:fledge-template")  // "topic%3Afledge-template"
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-07-02 | Added `SearchResult::to_json(trust_tier)` — the canonical `results[]` entry now shared by `plugins`/`lanes`/`templates search`. Fixes shipped drift where `plugins search` emitted `full_name` (no `owner`) while the others emitted `owner` (no `full_name`); the unified entry is a superset (additive, no version bump for the callers). Callers now build envelopes via the new `envelope::resource` helper. |
 | 3 | 2026-04-25 | `templates search` re-absorbed into core (`main.rs::search_templates`); the `fledge-plugin-templates-remote` plugin was redundant with the existing helpers and is dropped from `DEFAULT_PLUGINS`. Module remains a library of query/parse helpers consumed by `main`, `lanes`, `plugins`, and `github`. |
 | 2 | 2026-04-25 | v0.15 tight-core: removed `run`, `SearchOptions`, and `search_github_ex`, the user-facing `templates search` command lived in `fledge-plugin-templates-remote` then. |
 | 1 | 2026-04-19 | Initial spec |

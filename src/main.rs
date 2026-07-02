@@ -10,6 +10,7 @@ mod config;
 mod config_cmds;
 mod create_template;
 mod doctor;
+mod envelope;
 mod github;
 mod init;
 mod introspect;

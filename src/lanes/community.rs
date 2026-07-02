@@ -28,10 +28,11 @@ pub(crate) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bo
 
     if results.is_empty() {
         if json {
-            let result = serde_json::json!({
-                "schema_version": LANES_SEARCH_SCHEMA,
-                "results": [],
-            });
+            let result = crate::envelope::resource(
+                LANES_SEARCH_SCHEMA,
+                "results",
+                Vec::<serde_json::Value>::new(),
+            );
             println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
@@ -50,21 +51,10 @@ pub(crate) fn search_lanes(keyword: Option<&str>, author: Option<&str>, json: bo
             .iter()
             .map(|r| {
                 let tier = determine_trust_tier_from_owner(&r.owner);
-                serde_json::json!({
-                    "owner": r.owner,
-                    "name": r.name,
-                    "description": r.description,
-                    "stars": r.stars,
-                    "url": r.url,
-                    "topics": r.topics,
-                    "trust_tier": tier.label(),
-                })
+                r.to_json(tier.label())
             })
             .collect();
-        let result = serde_json::json!({
-            "schema_version": LANES_SEARCH_SCHEMA,
-            "results": entries,
-        });
+        let result = crate::envelope::resource(LANES_SEARCH_SCHEMA, "results", entries);
         println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
