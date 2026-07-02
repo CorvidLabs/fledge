@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
@@ -224,30 +224,81 @@ impl Config {
     }
 
     pub fn save(&self) -> Result<()> {
-        let path = Self::config_path();
+        self.save_to(&Self::config_path())
+    }
+
+    /// Serialize and write atomically to `path`.
+    ///
+    /// Renders to a same-directory temp file, then renames it over the target.
+    /// A crash or a concurrent reader therefore never observes a truncated
+    /// config: an in-place open-truncate-write that dies mid-write would
+    /// corrupt or lose the file, and this file holds API keys — the same
+    /// torn-write class PR #419 fixed for plugins.toml. Same-directory rename
+    /// is atomic on POSIX, so readers see either the old config or the new one.
+    /// On unix the temp file is created 0600 (owner-only) via an exclusive
+    /// create, since it holds secrets, and the rename carries those perms onto
+    /// the target.
+    fn save_to(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let content = toml::to_string_pretty(self)?;
+
+        // Unique temp name: pid + a per-process atomic counter, so two saves in
+        // the same process never collide on the temp path.
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+        let seq = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let tmp = path.with_extension(format!("toml.tmp.{}.{seq}", std::process::id()));
+
         #[cfg(unix)]
-        {
+        let write_result: Result<()> = {
             use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
-            use std::os::unix::fs::PermissionsExt;
-            let mut file = std::fs::OpenOptions::new()
+            // create_new = exclusive create: it never reuses or truncates a
+            // stale temp file, and mode(0o600) makes the file owner-only from
+            // birth. So the secrets file is never briefly group/world-readable
+            // and there is no path-based chmod TOCTTOU window.
+            std::fs::OpenOptions::new()
                 .write(true)
-                .create(true)
-                .truncate(true)
+                .create_new(true)
                 .mode(0o600)
-                .open(&path)?;
-            file.write_all(content.as_bytes())?;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-        }
+                .open(&tmp)
+                .and_then(|mut file| file.write_all(content.as_bytes()))
+                .map_err(anyhow::Error::from)
+        };
         #[cfg(not(unix))]
-        {
-            std::fs::write(&path, content)?;
+        let write_result: Result<()> = {
+            use std::io::Write;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&tmp)
+                .and_then(|mut file| file.write_all(content.as_bytes()))
+                .map_err(anyhow::Error::from)
+        };
+
+        if let Err(error) = write_result {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(error).context("writing config.toml temp file");
         }
-        Ok(())
+
+        // Windows refuses the rename with a sharing violation while another
+        // process has the destination open for reading; retry briefly. On POSIX
+        // the first attempt always wins.
+        let mut last_error = None;
+        for _ in 0..20 {
+            match std::fs::rename(&tmp, path) {
+                Ok(()) => return Ok(()),
+                Err(error) => {
+                    last_error = Some(error);
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+            }
+        }
+        let _ = std::fs::remove_file(&tmp);
+        Err(last_error.expect("rename attempted at least once"))
+            .context("atomically replacing config.toml")
     }
 
     pub fn get(&self, key: &str) -> Option<String> {
@@ -725,6 +776,65 @@ author = "Partial"
     fn load_returns_defaults_when_no_file() {
         let config = Config::load().unwrap();
         assert_eq!(config.license(), "MIT");
+    }
+
+    #[test]
+    fn save_to_writes_secrets_and_leaves_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fledge").join("config.toml");
+        let mut config = Config::default();
+        config.set("github.token", "ghp_secret_value").unwrap();
+        config.set("ai.anthropic.api_key", "sk-ant-secret").unwrap();
+
+        config.save_to(&path).unwrap();
+
+        let round_trip: Config = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(round_trip.github.token.as_deref(), Some("ghp_secret_value"));
+        assert_eq!(
+            round_trip.ai.anthropic.api_key.as_deref(),
+            Some("sk-ant-secret")
+        );
+
+        let leftovers: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
+            .collect();
+        assert!(leftovers.is_empty(), "temp file left behind: {leftovers:?}");
+    }
+
+    #[test]
+    fn save_to_fully_replaces_existing_file() {
+        // A second save over an existing file must fully replace it, never a
+        // torn mix of old and new content.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let mut first = Config::default();
+        first
+            .set("defaults.author", "First Author With A Long Name")
+            .unwrap();
+        first.save_to(&path).unwrap();
+
+        let mut second = Config::default();
+        second.set("defaults.author", "Second").unwrap();
+        second.save_to(&path).unwrap();
+
+        let reloaded: Config = toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(reloaded.defaults.author.as_deref(), Some("Second"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_to_sets_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let mut config = Config::default();
+        config.set("ai.openai.api_key", "sk-secret").unwrap();
+        config.save_to(&path).unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600, "config with secrets must be 0600");
     }
 
     #[test]
