@@ -197,7 +197,7 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         owner,
         repo
     );
-    let status = std::process::Command::new("git")
+    let output = std::process::Command::new("git")
         .args(["push", "-u", "origin", "main", "--force"])
         .current_dir(path)
         .env("GIT_CONFIG_COUNT", (existing + 1).to_string())
@@ -205,15 +205,26 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         .env(format!("GIT_CONFIG_VALUE_{existing}"), &header_value)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
-        .status()
+        .output()
         .context("running git push")?;
 
-    if !status.success() {
-        bail!(
-            "Failed to push to {}/{}. Check your token has 'repo' scope.",
-            owner,
-            repo
-        );
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let detail = stderr.trim();
+        if detail.is_empty() {
+            bail!(
+                "Failed to push to {}/{}. Check your token has 'repo' scope.",
+                owner,
+                repo
+            );
+        } else {
+            bail!(
+                "Failed to push to {}/{}. Check your token has 'repo' scope.\ngit error: {}",
+                owner,
+                repo,
+                detail
+            );
+        }
     }
 
     if needs_init {

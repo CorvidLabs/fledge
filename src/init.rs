@@ -145,9 +145,11 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
     )?;
 
     // Git init
-    if !opts.no_git {
-        init_git(&target_dir)?;
-    }
+    let git_initialized = if opts.no_git {
+        false
+    } else {
+        init_git(&target_dir)?
+    };
 
     let hooks_run = !opts.no_install && reqs_ok && !template.manifest.hooks.post_create.is_empty();
     // Post-create hooks for **local** templates: `--yes` is sufficient consent
@@ -172,7 +174,7 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
             None,
             &variables,
             &created_files,
-            !opts.no_git,
+            git_initialized,
             hooks_run,
         )?;
     } else {
@@ -359,9 +361,11 @@ fn run_remote(
         &created_files,
     )?;
 
-    if !opts.no_git {
-        init_git(&target_dir)?;
-    }
+    let git_initialized = if opts.no_git {
+        false
+    } else {
+        init_git(&target_dir)?
+    };
 
     // Remote templates: `--yes` alone is **not** consent for arbitrary shell
     // execution from a third-party source. Require `--trust-hooks` (or
@@ -387,7 +391,7 @@ fn run_remote(
             Some(remote_ref),
             &variables,
             &created_files,
-            !opts.no_git,
+            git_initialized,
             hooks_run,
         )?;
     } else {
@@ -673,7 +677,7 @@ fn resolve_template<'a>(
     }
 }
 
-fn init_git(dir: &Path) -> Result<()> {
+fn init_git(dir: &Path) -> Result<bool> {
     let output = std::process::Command::new("git")
         .args(["init"])
         .current_dir(dir)
@@ -713,24 +717,50 @@ fn init_git(dir: &Path) -> Result<()> {
     }
 
     // Stage all files
-    std::process::Command::new("git")
+    let add = std::process::Command::new("git")
         .args(["add", "."])
         .current_dir(dir)
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stderr(std::process::Stdio::piped())
+        .output()
         .context("running git add")?;
+    if !add.status.success() {
+        let stderr = String::from_utf8_lossy(&add.stderr);
+        eprintln!(
+            "{} git add failed, skipping initial commit: {}",
+            style("!").yellow().bold(),
+            stderr.trim()
+        );
+        return Ok(false);
+    }
 
     // Initial commit
-    std::process::Command::new("git")
+    let commit = std::process::Command::new("git")
         .args(["commit", "-m", "Initial commit from fledge"])
         .current_dir(dir)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
         .context("running git commit")?;
+    if !commit.status.success() {
+        // "nothing to commit" is benign: `git init` succeeded and the working
+        // tree is simply empty. Any other non-zero exit (failing hook,
+        // misconfigured identity, ...) is a real failure worth surfacing.
+        let stderr = String::from_utf8_lossy(&commit.stderr);
+        let stdout = String::from_utf8_lossy(&commit.stdout);
+        let nothing_to_commit =
+            stdout.contains("nothing to commit") || stderr.contains("nothing to commit");
+        if !nothing_to_commit {
+            eprintln!(
+                "{} git commit failed: {}",
+                style("!").yellow().bold(),
+                stderr.trim()
+            );
+            return Ok(false);
+        }
+    }
 
-    Ok(())
+    Ok(true)
 }
 
 fn generate_fledge_toml_if_missing(
@@ -854,6 +884,35 @@ ignore = ["template.toml"]
             .unwrap();
         let log = String::from_utf8(output.stdout).unwrap();
         assert!(log.contains("Initial commit from fledge"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn init_git_reports_false_when_commit_fails() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("my-project");
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("file.txt"), "hello").unwrap();
+
+        // Pre-create the repo with a pre-commit hook that always fails.
+        // git init is idempotent, so init_git re-inits and keeps the hook.
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let hooks = dir.join(".git/hooks");
+        fs::create_dir_all(&hooks).unwrap();
+        let hook = hooks.join("pre-commit");
+        fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+
+        let initialized = init_git(&dir).unwrap();
+        assert!(
+            !initialized,
+            "a failed commit must report git_initialized = false"
+        );
     }
 
     #[test]
