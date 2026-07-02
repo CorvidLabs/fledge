@@ -124,6 +124,15 @@ fn classify_source(source: &str, config: &TrustConfig) -> TrustTier {
         base
     };
 
+    // A legitimate owner/repo never contains "." or ".." path segments. Such a
+    // segment lets git/curl collapse the clone URL client-side (RFC 3986
+    // dot-segment removal), so "CorvidLabs/../attacker/evil" would classify on
+    // the official "CorvidLabs" org yet actually fetch "attacker/evil" — a
+    // trust-tier spoof. Never grant such a source any trust.
+    if path_has_traversal_segment(normalized) {
+        return TrustTier::Unverified;
+    }
+
     if let Some((org, _)) = normalized.split_once('/') {
         if OFFICIAL_ORGS.contains(&org) {
             return TrustTier::Official;
@@ -134,6 +143,28 @@ fn classify_source(source: &str, config: &TrustConfig) -> TrustTier {
     }
 
     TrustTier::Unverified
+}
+
+/// True if any "/"- or "\\"-separated segment of `path` is "." or "..".
+fn path_has_traversal_segment(path: &str) -> bool {
+    path.split(['/', '\\']).any(|seg| seg == "." || seg == "..")
+}
+
+/// True if a plugin/template source contains a "." or ".." segment in its
+/// owner/repo path. git/curl collapse such segments client-side so the fetched
+/// repo differs from the one classified for trust; the install path rejects
+/// these outright. Local "./"/"../" paths are handled by `determine_trust_tier`
+/// before classification, so in practice this only inspects remote-style
+/// sources (shorthand `owner/repo` or clone URLs).
+pub fn source_has_path_traversal(source: &str) -> bool {
+    let (base, _) = parse_source_ref(source);
+    let normalized = base
+        .strip_prefix("https://github.com/")
+        .or_else(|| base.strip_prefix("http://github.com/"))
+        .or_else(|| base.strip_prefix("git@github.com:"))
+        .unwrap_or(base)
+        .trim_end_matches(".git");
+    path_has_traversal_segment(normalized)
 }
 
 fn classify_owner(owner: &str, config: &TrustConfig) -> TrustTier {
@@ -189,6 +220,40 @@ mod tests {
             determine_trust_tier("corvidlabs/fledge-plugin-deploy"),
             TrustTier::Official
         );
+    }
+
+    #[test]
+    fn dotdot_source_never_official() {
+        // Trust-tier spoof: first segment is an official org, but git/curl
+        // collapse the URL to a different repo. Must NOT be classified Official.
+        assert_eq!(
+            determine_trust_tier("CorvidLabs/../attacker/evil"),
+            TrustTier::Unverified
+        );
+        assert_eq!(
+            determine_trust_tier("https://github.com/CorvidLabs/../attacker/evil.git"),
+            TrustTier::Unverified
+        );
+        assert_eq!(
+            determine_trust_tier("git@github.com:CorvidLabs/../attacker/evil.git"),
+            TrustTier::Unverified
+        );
+    }
+
+    #[test]
+    fn source_traversal_detection() {
+        assert!(source_has_path_traversal("CorvidLabs/../attacker/evil"));
+        assert!(source_has_path_traversal(
+            "https://github.com/CorvidLabs/../attacker/evil.git"
+        ));
+        // Legitimate sources must not be flagged.
+        assert!(!source_has_path_traversal(
+            "CorvidLabs/fledge-plugin-deploy"
+        ));
+        assert!(!source_has_path_traversal("owner/repo@v1.0.0"));
+        assert!(!source_has_path_traversal(
+            "https://github.com/CorvidLabs/fledge.git"
+        ));
     }
 
     #[test]
