@@ -345,7 +345,7 @@ fledge ai <status|models|use> [OPTIONS]
 
 - `status [--json]`: Show active provider, model, and host with a `(from env / config / default)` source tag on each value
 - `models --provider {ollama,anthropic,openai,...} [--search <q>] [--json]`: Model list (Ollama hits `/api/tags`; Anthropic returns curated ids; OpenAI-compatible gateways aren't enumerable)
-- `use [provider] [model]`: Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to `~/.config/fledge/config.toml`
+- `use [provider] [model]`: Interactive picker (live model list for Ollama) or fully scriptable via positional args. Writes to the global `config.toml` (platform config dir; see [Configuration](./configuration.md))
 
 ```bash
 fledge ai status                                  # who's active and why
@@ -677,7 +677,11 @@ fledge plugins audit --json                             # machine-readable audit
 
 ### fledge config `<action>`
 
-Manage `~/.config/fledge/config.toml`.
+Manage the global `config.toml`. Its location follows the platform config
+directory (`dirs::config_dir()`): `~/Library/Application Support/fledge/config.toml`
+on macOS, `~/.config/fledge/config.toml` on Linux, `%APPDATA%\fledge\config.toml`
+on Windows. Run `fledge config path` to print the resolved location, or see
+[Configuration](./configuration.md).
 
 ```text
 fledge config <get|set|unset|add|remove|edit|list|path|init>

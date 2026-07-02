@@ -20,7 +20,7 @@ Doctor reports four sections:
 
 ### `fledge`
 
-- `fledge config`. Does `~/.config/fledge/config.toml` parse cleanly?
+- `fledge config`. Does the global `config.toml` parse cleanly? (Its path follows the platform config dir; see [Configuration](./configuration.md).)
 
 ### `Git`
 
