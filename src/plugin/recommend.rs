@@ -108,17 +108,23 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
 
     let registry =
         super::load_registry().unwrap_or_else(|_| super::PluginsRegistry { plugins: vec![] });
-    // Match on the full `owner/repo` source the registry records — recommendations
-    // carry "CorvidLabs/fledge-plugin-github" and the registry stores the same in
-    // `source`. The old code compared a prefix-stripped "github" against the
-    // registry *name* ("fledge-plugin-github"), which never matched, so already
-    // installed plugins were always re-recommended.
-    let installed_sources: Vec<&str> = registry.plugins.iter().map(|p| p.source.as_str()).collect();
+    // Match on the registry `source`, normalized so a shorthand recommendation
+    // repo ("CorvidLabs/fledge-plugin-github") and an install recorded as a full
+    // URL ("https://github.com/CorvidLabs/fledge-plugin-github.git") compare
+    // equal. The old code compared a prefix-stripped "github" against the registry
+    // *name* ("fledge-plugin-github"), which never matched, so installed plugins
+    // were always re-recommended. HashSet keeps the lookup O(1).
+    let installed_count = registry.plugins.len();
+    let installed_sources: std::collections::HashSet<String> = registry
+        .plugins
+        .iter()
+        .map(|p| super::normalize_source(&p.source))
+        .collect();
 
     let recs = recommendations_for_language(lang);
     let new_recs: Vec<&Recommendation> = recs
         .iter()
-        .filter(|r| !installed_sources.contains(&r.repo))
+        .filter(|r| !installed_sources.contains(&super::normalize_source(r.repo)))
         .collect();
 
     if json {
@@ -135,7 +141,7 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
             "schema_version": PLUGINS_RECOMMEND_SCHEMA,
             "action": "plugins_recommend",
             "language": lang,
-            "installed_count": installed_sources.len(),
+            "installed_count": installed_count,
             "recommendations": entries,
         });
         println!("{}", serde_json::to_string_pretty(&result)?);
