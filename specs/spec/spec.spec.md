@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 12
+version: 13
 status: active
 files:
   - src/spec/mod.rs
@@ -274,6 +274,7 @@ $ fledge spec show trust --json
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 13 | 2026-07-02 | Fix: the specsync-delegated `spec check --json` now includes the full `specs[]` structural inventory (`{name, version, status, file_count, section_count, required_count, errors, warnings}`), so the `--json` envelope shape is identical whether the engine is `structural` or `specsync` (previously the delegated path omitted `specs[]`, breaking the documented contract and any agent parsing it on a machine with specsync installed). specsync's aggregate verdict (`passed`, top-level `errors`/`warnings`, `stale`) is preserved. New shared `structural_results`/`spec_result_json` helpers back both engines' `specs[]` |
 | 12 | 2026-06-22 | `spec check` now delegates to the real `specsync` binary when it is on `PATH`, giving local runs the same export-coverage validation as CI (identical to `CorvidLabs/spec-sync`); falls back to the built-in structural check (with an install hint) when absent. New `engine` submodule (`src/spec/engine.rs`) holds `find_specsync` and `try_check_via_specsync`. JSON output gains an `engine` field (`"specsync"` or `"structural"`) |
 | 11 | 2026-06-03 | Document `parse_yaml_frontmatter` in the export table to satisfy strict spec-sync validation |
 | 10 | 2026-05-11 | Accept nested module names with `/` for `fledge spec new` (#383). `validate_module_name` allows `game/board`-style names while still rejecting `\`, leading/trailing `/`, `//`, and any `..`/`.` segment. New `module_leaf` helper derives the spec filename for nested names (`game/board` → `board.spec.md`). `new_spec` writes nested directory layout and quotes registry keys containing `/` so the resulting TOML stays valid |

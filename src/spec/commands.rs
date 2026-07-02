@@ -35,6 +35,75 @@ pub(crate) struct SpecDetail {
     missing_companions: Vec<String>,
 }
 
+/// Walk the specs directory and run fledge's built-in structural validation,
+/// returning one `SpecResult` per spec file (sorted by name). Best-effort:
+/// returns an empty vec when the config or specs directory is unavailable, so
+/// callers that only need the inventory — notably the specsync-delegated JSON
+/// path, which needs a `specs[]` array specsync itself does not provide — never
+/// fail on it.
+pub(super) fn structural_results(root: &Path) -> Vec<validation::SpecResult> {
+    let Ok(config) = load_config(root) else {
+        return Vec::new();
+    };
+    let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
+    if !specs_dir.exists() {
+        return Vec::new();
+    }
+    let required_sections = if config.required_sections.is_empty() {
+        vec![
+            "Purpose".to_string(),
+            "Public API".to_string(),
+            "Invariants".to_string(),
+            "Behavioral Examples".to_string(),
+            "Error Cases".to_string(),
+            "Dependencies".to_string(),
+            "Change Log".to_string(),
+        ]
+    } else {
+        config.required_sections.clone()
+    };
+
+    let mut results: Vec<validation::SpecResult> = Vec::new();
+    for entry in WalkDir::new(&specs_dir).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.extension().is_some_and(|ext| ext == "md") {
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            if name.ends_with(".spec.md") {
+                results.push(validation::validate_spec(path, root, &required_sections));
+            }
+        }
+    }
+    results.sort_by(|a, b| a.name.cmp(&b.name));
+    results
+}
+
+/// Serialize one structural `SpecResult` into the `specs[]` entry shape used by
+/// `spec check --json`. Shared by the built-in and specsync-delegated paths so
+/// every `specs[]` element carries the same fields regardless of which engine
+/// produced the verdict.
+pub(super) fn spec_result_json(result: &validation::SpecResult) -> serde_json::Value {
+    // Partition the issues into errors and warnings in a single pass.
+    let mut errors: Vec<&str> = Vec::new();
+    let mut warnings: Vec<&str> = Vec::new();
+    for issue in &result.issues {
+        if issue.is_error {
+            errors.push(issue.message.as_str());
+        } else {
+            warnings.push(issue.message.as_str());
+        }
+    }
+    serde_json::json!({
+        "name": result.name,
+        "version": result.version,
+        "status": result.status,
+        "file_count": result.file_count,
+        "section_count": result.section_count,
+        "required_count": result.required_count,
+        "errors": errors,
+        "warnings": warnings,
+    })
+}
+
 pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     // Prefer the real `specsync` binary when installed: it performs the same
     // export-coverage validation as CI, so a local pass guarantees a CI pass.
@@ -82,31 +151,9 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
         return Ok(());
     }
 
-    let required_sections = if config.required_sections.is_empty() {
-        vec![
-            "Purpose".to_string(),
-            "Public API".to_string(),
-            "Invariants".to_string(),
-            "Behavioral Examples".to_string(),
-            "Error Cases".to_string(),
-            "Dependencies".to_string(),
-            "Change Log".to_string(),
-        ]
-    } else {
-        config.required_sections.clone()
-    };
-
-    let mut results: Vec<validation::SpecResult> = Vec::new();
-
-    for entry in WalkDir::new(&specs_dir).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "md") {
-            let name = path.file_name().unwrap_or_default().to_string_lossy();
-            if name.ends_with(".spec.md") {
-                results.push(validation::validate_spec(path, root, &required_sections));
-            }
-        }
-    }
+    // Shared with the specsync-delegated path (returns the same sorted, fully
+    // structured `SpecResult`s), so both engines emit an identical `specs[]`.
+    let results = structural_results(root);
 
     if results.is_empty() {
         if json {
@@ -128,8 +175,6 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
         return Ok(());
     }
 
-    results.sort_by(|a, b| a.name.cmp(&b.name));
-
     let mut total_errors = 0;
     let mut total_warnings = 0;
     for result in &results {
@@ -138,33 +183,7 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
     }
 
     if json {
-        let specs_payload: Vec<serde_json::Value> = results
-            .iter()
-            .map(|r| {
-                let errors: Vec<&str> = r
-                    .issues
-                    .iter()
-                    .filter(|i| i.is_error)
-                    .map(|i| i.message.as_str())
-                    .collect();
-                let warnings: Vec<&str> = r
-                    .issues
-                    .iter()
-                    .filter(|i| !i.is_error)
-                    .map(|i| i.message.as_str())
-                    .collect();
-                serde_json::json!({
-                    "name": r.name,
-                    "version": r.version,
-                    "status": r.status,
-                    "file_count": r.file_count,
-                    "section_count": r.section_count,
-                    "required_count": r.required_count,
-                    "errors": errors,
-                    "warnings": warnings,
-                })
-            })
-            .collect();
+        let specs_payload: Vec<serde_json::Value> = results.iter().map(spec_result_json).collect();
         let payload = serde_json::json!({
             "schema_version": SPEC_CHECK_SCHEMA,
             "action": "spec_check",
