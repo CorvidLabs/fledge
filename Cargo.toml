@@ -35,8 +35,14 @@ sha2 = "0.11.0"
 base64 = "0.22"
 notify = "7"
 shell-words = "1.1.1"
-wasmtime = "46.0.1"
-wasmtime-wasi = "46.0.1"
+wasmtime = { version = "46.0.1", optional = true }
+wasmtime-wasi = { version = "46.0.1", optional = true }
+
+[features]
+default = ["wasm"]
+# Sandboxed WASM plugin runtime (wasmtime + wasmtime-wasi). On by default;
+# disable with `--no-default-features` to drop the wasmtime dependency tree.
+wasm = ["dep:wasmtime", "dep:wasmtime-wasi"]
 
 [build-dependencies]
 toml = "0.8"
