@@ -82,18 +82,16 @@ pub(super) fn structural_results(root: &Path) -> Vec<validation::SpecResult> {
 /// every `specs[]` element carries the same fields regardless of which engine
 /// produced the verdict.
 pub(super) fn spec_result_json(result: &validation::SpecResult) -> serde_json::Value {
-    let errors: Vec<&str> = result
-        .issues
-        .iter()
-        .filter(|issue| issue.is_error)
-        .map(|issue| issue.message.as_str())
-        .collect();
-    let warnings: Vec<&str> = result
-        .issues
-        .iter()
-        .filter(|issue| !issue.is_error)
-        .map(|issue| issue.message.as_str())
-        .collect();
+    // Partition the issues into errors and warnings in a single pass.
+    let mut errors: Vec<&str> = Vec::new();
+    let mut warnings: Vec<&str> = Vec::new();
+    for issue in &result.issues {
+        if issue.is_error {
+            errors.push(issue.message.as_str());
+        } else {
+            warnings.push(issue.message.as_str());
+        }
+    }
     serde_json::json!({
         "name": result.name,
         "version": result.version,
