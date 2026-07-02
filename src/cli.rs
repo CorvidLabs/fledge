@@ -172,7 +172,7 @@ pub enum Commands {
         /// Add another model to the review panel — runs in parallel against
         /// the same diff + spec context. Format: `provider[:model]`, e.g.
         /// `ollama:gpt-oss:120b-cloud` or just `anthropic` to use the active
-        /// provider config. Repeatable and comma-separated.
+        /// anthropic config. Repeatable and comma-separated.
         #[arg(long, value_name = "REF")]
         with_model: Vec<String>,
         /// Drop the active config (--provider/--model or
@@ -504,7 +504,7 @@ pub enum AiSubcommand {
     /// are omitted
     #[command(name = "use")]
     Use {
-        /// Provider (default: active provider)
+        /// Provider (interactive prompt if omitted)
         #[arg(value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Model name (e.g. qwen3-coder:480b-cloud)

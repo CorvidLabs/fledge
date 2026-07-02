@@ -118,7 +118,7 @@ expression: output
           "args": [
             {
               "name": "provider",
-              "help": "Provider (default: active provider)",
+              "help": "Provider (interactive prompt if omitted)",
               "required": false,
               "takes_value": true,
               "value_name": "PROVIDER",
@@ -1767,7 +1767,7 @@ expression: output
         {
           "name": "with_model",
           "long": "with-model",
-          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `anthropic` to use the active provider config. Repeatable and comma-separated",
+          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `anthropic` to use the active anthropic config. Repeatable and comma-separated",
           "required": false,
           "takes_value": true,
           "value_name": "REF",
