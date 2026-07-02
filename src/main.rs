@@ -42,6 +42,16 @@ mod test_support;
 use cli::*;
 
 fn main() {
+    // Restore the default SIGPIPE disposition so fledge dies quietly when its
+    // stdout is closed early (e.g. `fledge introspect --json | head`), like a
+    // normal Unix tool. Rust ignores SIGPIPE by default, which otherwise turns a
+    // broken pipe into a panic ("failed printing to stdout: Broken pipe") and
+    // exit code 101.
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+
     if let Err(e) = run() {
         eprintln!("{} {:#}", style("error:").red().bold(), e);
         std::process::exit(1);
