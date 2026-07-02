@@ -293,15 +293,17 @@ fn start(
     crate::plugin::run_lifecycle_hook("post_work_start").ok();
 
     if json {
-        let payload = serde_json::json!({
-            "schema_version": WORK_START_SCHEMA,
-            "action": "work_start",
-            "branch": branch_name,
-            "base": base_branch,
-            "type": btype,
-            "prefix": prefix,
-            "issue": issue,
-        });
+        let payload = crate::envelope::action(
+            WORK_START_SCHEMA,
+            "work_start",
+            serde_json::json!({
+                "branch": branch_name,
+                "base": base_branch,
+                "type": btype,
+                "prefix": prefix,
+                "issue": issue,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
     } else {
         println!(
@@ -396,13 +398,15 @@ fn commit(
     let hash = git_output(&["rev-parse", "--short", "HEAD"])?;
 
     if json {
-        let payload = serde_json::json!({
-            "schema_version": WORK_COMMIT_SCHEMA,
-            "action": "work_commit",
-            "hash": hash,
-            "message": commit_msg,
-            "branch": branch,
-        });
+        let payload = crate::envelope::action(
+            WORK_COMMIT_SCHEMA,
+            "work_commit",
+            serde_json::json!({
+                "hash": hash,
+                "message": commit_msg,
+                "branch": branch,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
     } else {
         println!(
@@ -540,13 +544,15 @@ fn push(force: bool, json: bool) -> Result<()> {
     }
 
     if json {
-        let payload = serde_json::json!({
-            "schema_version": WORK_PUSH_SCHEMA,
-            "action": "work_push",
-            "branch": branch,
-            "remote": "origin",
-            "force": force,
-        });
+        let payload = crate::envelope::action(
+            WORK_PUSH_SCHEMA,
+            "work_push",
+            serde_json::json!({
+                "branch": branch,
+                "remote": "origin",
+                "force": force,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
     } else {
         println!(
@@ -574,15 +580,17 @@ fn status(json: bool) -> Result<()> {
         .count();
 
     if json {
-        let payload = serde_json::json!({
-            "schema_version": WORK_STATUS_SCHEMA,
-            "action": "work_status",
-            "branch": branch,
-            "default": default,
-            "ahead": ahead,
-            "behind": behind,
-            "dirty": dirty_count,
-        });
+        let payload = crate::envelope::action(
+            WORK_STATUS_SCHEMA,
+            "work_status",
+            serde_json::json!({
+                "branch": branch,
+                "default": default,
+                "ahead": ahead,
+                "behind": behind,
+                "dirty": dirty_count,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
     } else {
         let behind_display = match behind {
