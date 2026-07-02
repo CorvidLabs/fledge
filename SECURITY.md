@@ -4,12 +4,11 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x   | Yes              |
-| 0.17.x  | Best effort      |
-| < 0.17  | No               |
+| 1.6.x   | Yes              |
+| < 1.6   | Best effort      |
 
-Once 1.0 ships, only 1.0.x receives security fixes. Until then, the latest
-0.x release is the supported line.
+The latest 1.x release is the supported line; earlier releases receive
+best-effort fixes only.
 
 ## Reporting a Vulnerability
 
@@ -73,7 +72,8 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
   paths, and `cd /` all work. Treat granting `exec` the same as granting
   the plugin full access to your system as your user
 - Stdout/stderr from `exec` are each capped at 10 MB; plugin state at 1 MB
-  total / 64 KB per value / 256 keys; prompt/cancel timeouts at 5 minutes
+  total / 64 KB per value / 256 keys; `exec` commands default to a 30-second
+  timeout, capped at 5 minutes (300s)
 
 ### WASM Plugins
 

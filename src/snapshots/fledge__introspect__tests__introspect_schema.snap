@@ -74,7 +74,7 @@ expression: output
             {
               "name": "provider",
               "long": "provider",
-              "help": "Provider: claude or ollama (default: active provider)",
+              "help": "Provider (default: active/auto-detected provider)",
               "required": false,
               "takes_value": true,
               "value_name": "NAME",
@@ -118,7 +118,7 @@ expression: output
           "args": [
             {
               "name": "provider",
-              "help": "Provider: claude or ollama",
+              "help": "Provider (default: active provider)",
               "required": false,
               "takes_value": true,
               "value_name": "PROVIDER",
@@ -189,7 +189,7 @@ expression: output
         {
           "name": "provider",
           "long": "provider",
-          "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
+          "help": "LLM provider (default: auto-detected). Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
           "required": false,
           "takes_value": true,
           "value_name": "NAME",
@@ -198,7 +198,7 @@ expression: output
         {
           "name": "model",
           "long": "model",
-          "help": "Model name. Overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config",
+          "help": "Model name. Overrides FLEDGE_AI_MODEL and ai.<provider>.model in config",
           "required": false,
           "takes_value": true,
           "value_name": "MODEL",
@@ -1713,7 +1713,7 @@ expression: output
           "name": "model",
           "long": "model",
           "short": "m",
-          "help": "Model name for the active provider (overrides FLEDGE_AI_MODEL and ai.{claude,ollama}.model in config)",
+          "help": "Model name for the active provider (overrides FLEDGE_AI_MODEL and ai.<provider>.model in config)",
           "required": false,
           "takes_value": true,
           "value_name": "MODEL",
@@ -1758,7 +1758,7 @@ expression: output
         {
           "name": "provider",
           "long": "provider",
-          "help": "LLM provider: claude (default) or ollama. Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
+          "help": "LLM provider (default: auto-detected). Overrides FLEDGE_AI_PROVIDER and ai.provider in config",
           "required": false,
           "takes_value": true,
           "value_name": "NAME",
@@ -1767,7 +1767,7 @@ expression: output
         {
           "name": "with_model",
           "long": "with-model",
-          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `claude` to use the active claude config. Repeatable and comma-separated",
+          "help": "Add another model to the review panel — runs in parallel against the same diff + spec context. Format: `provider[:model]`, e.g. `ollama:gpt-oss:120b-cloud` or just `anthropic` to use the active provider config. Repeatable and comma-separated",
           "required": false,
           "takes_value": true,
           "value_name": "REF",
@@ -2674,7 +2674,7 @@ expression: output
             {
               "name": "provider",
               "long": "provider",
-              "help": "Override AI provider for --ai (claude or ollama)",
+              "help": "Override AI provider for --ai (default: auto-detected)",
               "required": false,
               "takes_value": true,
               "value_name": "PROVIDER",
