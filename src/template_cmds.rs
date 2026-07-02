@@ -248,10 +248,11 @@ pub fn search_templates(
 
     if results.is_empty() {
         if json {
-            let result = serde_json::json!({
-                "schema_version": templates::TEMPLATES_SEARCH_SCHEMA,
-                "results": [],
-            });
+            let result = crate::envelope::resource(
+                templates::TEMPLATES_SEARCH_SCHEMA,
+                "results",
+                Vec::<serde_json::Value>::new(),
+            );
             println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
@@ -270,21 +271,11 @@ pub fn search_templates(
             .iter()
             .map(|r| {
                 let tier = trust::determine_trust_tier_from_owner(&r.owner);
-                serde_json::json!({
-                    "owner": r.owner,
-                    "name": r.name,
-                    "description": r.description,
-                    "stars": r.stars,
-                    "url": r.url,
-                    "topics": r.topics,
-                    "trust_tier": tier.label(),
-                })
+                r.to_json(tier.label())
             })
             .collect();
-        let result = serde_json::json!({
-            "schema_version": templates::TEMPLATES_SEARCH_SCHEMA,
-            "results": entries,
-        });
+        let result =
+            crate::envelope::resource(templates::TEMPLATES_SEARCH_SCHEMA, "results", entries);
         println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }

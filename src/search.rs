@@ -16,6 +16,26 @@ impl SearchResult {
     pub fn full_name(&self) -> String {
         format!("{}/{}", self.owner, self.name)
     }
+
+    /// Canonical `--json` entry shared by every `*/search` command, so their
+    /// `results[]` items have an identical shape. Historically these drifted:
+    /// `plugins search` emitted `full_name` (no `owner`) while `templates
+    /// search` / `lanes search` emitted `owner` (no `full_name`). This superset
+    /// carries both — plus `topics` (always, `[]` when empty) and the
+    /// caller-supplied trust tier — so no consumer of any of the three breaks
+    /// and the shapes can no longer diverge.
+    pub fn to_json(&self, trust_tier: &str) -> serde_json::Value {
+        serde_json::json!({
+            "owner": self.owner,
+            "name": self.name,
+            "full_name": self.full_name(),
+            "description": self.description,
+            "stars": self.stars,
+            "url": self.url,
+            "topics": self.topics,
+            "trust_tier": trust_tier,
+        })
+    }
 }
 
 pub fn build_search_query_ex(keyword: Option<&str>, author: Option<&str>, topic: &str) -> String {
@@ -264,6 +284,42 @@ mod tests {
         assert_eq!(arr[0]["owner"], "test");
         assert_eq!(arr[0]["name"], "tpl");
         assert_eq!(arr[0]["stars"], 5);
+    }
+
+    #[test]
+    fn to_json_has_canonical_search_entry_shape() {
+        // This is the single source of truth every `*/search` command now emits.
+        // If these keys change, update all three search rows in AGENTS.md.
+        let r = SearchResult {
+            owner: "CorvidLabs".to_string(),
+            name: "fledge-plugin-github".to_string(),
+            description: "PR workflows".to_string(),
+            stars: 12,
+            url: "https://github.com/CorvidLabs/fledge-plugin-github".to_string(),
+            topics: vec![],
+        };
+        let entry = r.to_json("official");
+        let obj = entry.as_object().unwrap();
+        let mut keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "description",
+                "full_name",
+                "name",
+                "owner",
+                "stars",
+                "topics",
+                "trust_tier",
+                "url",
+            ]
+        );
+        assert_eq!(entry["owner"], "CorvidLabs");
+        assert_eq!(entry["full_name"], "CorvidLabs/fledge-plugin-github");
+        assert_eq!(entry["trust_tier"], "official");
+        // topics is present even when empty (documented as always-present).
+        assert_eq!(entry["topics"], serde_json::json!([]));
     }
 
     #[test]
