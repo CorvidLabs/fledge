@@ -209,7 +209,10 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         .context("running git push")?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Redact the injected token before surfacing git's stderr — the push
+        // passes the GitHub token via http.extraheader, which git can echo back
+        // in error output (matches the redaction boundary used in remote.rs).
+        let stderr = crate::utils::redact_secrets(&String::from_utf8_lossy(&output.stderr));
         let detail = stderr.trim();
         if detail.is_empty() {
             bail!(

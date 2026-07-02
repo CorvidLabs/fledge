@@ -178,7 +178,7 @@ pub fn run(mut opts: InitOptions) -> Result<()> {
             hooks_run,
         )?;
     } else {
-        print_summary(&opts.name, &target_dir, &created_files, opts.no_git);
+        print_summary(&opts.name, &target_dir, &created_files, git_initialized);
     }
 
     Ok(())
@@ -395,13 +395,13 @@ fn run_remote(
             hooks_run,
         )?;
     } else {
-        print_summary(&opts.name, &target_dir, &created_files, opts.no_git);
+        print_summary(&opts.name, &target_dir, &created_files, git_initialized);
     }
 
     Ok(())
 }
 
-fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_git: bool) {
+fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], git_initialized: bool) {
     println!();
     println!(
         "{} Created {} in {}",
@@ -415,7 +415,7 @@ fn print_summary(name: &str, target_dir: &Path, created_files: &[PathBuf], no_gi
     }
     println!();
     println!("  {} files created", created_files.len());
-    if !no_git {
+    if git_initialized {
         println!("  git repo initialized with initial commit");
     }
     println!();
@@ -734,30 +734,37 @@ fn init_git(dir: &Path) -> Result<bool> {
         return Ok(false);
     }
 
-    // Initial commit
+    // Only commit if something is staged. `git diff --cached --quiet` exits 0
+    // when the index is empty (benign — e.g. a template with no files) and
+    // non-zero when there are staged changes. This is locale-independent,
+    // unlike parsing git's "nothing to commit" message.
+    let staged = std::process::Command::new("git")
+        .args(["diff", "--cached", "--quiet"])
+        .current_dir(dir)
+        .status()
+        .context("checking for staged changes")?;
+    if staged.success() {
+        // Nothing staged; `git init` succeeded, so report success without a commit.
+        return Ok(true);
+    }
+
+    // Initial commit — any failure here (failing hook, missing identity, ...)
+    // is real, since we already confirmed there are staged changes.
     let commit = std::process::Command::new("git")
         .args(["commit", "-m", "Initial commit from fledge"])
         .current_dir(dir)
-        .stdout(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .output()
         .context("running git commit")?;
     if !commit.status.success() {
-        // "nothing to commit" is benign: `git init` succeeded and the working
-        // tree is simply empty. Any other non-zero exit (failing hook,
-        // misconfigured identity, ...) is a real failure worth surfacing.
         let stderr = String::from_utf8_lossy(&commit.stderr);
-        let stdout = String::from_utf8_lossy(&commit.stdout);
-        let nothing_to_commit =
-            stdout.contains("nothing to commit") || stderr.contains("nothing to commit");
-        if !nothing_to_commit {
-            eprintln!(
-                "{} git commit failed: {}",
-                style("!").yellow().bold(),
-                stderr.trim()
-            );
-            return Ok(false);
-        }
+        eprintln!(
+            "{} git commit failed: {}",
+            style("!").yellow().bold(),
+            stderr.trim()
+        );
+        return Ok(false);
     }
 
     Ok(true)
