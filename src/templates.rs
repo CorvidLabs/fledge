@@ -379,11 +379,29 @@ pub fn render_template(
 }
 
 fn safe_join(base: &Path, rel: &str) -> Result<PathBuf> {
-    let joined = base.join(rel);
-    for component in joined.strip_prefix(base).unwrap_or(&joined).components() {
-        if matches!(component, Component::ParentDir) {
+    // Reject absolute paths outright: `base.join(abs)` silently discards `base`
+    // and returns `abs`, which would let a (possibly remote) template write
+    // anywhere on the filesystem — e.g. a rendered path of "/home/user/.bashrc".
+    if Path::new(rel).is_absolute() {
+        bail!("path traversal rejected (absolute path): {}", rel);
+    }
+    // Reject every root/prefix/parent component. RootDir also catches paths that
+    // are rooted-but-not-absolute on Windows ("/etc" has no drive prefix, so
+    // is_absolute() is false there); Prefix catches "C:\\..." and UNC paths;
+    // ParentDir catches "../" escapes on every platform.
+    for component in Path::new(rel).components() {
+        if matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        ) {
             bail!("path traversal rejected: {}", rel);
         }
+    }
+    let joined = base.join(rel);
+    // Defense in depth: with absolute/root/parent components rejected, the join
+    // can only stay under base — assert it before any caller writes to it.
+    if !joined.starts_with(base) {
+        bail!("path traversal rejected (escapes project root): {}", rel);
     }
     Ok(joined)
 }
@@ -1127,6 +1145,16 @@ ignore = ["template.toml"]
         let base = Path::new("/tmp/project");
         assert!(safe_join(base, "../etc/passwd").is_err());
         assert!(safe_join(base, "src/../../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn safe_join_rejects_absolute() {
+        let base = Path::new("/tmp/project");
+        // Absolute path: base.join() would discard base and escape the project.
+        assert!(safe_join(base, "/etc/passwd").is_err());
+        // Rooted path — is_absolute() is false on Windows, but the RootDir
+        // component check rejects it on every platform.
+        assert!(safe_join(base, "/home/user/.bashrc").is_err());
     }
 
     #[test]
