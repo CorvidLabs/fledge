@@ -38,6 +38,14 @@ impl InstallSource {
             bail!("--copy is only valid when installing from a local path.");
         }
 
+        // Reject "." / ".." path segments in a remote source. git/curl collapse
+        // them client-side (RFC 3986), so "CorvidLabs/../attacker/evil" would be
+        // fetched as "attacker/evil" while trust classification keys on the
+        // official "CorvidLabs" org — a trust-tier spoof (review finding H-2).
+        if crate::trust::source_has_path_traversal(source) {
+            bail!("Invalid plugin source '{source}': '.' and '..' path segments are not allowed.");
+        }
+
         let (base, git_ref) = parse_source_ref(source);
         let clone_url = if Self::is_git_url(base) {
             base.to_string()
@@ -735,4 +743,26 @@ pub(crate) fn install_plugin(
         "pinned_ref": entry.pinned_ref,
         "capabilities": entry.capabilities,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_rejects_dotdot_source() {
+        // Trust-tier spoof sources must be rejected before classification or
+        // clone, whether shorthand or full URL (review finding H-2).
+        assert!(InstallSource::parse("CorvidLabs/../attacker/evil", false).is_err());
+        assert!(
+            InstallSource::parse("https://github.com/CorvidLabs/../attacker/evil.git", false)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn parse_accepts_normal_shorthand() {
+        // A legitimate owner/repo shorthand still parses (no network in parse).
+        assert!(InstallSource::parse("CorvidLabs/fledge-plugin-deploy", false).is_ok());
+    }
 }
