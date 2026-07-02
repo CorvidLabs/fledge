@@ -1,6 +1,6 @@
 ---
 module: trust
-version: 4
+version: 5
 status: active
 files:
   - src/trust.rs
@@ -28,6 +28,7 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 | `determine_trust_tier` | Classify a source string into a trust tier by parsing the GitHub org/owner |
 | `determine_trust_tier_from_owner` | Classify by GitHub owner string directly |
 | `parse_source_ref` | Split a source string into base URL and optional git ref (e.g., `@v1.0.0`) |
+| `source_has_path_traversal` | Detect a `.` or `..` segment in a source's owner/repo path (used to reject trust-tier spoofing via clone-URL collapse) |
 
 ### Structs & Enums
 
@@ -44,6 +45,7 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 | `determine_trust_tier` | `(&str) -> TrustTier` | Parse source URL/shorthand, extract org/owner, classify tier |
 | `determine_trust_tier_from_owner` | `(&str) -> TrustTier` | Classify by owner name directly (no URL parsing) |
 | `parse_source_ref` | `(&str) -> (&str, Option<&str>)` | Split `source@ref` into base and optional ref; handles SSH URLs |
+| `source_has_path_traversal` | `(&str) -> bool` | True if the source's owner/repo path contains a `.` or `..` segment; callers reject such sources because git/curl collapse them client-side to a different repo than the one classified |
 
 ## Invariants
 
@@ -57,6 +59,7 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 8. `OFFICIAL_ORGS` and `TEAM_MEMBERS` are `&[&str]` constants providing the baseline trust lists. Users can extend the team tier at runtime via `trust.orgs` and `trust.users` in `config.toml` — these config entries grant **Team** tier only, never Official
 9. Config-based orgs and users are compared case-insensitively, matching the behavior of hardcoded `TEAM_MEMBERS`
 10. When config cannot be loaded (missing or malformed `config.toml`), the system falls back to an empty `TrustConfig` — only the hardcoded constants apply
+11. A source whose owner/repo path contains a `.` or `..` segment (e.g. `CorvidLabs/../attacker/evil`) classifies as `Unverified`, never Official or Team. git/curl collapse such segments client-side (RFC 3986 dot-segment removal), so the fetched repo would differ from the one classified — a trust-tier spoof. `source_has_path_traversal` exposes the same check so install/fetch paths can reject these sources outright
 
 ## Behavioral Examples
 
@@ -96,6 +99,14 @@ determine_trust_tier("My-Company/fledge-plugin-foo")    -> Team  (case-insensiti
 determine_trust_tier("CorvidLabs/fledge-plugin-deploy") -> Official  (hardcoded takes precedence)
 ```
 
+### determine_trust_tier — dot-dot spoof rejected
+```
+determine_trust_tier("CorvidLabs/../attacker/evil")                        -> Unverified
+determine_trust_tier("https://github.com/CorvidLabs/../attacker/evil.git") -> Unverified
+source_has_path_traversal("CorvidLabs/../attacker/evil")                   -> true
+source_has_path_traversal("CorvidLabs/fledge-plugin-deploy")               -> false
+```
+
 ### parse_source_ref
 ```
 parse_source_ref("someone/fledge-deploy@v1.2.0") -> ("someone/fledge-deploy", Some("v1.2.0"))
@@ -119,6 +130,7 @@ parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://us
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5 | 2026-07-02 | Add `source_has_path_traversal` export and invariant 11: sources with `.`/`..` path segments classify as `Unverified` and are rejected at install time, closing a trust-tier spoof where a collapsed clone URL fetches a different repo than the one classified |
 | 4 | 2026-06-03 | Add `Local` trust tier for filesystem path plugin installs. Labels and styled labels include `"local"`; GitHub owner-based classification remains unchanged for search/discovery |
 | 3 | 2026-05-03 | Configurable trust: `trust.orgs` and `trust.users` config keys extend the team tier at runtime. Invariant 8 rewritten, invariants 9-10 added. Behavioral examples added for config-driven classification. Depends on `config` module |
 | 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (`["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |

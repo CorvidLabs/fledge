@@ -156,7 +156,7 @@ fn path_has_traversal_segment(path: &str) -> bool {
 /// these outright. Local "./"/"../" paths are handled by `determine_trust_tier`
 /// before classification, so in practice this only inspects remote-style
 /// sources (shorthand `owner/repo` or clone URLs).
-pub(crate) fn source_has_path_traversal(source: &str) -> bool {
+pub fn source_has_path_traversal(source: &str) -> bool {
     let (base, _) = parse_source_ref(source);
     let normalized = base
         .strip_prefix("https://github.com/")
