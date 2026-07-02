@@ -135,7 +135,9 @@ pub(super) fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
 }
 
 pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
-    println!(
+    // Progress to stderr — hooks run during `--json` commands (e.g. work start),
+    // where stdout must stay a clean JSON envelope.
+    eprintln!(
         "  {} Running {} hook...",
         style("▶️").cyan().bold(),
         style(event).dim()
