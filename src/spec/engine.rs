@@ -118,7 +118,7 @@ pub(crate) fn try_check_via_specsync(root: &Path, strict: bool, json: bool) -> R
     })?;
 
     let version = specsync_version(&bin);
-    render(&report, strict, json, version.as_deref())?;
+    render(root, &report, strict, json, version.as_deref())?;
 
     if report.passed {
         Ok(Some(()))
@@ -132,13 +132,31 @@ pub(crate) fn try_check_via_specsync(root: &Path, strict: bool, json: bool) -> R
 }
 
 /// Render a specsync report — as fledge's JSON envelope, or fledge-styled text.
-fn render(report: &SpecsyncReport, strict: bool, json: bool, version: Option<&str>) -> Result<()> {
+fn render(
+    root: &Path,
+    report: &SpecsyncReport,
+    strict: bool,
+    json: bool,
+    version: Option<&str>,
+) -> Result<()> {
     if json {
+        // specsync's JSON reports only aggregates (a checked count plus error /
+        // warning / stale lists), never a per-spec breakdown. Populate `specs[]`
+        // from fledge's own structural inventory so the `--json` envelope keeps
+        // its documented shape — a `specs` array of the same per-spec entries the
+        // built-in engine emits — regardless of which engine is active. The
+        // authoritative verdict still comes from specsync: `passed`, top-level
+        // `errors`/`warnings`, and `stale` below are specsync's, not fledge's.
+        let specs: Vec<serde_json::Value> = super::commands::structural_results(root)
+            .iter()
+            .map(super::commands::spec_result_json)
+            .collect();
         let payload = serde_json::json!({
             "schema_version": SPEC_CHECK_SCHEMA,
             "action": "spec_check",
             "engine": "specsync",
             "engine_version": version,
+            "specs": specs,
             "passed": report.passed,
             "totals": {
                 "checked": report.specs_checked,
@@ -242,8 +260,12 @@ mod tests {
             stale: vec![],
             specs_checked: 2,
         };
+        // A nonexistent root keeps this hermetic: `structural_results` finds no
+        // `.specsync/config.toml`, returns an empty inventory, and the JSON
+        // branch still renders `specs: []` without touching the real repo.
+        let root = std::env::temp_dir().join("fledge-render-test-nonexistent");
         // Exercises both JSON and text rendering branches.
-        render(&report, true, true, Some("4.5.0")).unwrap();
-        render(&report, true, false, None).unwrap();
+        render(&root, &report, true, true, Some("4.5.0")).unwrap();
+        render(&root, &report, true, false, None).unwrap();
     }
 }
