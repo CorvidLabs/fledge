@@ -40,12 +40,12 @@ pub enum Commands {
         /// Omit the compact spec index from the prompt (saves tokens)
         #[arg(long)]
         no_spec_index: bool,
-        /// LLM provider: claude (default) or ollama. Overrides
+        /// LLM provider (default: auto-detected). Overrides
         /// FLEDGE_AI_PROVIDER and ai.provider in config.
         #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Model name. Overrides FLEDGE_AI_MODEL and
-        /// ai.{claude,ollama}.model in config.
+        /// ai.<provider>.model in config.
         #[arg(long, value_name = "MODEL")]
         model: Option<String>,
     },
@@ -148,7 +148,7 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
         /// Model name for the active provider (overrides FLEDGE_AI_MODEL
-        /// and ai.{claude,ollama}.model in config)
+        /// and ai.<provider>.model in config)
         #[arg(short, long)]
         model: Option<String>,
         /// Custom review focus prompt (appended to default instructions)
@@ -165,14 +165,14 @@ pub enum Commands {
         /// Disable auto-detection of specs based on files in the diff
         #[arg(long)]
         no_auto_specs: bool,
-        /// LLM provider: claude (default) or ollama. Overrides
+        /// LLM provider (default: auto-detected). Overrides
         /// FLEDGE_AI_PROVIDER and ai.provider in config.
         #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Add another model to the review panel — runs in parallel against
         /// the same diff + spec context. Format: `provider[:model]`, e.g.
-        /// `ollama:gpt-oss:120b-cloud` or just `claude` to use the active
-        /// claude config. Repeatable and comma-separated.
+        /// `ollama:gpt-oss:120b-cloud` or just `anthropic` to use the active
+        /// anthropic config. Repeatable and comma-separated.
         #[arg(long, value_name = "REF")]
         with_model: Vec<String>,
         /// Drop the active config (--provider/--model or
@@ -447,7 +447,7 @@ pub enum WorkSubcommand {
         /// Generate commit message via AI from the staged diff
         #[arg(long)]
         ai: bool,
-        /// Override AI provider for --ai (claude or ollama)
+        /// Override AI provider for --ai (default: auto-detected)
         #[arg(long, value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Override AI model for --ai
@@ -490,7 +490,7 @@ pub enum AiSubcommand {
     },
     /// List available models for the active (or specified) provider
     Models {
-        /// Provider: claude or ollama (default: active provider)
+        /// Provider (default: active/auto-detected provider)
         #[arg(long, value_name = "NAME", value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Filter models by substring (case-insensitive)
@@ -504,7 +504,7 @@ pub enum AiSubcommand {
     /// are omitted
     #[command(name = "use")]
     Use {
-        /// Provider: claude or ollama
+        /// Provider (interactive prompt if omitted)
         #[arg(value_parser = ["anthropic", "openai", "openrouter", "gemini", "deepseek", "groq", "mistral", "xai", "together", "ollama", "claude"])]
         provider: Option<String>,
         /// Model name (e.g. qwen3-coder:480b-cloud)
