@@ -5,8 +5,9 @@ use std::path::Path;
 use std::process::Command;
 
 use super::{
-    apply_git_auth, link_commands, load_registry, normalize_source, plugin_bin_dir, plugins_dir,
-    run_build, save_registry, PluginManifest, PLUGINS_UPDATE_SCHEMA,
+    apply_git_auth, check_tier_capabilities, link_commands, load_registry, normalize_source,
+    plugin_bin_dir, plugins_dir, run_build, save_registry, PluginCapabilities, PluginManifest,
+    PLUGINS_UPDATE_SCHEMA,
 };
 use crate::trust::{determine_trust_tier, parse_source_ref, TrustTier};
 
@@ -340,6 +341,70 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
     Ok(())
 }
 
+/// The capability escalation introduced by a freshly-fetched manifest,
+/// measured against the caps a plugin was previously granted. Drives both the
+/// re-prompt and the trust-tier gate in `rebuild_after_fetch`. Extracted as a
+/// pure value so the diff/gate logic is unit-testable without a git checkout.
+struct CapabilityDelta {
+    added_exec: bool,
+    added_store: bool,
+    added_metadata: bool,
+    added_filesystem: bool,
+    added_network: bool,
+    /// The new filesystem mode when it was newly granted, for prompt wording.
+    new_filesystem: Option<String>,
+}
+
+impl CapabilityDelta {
+    fn compute(old: Option<&PluginCapabilities>, new: &PluginCapabilities) -> Self {
+        // Filesystem is an escalation ladder: none < project < plugin. Only a
+        // move UP the ladder grants new host access; a downgrade (e.g.
+        // plugin → project, which drops plugin-data write while keeping project
+        // read) or a same-level change is not an escalation and must not
+        // re-prompt. An unrecognized mode is treated as the most-privileged
+        // rung (fail-closed) so a novel mode always re-prompts. A missing entry
+        // (`None`) is equivalent to "none". (Kyntrin + Gemini review #437)
+        fn fs_rank(mode: &str) -> u8 {
+            match mode {
+                "none" => 0,
+                "project" => 1,
+                "plugin" => 2,
+                _ => 3,
+            }
+        }
+        let old_fs = old.and_then(|c| c.filesystem.as_deref()).unwrap_or("none");
+        let new_fs = new.filesystem.as_deref().unwrap_or("none");
+        let added_filesystem = fs_rank(new_fs) > fs_rank(old_fs);
+        Self {
+            added_exec: new.exec && !old.is_some_and(|c| c.exec),
+            added_store: new.store && !old.is_some_and(|c| c.store),
+            added_metadata: new.metadata && !old.is_some_and(|c| c.metadata),
+            added_filesystem,
+            added_network: new.network && !old.is_some_and(|c| c.network),
+            new_filesystem: added_filesystem.then(|| new_fs.to_string()),
+        }
+    }
+
+    fn has_new_caps(&self) -> bool {
+        self.added_exec
+            || self.added_store
+            || self.added_metadata
+            || self.added_filesystem
+            || self.added_network
+    }
+
+    /// The newly-added *dangerous* caps (exec/network) as a `PluginCapabilities`,
+    /// so the same `check_tier_capabilities` gate the install path uses can be
+    /// re-applied to just the escalation — never to caps that were unchanged.
+    fn escalated_dangerous(&self) -> PluginCapabilities {
+        PluginCapabilities {
+            exec: self.added_exec,
+            network: self.added_network,
+            ..Default::default()
+        }
+    }
+}
+
 /// Rebuild a plugin after a fetch or checkout. Parses the manifest, checks
 /// for new capabilities, rebuilds, relinks commands, and updates the
 /// registry. When `new_pinned_ref` is `Some`, the registry's `pinned_ref`
@@ -363,37 +428,93 @@ fn rebuild_after_fetch(
     let manifest: PluginManifest =
         toml::from_str(&manifest_content).context("parsing plugin.toml")?;
 
-    let new_caps = &manifest.capabilities;
-    let old_caps = entry.capabilities.as_ref();
-    let added_exec = new_caps.exec && !old_caps.is_some_and(|c| c.exec);
-    let added_store = new_caps.store && !old_caps.is_some_and(|c| c.store);
-    let added_metadata = new_caps.metadata && !old_caps.is_some_and(|c| c.metadata);
-    let has_new_caps = added_exec || added_store || added_metadata;
+    let delta = CapabilityDelta::compute(entry.capabilities.as_ref(), &manifest.capabilities);
 
-    if has_new_caps {
-        if !json {
-            println!(
-                "\n  {} {} v{} requests new capabilities:",
-                style("!").yellow().bold(),
-                style(&entry.name).cyan(),
-                manifest.plugin.version
-            );
-            if added_exec {
-                println!("    {} exec — run shell commands", style("+").yellow());
-            }
-            if added_store {
+    if delta.has_new_caps() {
+        // An update must not silently escalate a plugin past its source's trust
+        // tier. Re-run the same gate `install` applies (exec/network are
+        // forbidden for unverified sources), scoped to the *newly added*
+        // dangerous caps so a plugin whose caps are unchanged still updates.
+        let tier = determine_trust_tier(&entry.source);
+        if let Err(blocked) = check_tier_capabilities(tier, &delta.escalated_dangerous()) {
+            if !json {
                 println!(
-                    "    {} store — persist data between runs",
-                    style("+").yellow()
+                    "  {} {} — update requests {} but the source is unverified; refusing to grant.\n    {}",
+                    style("⚠️").yellow(),
+                    style(&entry.name).yellow(),
+                    style(blocked.join(", ")).yellow(),
+                    style("Only official and team-tier plugins may use exec or network.").dim()
                 );
             }
-            if added_metadata {
-                println!(
-                    "    {} metadata — read project metadata and environment",
+            return Ok(serde_json::json!({
+                "name": entry.name,
+                "status": "failed",
+                "detail": format!(
+                    "update adds {} capability which unverified plugins may not use — reinstall from a trusted source or fork it under an account you control",
+                    blocked.join(", ")
+                ),
+            }));
+        }
+
+        // Show the requested capabilities before prompting. In --json mode this
+        // goes to stderr so stdout stays a clean JSON document, but an
+        // interactive operator still sees exactly what they are being asked to
+        // grant (the dialoguer confirm below also renders on stderr). Without
+        // this, `--json` on a TTY would prompt to grant caps it never showed.
+        // (Gemini review #437)
+        let mut cap_lines = vec![format!(
+            "\n  {} {} v{} requests new capabilities:",
+            style("!").yellow().bold(),
+            style(&entry.name).cyan(),
+            manifest.plugin.version
+        )];
+        if delta.added_exec {
+            cap_lines.push(format!(
+                "    {} exec — run shell commands",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_store {
+            cap_lines.push(format!(
+                "    {} store — persist data between runs",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_metadata {
+            cap_lines.push(format!(
+                "    {} metadata — read project metadata and environment",
+                style("+").yellow()
+            ));
+        }
+        if delta.added_filesystem {
+            match delta.new_filesystem.as_deref() {
+                Some("project") => cap_lines.push(format!(
+                    "    {} filesystem (project) — read-only access to project directory",
                     style("+").yellow()
-                );
+                )),
+                Some("plugin") => cap_lines.push(format!(
+                    "    {} filesystem (plugin) — read-only project access + read-write plugin data",
+                    style("+").yellow()
+                )),
+                Some(other) => cap_lines.push(format!(
+                    "    {} filesystem ({}) — access host files",
+                    style("+").yellow(),
+                    other
+                )),
+                None => {}
             }
-            println!();
+        }
+        if delta.added_network {
+            cap_lines.push(format!(
+                "    {} network — make outbound network requests (unrestricted)",
+                style("+").yellow()
+            ));
+        }
+        let cap_summary = cap_lines.join("\n");
+        if json {
+            eprintln!("{cap_summary}\n");
+        } else {
+            println!("{cap_summary}\n");
         }
 
         if !crate::utils::is_interactive() {
@@ -525,7 +646,8 @@ fn is_github_source(source: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_git_repo;
+    use super::{check_tier_capabilities, is_git_repo, CapabilityDelta, PluginCapabilities};
+    use crate::trust::TrustTier;
     use tempfile::TempDir;
 
     #[test]
@@ -552,5 +674,138 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         std::fs::write(tmp.path().join("plugin.toml"), "[plugin]\nname = \"x\"\n").unwrap();
         assert!(!is_git_repo(tmp.path()));
+    }
+
+    fn caps(
+        exec: bool,
+        store: bool,
+        metadata: bool,
+        fs: Option<&str>,
+        network: bool,
+    ) -> PluginCapabilities {
+        PluginCapabilities {
+            exec,
+            store,
+            metadata,
+            filesystem: fs.map(str::to_string),
+            network,
+        }
+    }
+
+    #[test]
+    fn delta_flags_newly_added_network() {
+        // The H-3 case: a plugin installed with no network gains it on update.
+        let old = caps(false, false, false, None, false);
+        let new = caps(false, false, false, None, true);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(d.added_network);
+        assert!(d.has_new_caps());
+    }
+
+    #[test]
+    fn delta_flags_newly_added_filesystem() {
+        let old = caps(false, false, false, None, false);
+        let new = caps(false, false, false, Some("project"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(d.added_filesystem);
+        assert_eq!(d.new_filesystem.as_deref(), Some("project"));
+        assert!(d.has_new_caps());
+    }
+
+    #[test]
+    fn delta_flags_filesystem_escalation_project_to_plugin() {
+        // project (read-only) -> plugin (read-write plugin data) is an escalation.
+        let old = caps(false, false, false, Some("project"), false);
+        let new = caps(false, false, false, Some("plugin"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(d.added_filesystem);
+        assert_eq!(d.new_filesystem.as_deref(), Some("plugin"));
+    }
+
+    #[test]
+    fn delta_ignores_filesystem_downgrade() {
+        let old = caps(false, false, false, Some("plugin"), false);
+        let new = caps(false, false, false, Some("none"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(!d.added_filesystem);
+        assert!(!d.has_new_caps());
+    }
+
+    #[test]
+    fn delta_ignores_filesystem_downgrade_plugin_to_project() {
+        // Kyntrin review #437: plugin -> project drops plugin-data write while
+        // keeping project read — a privilege reduction, not an escalation. Must
+        // not re-prompt. Escalation is ranked (none < project < plugin), not a
+        // bare "changed to non-none" test.
+        let old = caps(false, false, false, Some("plugin"), false);
+        let new = caps(false, false, false, Some("project"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(!d.added_filesystem);
+        assert!(!d.has_new_caps());
+    }
+
+    #[test]
+    fn delta_unchanged_caps_is_noop() {
+        // Preserve behavior for plugins that don't change caps: no prompt, no gate.
+        let same = caps(true, true, true, Some("plugin"), true);
+        let d = CapabilityDelta::compute(Some(&same), &same);
+        assert!(!d.has_new_caps());
+        let esc = d.escalated_dangerous();
+        assert!(!esc.exec && !esc.network);
+    }
+
+    #[test]
+    fn unverified_source_blocks_newly_added_network_on_update() {
+        let old = caps(false, false, false, None, false);
+        let new = caps(false, false, false, None, true);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        let res = check_tier_capabilities(TrustTier::Unverified, &d.escalated_dangerous());
+        assert_eq!(res.unwrap_err(), vec!["network"]);
+    }
+
+    #[test]
+    fn unverified_source_blocks_newly_added_exec_on_update() {
+        let old = caps(false, false, false, None, false);
+        let new = caps(true, false, false, None, false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        let res = check_tier_capabilities(TrustTier::Unverified, &d.escalated_dangerous());
+        assert_eq!(res.unwrap_err(), vec!["exec"]);
+    }
+
+    #[test]
+    fn unverified_source_allows_newly_added_filesystem_on_update() {
+        // filesystem is not a tier-gated cap; it is prompt-only even for unverified.
+        let old = caps(false, false, false, None, false);
+        let new = caps(false, false, false, Some("plugin"), false);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(check_tier_capabilities(TrustTier::Unverified, &d.escalated_dangerous()).is_ok());
+    }
+
+    #[test]
+    fn official_source_allows_newly_added_exec_and_network_on_update() {
+        let old = caps(false, false, false, None, false);
+        let new = caps(true, false, false, None, true);
+        let d = CapabilityDelta::compute(Some(&old), &new);
+        assert!(check_tier_capabilities(TrustTier::Official, &d.escalated_dangerous()).is_ok());
+    }
+
+    #[test]
+    fn unchanged_dangerous_caps_pass_gate_even_if_source_now_unverified() {
+        // Key no-op guarantee: if exec/network were already granted and are
+        // unchanged, the delta is empty so the gate does not retroactively block
+        // a routine update, even if the source's tier is now unverified.
+        let same = caps(true, false, false, None, true);
+        let d = CapabilityDelta::compute(Some(&same), &same);
+        assert!(check_tier_capabilities(TrustTier::Unverified, &d.escalated_dangerous()).is_ok());
+    }
+
+    #[test]
+    fn wasm_style_none_old_caps_treats_all_new_caps_as_added() {
+        // Registry stores `None` caps for non-protocol (wasm) plugins, so the
+        // baseline is empty and any declared cap re-prompts (fail-closed).
+        let new = caps(false, false, false, Some("project"), true);
+        let d = CapabilityDelta::compute(None, &new);
+        assert!(d.added_filesystem && d.added_network);
+        assert!(d.has_new_caps());
     }
 }
