@@ -242,16 +242,18 @@ pub(crate) fn import_lanes(source: &str, yes: bool, json: bool) -> Result<()> {
 
     if imported_lanes.is_empty() {
         if json {
-            let result = serde_json::json!({
-                "schema_version": LANES_IMPORT_SCHEMA,
-                "action": "import",
-                "source": display_source,
-                "trust_tier": tier.label(),
-                "imported": [],
-                "skipped": skipped,
-                "file": relative_file,
-                "written": false,
-            });
+            let result = crate::envelope::action(
+                LANES_IMPORT_SCHEMA,
+                "import",
+                serde_json::json!({
+                    "source": display_source,
+                    "trust_tier": tier.label(),
+                    "imported": [],
+                    "skipped": skipped,
+                    "file": relative_file,
+                    "written": false,
+                }),
+            );
             println!("{}", serde_json::to_string_pretty(&result)?);
         } else {
             println!(
@@ -271,16 +273,18 @@ pub(crate) fn import_lanes(source: &str, yes: bool, json: bool) -> Result<()> {
     std::fs::write(&import_path, import_content.trim_start()).context("writing imported lanes")?;
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": LANES_IMPORT_SCHEMA,
-            "action": "import",
-            "source": display_source,
-            "trust_tier": tier.label(),
-            "imported": imported_lanes,
-            "skipped": skipped,
-            "file": relative_file,
-            "written": true,
-        });
+        let result = crate::envelope::action(
+            LANES_IMPORT_SCHEMA,
+            "import",
+            serde_json::json!({
+                "source": display_source,
+                "trust_tier": tier.label(),
+                "imported": imported_lanes,
+                "skipped": skipped,
+                "file": relative_file,
+                "written": true,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!(

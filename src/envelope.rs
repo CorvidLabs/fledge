@@ -67,6 +67,24 @@ pub fn action(schema_version: u32, action: &str, fields: Value) -> Value {
     Value::Object(map)
 }
 
+/// Build a **flat versioned** envelope: `{schema_version, ...fields}` — for the
+/// handful of commands whose `--json` shape is neither the resource nor the
+/// action dialect (e.g. `lanes run`/`lanes validate`, which carry named fields
+/// but no `action` key or single resource array).
+///
+/// Like [`action`] minus the `action` key: `fields` must be a JSON object; any
+/// other `Value` contributes no extra keys. Serialization is byte-for-byte
+/// identical to a hand-rolled `json!` with the same fields (or to inserting
+/// `schema_version` into an already-serialized struct).
+pub fn versioned(schema_version: u32, fields: Value) -> Value {
+    let mut map = Map::new();
+    map.insert("schema_version".to_string(), Value::from(schema_version));
+    if let Value::Object(obj) = fields {
+        map.extend(obj);
+    }
+    Value::Object(map)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -138,5 +156,31 @@ mod tests {
         assert_eq!(out["schema_version"], 1);
         assert_eq!(out["action"], "noop");
         assert_eq!(out.as_object().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn versioned_prepends_schema_version_without_action() {
+        let out = versioned(1, serde_json::json!({ "lane": "ci", "success": true }));
+        assert_eq!(out["schema_version"], 1);
+        assert!(out.get("action").is_none());
+        assert_eq!(out["lane"], "ci");
+        assert_eq!(out["success"], true);
+    }
+
+    #[test]
+    fn versioned_is_byte_identical_to_hand_rolled_json() {
+        let built = versioned(
+            1,
+            serde_json::json!({ "path": ".fledge/lanes/x.toml", "lane_count": 2 }),
+        );
+        let hand = serde_json::json!({
+            "schema_version": 1,
+            "path": ".fledge/lanes/x.toml",
+            "lane_count": 2,
+        });
+        assert_eq!(
+            serde_json::to_string_pretty(&built).unwrap(),
+            serde_json::to_string_pretty(&hand).unwrap()
+        );
     }
 }

@@ -109,13 +109,15 @@ pub(crate) fn init_lanes(json: bool) -> Result<()> {
         .unwrap_or_default();
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": LANES_INIT_SCHEMA,
-            "action": "init",
-            "file": "fledge.toml",
-            "project_type": project_type,
-            "lanes_added": lanes_added,
-        });
+        let result = crate::envelope::action(
+            LANES_INIT_SCHEMA,
+            "init",
+            serde_json::json!({
+                "file": "fledge.toml",
+                "project_type": project_type,
+                "lanes_added": lanes_added,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!(
