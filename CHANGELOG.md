@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
+- living atlas spec-coverage badge (#490) (85dfe45)
 - specs for the 3 unclaimed prod modules + enforce reverse coverage (#448) (#480) (6894130)
 - trailing success confirmation with elapsed time to `fledge run` (human output) (#458) (edac3a9)
 
