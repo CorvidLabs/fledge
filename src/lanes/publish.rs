@@ -4,6 +4,7 @@ use std::path::Path;
 
 use super::validate::validate_lanes;
 use super::{FledgeFileWithLanes, LANES_PUBLISH_SCHEMA};
+use crate::publish::PublishRequest;
 
 pub(crate) fn publish_lanes(
     path: &Path,
@@ -13,17 +14,7 @@ pub(crate) fn publish_lanes(
     yes: bool,
     json: bool,
 ) -> Result<()> {
-    let yes = yes || crate::utils::is_non_interactive() || json;
-    let config = crate::config::Config::load()?;
-    let token = config.github_token().ok_or_else(|| {
-        anyhow::anyhow!(
-            "No GitHub token configured. Run: fledge config set github.token <your-token>"
-        )
-    })?;
-
-    let path = path
-        .canonicalize()
-        .with_context(|| format!("Directory not found: {}", path.display()))?;
+    let (token, path) = crate::publish::publish_preflight(path)?;
 
     let fledge_toml = path.join("fledge.toml");
     if !fledge_toml.exists() {
@@ -45,10 +36,7 @@ pub(crate) fn publish_lanes(
     let repo_name = dir_name.to_string();
     let desc = description.unwrap_or("Shared fledge lanes");
 
-    let owner = match org {
-        Some(o) => o.to_string(),
-        None => crate::publish::get_authenticated_user(&token)?,
-    };
+    let owner = crate::publish::resolve_owner(org, &token)?;
 
     let lane_names: Vec<String> = parsed.lanes.keys().cloned().collect();
     if !json {
@@ -62,130 +50,30 @@ pub(crate) fn publish_lanes(
         println!("  Lanes: {}", style(lane_names.join(", ")).dim());
     }
 
-    let sp = if json {
-        None
-    } else {
-        Some(crate::spinner::Spinner::start("Checking repository:"))
-    };
-    let repo_exists = crate::publish::check_repo_exists(&owner, &repo_name, &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
+    let mut extra_fields = serde_json::Map::new();
+    extra_fields.insert("lanes_published".to_string(), serde_json::json!(lane_names));
+    extra_fields.insert(
+        "import_hint".to_string(),
+        serde_json::Value::from(format!("fledge lanes import {owner}/{repo_name}")),
+    );
 
-    let mut created_repo = false;
-    if repo_exists {
-        if !yes {
-            crate::utils::require_interactive("yes")?;
-            let confirm =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt(format!(
-                        "Repository {}/{} already exists. Push update?",
-                        owner, repo_name
-                    ))
-                    .default(false)
-                    .interact()?;
-
-            if !confirm {
-                if json {
-                    let result = crate::envelope::action(
-                        LANES_PUBLISH_SCHEMA,
-                        "publish",
-                        serde_json::json!({
-                            "cancelled": true,
-                            "repo": {
-                                "owner": owner,
-                                "name": repo_name,
-                                "url": format!("https://github.com/{owner}/{repo_name}"),
-                                "created": false,
-                                "private": private,
-                            },
-                            "lanes_published": lane_names,
-                            "topic": "fledge-lane",
-                            "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
-                        }),
-                    );
-                    println!("{}", serde_json::to_string_pretty(&result)?);
-                } else {
-                    println!("{} Cancelled.", style("*").cyan().bold());
-                }
-                return Ok(());
-            }
-        }
-    } else {
-        let sp = if json {
-            None
-        } else {
-            Some(crate::spinner::Spinner::start("Creating repository:"))
-        };
-        crate::publish::create_github_repo(&repo_name, desc, private, org, &token)?;
-        if let Some(s) = sp {
-            s.finish();
-        }
-        created_repo = true;
-        if !json {
-            println!(
-                "  {} Created repository {}/{}",
-                style("✅").green().bold(),
-                owner,
-                repo_name
-            );
-        }
-    }
-
-    let sp = if json {
-        None
-    } else {
-        Some(crate::spinner::Spinner::start("Setting repository topics:"))
-    };
-    crate::publish::set_repo_topic(&owner, &repo_name, "fledge-lane", &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
-    if !json {
-        println!(
-            "  {} Set {} topic",
-            style("✅").green().bold(),
-            style("fledge-lane").cyan()
-        );
-    }
-
-    let sp = if json {
-        None
-    } else {
-        Some(crate::spinner::Spinner::start("Pushing lane files:"))
-    };
-    crate::publish::push_directory(&path, &owner, &repo_name, &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
-
-    if json {
-        let result = crate::envelope::action(
-            LANES_PUBLISH_SCHEMA,
-            "publish",
-            serde_json::json!({
-                "cancelled": false,
-                "repo": {
-                    "owner": owner,
-                    "name": repo_name,
-                    "url": format!("https://github.com/{owner}/{repo_name}"),
-                    "created": created_repo,
-                    "private": private,
-                },
-                "lanes_published": lane_names,
-                "topic": "fledge-lane",
-                "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
-            }),
-        );
-        println!("{}", serde_json::to_string_pretty(&result)?);
-    } else {
-        println!("  {} Pushed lane files", style("✅").green().bold());
-        println!(
-            "\n{} Published! Import with:\n\n  {}",
-            style("✅").green().bold(),
-            style(format!("fledge lanes import {}/{}", owner, repo_name)).cyan()
-        );
-    }
-
-    Ok(())
+    let success_command = format!("fledge lanes import {}/{}", owner, repo_name);
+    crate::publish::run_publish(PublishRequest {
+        path: &path,
+        owner: &owner,
+        repo_name: &repo_name,
+        description: desc,
+        private,
+        org,
+        token: &token,
+        yes,
+        json,
+        topic: "fledge-lane",
+        commit_message: "Publish fledge lanes",
+        noun: "lane",
+        schema_version: LANES_PUBLISH_SCHEMA,
+        success_verb: "Import",
+        success_command: &success_command,
+        extra_fields,
+    })
 }

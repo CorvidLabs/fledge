@@ -10,7 +10,6 @@ use crate::search;
 use crate::spinner;
 use crate::templates;
 use crate::trust;
-use crate::utils;
 use crate::validate;
 use crate::TemplatesSubcommand;
 
@@ -323,18 +322,7 @@ pub fn publish_template(
     yes: bool,
     json: bool,
 ) -> Result<()> {
-    use anyhow::Context as _;
-    let yes = yes || utils::is_non_interactive() || json;
-    let config = config::Config::load()?;
-    let token = config.github_token().ok_or_else(|| {
-        anyhow::anyhow!(
-            "No GitHub token configured. Run: fledge config set github.token <your-token>"
-        )
-    })?;
-
-    let path = path
-        .canonicalize()
-        .with_context(|| format!("Directory not found: {}", path.display()))?;
+    let (token, path) = publish::publish_preflight(path)?;
 
     // Validate the template before publishing — same gate `fledge templates validate` uses.
     validate::run(validate::ValidateOptions {
@@ -350,10 +338,7 @@ pub fn publish_template(
     let repo_name = dir_name.to_string();
     let desc = description.unwrap_or("A fledge template");
 
-    let owner = match org {
-        Some(o) => o.to_string(),
-        None => publish::get_authenticated_user(&token)?,
-    };
+    let owner = publish::resolve_owner(org, &token)?;
 
     if !json {
         println!(
@@ -364,137 +349,35 @@ pub fn publish_template(
         );
     }
 
-    let sp = if json {
-        None
-    } else {
-        Some(spinner::Spinner::start("Checking repository:"))
-    };
-    let repo_exists = publish::check_repo_exists(&owner, &repo_name, &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
+    let mut extra_fields = serde_json::Map::new();
+    extra_fields.insert(
+        "template".to_string(),
+        serde_json::json!({ "description": desc }),
+    );
+    extra_fields.insert(
+        "use_hint".to_string(),
+        serde_json::Value::from(format!(
+            "fledge templates init <name> --template {owner}/{repo_name}"
+        )),
+    );
 
-    let mut created_repo = false;
-    if repo_exists {
-        if !yes {
-            utils::require_interactive("yes")?;
-            let confirm =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt(format!(
-                        "Repository {}/{} already exists. Push update?",
-                        owner, repo_name
-                    ))
-                    .default(false)
-                    .interact()?;
-            if !confirm {
-                if json {
-                    let result = crate::envelope::action(
-                        templates::TEMPLATES_PUBLISH_SCHEMA,
-                        "publish",
-                        serde_json::json!({
-                            "cancelled": true,
-                            "repo": {
-                                "owner": owner,
-                                "name": repo_name,
-                                "url": format!("https://github.com/{owner}/{repo_name}"),
-                                "created": false,
-                                "private": private,
-                            },
-                            "template": {
-                                "description": desc,
-                            },
-                            "topic": "fledge-template",
-                            "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
-                        }),
-                    );
-                    println!("{}", serde_json::to_string_pretty(&result)?);
-                } else {
-                    println!("{} Cancelled.", style("*").cyan().bold());
-                }
-                return Ok(());
-            }
-        }
-    } else {
-        let sp = if json {
-            None
-        } else {
-            Some(spinner::Spinner::start("Creating repository:"))
-        };
-        publish::create_github_repo(&repo_name, desc, private, org, &token)?;
-        if let Some(s) = sp {
-            s.finish();
-        }
-        created_repo = true;
-        if !json {
-            println!(
-                "  {} Created repository {}/{}",
-                style("✅").green().bold(),
-                owner,
-                repo_name
-            );
-        }
-    }
-
-    let sp = if json {
-        None
-    } else {
-        Some(spinner::Spinner::start("Setting repository topics:"))
-    };
-    publish::set_repo_topic(&owner, &repo_name, "fledge-template", &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
-    if !json {
-        println!(
-            "  {} Set {} topic",
-            style("✅").green().bold(),
-            style("fledge-template").cyan()
-        );
-    }
-
-    let sp = if json {
-        None
-    } else {
-        Some(spinner::Spinner::start("Pushing template files:"))
-    };
-    publish::push_directory(&path, &owner, &repo_name, &token)?;
-    if let Some(s) = sp {
-        s.finish();
-    }
-
-    if json {
-        let result = crate::envelope::action(
-            templates::TEMPLATES_PUBLISH_SCHEMA,
-            "publish",
-            serde_json::json!({
-                "cancelled": false,
-                "repo": {
-                    "owner": owner,
-                    "name": repo_name,
-                    "url": format!("https://github.com/{owner}/{repo_name}"),
-                    "created": created_repo,
-                    "private": private,
-                },
-                "template": {
-                    "description": desc,
-                },
-                "topic": "fledge-template",
-                "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
-            }),
-        );
-        println!("{}", serde_json::to_string_pretty(&result)?);
-    } else {
-        println!("  {} Pushed template files", style("✅").green().bold());
-        println!(
-            "\n{} Published! Use with:\n\n  {}",
-            style("✅").green().bold(),
-            style(format!(
-                "fledge templates init --template {}/{}",
-                owner, repo_name
-            ))
-            .cyan()
-        );
-    }
-
-    Ok(())
+    let success_command = format!("fledge templates init --template {}/{}", owner, repo_name);
+    publish::run_publish(publish::PublishRequest {
+        path: &path,
+        owner: &owner,
+        repo_name: &repo_name,
+        description: desc,
+        private,
+        org,
+        token: &token,
+        yes,
+        json,
+        topic: "fledge-template",
+        commit_message: "Publish fledge template",
+        noun: "template",
+        schema_version: templates::TEMPLATES_PUBLISH_SCHEMA,
+        success_verb: "Use",
+        success_command: &success_command,
+        extra_fields,
+    })
 }
