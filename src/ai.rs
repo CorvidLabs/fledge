@@ -761,10 +761,11 @@ mod tests {
     use super::*;
     use crate::config::{AiConfig, OllamaConfig};
 
+    // Delegates to the crate-wide env lock so `ai` and `llm` env tests (which
+    // touch the same variables) serialize against each other, not just within
+    // their own module.
     fn test_lock() -> std::sync::MutexGuard<'static, ()> {
-        use std::sync::Mutex;
-        static LOCK: Mutex<()> = Mutex::new(());
-        LOCK.lock().unwrap_or_else(|e| e.into_inner())
+        crate::test_support::env_lock()
     }
 
     fn clear_env() {

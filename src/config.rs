@@ -768,12 +768,21 @@ author = "Partial"
 
     #[test]
     fn config_path_ends_with_expected_segments() {
+        let _lock = crate::test_support::env_lock();
+        // Assert the default path shape independent of any ambient
+        // FLEDGE_CONFIG_DIR the developer's shell (or a prior test) may leave set.
+        let _env = crate::test_support::EnvVarGuard::set("FLEDGE_CONFIG_DIR", None);
         let path = Config::config_path();
         assert!(path.ends_with("fledge/config.toml"));
     }
 
     #[test]
     fn load_returns_defaults_when_no_file() {
+        // Isolate to an empty tempdir so this exercises the "no config file"
+        // path, never the developer's real ~/.config/fledge/config.toml (which
+        // would make the assertion depend on the host environment).
+        let _lock = crate::test_support::env_lock();
+        let _config_dir = crate::test_support::ConfigDirGuard::new();
         let config = Config::load().unwrap();
         assert_eq!(config.license(), "MIT");
     }
