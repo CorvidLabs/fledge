@@ -1,6 +1,7 @@
 # fledge
 
 [![CI](https://github.com/CorvidLabs/fledge/actions/workflows/ci.yml/badge.svg)](https://github.com/CorvidLabs/fledge/actions/workflows/ci.yml)
+[![spec coverage](https://img.shields.io/endpoint?url=https://corvidlabs.github.io/fledge/badges/coverage.json)](https://corvidlabs.github.io/fledge/)
 [![Crates.io](https://img.shields.io/crates/v/fledge)](https://crates.io/crates/fledge)
 [![Downloads](https://img.shields.io/crates/d/fledge)](https://crates.io/crates/fledge)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
