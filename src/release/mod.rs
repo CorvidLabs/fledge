@@ -59,18 +59,20 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
         };
 
         if opts.json {
-            let envelope = serde_json::json!({
-                "schema_version": RELEASE_SCHEMA,
-                "action": "release",
-                "dry_run": true,
-                "version": new_version.to_string(),
-                "no_bump": opts.no_bump,
-                "files_to_bump": files_to_bump,
-                "will_changelog": !opts.no_changelog,
-                "will_tag": !opts.no_tag,
-                "will_push": opts.push,
-                "tag": format!("v{}", new_version),
-            });
+            let envelope = crate::envelope::action(
+                RELEASE_SCHEMA,
+                "release",
+                serde_json::json!({
+                    "dry_run": true,
+                    "version": new_version.to_string(),
+                    "no_bump": opts.no_bump,
+                    "files_to_bump": files_to_bump,
+                    "will_changelog": !opts.no_changelog,
+                    "will_tag": !opts.no_tag,
+                    "will_push": opts.push,
+                    "tag": format!("v{}", new_version),
+                }),
+            );
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             return Ok(());
         }
@@ -154,19 +156,21 @@ pub fn run(opts: ReleaseOptions) -> Result<()> {
     }
 
     if opts.json {
-        let envelope = serde_json::json!({
-            "schema_version": RELEASE_SCHEMA,
-            "action": "release",
-            "dry_run": false,
-            "version": new_version.to_string(),
-            "old_version": result.old.to_string(),
-            "files_bumped": result.files_bumped,
-            "changelog_updated": changelog_updated,
-            "commit_created": true,
-            "tag_created": !opts.no_tag,
-            "tag": format!("v{}", new_version),
-            "pushed": opts.push,
-        });
+        let envelope = crate::envelope::action(
+            RELEASE_SCHEMA,
+            "release",
+            serde_json::json!({
+                "dry_run": false,
+                "version": new_version.to_string(),
+                "old_version": result.old.to_string(),
+                "files_bumped": result.files_bumped,
+                "changelog_updated": changelog_updated,
+                "commit_created": true,
+                "tag_created": !opts.no_tag,
+                "tag": format!("v{}", new_version),
+                "pushed": opts.push,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }

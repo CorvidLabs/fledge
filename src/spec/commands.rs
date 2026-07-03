@@ -133,13 +133,15 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
 
     if !specs_dir.exists() {
         if json {
-            let payload = serde_json::json!({
-                "schema_version": SPEC_CHECK_SCHEMA,
-                "action": "spec_check",
-                "specs": [],
-                "totals": { "checked": 0, "errors": 0, "warnings": 0 },
-                "strict": strict,
-            });
+            let payload = crate::envelope::action(
+                SPEC_CHECK_SCHEMA,
+                "spec_check",
+                serde_json::json!({
+                    "specs": [],
+                    "totals": { "checked": 0, "errors": 0, "warnings": 0 },
+                    "strict": strict,
+                }),
+            );
             println!("{}", serde_json::to_string_pretty(&payload)?);
         } else {
             println!(
@@ -157,13 +159,15 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
 
     if results.is_empty() {
         if json {
-            let payload = serde_json::json!({
-                "schema_version": SPEC_CHECK_SCHEMA,
-                "action": "spec_check",
-                "specs": [],
-                "totals": { "checked": 0, "errors": 0, "warnings": 0 },
-                "strict": strict,
-            });
+            let payload = crate::envelope::action(
+                SPEC_CHECK_SCHEMA,
+                "spec_check",
+                serde_json::json!({
+                    "specs": [],
+                    "totals": { "checked": 0, "errors": 0, "warnings": 0 },
+                    "strict": strict,
+                }),
+            );
             println!("{}", serde_json::to_string_pretty(&payload)?);
         } else {
             println!(
@@ -184,18 +188,20 @@ pub(crate) fn check(root: &Path, strict: bool, json: bool) -> Result<()> {
 
     if json {
         let specs_payload: Vec<serde_json::Value> = results.iter().map(spec_result_json).collect();
-        let payload = serde_json::json!({
-            "schema_version": SPEC_CHECK_SCHEMA,
-            "action": "spec_check",
-            "engine": "structural",
-            "specs": specs_payload,
-            "totals": {
-                "checked": results.len(),
-                "errors": total_errors,
-                "warnings": total_warnings,
-            },
-            "strict": strict,
-        });
+        let payload = crate::envelope::action(
+            SPEC_CHECK_SCHEMA,
+            "spec_check",
+            serde_json::json!({
+                "engine": "structural",
+                "specs": specs_payload,
+                "totals": {
+                    "checked": results.len(),
+                    "errors": total_errors,
+                    "warnings": total_warnings,
+                },
+                "strict": strict,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
         if total_errors > 0 || (strict && total_warnings > 0) {
             bail!(
@@ -348,11 +354,13 @@ pub(crate) fn list_specs(root: &Path, json: bool) -> Result<()> {
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
 
     if json {
-        let envelope = serde_json::json!({
-            "schema_version": SPEC_LIST_SCHEMA,
-            "action": "spec_list",
-            "specs": summaries,
-        });
+        let envelope = crate::envelope::action(
+            SPEC_LIST_SCHEMA,
+            "spec_list",
+            serde_json::json!({
+                "specs": summaries,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
@@ -462,11 +470,13 @@ pub(crate) fn show_spec(root: &Path, name: &str, json: bool) -> Result<()> {
     };
 
     if json {
-        let envelope = serde_json::json!({
-            "schema_version": SPEC_SHOW_SCHEMA,
-            "action": "spec_show",
-            "spec": detail,
-        });
+        let envelope = crate::envelope::action(
+            SPEC_SHOW_SCHEMA,
+            "spec_show",
+            serde_json::json!({
+                "spec": detail,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
