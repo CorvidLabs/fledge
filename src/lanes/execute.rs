@@ -247,17 +247,19 @@ fn execute_lane_json(
     let total_elapsed = lane_start.elapsed();
     let success = failures.is_empty();
 
-    let mut output = serde_json::json!({
-        "schema_version": LANES_RUN_SCHEMA,
-        "lane": lane_name,
-        "description": lane.description.as_deref().unwrap_or(""),
-        "total_steps": total_steps,
-        "success": success,
-        "duration_ms": total_elapsed.as_millis() as u64,
-        "fail_fast": lane.fail_fast,
-        "steps": step_results,
-        "failures": failures,
-    });
+    let mut output = crate::envelope::versioned(
+        LANES_RUN_SCHEMA,
+        serde_json::json!({
+            "lane": lane_name,
+            "description": lane.description.as_deref().unwrap_or(""),
+            "total_steps": total_steps,
+            "success": success,
+            "duration_ms": total_elapsed.as_millis() as u64,
+            "fail_fast": lane.fail_fast,
+            "steps": step_results,
+            "failures": failures,
+        }),
+    );
     if let Some(fi) = from_index {
         output["from_step"] = serde_json::json!(fi + 1);
     }

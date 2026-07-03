@@ -87,21 +87,23 @@ pub(crate) fn publish_lanes(
 
             if !confirm {
                 if json {
-                    let result = serde_json::json!({
-                        "schema_version": LANES_PUBLISH_SCHEMA,
-                        "action": "publish",
-                        "cancelled": true,
-                        "repo": {
-                            "owner": owner,
-                            "name": repo_name,
-                            "url": format!("https://github.com/{owner}/{repo_name}"),
-                            "created": false,
-                            "private": private,
-                        },
-                        "lanes_published": lane_names,
-                        "topic": "fledge-lane",
-                        "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
-                    });
+                    let result = crate::envelope::action(
+                        LANES_PUBLISH_SCHEMA,
+                        "publish",
+                        serde_json::json!({
+                            "cancelled": true,
+                            "repo": {
+                                "owner": owner,
+                                "name": repo_name,
+                                "url": format!("https://github.com/{owner}/{repo_name}"),
+                                "created": false,
+                                "private": private,
+                            },
+                            "lanes_published": lane_names,
+                            "topic": "fledge-lane",
+                            "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
+                        }),
+                    );
                     println!("{}", serde_json::to_string_pretty(&result)?);
                 } else {
                     println!("{} Cancelled.", style("*").cyan().bold());
@@ -158,21 +160,23 @@ pub(crate) fn publish_lanes(
     }
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": LANES_PUBLISH_SCHEMA,
-            "action": "publish",
-            "cancelled": false,
-            "repo": {
-                "owner": owner,
-                "name": repo_name,
-                "url": format!("https://github.com/{owner}/{repo_name}"),
-                "created": created_repo,
-                "private": private,
-            },
-            "lanes_published": lane_names,
-            "topic": "fledge-lane",
-            "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
-        });
+        let result = crate::envelope::action(
+            LANES_PUBLISH_SCHEMA,
+            "publish",
+            serde_json::json!({
+                "cancelled": false,
+                "repo": {
+                    "owner": owner,
+                    "name": repo_name,
+                    "url": format!("https://github.com/{owner}/{repo_name}"),
+                    "created": created_repo,
+                    "private": private,
+                },
+                "lanes_published": lane_names,
+                "topic": "fledge-lane",
+                "import_hint": format!("fledge lanes import {owner}/{repo_name}"),
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!("  {} Pushed lane files", style("✅").green().bold());

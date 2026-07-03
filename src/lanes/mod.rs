@@ -433,10 +433,7 @@ pub(super) fn list_lanes(lanes: &BTreeMap<String, LaneDef>, json: bool) -> Resul
                 entry
             })
             .collect();
-        let result = serde_json::json!({
-            "schema_version": LANES_LIST_SCHEMA,
-            "lanes": entries,
-        });
+        let result = crate::envelope::resource(LANES_LIST_SCHEMA, "lanes", entries);
         println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
@@ -593,15 +590,17 @@ pub(super) fn dry_run_lane(
             })
             .collect();
 
-        let mut output = serde_json::json!({
-            "schema_version": LANES_DRY_RUN_SCHEMA,
-            "lane": lane_name,
-            "description": lane.description.as_deref().unwrap_or(""),
-            "total_steps": lane.steps.len(),
-            "fail_fast": lane.fail_fast,
-            "dry_run": true,
-            "steps": steps,
-        });
+        let mut output = crate::envelope::versioned(
+            LANES_DRY_RUN_SCHEMA,
+            serde_json::json!({
+                "lane": lane_name,
+                "description": lane.description.as_deref().unwrap_or(""),
+                "total_steps": lane.steps.len(),
+                "fail_fast": lane.fail_fast,
+                "dry_run": true,
+                "steps": steps,
+            }),
+        );
         if let Some(fi) = from_index {
             output["from_step"] = serde_json::json!(fi + 1);
         }

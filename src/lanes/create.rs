@@ -99,14 +99,16 @@ See [fledge docs](https://github.com/CorvidLabs/fledge) for lane syntax.
     ];
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": LANES_CREATE_SCHEMA,
-            "action": "create",
-            "path": target.display().to_string(),
-            "name": name,
-            "description": desc,
-            "files_created": files_created,
-        });
+        let result = crate::envelope::action(
+            LANES_CREATE_SCHEMA,
+            "create",
+            serde_json::json!({
+                "path": target.display().to_string(),
+                "name": name,
+                "description": desc,
+                "files_created": files_created,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!(
