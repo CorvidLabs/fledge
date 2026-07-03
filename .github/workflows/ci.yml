@@ -5,31 +5,17 @@ permissions:
   pull-requests: write
   checks: write
 
+# NOTE: intentionally no `paths:` filter. These jobs (test/lint/audit/spec-check)
+# are the branch-protection required status checks — a required check that is
+# skipped by a path filter never reports, which blocks the PR forever (e.g. a
+# docs-only PR). Running the gate on every PR/push is the cost of enforcing it.
+# See issue #451. Do not re-add path filters here without also removing these
+# jobs from the required-checks list.
 on:
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'specs/**'
-      - 'tests/**'
-      - 'templates/**'
-      - 'build.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'fledge.toml'
-      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'specs/**'
-      - 'tests/**'
-      - 'templates/**'
-      - 'build.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'fledge.toml'
-      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 concurrency:
