@@ -194,10 +194,8 @@ pub fn list_templates(json: bool) -> Result<()> {
                 })
             })
             .collect();
-        let mut result = serde_json::json!({
-            "schema_version": templates::TEMPLATES_LIST_SCHEMA,
-            "templates": entries,
-        });
+        let mut result =
+            crate::envelope::resource(templates::TEMPLATES_LIST_SCHEMA, "templates", entries);
         if available.is_empty() {
             result["hint"] = serde_json::Value::String(hint.to_string());
         }
@@ -390,23 +388,25 @@ pub fn publish_template(
                     .interact()?;
             if !confirm {
                 if json {
-                    let result = serde_json::json!({
-                        "schema_version": templates::TEMPLATES_PUBLISH_SCHEMA,
-                        "action": "publish",
-                        "cancelled": true,
-                        "repo": {
-                            "owner": owner,
-                            "name": repo_name,
-                            "url": format!("https://github.com/{owner}/{repo_name}"),
-                            "created": false,
-                            "private": private,
-                        },
-                        "template": {
-                            "description": desc,
-                        },
-                        "topic": "fledge-template",
-                        "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
-                    });
+                    let result = crate::envelope::action(
+                        templates::TEMPLATES_PUBLISH_SCHEMA,
+                        "publish",
+                        serde_json::json!({
+                            "cancelled": true,
+                            "repo": {
+                                "owner": owner,
+                                "name": repo_name,
+                                "url": format!("https://github.com/{owner}/{repo_name}"),
+                                "created": false,
+                                "private": private,
+                            },
+                            "template": {
+                                "description": desc,
+                            },
+                            "topic": "fledge-template",
+                            "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
+                        }),
+                    );
                     println!("{}", serde_json::to_string_pretty(&result)?);
                 } else {
                     println!("{} Cancelled.", style("*").cyan().bold());
@@ -463,23 +463,25 @@ pub fn publish_template(
     }
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": templates::TEMPLATES_PUBLISH_SCHEMA,
-            "action": "publish",
-            "cancelled": false,
-            "repo": {
-                "owner": owner,
-                "name": repo_name,
-                "url": format!("https://github.com/{owner}/{repo_name}"),
-                "created": created_repo,
-                "private": private,
-            },
-            "template": {
-                "description": desc,
-            },
-            "topic": "fledge-template",
-            "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
-        });
+        let result = crate::envelope::action(
+            templates::TEMPLATES_PUBLISH_SCHEMA,
+            "publish",
+            serde_json::json!({
+                "cancelled": false,
+                "repo": {
+                    "owner": owner,
+                    "name": repo_name,
+                    "url": format!("https://github.com/{owner}/{repo_name}"),
+                    "created": created_repo,
+                    "private": private,
+                },
+                "template": {
+                    "description": desc,
+                },
+                "topic": "fledge-template",
+                "use_hint": format!("fledge templates init <name> --template {owner}/{repo_name}"),
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!("  {} Pushed template files", style("✅").green().bold());

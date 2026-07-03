@@ -208,26 +208,28 @@ fn emit_init_envelope(
     git_initialized: bool,
     hooks_run: bool,
 ) -> Result<()> {
-    let result = serde_json::json!({
-        "schema_version": INIT_SCHEMA,
-        "action": "init",
-        "project": {
-            "name": name,
-            "path": target_dir.display().to_string(),
-        },
-        "template": {
-            "name": template.name,
-            "source": remote_ref,
-            "version": template.manifest.template.version,
-        },
-        "variables_used": variables.clone().into_json(),
-        "files_created": created_files
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>(),
-        "git_initialized": git_initialized,
-        "hooks_run": hooks_run,
-    });
+    let result = crate::envelope::action(
+        INIT_SCHEMA,
+        "init",
+        serde_json::json!({
+            "project": {
+                "name": name,
+                "path": target_dir.display().to_string(),
+            },
+            "template": {
+                "name": template.name,
+                "source": remote_ref,
+                "version": template.manifest.template.version,
+            },
+            "variables_used": variables.clone().into_json(),
+            "files_created": created_files
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>(),
+            "git_initialized": git_initialized,
+            "hooks_run": hooks_run,
+        }),
+    );
     println!("{}", serde_json::to_string_pretty(&result)?);
     Ok(())
 }

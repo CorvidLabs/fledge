@@ -49,22 +49,24 @@ pub fn run(mut options: CreateTemplateOptions) -> Result<()> {
     scaffold(&target, &answers)?;
 
     if options.json {
-        let result = serde_json::json!({
-            "schema_version": CREATE_TEMPLATE_SCHEMA,
-            "action": "create",
-            "path": target.display().to_string(),
-            "name": answers.name,
-            "description": answers.description,
-            "render_patterns": answers.render_globs,
-            "include_hooks": answers.include_hooks,
-            "include_prompts": answers.include_prompts,
-            "files_created": [
-                "template.toml",
-                "README.md",
-                "README.md.tera",
-                ".gitignore",
-            ],
-        });
+        let result = crate::envelope::action(
+            CREATE_TEMPLATE_SCHEMA,
+            "create",
+            serde_json::json!({
+                "path": target.display().to_string(),
+                "name": answers.name,
+                "description": answers.description,
+                "render_patterns": answers.render_globs,
+                "include_hooks": answers.include_hooks,
+                "include_prompts": answers.include_prompts,
+                "files_created": [
+                    "template.toml",
+                    "README.md",
+                    "README.md.tera",
+                    ".gitignore",
+                ],
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!(
