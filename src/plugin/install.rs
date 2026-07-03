@@ -435,32 +435,7 @@ pub(crate) fn install_plugin(
 
     let tier = install_source.trust_tier();
     if !json {
-        println!(
-            "\n{} Installing plugin from: {} [{}]",
-            style("!").yellow().bold(),
-            style(&display_source).cyan(),
-            tier.styled_label()
-        );
-        if tier == TrustTier::Local {
-            println!(
-                "  {} This is a local plugin. Changes in the source directory are live unless --copy is used.",
-                style("✓").magenta()
-            );
-        } else if tier == TrustTier::Official {
-            println!(
-                "  {} This is an official CorvidLabs plugin.",
-                style("✓").green()
-            );
-        } else {
-            println!(
-                "  {} Plugins can execute arbitrary code on your system.",
-                style("*").yellow()
-            );
-            println!(
-                "  {} Only install plugins from sources you trust.\n",
-                style("*").yellow()
-            );
-        }
+        print_install_banner(&display_source, tier);
     }
 
     if !force {
@@ -515,15 +490,11 @@ pub(crate) fn install_plugin(
         }
     };
 
-    let caps = &manifest.capabilities;
-    let has_protocol_caps = caps.exec || caps.store || caps.metadata;
-    let has_wasm_caps = caps.filesystem.as_deref().is_some_and(|f| f != "none") || caps.network;
-    let has_caps = has_protocol_caps || has_wasm_caps;
-    let needs_cap_prompt =
-        has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
-    let has_hooks = manifest.hooks.has_any();
+    let flags = CapabilityFlags::from_manifest(&manifest);
+    let needs_cap_prompt = flags.needs_cap_prompt;
+    let has_hooks = flags.has_hooks;
 
-    if let Err(blocked) = check_tier_capabilities(tier, caps) {
+    if let Err(blocked) = check_tier_capabilities(tier, &manifest.capabilities) {
         if let Err(e) = remove_plugin_path(&plugin_dir) {
             eprintln!(
                 "Warning: failed to clean up partial install at {}: {e}",
@@ -542,76 +513,7 @@ pub(crate) fn install_plugin(
 
     if needs_cap_prompt || has_hooks {
         if !json {
-            if needs_cap_prompt {
-                println!("\n  {} Requested capabilities:", style("*").cyan().bold());
-                if caps.exec {
-                    println!("    {} exec — run shell commands", style("•").yellow());
-                }
-                if caps.store {
-                    println!(
-                        "    {} store — persist data between runs",
-                        style("•").yellow()
-                    );
-                }
-                if caps.metadata {
-                    println!(
-                        "    {} metadata — read project metadata and environment",
-                        style("•").yellow()
-                    );
-                }
-                if let Some(ref fs_cap) = caps.filesystem {
-                    match fs_cap.as_str() {
-                        "project" => {
-                            println!(
-                                "    {} filesystem (project) — read-only access to project directory",
-                                style("•").yellow()
-                            );
-                        }
-                        "plugin" => {
-                            println!(
-                                "    {} filesystem (plugin) — read-only project access + read-write plugin data",
-                                style("•").yellow()
-                            );
-                        }
-                        "none" => {}
-                        other => {
-                            println!(
-                                "    {} filesystem ({}) — access host files",
-                                style("•").yellow(),
-                                other
-                            );
-                        }
-                    }
-                }
-                if caps.network {
-                    println!(
-                        "    {} network — make outbound network requests (unrestricted)",
-                        style("•").yellow()
-                    );
-                }
-                if caps.exec && caps.network {
-                    println!(
-                        "\n    {} This plugin can both execute commands and access the network.",
-                        style("⚠").yellow().bold()
-                    );
-                    println!(
-                        "    {} Together these allow data exfiltration — only install if you trust the source.",
-                        style("⚠").yellow().bold()
-                    );
-                }
-            }
-            if has_hooks {
-                println!("\n  {} Lifecycle hooks:", style("*").cyan().bold());
-                for (name, cmd) in manifest.hooks.iter_defined() {
-                    println!(
-                        "    {} {} — {}",
-                        style("•").yellow(),
-                        name,
-                        style(cmd).dim()
-                    );
-                }
-            }
-            println!();
+            print_requested_capabilities(&manifest, needs_cap_prompt, has_hooks);
         }
         if force {
             eprintln!(
@@ -701,25 +603,7 @@ pub(crate) fn install_plugin(
         }
     }
 
-    let pinned_ref = match &install_source {
-        InstallSource::Git { git_ref, .. } => git_ref.clone(),
-        InstallSource::LocalPath { .. } => None,
-    };
-    let granted_caps = if manifest.plugin.protocol.is_some() {
-        Some(manifest.capabilities.clone())
-    } else {
-        None
-    };
-    let entry = PluginEntry {
-        name: repo_name.clone(),
-        source: install_source.registry_source(),
-        version: manifest.plugin.version.clone(),
-        installed: chrono::Local::now().format("%Y-%m-%d").to_string(),
-        commands: command_names.clone(),
-        pinned_ref,
-        capabilities: granted_caps,
-        runtime: manifest.plugin.runtime.clone(),
-    };
+    let entry = build_plugin_entry(&repo_name, &install_source, &manifest, &command_names);
 
     if let Some(idx) = existing {
         registry.plugins[idx] = entry.clone();
@@ -729,25 +613,12 @@ pub(crate) fn install_plugin(
     save_registry(&registry)?;
 
     if !json {
-        if let Some(ref pinned) = entry.pinned_ref {
-            println!(
-                "{} Installed {} v{} (pinned to {})",
-                style("✅").green().bold(),
-                style(&manifest.plugin.name).green(),
-                manifest.plugin.version,
-                style(pinned).cyan()
-            );
-        } else {
-            println!(
-                "{} Installed {} v{}",
-                style("✅").green().bold(),
-                style(&manifest.plugin.name).green(),
-                manifest.plugin.version
-            );
-        }
-        if !command_names.is_empty() {
-            println!("  Commands: {}", style(command_names.join(", ")).cyan());
-        }
+        print_install_success(
+            &entry,
+            &manifest.plugin.name,
+            &manifest.plugin.version,
+            &command_names,
+        );
     }
 
     Ok(serde_json::json!({
@@ -759,6 +630,200 @@ pub(crate) fn install_plugin(
         "pinned_ref": entry.pinned_ref,
         "capabilities": entry.capabilities,
     }))
+}
+
+/// Capability/hook flags derived from a plugin manifest. Pure (no I/O), so the
+/// install flow's gating and prompting can read them by name and the derivation
+/// is unit-testable without touching the filesystem or network.
+struct CapabilityFlags {
+    /// The manifest requests a capability AND declares a protocol or wasm
+    /// runtime, so the user must be prompted before it is granted.
+    needs_cap_prompt: bool,
+    /// The manifest defines at least one lifecycle hook.
+    has_hooks: bool,
+}
+
+impl CapabilityFlags {
+    fn from_manifest(manifest: &PluginManifest) -> Self {
+        let caps = &manifest.capabilities;
+        let has_protocol_caps = caps.exec || caps.store || caps.metadata;
+        let has_wasm_caps = caps.filesystem.as_deref().is_some_and(|f| f != "none") || caps.network;
+        let has_caps = has_protocol_caps || has_wasm_caps;
+        let needs_cap_prompt =
+            has_caps && (manifest.plugin.protocol.is_some() || manifest.plugin.is_wasm());
+        Self {
+            needs_cap_prompt,
+            has_hooks: manifest.hooks.has_any(),
+        }
+    }
+}
+
+/// Print the pre-install banner: source, trust tier, and a tier-specific note.
+/// Caller gates on `!json`.
+fn print_install_banner(display_source: &str, tier: TrustTier) {
+    println!(
+        "\n{} Installing plugin from: {} [{}]",
+        style("!").yellow().bold(),
+        style(display_source).cyan(),
+        tier.styled_label()
+    );
+    if tier == TrustTier::Local {
+        println!(
+            "  {} This is a local plugin. Changes in the source directory are live unless --copy is used.",
+            style("✓").magenta()
+        );
+    } else if tier == TrustTier::Official {
+        println!(
+            "  {} This is an official CorvidLabs plugin.",
+            style("✓").green()
+        );
+    } else {
+        println!(
+            "  {} Plugins can execute arbitrary code on your system.",
+            style("*").yellow()
+        );
+        println!(
+            "  {} Only install plugins from sources you trust.\n",
+            style("*").yellow()
+        );
+    }
+}
+
+/// Print the requested-capabilities and lifecycle-hooks detail shown before the
+/// grant prompt. Caller gates on `!json` and on `needs_cap_prompt || has_hooks`.
+fn print_requested_capabilities(
+    manifest: &PluginManifest,
+    needs_cap_prompt: bool,
+    has_hooks: bool,
+) {
+    let caps = &manifest.capabilities;
+    if needs_cap_prompt {
+        println!("\n  {} Requested capabilities:", style("*").cyan().bold());
+        if caps.exec {
+            println!("    {} exec — run shell commands", style("•").yellow());
+        }
+        if caps.store {
+            println!(
+                "    {} store — persist data between runs",
+                style("•").yellow()
+            );
+        }
+        if caps.metadata {
+            println!(
+                "    {} metadata — read project metadata and environment",
+                style("•").yellow()
+            );
+        }
+        if let Some(ref fs_cap) = caps.filesystem {
+            match fs_cap.as_str() {
+                "project" => {
+                    println!(
+                        "    {} filesystem (project) — read-only access to project directory",
+                        style("•").yellow()
+                    );
+                }
+                "plugin" => {
+                    println!(
+                        "    {} filesystem (plugin) — read-only project access + read-write plugin data",
+                        style("•").yellow()
+                    );
+                }
+                "none" => {}
+                other => {
+                    println!(
+                        "    {} filesystem ({}) — access host files",
+                        style("•").yellow(),
+                        other
+                    );
+                }
+            }
+        }
+        if caps.network {
+            println!(
+                "    {} network — make outbound network requests (unrestricted)",
+                style("•").yellow()
+            );
+        }
+        if caps.exec && caps.network {
+            println!(
+                "\n    {} This plugin can both execute commands and access the network.",
+                style("⚠").yellow().bold()
+            );
+            println!(
+                "    {} Together these allow data exfiltration — only install if you trust the source.",
+                style("⚠").yellow().bold()
+            );
+        }
+    }
+    if has_hooks {
+        println!("\n  {} Lifecycle hooks:", style("*").cyan().bold());
+        for (name, cmd) in manifest.hooks.iter_defined() {
+            println!(
+                "    {} {} — {}",
+                style("•").yellow(),
+                name,
+                style(cmd).dim()
+            );
+        }
+    }
+    println!();
+}
+
+/// Assemble the registry entry recorded for a freshly-installed plugin. The
+/// install timestamp is captured here.
+fn build_plugin_entry(
+    repo_name: &str,
+    install_source: &InstallSource,
+    manifest: &PluginManifest,
+    command_names: &[String],
+) -> PluginEntry {
+    let pinned_ref = match install_source {
+        InstallSource::Git { git_ref, .. } => git_ref.clone(),
+        InstallSource::LocalPath { .. } => None,
+    };
+    let granted_caps = if manifest.plugin.protocol.is_some() {
+        Some(manifest.capabilities.clone())
+    } else {
+        None
+    };
+    PluginEntry {
+        name: repo_name.to_string(),
+        source: install_source.registry_source(),
+        version: manifest.plugin.version.clone(),
+        installed: chrono::Local::now().format("%Y-%m-%d").to_string(),
+        commands: command_names.to_vec(),
+        pinned_ref,
+        capabilities: granted_caps,
+        runtime: manifest.plugin.runtime.clone(),
+    }
+}
+
+/// Print the post-install success summary. Caller gates on `!json`.
+fn print_install_success(
+    entry: &PluginEntry,
+    plugin_name: &str,
+    version: &str,
+    command_names: &[String],
+) {
+    if let Some(ref pinned) = entry.pinned_ref {
+        println!(
+            "{} Installed {} v{} (pinned to {})",
+            style("✅").green().bold(),
+            style(plugin_name).green(),
+            version,
+            style(pinned).cyan()
+        );
+    } else {
+        println!(
+            "{} Installed {} v{}",
+            style("✅").green().bold(),
+            style(plugin_name).green(),
+            version
+        );
+    }
+    if !command_names.is_empty() {
+        println!("  Commands: {}", style(command_names.join(", ")).cyan());
+    }
 }
 
 #[cfg(test)]
@@ -780,5 +845,74 @@ mod tests {
     fn parse_accepts_normal_shorthand() {
         // A legitimate owner/repo shorthand still parses (no network in parse).
         assert!(InstallSource::parse("CorvidLabs/fledge-plugin-deploy", false).is_ok());
+    }
+
+    fn manifest(toml_str: &str) -> PluginManifest {
+        toml::from_str(toml_str).expect("valid plugin.toml")
+    }
+
+    #[test]
+    fn capability_flags_bare_manifest_needs_no_prompt() {
+        let m = manifest("[plugin]\nname = \"x\"\nversion = \"0.1.0\"\n");
+        let flags = CapabilityFlags::from_manifest(&m);
+        assert!(!flags.needs_cap_prompt);
+        assert!(!flags.has_hooks);
+    }
+
+    #[test]
+    fn capability_flags_protocol_plugin_with_exec_needs_prompt() {
+        let m = manifest(
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\nprotocol = \"fledge-v1\"\n\
+             [capabilities]\nexec = true\n",
+        );
+        assert!(CapabilityFlags::from_manifest(&m).needs_cap_prompt);
+    }
+
+    #[test]
+    fn capability_flags_caps_without_protocol_or_wasm_no_prompt() {
+        // Capabilities alone must NOT trigger the grant prompt — the plugin must
+        // also be a protocol or wasm plugin that can actually use them.
+        let m = manifest(
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\n\
+             [capabilities]\nexec = true\nnetwork = true\n",
+        );
+        assert!(!CapabilityFlags::from_manifest(&m).needs_cap_prompt);
+    }
+
+    #[test]
+    fn capability_flags_wasm_plugin_with_network_needs_prompt() {
+        let m = manifest(
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\nruntime = \"wasm\"\n\
+             [capabilities]\nnetwork = true\n",
+        );
+        assert!(CapabilityFlags::from_manifest(&m).needs_cap_prompt);
+    }
+
+    #[test]
+    fn capability_flags_filesystem_none_is_not_a_capability() {
+        // filesystem = "none" is the absence of filesystem access, not a request.
+        let m = manifest(
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\nruntime = \"wasm\"\n\
+             [capabilities]\nfilesystem = \"none\"\n",
+        );
+        assert!(!CapabilityFlags::from_manifest(&m).needs_cap_prompt);
+    }
+
+    #[test]
+    fn capability_flags_filesystem_project_is_a_capability() {
+        let m = manifest(
+            "[plugin]\nname = \"x\"\nversion = \"0.1.0\"\nruntime = \"wasm\"\n\
+             [capabilities]\nfilesystem = \"project\"\n",
+        );
+        assert!(CapabilityFlags::from_manifest(&m).needs_cap_prompt);
+    }
+
+    #[test]
+    fn capability_flags_detects_hooks_independently() {
+        let m =
+            manifest("[plugin]\nname = \"x\"\nversion = \"0.1.0\"\n[hooks]\nbuild = \"make\"\n");
+        let flags = CapabilityFlags::from_manifest(&m);
+        assert!(flags.has_hooks);
+        assert!(!flags.needs_cap_prompt);
     }
 }
