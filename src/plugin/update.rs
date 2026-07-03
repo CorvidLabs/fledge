@@ -43,13 +43,15 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             if json {
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "schema_version": PLUGINS_UPDATE_SCHEMA,
-                        "action": "update",
-                        "scope": "defaults",
-                        "results": [],
-                        "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
-                    }))?
+                    serde_json::to_string_pretty(&crate::envelope::action(
+                        PLUGINS_UPDATE_SCHEMA,
+                        "update",
+                        serde_json::json!({
+                            "scope": "defaults",
+                            "results": [],
+                            "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
+                        }),
+                    ))?
                 );
             } else {
                 println!(
@@ -84,13 +86,15 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
                     if json {
                         println!(
                             "{}",
-                            serde_json::to_string_pretty(&serde_json::json!({
-                                "schema_version": PLUGINS_UPDATE_SCHEMA,
-                                "action": "update",
-                                "scope": "all",
-                                "results": [],
-                                "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
-                            }))?
+                            serde_json::to_string_pretty(&crate::envelope::action(
+                                PLUGINS_UPDATE_SCHEMA,
+                                "update",
+                                serde_json::json!({
+                                    "scope": "all",
+                                    "results": [],
+                                    "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
+                                }),
+                            ))?
                         );
                     } else {
                         println!("{} No plugins installed.", style("*").cyan().bold());
@@ -328,13 +332,15 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
         };
         println!(
             "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "schema_version": PLUGINS_UPDATE_SCHEMA,
-                "action": "update",
-                "scope": scope,
-                "results": results,
-                "summary": summary,
-            }))?
+            serde_json::to_string_pretty(&crate::envelope::action(
+                PLUGINS_UPDATE_SCHEMA,
+                "update",
+                serde_json::json!({
+                    "scope": scope,
+                    "results": results,
+                    "summary": summary,
+                }),
+            ))?
         );
     }
 

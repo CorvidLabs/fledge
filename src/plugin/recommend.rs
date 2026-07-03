@@ -137,13 +137,15 @@ pub(crate) fn recommend_plugins(json: bool) -> Result<()> {
                 })
             })
             .collect();
-        let result = serde_json::json!({
-            "schema_version": PLUGINS_RECOMMEND_SCHEMA,
-            "action": "plugins_recommend",
-            "language": lang,
-            "installed_count": installed_count,
-            "recommendations": entries,
-        });
+        let result = crate::envelope::action(
+            PLUGINS_RECOMMEND_SCHEMA,
+            "plugins_recommend",
+            serde_json::json!({
+                "language": lang,
+                "installed_count": installed_count,
+                "recommendations": entries,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
         return Ok(());
     }
