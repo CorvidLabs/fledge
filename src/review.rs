@@ -112,8 +112,8 @@ struct PanelResult {
 pub fn run(options: ReviewOptions) -> Result<()> {
     crate::github::ensure_git_repo()?;
 
-    let base = match options.base {
-        Some(b) => b,
+    let base = match &options.base {
+        Some(b) => b.clone(),
         None => default_branch()?,
     };
 
@@ -163,27 +163,7 @@ pub fn run(options: ReviewOptions) -> Result<()> {
     // Build the panel: optionally the active config (one slot honoring
     // --provider/--model overrides), then each --with-model entry. Order is
     // preserved end-to-end so output matches what the user typed.
-    let mut overrides: Vec<ProviderOverride> = Vec::new();
-    if !options.no_active {
-        overrides.push(ProviderOverride {
-            provider: options.provider.clone(),
-            model: options.model.clone(),
-        });
-    }
-    for raw in &options.with_model {
-        for part in raw.split(',') {
-            let parsed = parse_model_ref(part)?;
-            overrides.push(ProviderOverride {
-                provider: Some(parsed.provider),
-                model: parsed.model,
-            });
-        }
-    }
-    if overrides.is_empty() {
-        bail!(
-            "Empty review panel — pass --with-model <provider[:model]> or omit --no-active so the active config is included."
-        );
-    }
+    let overrides = resolve_overrides(&options)?;
 
     // Build all providers up front so config errors fail fast and are
     // attributed to the right slot, before we kick off any threads.
@@ -212,8 +192,76 @@ pub fn run(options: ReviewOptions) -> Result<()> {
     };
     let sp = crate::spinner::Spinner::start(&spinner_msg);
 
+    let results = run_panel(providers, prompt)?;
+
+    sp.finish();
+    println!();
+
+    if options.json {
+        let spec_names = spec_context
+            .as_ref()
+            .map(|(names, _)| names.clone())
+            .unwrap_or_default();
+        let response = build_review_envelope(
+            &base,
+            options.file.as_deref(),
+            &diff_stats,
+            &spec_names,
+            &results,
+        );
+        println!("{}", serde_json::to_string_pretty(&response)?);
+    } else if results.len() == 1 {
+        // Preserve the v0.14 single-model output shape exactly.
+        match &results[0].outcome {
+            Ok(answer) => println!("{answer}"),
+            Err(e) => bail!("{e}"),
+        }
+    } else {
+        print_panel_human(&results);
+    }
+
+    Ok(())
+}
+
+/// Build the ordered provider-override list for the review panel: the active
+/// config slot (unless `--no-active`), then each `--with-model` entry
+/// (comma-split, `provider[:model]` parsed and validated). Order is preserved
+/// so output matches what the user typed. Errors on an empty panel or a bad
+/// model ref. Pure — no config load, no network.
+fn resolve_overrides(options: &ReviewOptions) -> Result<Vec<ProviderOverride>> {
+    let mut overrides: Vec<ProviderOverride> = Vec::new();
+    if !options.no_active {
+        overrides.push(ProviderOverride {
+            provider: options.provider.clone(),
+            model: options.model.clone(),
+        });
+    }
+    for raw in &options.with_model {
+        for part in raw.split(',') {
+            let parsed = parse_model_ref(part)?;
+            overrides.push(ProviderOverride {
+                provider: Some(parsed.provider),
+                model: parsed.model,
+            });
+        }
+    }
+    if overrides.is_empty() {
+        bail!(
+            "Empty review panel — pass --with-model <provider[:model]> or omit --no-active so the active config is included."
+        );
+    }
+    Ok(overrides)
+}
+
+/// Run every provider in the panel concurrently against the same prompt,
+/// returning results in panel order. Each slot captures its own outcome (in
+/// `PanelResult::outcome`) so one provider's failure doesn't abort the others.
+fn run_panel(
+    providers: Vec<Box<dyn llm::LlmProvider>>,
+    prompt: String,
+) -> Result<Vec<PanelResult>> {
     let prompt_arc = Arc::new(prompt);
-    let mut handles = Vec::with_capacity(panel_size);
+    let mut handles = Vec::with_capacity(providers.len());
     for (idx, provider) in providers.into_iter().enumerate() {
         let prompt_clone = Arc::clone(&prompt_arc);
         let handle = thread::spawn(move || {
@@ -250,118 +298,114 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         })
         .collect::<Result<_>>()?;
     indexed.sort_by_key(|(i, _)| *i);
-    let results: Vec<PanelResult> = indexed.into_iter().map(|(_, r)| r).collect();
+    Ok(indexed.into_iter().map(|(_, r)| r).collect())
+}
 
-    sp.finish();
-    println!();
-
-    if options.json {
-        let spec_names = spec_context
-            .as_ref()
-            .map(|(names, _)| names.clone())
-            .unwrap_or_default();
-        let reviews_json: Vec<serde_json::Value> = results
-            .iter()
-            .map(|r| {
-                let mut obj = serde_json::Map::new();
-                obj.insert("provider".into(), r.provider_kind.clone().into());
-                obj.insert(
-                    "model".into(),
-                    match &r.model_name {
-                        Some(m) => serde_json::Value::String(m.clone()),
-                        None => serde_json::Value::Null,
-                    },
-                );
-                obj.insert(
-                    "elapsed_seconds".into(),
-                    serde_json::Number::from_f64((r.elapsed_seconds * 100.0).round() / 100.0)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
-                );
-                match &r.outcome {
-                    Ok(answer) => {
-                        obj.insert("review".into(), answer.trim().to_string().into());
-                    }
-                    Err(e) => {
-                        obj.insert("error".into(), e.to_string().into());
-                    }
-                }
-                serde_json::Value::Object(obj)
-            })
-            .collect();
-        // Single-model invocations keep the legacy top-level `review` /
-        // `provider` / `model` fields so existing scripts don't break.
-        let mut response = crate::envelope::action(
-            REVIEW_SCHEMA,
-            "review",
-            serde_json::json!({
-                "base": base,
-                "file": options.file,
-                "diff_stats": diff_stats,
-                "spec_context": spec_names,
-                "reviews": reviews_json,
-            }),
+/// The per-result JSON object (`provider`/`model`/`review`|`error`) shared by
+/// the `reviews[]` array and, for single-model runs, the legacy top-level
+/// fields. `include_elapsed` adds the rounded `elapsed_seconds` (array form
+/// only; the legacy top-level fields omit it).
+fn insert_result_fields(
+    obj: &mut serde_json::Map<String, serde_json::Value>,
+    r: &PanelResult,
+    include_elapsed: bool,
+) {
+    obj.insert("provider".into(), r.provider_kind.clone().into());
+    obj.insert(
+        "model".into(),
+        match &r.model_name {
+            Some(m) => serde_json::Value::String(m.clone()),
+            None => serde_json::Value::Null,
+        },
+    );
+    if include_elapsed {
+        obj.insert(
+            "elapsed_seconds".into(),
+            serde_json::Number::from_f64((r.elapsed_seconds * 100.0).round() / 100.0)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
         );
-        if results.len() == 1 {
-            let r = &results[0];
-            let obj = response.as_object_mut().expect("json object");
-            obj.insert("provider".into(), r.provider_kind.clone().into());
-            obj.insert(
-                "model".into(),
-                match &r.model_name {
-                    Some(m) => serde_json::Value::String(m.clone()),
-                    None => serde_json::Value::Null,
-                },
-            );
-            match &r.outcome {
-                Ok(answer) => {
-                    obj.insert("review".into(), answer.trim().to_string().into());
-                }
-                Err(e) => {
-                    obj.insert("error".into(), e.to_string().into());
-                }
-            }
+    }
+    match &r.outcome {
+        Ok(answer) => {
+            obj.insert("review".into(), answer.trim().to_string().into());
         }
-        println!("{}", serde_json::to_string_pretty(&response)?);
-    } else if results.len() == 1 {
-        // Preserve the v0.14 single-model output shape exactly.
-        match &results[0].outcome {
-            Ok(answer) => println!("{answer}"),
-            Err(e) => bail!("{e}"),
-        }
-    } else {
-        for r in &results {
-            let label = match &r.model_name {
-                Some(m) => format!("{} ({})", r.provider_kind, m),
-                None => r.provider_kind.clone(),
-            };
-            let header = format!(" {} — {:.1}s ", label, r.elapsed_seconds);
-            // Box the header in a banner that scales with the label width
-            // so it stays visually distinct between dense markdown blocks.
-            let bar = "═".repeat(60);
-            println!();
-            println!("{}", style(&bar).cyan());
-            println!("{}", style(&header).bold().cyan());
-            println!("{}", style(&bar).cyan());
-            println!();
-            match &r.outcome {
-                Ok(answer) => println!("{}", answer.trim()),
-                Err(e) => println!("{} {}", style("error:").red().bold(), e),
-            }
-        }
-        let failures = results.iter().filter(|r| r.outcome.is_err()).count();
-        if failures > 0 {
-            println!();
-            println!(
-                "{} {}/{} models failed — see error blocks above. Successful reviews are unaffected.",
-                style("⚠️").yellow(),
-                failures,
-                results.len()
-            );
+        Err(e) => {
+            obj.insert("error".into(), e.to_string().into());
         }
     }
+}
 
-    Ok(())
+/// Assemble the `review` JSON envelope from the panel results. Single-model
+/// runs additionally carry top-level `provider`/`model`/`review`|`error` for
+/// backward compatibility with pre-panel scripts. Pure.
+fn build_review_envelope(
+    base: &str,
+    file: Option<&str>,
+    diff_stats: &str,
+    spec_names: &[String],
+    results: &[PanelResult],
+) -> serde_json::Value {
+    let reviews_json: Vec<serde_json::Value> = results
+        .iter()
+        .map(|r| {
+            let mut obj = serde_json::Map::new();
+            insert_result_fields(&mut obj, r, true);
+            serde_json::Value::Object(obj)
+        })
+        .collect();
+    let mut response = crate::envelope::action(
+        REVIEW_SCHEMA,
+        "review",
+        serde_json::json!({
+            "base": base,
+            "file": file,
+            "diff_stats": diff_stats,
+            "spec_context": spec_names,
+            "reviews": reviews_json,
+        }),
+    );
+    // Single-model invocations keep the legacy top-level `review` / `provider`
+    // / `model` fields so existing scripts don't break.
+    if results.len() == 1 {
+        let obj = response.as_object_mut().expect("json object");
+        insert_result_fields(obj, &results[0], false);
+    }
+    response
+}
+
+/// Print the multi-model panel results as banner-separated blocks, plus a
+/// trailing note if any slot failed.
+fn print_panel_human(results: &[PanelResult]) {
+    for r in results {
+        let label = match &r.model_name {
+            Some(m) => format!("{} ({})", r.provider_kind, m),
+            None => r.provider_kind.clone(),
+        };
+        let header = format!(" {} — {:.1}s ", label, r.elapsed_seconds);
+        // Box the header in a banner that scales with the label width
+        // so it stays visually distinct between dense markdown blocks.
+        let bar = "═".repeat(60);
+        println!();
+        println!("{}", style(&bar).cyan());
+        println!("{}", style(&header).bold().cyan());
+        println!("{}", style(&bar).cyan());
+        println!();
+        match &r.outcome {
+            Ok(answer) => println!("{}", answer.trim()),
+            Err(e) => println!("{} {}", style("error:").red().bold(), e),
+        }
+    }
+    let failures = results.iter().filter(|r| r.outcome.is_err()).count();
+    if failures > 0 {
+        println!();
+        println!(
+            "{} {}/{} models failed — see error blocks above. Successful reviews are unaffected.",
+            style("⚠️").yellow(),
+            failures,
+            results.len()
+        );
+    }
 }
 
 /// Returns `(module_names, prompt_body)` for the spec context to include, or
@@ -876,5 +920,144 @@ mod tests {
         let changed = vec!["src/trust.rs".to_string()];
         let ctx = build_spec_context(tmp.path(), &changed, &[], true).unwrap();
         assert!(ctx.is_none());
+    }
+
+    // ── resolve_overrides ──────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_overrides_default_is_single_active_slot() {
+        let ov = resolve_overrides(&default_review_options()).unwrap();
+        assert_eq!(ov.len(), 1);
+        assert!(ov[0].provider.is_none());
+        assert!(ov[0].model.is_none());
+    }
+
+    #[test]
+    fn resolve_overrides_honors_active_provider_and_model() {
+        let mut opts = default_review_options();
+        opts.provider = Some("anthropic".to_string());
+        opts.model = Some("claude-x".to_string());
+        let ov = resolve_overrides(&opts).unwrap();
+        assert_eq!(ov.len(), 1);
+        assert_eq!(ov[0].provider.as_deref(), Some("anthropic"));
+        assert_eq!(ov[0].model.as_deref(), Some("claude-x"));
+    }
+
+    #[test]
+    fn resolve_overrides_no_active_without_models_errors() {
+        let mut opts = default_review_options();
+        opts.no_active = true;
+        assert!(resolve_overrides(&opts).is_err());
+    }
+
+    #[test]
+    fn resolve_overrides_comma_splits_with_model_in_order() {
+        let mut opts = default_review_options();
+        opts.no_active = true;
+        opts.with_model = vec!["anthropic:opus,openai:gpt-x".to_string()];
+        let ov = resolve_overrides(&opts).unwrap();
+        assert_eq!(ov.len(), 2);
+        assert_eq!(ov[0].provider.as_deref(), Some("anthropic"));
+        assert_eq!(ov[0].model.as_deref(), Some("opus"));
+        assert_eq!(ov[1].provider.as_deref(), Some("openai"));
+        assert_eq!(ov[1].model.as_deref(), Some("gpt-x"));
+    }
+
+    #[test]
+    fn resolve_overrides_active_then_with_model_bare_provider() {
+        let mut opts = default_review_options();
+        opts.with_model = vec!["ollama".to_string()];
+        let ov = resolve_overrides(&opts).unwrap();
+        assert_eq!(ov.len(), 2);
+        assert!(ov[0].provider.is_none()); // active slot
+        assert_eq!(ov[1].provider.as_deref(), Some("ollama"));
+        assert!(ov[1].model.is_none()); // bare provider → active model
+    }
+
+    #[test]
+    fn resolve_overrides_rejects_unknown_provider() {
+        let mut opts = default_review_options();
+        opts.with_model = vec!["notaprovider:x".to_string()];
+        assert!(resolve_overrides(&opts).is_err());
+    }
+
+    // ── build_review_envelope ──────────────────────────────────────────────
+
+    fn panel_ok(provider: &str, model: Option<&str>, elapsed: f64, review: &str) -> PanelResult {
+        PanelResult {
+            provider_kind: provider.to_string(),
+            model_name: model.map(|s| s.to_string()),
+            elapsed_seconds: elapsed,
+            outcome: Ok(review.to_string()),
+        }
+    }
+
+    fn panel_err(provider: &str, model: Option<&str>, elapsed: f64, err: &str) -> PanelResult {
+        PanelResult {
+            provider_kind: provider.to_string(),
+            model_name: model.map(|s| s.to_string()),
+            elapsed_seconds: elapsed,
+            outcome: Err(anyhow::anyhow!("{}", err)),
+        }
+    }
+
+    #[test]
+    fn review_envelope_single_model_has_legacy_top_level_fields() {
+        let results = vec![panel_ok(
+            "anthropic",
+            Some("claude-x"),
+            1.234,
+            "  looks good  ",
+        )];
+        let env = build_review_envelope(
+            "main",
+            Some("src/x.rs"),
+            "1 file",
+            &["specA".to_string()],
+            &results,
+        );
+        assert_eq!(env["action"], "review");
+        assert_eq!(env["base"], "main");
+        assert_eq!(env["file"], "src/x.rs");
+        assert_eq!(env["diff_stats"], "1 file");
+        assert_eq!(env["spec_context"][0], "specA");
+        let reviews = env["reviews"].as_array().unwrap();
+        assert_eq!(reviews.len(), 1);
+        assert_eq!(reviews[0]["provider"], "anthropic");
+        assert_eq!(reviews[0]["model"], "claude-x");
+        assert!((reviews[0]["elapsed_seconds"].as_f64().unwrap() - 1.23).abs() < 1e-9);
+        assert_eq!(reviews[0]["review"], "looks good"); // trimmed
+                                                        // Single-model legacy top-level fields.
+        assert_eq!(env["provider"], "anthropic");
+        assert_eq!(env["model"], "claude-x");
+        assert_eq!(env["review"], "looks good");
+        assert!(env.get("elapsed_seconds").is_none()); // top-level omits elapsed
+    }
+
+    #[test]
+    fn review_envelope_single_model_error_surfaces_as_error() {
+        let results = vec![panel_err("openai", None, 0.5, "boom")];
+        let env = build_review_envelope("main", None, "", &[], &results);
+        assert_eq!(env["file"], serde_json::Value::Null);
+        assert_eq!(env["reviews"][0]["error"], "boom");
+        assert_eq!(env["reviews"][0]["model"], serde_json::Value::Null);
+        assert_eq!(env["error"], "boom"); // legacy top-level error
+        assert!(env.get("review").is_none());
+    }
+
+    #[test]
+    fn review_envelope_multi_model_omits_legacy_top_level() {
+        let results = vec![
+            panel_ok("anthropic", Some("a"), 1.0, "ok1"),
+            panel_err("openai", Some("b"), 2.0, "fail2"),
+        ];
+        let env = build_review_envelope("dev", None, "", &[], &results);
+        assert_eq!(env["reviews"].as_array().unwrap().len(), 2);
+        assert_eq!(env["reviews"][0]["review"], "ok1");
+        assert_eq!(env["reviews"][1]["error"], "fail2");
+        // No top-level legacy fields for a multi-model panel.
+        assert!(env.get("provider").is_none());
+        assert!(env.get("review").is_none());
+        assert!(env.get("error").is_none());
     }
 }
