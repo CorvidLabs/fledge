@@ -37,11 +37,13 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
 
     if tags.is_empty() {
         if opts.json {
-            let envelope = serde_json::json!({
-                "schema_version": CHANGELOG_SCHEMA,
-                "action": "changelog",
-                "releases": [],
-            });
+            let envelope = crate::envelope::action(
+                CHANGELOG_SCHEMA,
+                "changelog",
+                serde_json::json!({
+                    "releases": [],
+                }),
+            );
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             return Ok(());
         }
@@ -83,11 +85,13 @@ pub fn run(opts: ChangelogOptions) -> Result<()> {
     };
 
     if opts.json {
-        let envelope = serde_json::json!({
-            "schema_version": CHANGELOG_SCHEMA,
-            "action": "changelog",
-            "releases": releases,
-        });
+        let envelope = crate::envelope::action(
+            CHANGELOG_SCHEMA,
+            "changelog",
+            serde_json::json!({
+                "releases": releases,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }

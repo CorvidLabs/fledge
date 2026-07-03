@@ -267,12 +267,14 @@ fn list_tasks_json(tasks: &BTreeMap<String, TaskDef>, auto_detected: bool) -> Re
             dir: task.dir().map(|s| s.to_string()),
         })
         .collect();
-    let envelope = serde_json::json!({
-        "schema_version": RUN_LIST_SCHEMA,
-        "action": "run_list",
-        "auto_detected": auto_detected,
-        "tasks": task_list,
-    });
+    let envelope = crate::envelope::action(
+        RUN_LIST_SCHEMA,
+        "run_list",
+        serde_json::json!({
+            "auto_detected": auto_detected,
+            "tasks": task_list,
+        }),
+    );
     println!("{}", serde_json::to_string_pretty(&envelope)?);
     Ok(())
 }
@@ -315,16 +317,18 @@ fn execute_task(
             .output()
             .with_context(|| format!("running task '{name}'"))?;
 
-        let mut result = serde_json::json!({
-            "schema_version": RUN_TASK_SCHEMA,
-            "action": "run_task",
-            "task": name,
-            "command": cmd_str,
-            "exit_code": output.status.code().unwrap_or(-1),
-            "success": output.status.success(),
-            "stdout": String::from_utf8_lossy(&output.stdout),
-            "stderr": String::from_utf8_lossy(&output.stderr),
-        });
+        let mut result = crate::envelope::action(
+            RUN_TASK_SCHEMA,
+            "run_task",
+            serde_json::json!({
+                "task": name,
+                "command": cmd_str,
+                "exit_code": output.status.code().unwrap_or(-1),
+                "success": output.status.success(),
+                "stdout": String::from_utf8_lossy(&output.stdout),
+                "stderr": String::from_utf8_lossy(&output.stderr),
+            }),
+        );
         // Only surface `args` when present, so arg-less runs keep their exact
         // existing envelope shape.
         if !args.is_empty() {
@@ -575,13 +579,15 @@ fn init_fledge_toml(lang_override: Option<&str>, json: bool) -> Result<()> {
     std::fs::write(&path, content).context("writing fledge.toml")?;
 
     if json {
-        let envelope = serde_json::json!({
-            "schema_version": RUN_INIT_SCHEMA,
-            "action": "run_init",
-            "file": "fledge.toml",
-            "project_type": project_type,
-            "files_created": ["fledge.toml"],
-        });
+        let envelope = crate::envelope::action(
+            RUN_INIT_SCHEMA,
+            "run_init",
+            serde_json::json!({
+                "file": "fledge.toml",
+                "project_type": project_type,
+                "files_created": ["fledge.toml"],
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }

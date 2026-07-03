@@ -58,14 +58,16 @@ pub fn run(options: AskOptions) -> Result<()> {
     let answer = answer?;
 
     if options.json {
-        let response = serde_json::json!({
-            "schema_version": ASK_SCHEMA,
-            "action": "ask",
-            "question": options.question,
-            "answer": answer.trim(),
-            "provider": provider.kind().as_str(),
-            "model": provider.model_name(),
-        });
+        let response = crate::envelope::action(
+            ASK_SCHEMA,
+            "ask",
+            serde_json::json!({
+                "question": options.question,
+                "answer": answer.trim(),
+                "provider": provider.kind().as_str(),
+                "model": provider.model_name(),
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&response)?);
     } else {
         println!("{answer}");

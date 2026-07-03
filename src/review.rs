@@ -291,15 +291,17 @@ pub fn run(options: ReviewOptions) -> Result<()> {
             .collect();
         // Single-model invocations keep the legacy top-level `review` /
         // `provider` / `model` fields so existing scripts don't break.
-        let mut response = serde_json::json!({
-            "schema_version": REVIEW_SCHEMA,
-            "action": "review",
-            "base": base,
-            "file": options.file,
-            "diff_stats": diff_stats,
-            "spec_context": spec_names,
-            "reviews": reviews_json,
-        });
+        let mut response = crate::envelope::action(
+            REVIEW_SCHEMA,
+            "review",
+            serde_json::json!({
+                "base": base,
+                "file": options.file,
+                "diff_stats": diff_stats,
+                "spec_context": spec_names,
+                "reviews": reviews_json,
+            }),
+        );
         if results.len() == 1 {
             let r = &results[0];
             let obj = response.as_object_mut().expect("json object");

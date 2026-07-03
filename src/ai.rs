@@ -138,19 +138,21 @@ fn status(json: bool) -> Result<()> {
     };
 
     if json {
-        let envelope = serde_json::json!({
-            "schema_version": AI_STATUS_SCHEMA,
-            "action": "ai_status",
-            "provider": report.provider,
-            "provider_source": report.provider_source,
-            "model": report.model,
-            "model_source": report.model_source,
-            "host": report.host,
-            "host_source": report.host_source,
-            "api_key_set": report.api_key_source.is_some(),
-            "api_key_source": report.api_key_source,
-            "cloud_routed": report.cloud_routed,
-        });
+        let envelope = crate::envelope::action(
+            AI_STATUS_SCHEMA,
+            "ai_status",
+            serde_json::json!({
+                "provider": report.provider,
+                "provider_source": report.provider_source,
+                "model": report.model,
+                "model_source": report.model_source,
+                "host": report.host,
+                "host_source": report.host_source,
+                "api_key_set": report.api_key_source.is_some(),
+                "api_key_source": report.api_key_source,
+                "cloud_routed": report.cloud_routed,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }
@@ -422,12 +424,14 @@ fn models(provider: Option<String>, search: Option<String>, json: bool) -> Resul
     };
 
     if json {
-        let envelope = serde_json::json!({
-            "schema_version": AI_MODELS_SCHEMA,
-            "action": "ai_models",
-            "provider": kind.as_str(),
-            "models": filtered,
-        });
+        let envelope = crate::envelope::action(
+            AI_MODELS_SCHEMA,
+            "ai_models",
+            serde_json::json!({
+                "provider": kind.as_str(),
+                "models": filtered,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&envelope)?);
         return Ok(());
     }

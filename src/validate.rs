@@ -283,10 +283,7 @@ fn extract_variables(content: &str) -> HashSet<String> {
 
 fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<()> {
     if json {
-        let result = serde_json::json!({
-            "schema_version": VALIDATE_SCHEMA,
-            "reports": [report],
-        });
+        let result = crate::envelope::resource(VALIDATE_SCHEMA, "reports", [report]);
         println!("{}", serde_json::to_string_pretty(&result)?);
         return check_result(std::slice::from_ref(report), strict);
     }
@@ -318,10 +315,7 @@ fn print_report(report: &ValidationReport, strict: bool, json: bool) -> Result<(
 
 fn print_reports(reports: &[ValidationReport], strict: bool, json: bool) -> Result<()> {
     if json {
-        let result = serde_json::json!({
-            "schema_version": VALIDATE_SCHEMA,
-            "reports": reports,
-        });
+        let result = crate::envelope::resource(VALIDATE_SCHEMA, "reports", reports);
         println!("{}", serde_json::to_string_pretty(&result)?);
         return check_result(reports, strict);
     }
