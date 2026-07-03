@@ -43,15 +43,7 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
             if json {
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&crate::envelope::action(
-                        PLUGINS_UPDATE_SCHEMA,
-                        "update",
-                        serde_json::json!({
-                            "scope": "defaults",
-                            "results": [],
-                            "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
-                        }),
-                    ))?
+                    serde_json::to_string_pretty(&build_update_envelope("defaults", &[]))?
                 );
             } else {
                 println!(
@@ -86,15 +78,7 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
                     if json {
                         println!(
                             "{}",
-                            serde_json::to_string_pretty(&crate::envelope::action(
-                                PLUGINS_UPDATE_SCHEMA,
-                                "update",
-                                serde_json::json!({
-                                    "scope": "all",
-                                    "results": [],
-                                    "summary": { "total": 0, "updated": 0, "skipped": 0, "failed": 0 },
-                                }),
-                            ))?
+                            serde_json::to_string_pretty(&build_update_envelope("all", &[]))?
                         );
                     } else {
                         println!("{} No plugins installed.", style("*").cyan().bold());
@@ -112,125 +96,128 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
     let mut results: Vec<serde_json::Value> = Vec::new();
 
     for entry in &targets {
-        let plugin_dir = plugins_dir().join(&entry.name);
-        if !plugin_dir.exists() {
-            if !json {
-                println!(
-                    "  {} {} — directory missing, reinstall with {}",
-                    style("⚠️").yellow(),
-                    style(&entry.name).yellow(),
-                    style(format!("fledge plugin install {} --force", entry.source)).cyan()
-                );
-            }
-            results.push(serde_json::json!({
-                "name": entry.name,
-                "status": "failed",
-                "detail": "directory missing — reinstall required",
-            }));
-            continue;
+        results.push(update_one_plugin(entry, defaults, json)?);
+    }
+
+    if json {
+        let scope = if defaults {
+            "defaults"
+        } else if name.is_some() {
+            "single"
+        } else {
+            "all"
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&build_update_envelope(scope, &results))?
+        );
+    }
+
+    Ok(())
+}
+
+/// Update a single installed plugin and return its result record (the value
+/// pushed into the `plugins update` results array). Handles the skip cases
+/// (missing dir, local, workspace-managed), the pinned-ref upgrade path, and
+/// the plain `git pull --ff-only` path; delegates the rebuild to
+/// [`rebuild_after_fetch`]. Errors propagate to abort the whole update run,
+/// matching the pre-extraction `?` behavior.
+fn update_one_plugin(
+    entry: &super::PluginEntry,
+    defaults: bool,
+    json: bool,
+) -> Result<serde_json::Value> {
+    let plugin_dir = plugins_dir().join(&entry.name);
+    if !plugin_dir.exists() {
+        if !json {
+            println!(
+                "  {} {} — directory missing, reinstall with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
         }
+        return Ok(serde_json::json!({
+            "name": entry.name,
+            "status": "failed",
+            "detail": "directory missing — reinstall required",
+        }));
+    }
 
-        if determine_trust_tier(&entry.source) == TrustTier::Local {
-            if !json {
-                println!(
-                    "  {} {} — local plugin, skipped",
-                    style("*").cyan().bold(),
-                    style(&entry.name).cyan()
-                );
-            }
-            results.push(serde_json::json!({
-                "name": entry.name,
-                "status": "skipped",
-                "detail": "local plugin — reinstall to refresh copied installs; live-linked installs use the source directory directly",
-            }));
-            continue;
+    if determine_trust_tier(&entry.source) == TrustTier::Local {
+        if !json {
+            println!(
+                "  {} {} — local plugin, skipped",
+                style("*").cyan().bold(),
+                style(&entry.name).cyan()
+            );
         }
+        return Ok(serde_json::json!({
+            "name": entry.name,
+            "status": "skipped",
+            "detail": "local plugin — reinstall to refresh copied installs; live-linked installs use the source directory directly",
+        }));
+    }
 
-        // Workspace-managed plugins (e.g. Merlin's bundled plugins under
-        // `plugins/`) have no `.git` and are rebuilt by the host project's
-        // init step. Skipping them silently keeps `plugins update` quiet
-        // instead of warning about a git pull that was never going to work.
-        // (Issue #382)
-        if !is_git_repo(&plugin_dir) {
-            if !json {
-                println!(
-                    "  {} {} — workspace-managed (no .git), skipped",
-                    style("*").cyan().bold(),
-                    style(&entry.name).cyan()
-                );
-            }
-            results.push(serde_json::json!({
-                "name": entry.name,
-                "status": "skipped",
-                "detail": "workspace-managed plugin (no .git in install dir) — managed by host project's init step",
-            }));
-            continue;
+    // Workspace-managed plugins (e.g. Merlin's bundled plugins under
+    // `plugins/`) have no `.git` and are rebuilt by the host project's
+    // init step. Skipping them silently keeps `plugins update` quiet
+    // instead of warning about a git pull that was never going to work.
+    // (Issue #382)
+    if !is_git_repo(&plugin_dir) {
+        if !json {
+            println!(
+                "  {} {} — workspace-managed (no .git), skipped",
+                style("*").cyan().bold(),
+                style(&entry.name).cyan()
+            );
         }
+        return Ok(serde_json::json!({
+            "name": entry.name,
+            "status": "skipped",
+            "detail": "workspace-managed plugin (no .git in install dir) — managed by host project's init step",
+        }));
+    }
 
-        if let Some(ref pinned) = entry.pinned_ref {
-            let latest = find_latest_tag(&plugin_dir, &entry.source);
-            match latest {
-                Some(ref tag) if tag != pinned => {
-                    if defaults {
-                        let sp = if json {
-                            None
-                        } else {
-                            Some(crate::spinner::Spinner::start(&format!(
-                                "Upgrading {} {} → {}:",
-                                &entry.name, pinned, tag
-                            )))
-                        };
-
-                        if tag.starts_with('-') {
-                            bail!(
-                                "Invalid git tag '{}': references cannot start with a hyphen.",
-                                tag
-                            );
-                        }
-                        let checkout = Command::new("git")
-                            .args(["checkout", tag])
-                            .current_dir(&plugin_dir)
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::piped())
-                            .status()
-                            .with_context(|| format!("checking out {} for {}", tag, entry.name))?;
-
-                        if let Some(s) = sp {
-                            s.finish();
-                        }
-
-                        if !checkout.success() {
-                            if !json {
-                                println!(
-                                    "  {} {} — failed to checkout {}, try:\n    {}",
-                                    style("⚠️").yellow(),
-                                    style(&entry.name).yellow(),
-                                    style(tag).dim(),
-                                    style(format!(
-                                        "fledge plugin install {}@{} --force",
-                                        entry.source, tag
-                                    ))
-                                    .cyan()
-                                );
-                            }
-                            results.push(serde_json::json!({
-                                "name": entry.name,
-                                "status": "failed",
-                                "detail": format!("git checkout {tag} failed — reinstall required"),
-                            }));
-                            continue;
-                        }
-
-                        let result = rebuild_after_fetch(entry, &plugin_dir, Some(tag), json)?;
-                        results.push(result);
+    if let Some(ref pinned) = entry.pinned_ref {
+        let latest = find_latest_tag(&plugin_dir, &entry.source);
+        match latest {
+            Some(ref tag) if tag != pinned => {
+                if defaults {
+                    let sp = if json {
+                        None
                     } else {
+                        Some(crate::spinner::Spinner::start(&format!(
+                            "Upgrading {} {} → {}:",
+                            &entry.name, pinned, tag
+                        )))
+                    };
+
+                    if tag.starts_with('-') {
+                        bail!(
+                            "Invalid git tag '{}': references cannot start with a hyphen.",
+                            tag
+                        );
+                    }
+                    let checkout = Command::new("git")
+                        .args(["checkout", tag])
+                        .current_dir(&plugin_dir)
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::piped())
+                        .status()
+                        .with_context(|| format!("checking out {} for {}", tag, entry.name))?;
+
+                    if let Some(s) = sp {
+                        s.finish();
+                    }
+
+                    if !checkout.success() {
                         if !json {
                             println!(
-                                "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
-                                style("*").cyan().bold(),
-                                style(&entry.name).cyan(),
-                                style(pinned).dim(),
-                                style(tag).green(),
+                                "  {} {} — failed to checkout {}, try:\n    {}",
+                                style("⚠️").yellow(),
+                                style(&entry.name).yellow(),
+                                style(tag).dim(),
                                 style(format!(
                                     "fledge plugin install {}@{} --force",
                                     entry.source, tag
@@ -238,35 +225,56 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
                                 .cyan()
                             );
                         }
-                        results.push(serde_json::json!({
+                        return Ok(serde_json::json!({
                             "name": entry.name,
-                            "status": "skipped",
-                            "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
-                            "pinned_ref": pinned,
-                            "latest_tag": tag,
+                            "status": "failed",
+                            "detail": format!("git checkout {tag} failed — reinstall required"),
                         }));
                     }
-                }
-                _ => {
+
+                    rebuild_after_fetch(entry, &plugin_dir, Some(tag), json)
+                } else {
                     if !json {
                         println!(
-                            "  {} {} — pinned to {}, already up to date.",
-                            style("✅").green().bold(),
-                            style(&entry.name).green(),
-                            style(pinned).dim()
+                            "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
+                            style("*").cyan().bold(),
+                            style(&entry.name).cyan(),
+                            style(pinned).dim(),
+                            style(tag).green(),
+                            style(format!(
+                                "fledge plugin install {}@{} --force",
+                                entry.source, tag
+                            ))
+                            .cyan()
                         );
                     }
-                    results.push(serde_json::json!({
+                    Ok(serde_json::json!({
                         "name": entry.name,
                         "status": "skipped",
-                        "detail": format!("pinned to {pinned}, already up to date"),
+                        "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
                         "pinned_ref": pinned,
-                    }));
+                        "latest_tag": tag,
+                    }))
                 }
             }
-            continue;
+            _ => {
+                if !json {
+                    println!(
+                        "  {} {} — pinned to {}, already up to date.",
+                        style("✅").green().bold(),
+                        style(&entry.name).green(),
+                        style(pinned).dim()
+                    );
+                }
+                Ok(serde_json::json!({
+                    "name": entry.name,
+                    "status": "skipped",
+                    "detail": format!("pinned to {pinned}, already up to date"),
+                    "pinned_ref": pinned,
+                }))
+            }
         }
-
+    } else {
         let sp = if json {
             None
         } else {
@@ -302,49 +310,36 @@ pub(crate) fn update_plugins(name: Option<&str>, defaults: bool, json: bool) -> 
                     style(format!("fledge plugin install {} --force", entry.source)).cyan()
                 );
             }
-            results.push(serde_json::json!({
+            return Ok(serde_json::json!({
                 "name": entry.name,
                 "status": "failed",
                 "detail": "git pull failed — reinstall required",
             }));
-            continue;
         }
 
-        let result = rebuild_after_fetch(entry, &plugin_dir, None, json)?;
-        results.push(result);
+        rebuild_after_fetch(entry, &plugin_dir, None, json)
     }
+}
 
-    if json {
-        let total = results.len();
-        let count = |s: &str| results.iter().filter(|r| r["status"] == s).count();
-        let summary = serde_json::json!({
-            "total": total,
-            "updated": count("updated"),
-            "skipped": count("skipped"),
-            "failed": count("failed"),
-        });
-        let scope = if defaults {
-            "defaults"
-        } else if name.is_some() {
-            "single"
-        } else {
-            "all"
-        };
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&crate::envelope::action(
-                PLUGINS_UPDATE_SCHEMA,
-                "update",
-                serde_json::json!({
-                    "scope": scope,
-                    "results": results,
-                    "summary": summary,
-                }),
-            ))?
-        );
-    }
-
-    Ok(())
+/// Build the `plugins update` result envelope: attaches per-status summary
+/// counts to the collected results under the given scope. Pure — the summary
+/// arithmetic is unit-tested without running a single git command.
+fn build_update_envelope(scope: &str, results: &[serde_json::Value]) -> serde_json::Value {
+    let count = |status: &str| results.iter().filter(|r| r["status"] == status).count();
+    crate::envelope::action(
+        PLUGINS_UPDATE_SCHEMA,
+        "update",
+        serde_json::json!({
+            "scope": scope,
+            "results": results,
+            "summary": {
+                "total": results.len(),
+                "updated": count("updated"),
+                "skipped": count("skipped"),
+                "failed": count("failed"),
+            },
+        }),
+    )
 }
 
 /// The capability escalation introduced by a freshly-fetched manifest,
@@ -652,9 +647,41 @@ fn is_github_source(source: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{check_tier_capabilities, is_git_repo, CapabilityDelta, PluginCapabilities};
+    use super::{
+        build_update_envelope, check_tier_capabilities, is_git_repo, CapabilityDelta,
+        PluginCapabilities,
+    };
     use crate::trust::TrustTier;
     use tempfile::TempDir;
+
+    #[test]
+    fn update_envelope_counts_each_status() {
+        let results = vec![
+            serde_json::json!({ "name": "a", "status": "updated" }),
+            serde_json::json!({ "name": "b", "status": "updated" }),
+            serde_json::json!({ "name": "c", "status": "skipped" }),
+            serde_json::json!({ "name": "d", "status": "failed" }),
+        ];
+        let env = build_update_envelope("all", &results);
+        assert_eq!(env["action"], "update");
+        assert_eq!(env["scope"], "all");
+        assert_eq!(env["summary"]["total"], 4);
+        assert_eq!(env["summary"]["updated"], 2);
+        assert_eq!(env["summary"]["skipped"], 1);
+        assert_eq!(env["summary"]["failed"], 1);
+        assert_eq!(env["results"].as_array().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn update_envelope_empty_is_all_zero() {
+        let env = build_update_envelope("defaults", &[]);
+        assert_eq!(env["scope"], "defaults");
+        assert_eq!(env["summary"]["total"], 0);
+        assert_eq!(env["summary"]["updated"], 0);
+        assert_eq!(env["summary"]["skipped"], 0);
+        assert_eq!(env["summary"]["failed"], 0);
+        assert!(env["results"].as_array().unwrap().is_empty());
+    }
 
     #[test]
     fn is_git_repo_detects_dot_git_directory() {
