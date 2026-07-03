@@ -200,3 +200,58 @@ impl TestRepo {
         with_cwd(self.dir.path(), f)
     }
 }
+
+/// The canned result a [`StubLlmProvider`] yields from `invoke`.
+pub(crate) enum StubOutcome {
+    Ok(String),
+    Err(String),
+}
+
+/// A canned [`LlmProvider`](crate::llm::LlmProvider) for exercising code that
+/// fans out over providers (e.g. `review::run_panel`) with no network I/O. It
+/// returns a preset outcome and reports a fixed provider kind / model, so tests
+/// can assert ordering, per-slot error isolation, and metadata capture without
+/// a live endpoint. Shared so the `review` / `ask` / `ai` test modules can all
+/// reuse the same double.
+pub(crate) struct StubLlmProvider {
+    kind: crate::llm::ProviderKind,
+    model: Option<String>,
+    outcome: StubOutcome,
+}
+
+impl StubLlmProvider {
+    /// A provider whose `invoke` succeeds with `response`.
+    pub(crate) fn ok(kind: crate::llm::ProviderKind, model: Option<&str>, response: &str) -> Self {
+        Self {
+            kind,
+            model: model.map(str::to_string),
+            outcome: StubOutcome::Ok(response.to_string()),
+        }
+    }
+
+    /// A provider whose `invoke` fails with `message` (as an `anyhow` error).
+    pub(crate) fn err(kind: crate::llm::ProviderKind, model: Option<&str>, message: &str) -> Self {
+        Self {
+            kind,
+            model: model.map(str::to_string),
+            outcome: StubOutcome::Err(message.to_string()),
+        }
+    }
+}
+
+impl crate::llm::LlmProvider for StubLlmProvider {
+    fn invoke(&self, _prompt: &str) -> anyhow::Result<String> {
+        match &self.outcome {
+            StubOutcome::Ok(s) => Ok(s.clone()),
+            StubOutcome::Err(e) => anyhow::bail!("{e}"),
+        }
+    }
+
+    fn kind(&self) -> crate::llm::ProviderKind {
+        self.kind
+    }
+
+    fn model_name(&self) -> Option<&str> {
+        self.model.as_deref()
+    }
+}

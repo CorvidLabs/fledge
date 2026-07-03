@@ -1131,4 +1131,101 @@ mod tests {
         assert!(get_diff_stats("-rf", None).is_err());
         assert!(get_changed_files("-rf", None).is_err());
     }
+
+    // ── run_panel fan-out, driven by stub providers (no network) ───────────
+
+    #[test]
+    fn run_panel_preserves_order_and_isolates_a_failing_slot() {
+        use crate::llm::ProviderKind;
+        use crate::test_support::StubLlmProvider;
+        // A failing middle slot must not drop or reorder its neighbours.
+        let providers: Vec<Box<dyn llm::LlmProvider>> = vec![
+            Box::new(StubLlmProvider::ok(ProviderKind::Ollama, Some("m1"), "AAA")),
+            Box::new(StubLlmProvider::err(
+                ProviderKind::Anthropic,
+                Some("m2"),
+                "boom",
+            )),
+            Box::new(StubLlmProvider::ok(ProviderKind::OpenAi, None, "CCC")),
+        ];
+        let results = run_panel(providers, "the-diff".to_string()).unwrap();
+
+        assert_eq!(results.len(), 3, "a failing slot must not drop the others");
+        // Order matches the input despite parallel execution.
+        assert_eq!(results[0].provider_kind, "ollama");
+        assert_eq!(results[0].model_name.as_deref(), Some("m1"));
+        assert_eq!(results[0].outcome.as_deref().unwrap(), "AAA");
+        // Middle slot's failure is captured, not propagated.
+        assert_eq!(results[1].provider_kind, "anthropic");
+        assert_eq!(results[1].model_name.as_deref(), Some("m2"));
+        let err = results[1].outcome.as_ref().unwrap_err().to_string();
+        assert!(
+            err.contains("boom"),
+            "captured error should carry the cause: {err}"
+        );
+        assert_eq!(results[2].provider_kind, "openai");
+        assert_eq!(results[2].model_name, None);
+        assert_eq!(results[2].outcome.as_deref().unwrap(), "CCC");
+    }
+
+    #[test]
+    fn run_panel_results_feed_the_multi_model_envelope() {
+        use crate::llm::ProviderKind;
+        use crate::test_support::StubLlmProvider;
+        let providers: Vec<Box<dyn llm::LlmProvider>> = vec![
+            Box::new(StubLlmProvider::ok(
+                ProviderKind::Ollama,
+                Some("m1"),
+                "  spaced review  ",
+            )),
+            Box::new(StubLlmProvider::err(
+                ProviderKind::Anthropic,
+                Some("m2"),
+                "provider exploded",
+            )),
+        ];
+        let results = run_panel(providers, "diff".to_string()).unwrap();
+        let env = build_review_envelope(
+            "main",
+            None,
+            "1 file changed",
+            &["specX".to_string()],
+            &results,
+        );
+
+        assert_eq!(env["base"], "main");
+        assert_eq!(env["spec_context"][0], "specX");
+        let reviews = env["reviews"].as_array().unwrap();
+        assert_eq!(reviews.len(), 2);
+        assert_eq!(reviews[0]["provider"], "ollama");
+        assert_eq!(reviews[0]["model"], "m1");
+        assert_eq!(reviews[0]["review"], "spaced review"); // trimmed by insert_result_fields
+        assert!(reviews[0]["elapsed_seconds"].is_number());
+        assert_eq!(reviews[1]["provider"], "anthropic");
+        assert_eq!(reviews[1]["error"], "provider exploded");
+        assert!(reviews[1].get("review").is_none());
+        // Multi-model panels carry no legacy top-level fields.
+        assert!(env.get("review").is_none());
+        assert!(env.get("provider").is_none());
+    }
+
+    #[test]
+    fn run_panel_single_provider_envelope_keeps_legacy_fields() {
+        use crate::llm::ProviderKind;
+        use crate::test_support::StubLlmProvider;
+        let providers: Vec<Box<dyn llm::LlmProvider>> = vec![Box::new(StubLlmProvider::ok(
+            ProviderKind::Ollama,
+            Some("solo"),
+            "the review",
+        ))];
+        let results = run_panel(providers, "diff".to_string()).unwrap();
+        let env = build_review_envelope("main", None, "", &[], &results);
+
+        // Single-model runs mirror the result into legacy top-level fields.
+        assert_eq!(env["provider"], "ollama");
+        assert_eq!(env["model"], "solo");
+        assert_eq!(env["review"], "the review");
+        // …and still populate the array form.
+        assert_eq!(env["reviews"][0]["review"], "the review");
+    }
 }
