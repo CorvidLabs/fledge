@@ -330,25 +330,24 @@ pub fn print_config_list_described(key: &str, values: &[String], desc: &str) {
     }
 }
 
-pub fn interactive_config_edit() -> Result<()> {
-    use dialoguer::{Input, Select};
-    let theme = dialoguer::theme::ColorfulTheme::default();
+struct ConfigKey {
+    key: &'static str,
+    desc: &'static str,
+    kind: KeyKind,
+}
 
-    struct ConfigKey {
-        key: &'static str,
-        desc: &'static str,
-        kind: KeyKind,
-    }
+enum KeyKind {
+    Text,
+    Secret,
+    Enum(&'static [&'static str]),
+    Number,
+    List,
+}
 
-    enum KeyKind {
-        Text,
-        Secret,
-        Enum(&'static [&'static str]),
-        Number,
-        List,
-    }
-
-    let keys = vec![
+/// The editable config keys, in menu order, each tagged with how it should be
+/// prompted for and displayed.
+fn config_keys() -> Vec<ConfigKey> {
+    vec![
         ConfigKey {
             key: "defaults.author",
             desc: "Author name for new projects",
@@ -462,32 +461,203 @@ pub fn interactive_config_edit() -> Result<()> {
             desc: "Request timeout in seconds",
             kind: KeyKind::Number,
         },
-    ];
+    ]
+}
+
+/// Format a config key's current value for the interactive menu. Pure — the
+/// display rules (mask secrets, join lists, "(not set)"/"(none)" fallbacks)
+/// operate only on `raw`, the stored value from `config.get(key)`.
+fn format_menu_value(kind: &KeyKind, raw: Option<String>) -> String {
+    let current = match kind {
+        KeyKind::Secret => raw.map(|_| "***".to_string()),
+        KeyKind::List => {
+            let val = raw.unwrap_or_default();
+            if val.is_empty() {
+                Some("(none)".to_string())
+            } else {
+                Some(val.replace('\n', ", "))
+            }
+        }
+        _ => raw,
+    };
+    current
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "(not set)".to_string())
+}
+
+/// Render one config key's menu row: `<key> <value> <desc>`.
+fn render_menu_item(config: &config::Config, k: &ConfigKey) -> String {
+    let val_str = format_menu_value(&k.kind, config.get(k.key));
+    format!("{:<28} {:<20} {}", k.key, val_str, k.desc)
+}
+
+/// Prompt for and apply an edit to a single config key, dispatching on its
+/// kind; saves after each change.
+fn edit_config_key(
+    config: &mut config::Config,
+    entry: &ConfigKey,
+    theme: &dialoguer::theme::ColorfulTheme,
+) -> Result<()> {
+    use dialoguer::{Input, Select};
+    match entry.kind {
+        KeyKind::Enum(options) => {
+            let current = config.get(entry.key).unwrap_or_default();
+            let default_idx = options.iter().position(|o| *o == current).unwrap_or(0);
+
+            let choice = Select::with_theme(theme)
+                .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                .items(options)
+                .default(default_idx)
+                .interact()?;
+
+            config.set(entry.key, options[choice])?;
+            config.save()?;
+            println!(
+                "{} Set {} = {}",
+                style("✅").green().bold(),
+                style(entry.key).cyan(),
+                style(options[choice]).green()
+            );
+        }
+        KeyKind::Secret => {
+            let value: String = dialoguer::Password::with_theme(theme)
+                .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                .allow_empty_password(true)
+                .interact()?;
+
+            if value.is_empty() {
+                config.unset(entry.key)?;
+                config.save()?;
+                println!(
+                    "{} Cleared {}",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan()
+                );
+            } else {
+                config.set(entry.key, &value)?;
+                config.save()?;
+                println!(
+                    "{} Set {} = ***",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan()
+                );
+            }
+        }
+        KeyKind::Number => {
+            let current = config.get(entry.key).unwrap_or_default();
+            let value: String = Input::with_theme(theme)
+                .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                .default(current)
+                .validate_with(|input: &String| -> std::result::Result<(), String> {
+                    input
+                        .trim()
+                        .parse::<u64>()
+                        .map(|_| ())
+                        .map_err(|_| "Must be a non-negative integer".to_string())
+                })
+                .interact_text()?;
+
+            config.set(entry.key, value.trim())?;
+            config.save()?;
+            println!(
+                "{} Set {} = {}",
+                style("✅").green().bold(),
+                style(entry.key).cyan(),
+                style(value.trim()).green()
+            );
+        }
+        KeyKind::List => {
+            let current_values: Vec<String> = config
+                .get(entry.key)
+                .unwrap_or_default()
+                .split('\n')
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .collect();
+
+            let mut list_items: Vec<String> = current_values
+                .iter()
+                .map(|v| format!("Remove: {}", v))
+                .collect();
+            list_items.push("Add new value".to_string());
+            list_items.push("Back".to_string());
+
+            let choice = Select::with_theme(theme)
+                .with_prompt(format!("{} — {}", entry.key, entry.desc))
+                .items(&list_items)
+                .default(list_items.len() - 1)
+                .interact()?;
+
+            if choice < current_values.len() {
+                let removed = &current_values[choice];
+                config.remove_from_list(entry.key, removed)?;
+                config.save()?;
+                println!(
+                    "{} Removed {} from {}",
+                    style("✅").green().bold(),
+                    style(removed).red(),
+                    style(entry.key).cyan()
+                );
+            } else if choice == current_values.len() {
+                let value: String = Input::with_theme(theme)
+                    .with_prompt("Value to add")
+                    .interact_text()?;
+                if !value.trim().is_empty() {
+                    config.add_to_list(entry.key, value.trim())?;
+                    config.save()?;
+                    println!(
+                        "{} Added {} to {}",
+                        style("✅").green().bold(),
+                        style(value.trim()).green(),
+                        style(entry.key).cyan()
+                    );
+                }
+            }
+        }
+        KeyKind::Text => {
+            let current = config.get(entry.key).unwrap_or_default();
+            let mut input = Input::<String>::with_theme(theme)
+                .with_prompt(format!("{} — {} (empty to clear)", entry.key, entry.desc))
+                .allow_empty(true);
+
+            if !current.is_empty() {
+                input = input.default(current);
+            }
+
+            let value: String = input.interact_text()?;
+
+            if value.trim().is_empty() {
+                config.unset(entry.key)?;
+                config.save()?;
+                println!(
+                    "{} Cleared {}",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan()
+                );
+            } else {
+                config.set(entry.key, value.trim())?;
+                config.save()?;
+                println!(
+                    "{} Set {} = {}",
+                    style("✅").green().bold(),
+                    style(entry.key).cyan(),
+                    style(value.trim()).green()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn interactive_config_edit() -> Result<()> {
+    use dialoguer::Select;
+    let theme = dialoguer::theme::ColorfulTheme::default();
+    let keys = config_keys();
 
     loop {
         let config = config::Config::load()?;
 
-        let items: Vec<String> = keys
-            .iter()
-            .map(|k| {
-                let current = match k.kind {
-                    KeyKind::Secret => config.get(k.key).map(|_| "***".to_string()),
-                    KeyKind::List => {
-                        let val = config.get(k.key).unwrap_or_default();
-                        if val.is_empty() {
-                            Some("(none)".to_string())
-                        } else {
-                            Some(val.replace('\n', ", "))
-                        }
-                    }
-                    _ => config.get(k.key),
-                };
-                let val_str = current
-                    .filter(|s| !s.is_empty())
-                    .unwrap_or_else(|| "(not set)".to_string());
-                format!("{:<28} {:<20} {}", k.key, val_str, k.desc)
-            })
-            .collect();
+        let items: Vec<String> = keys.iter().map(|k| render_menu_item(&config, k)).collect();
 
         let mut menu_items = items.clone();
         menu_items.push("Done — save and exit".to_string());
@@ -505,157 +675,66 @@ pub fn interactive_config_edit() -> Result<()> {
 
         let entry = &keys[selection];
         let mut config = config::Config::load()?;
-
-        match entry.kind {
-            KeyKind::Enum(options) => {
-                let current = config.get(entry.key).unwrap_or_default();
-                let default_idx = options.iter().position(|o| *o == current).unwrap_or(0);
-
-                let choice = Select::with_theme(&theme)
-                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
-                    .items(options)
-                    .default(default_idx)
-                    .interact()?;
-
-                config.set(entry.key, options[choice])?;
-                config.save()?;
-                println!(
-                    "{} Set {} = {}",
-                    style("✅").green().bold(),
-                    style(entry.key).cyan(),
-                    style(options[choice]).green()
-                );
-            }
-            KeyKind::Secret => {
-                let value: String = dialoguer::Password::with_theme(&theme)
-                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
-                    .allow_empty_password(true)
-                    .interact()?;
-
-                if value.is_empty() {
-                    config.unset(entry.key)?;
-                    config.save()?;
-                    println!(
-                        "{} Cleared {}",
-                        style("✅").green().bold(),
-                        style(entry.key).cyan()
-                    );
-                } else {
-                    config.set(entry.key, &value)?;
-                    config.save()?;
-                    println!(
-                        "{} Set {} = ***",
-                        style("✅").green().bold(),
-                        style(entry.key).cyan()
-                    );
-                }
-            }
-            KeyKind::Number => {
-                let current = config.get(entry.key).unwrap_or_default();
-                let value: String = Input::with_theme(&theme)
-                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
-                    .default(current)
-                    .validate_with(|input: &String| -> std::result::Result<(), String> {
-                        input
-                            .trim()
-                            .parse::<u64>()
-                            .map(|_| ())
-                            .map_err(|_| "Must be a non-negative integer".to_string())
-                    })
-                    .interact_text()?;
-
-                config.set(entry.key, value.trim())?;
-                config.save()?;
-                println!(
-                    "{} Set {} = {}",
-                    style("✅").green().bold(),
-                    style(entry.key).cyan(),
-                    style(value.trim()).green()
-                );
-            }
-            KeyKind::List => {
-                let current_values: Vec<String> = config
-                    .get(entry.key)
-                    .unwrap_or_default()
-                    .split('\n')
-                    .filter(|s| !s.is_empty())
-                    .map(String::from)
-                    .collect();
-
-                let mut list_items: Vec<String> = current_values
-                    .iter()
-                    .map(|v| format!("Remove: {}", v))
-                    .collect();
-                list_items.push("Add new value".to_string());
-                list_items.push("Back".to_string());
-
-                let choice = Select::with_theme(&theme)
-                    .with_prompt(format!("{} — {}", entry.key, entry.desc))
-                    .items(&list_items)
-                    .default(list_items.len() - 1)
-                    .interact()?;
-
-                if choice < current_values.len() {
-                    let removed = &current_values[choice];
-                    config.remove_from_list(entry.key, removed)?;
-                    config.save()?;
-                    println!(
-                        "{} Removed {} from {}",
-                        style("✅").green().bold(),
-                        style(removed).red(),
-                        style(entry.key).cyan()
-                    );
-                } else if choice == current_values.len() {
-                    let value: String = Input::with_theme(&theme)
-                        .with_prompt("Value to add")
-                        .interact_text()?;
-                    if !value.trim().is_empty() {
-                        config.add_to_list(entry.key, value.trim())?;
-                        config.save()?;
-                        println!(
-                            "{} Added {} to {}",
-                            style("✅").green().bold(),
-                            style(value.trim()).green(),
-                            style(entry.key).cyan()
-                        );
-                    }
-                }
-            }
-            KeyKind::Text => {
-                let current = config.get(entry.key).unwrap_or_default();
-                let mut input = Input::<String>::with_theme(&theme)
-                    .with_prompt(format!("{} — {} (empty to clear)", entry.key, entry.desc))
-                    .allow_empty(true);
-
-                if !current.is_empty() {
-                    input = input.default(current);
-                }
-
-                let value: String = input.interact_text()?;
-
-                if value.trim().is_empty() {
-                    config.unset(entry.key)?;
-                    config.save()?;
-                    println!(
-                        "{} Cleared {}",
-                        style("✅").green().bold(),
-                        style(entry.key).cyan()
-                    );
-                } else {
-                    config.set(entry.key, value.trim())?;
-                    config.save()?;
-                    println!(
-                        "{} Set {} = {}",
-                        style("✅").green().bold(),
-                        style(entry.key).cyan(),
-                        style(value.trim()).green()
-                    );
-                }
-            }
-        }
+        edit_config_key(&mut config, entry, &theme)?;
 
         println!();
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_menu_value_secret_masks_when_set() {
+        assert_eq!(
+            format_menu_value(&KeyKind::Secret, Some("sk-123".to_string())),
+            "***"
+        );
+    }
+
+    #[test]
+    fn format_menu_value_secret_not_set_when_none() {
+        assert_eq!(format_menu_value(&KeyKind::Secret, None), "(not set)");
+    }
+
+    #[test]
+    fn format_menu_value_list_none_shows_placeholder() {
+        assert_eq!(format_menu_value(&KeyKind::List, None), "(none)");
+        assert_eq!(
+            format_menu_value(&KeyKind::List, Some(String::new())),
+            "(none)"
+        );
+    }
+
+    #[test]
+    fn format_menu_value_list_joins_newlines_with_commas() {
+        assert_eq!(
+            format_menu_value(&KeyKind::List, Some("a\nb\nc".to_string())),
+            "a, b, c"
+        );
+    }
+
+    #[test]
+    fn format_menu_value_text_shows_value_or_not_set() {
+        assert_eq!(
+            format_menu_value(&KeyKind::Text, Some("Ada".to_string())),
+            "Ada"
+        );
+        assert_eq!(format_menu_value(&KeyKind::Text, None), "(not set)");
+        assert_eq!(
+            format_menu_value(&KeyKind::Text, Some(String::new())),
+            "(not set)"
+        );
+    }
+
+    #[test]
+    fn format_menu_value_number_shows_value() {
+        assert_eq!(
+            format_menu_value(&KeyKind::Number, Some("30".to_string())),
+            "30"
+        );
+    }
 }
