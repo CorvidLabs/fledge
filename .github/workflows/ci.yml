@@ -117,6 +117,10 @@ jobs:
         with:
           strict: true
           comment: false
+          # Enforce reverse coverage: every production source file must be
+          # claimed by a spec (test-only + template CI files are excluded in
+          # .specsync/config.toml). Fails CI if an unclaimed file is added (#448).
+          require-coverage: 100
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
