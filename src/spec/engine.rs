@@ -151,23 +151,25 @@ fn render(
             .iter()
             .map(super::commands::spec_result_json)
             .collect();
-        let payload = serde_json::json!({
-            "schema_version": SPEC_CHECK_SCHEMA,
-            "action": "spec_check",
-            "engine": "specsync",
-            "engine_version": version,
-            "specs": specs,
-            "passed": report.passed,
-            "totals": {
-                "checked": report.specs_checked,
-                "errors": report.errors.len(),
-                "warnings": report.warnings.len(),
-            },
-            "errors": report.errors,
-            "warnings": report.warnings,
-            "stale": report.stale,
-            "strict": strict,
-        });
+        let payload = crate::envelope::action(
+            SPEC_CHECK_SCHEMA,
+            "spec_check",
+            serde_json::json!({
+                "engine": "specsync",
+                "engine_version": version,
+                "specs": specs,
+                "passed": report.passed,
+                "totals": {
+                    "checked": report.specs_checked,
+                    "errors": report.errors.len(),
+                    "warnings": report.warnings.len(),
+                },
+                "errors": report.errors,
+                "warnings": report.warnings,
+                "stale": report.stale,
+                "strict": strict,
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&payload)?);
         return Ok(());
     }
