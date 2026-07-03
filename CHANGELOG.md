@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.0] - 2026-07-03
+
+### CI
+
+- run the gate on every PR/push so required checks always report (#451 step 1) (#473) (aac050c)
+
+### Changes
+
+- document ai status --json api_key_set/api_key_source/cloud_routed fields (#464) (160b3e7)
+- make wasmtime deps optional behind a `wasm` feature (on by default) (#461) (8cc2161)
+- make config.toml path platform-aware in docs (#460) (7cc69ac)
+- enforce Cargo.lock in CI with --locked (#459) (2592bc8)
+- fix stale provider --help text + SECURITY.md accuracy (Medium) (#442) (d7b8be7)
+- correct stale Claude-CLI references in review/ask/doctor specs (H-5) (#438) (0c1f42d)
+
+### Documentation
+
+- correct six AGENTS.md contract drifts found by dogfooding (#470) (e5c8be8)
+
+### Features
+
+- specs for the 3 unclaimed prod modules + enforce reverse coverage (#448) (#480) (6894130)
+- trailing success confirmation with elapsed time to `fledge run` (human output) (#458) (edac3a9)
+
+### Fixes
+
+- share one env lock across test modules + isolate config tests (#447) (#479) (ee0243f)
+- ai use error names positional args; ai status Host-line spacing (#469) (2e2501c)
+- plugins recommend — filter installed plugins and drop duplicates (#468) (14e7d29)
+- route plugin lifecycle-hook progress to stderr so --json stays clean (#467) (fab8c95)
+- emit specs[] in specsync-delegated spec check --json (#466) (fd5c411)
+- sync .specsync/registry.toml with current specs (#448) (#462) (d688ff9)
+- isolate cli_config_init_default via FLEDGE_CONFIG_DIR (#463) (b333b5f)
+- pluralize doctor working-tree file count correctly (#457) (7f3f858)
+- retry the formula-convergence check for Contents API propagation lag (#456) (0f092dc)
+- stop swallowing git errors in templates init + publish push (Medium) (#441) (f8bc8c2)
+- atomic write for config.toml — no torn write of the API-key file (Medium) (#440) (bd646b6)
+- two Medium panics — UTF-8 search truncation + broken pipe on --json (#439) (4bf1b81)
+- prevent silent capability escalation on plugin update (H-3) (#437) (55e2d4f)
+- make post-release formula sync recoverable and self-verifying (#435) (72af217)
+- reject dot-dot path segments in plugin sources — trust-tier spoof (H-2) (#434) (2d585d9)
+- block absolute-path escape in template safe_join (#433) (4b69d94)
+- enforce CI gates so untested code cannot ship (#432) (1465bc7)
+- bump wasmtime to 46.0.1 (RUSTSEC-2026-0188) + commit Cargo.lock (H-6) (#436) (5eeab28)
+
+### Other
+
+- Extract testable github URL/error helpers and cover them (#447) (#489) (2b0c7d4)
+- Add StubLlmProvider and cover review::run_panel fan-out (#447) (#488) (22cb13d)
+- Add TestRepo git fixture and cover the read-only git helpers (#447) (#487) (d4610bc)
+- Add corvid-stack template: CorvidLabs trust toolchain setup (language-agnostic) (#427) (0c137d8)
+
+### Refactoring
+
+- decompose interactive_config_edit — extract keys table, menu render, and edit dispatch (#446) (#486) (7abb822)
+- decompose main::run — extract CLI-subcommand → action mappings (#446) (#485) (5938c36)
+- decompose review::run — extract panel resolution, execution, and output (#446) (#484) (3cc119b)
+- decompose handle_config — extract config-list rendering + dedup masked keys (#446) (#483) (6f32cf3)
+- decompose update_plugins — extract per-plugin update + envelope builder (#446) (#482) (f078cf6)
+- decompose install_plugin — extract capability flags + display helpers (#446) (#481) (977f18c)
+- deduplicate triplicated publish orchestration (#443) (#478) (9d084d3)
+- migrate top-level command --json sites to the envelope builder (#444) (#477) (c54f13a)
+- migrate spec/ and release/ --json sites to the envelope builder (#444) (#476) (a5edac3)
+- migrate all plugin/ --json sites to the envelope builder (#444) (#475) (83a258b)
+- migrate all lanes/ --json sites to the envelope builder (#444) (#474) (38728ba)
+- add action-dialect envelope builder; adopt in work commands (#444) (#472) (848407a)
+- shared --json envelope builder; unify the three search entry shapes (#444) (#471) (e22eb90)
+
 ## [v1.6.0] - 2026-06-23
 
 ### Changes
