@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use console::style;
 use serde_json::json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Default timeout for GitHub publish API requests. Without this, a wedged
@@ -143,7 +143,14 @@ pub fn set_repo_topic(owner: &str, repo: &str, topic: &str, token: &str) -> Resu
     Ok(())
 }
 
-pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Result<()> {
+pub fn push_directory(
+    path: &Path,
+    owner: &str,
+    repo: &str,
+    token: &str,
+    commit_message: &str,
+    json: bool,
+) -> Result<()> {
     let git_dir = path.join(".git");
     let needs_init = !git_dir.exists();
 
@@ -179,7 +186,7 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         .unwrap_or(false);
 
     if has_changes {
-        run_git(path, &["commit", "-m", "Publish fledge template"])?;
+        run_git(path, &["commit", "-m", commit_message])?;
     }
 
     use base64::Engine;
@@ -191,12 +198,14 @@ pub fn push_directory(path: &Path, owner: &str, repo: &str, token: &str) -> Resu
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(0);
-    println!(
-        "{} Force-pushing to {}/{}...",
-        style("*").cyan().bold(),
-        owner,
-        repo
-    );
+    if !json {
+        println!(
+            "{} Force-pushing to {}/{}...",
+            style("*").cyan().bold(),
+            owner,
+            repo
+        );
+    }
     let output = std::process::Command::new("git")
         .args(["push", "-u", "origin", "main", "--force"])
         .current_dir(path)
@@ -250,6 +259,216 @@ pub fn run_git(dir: &Path, args: &[&str]) -> Result<()> {
 
     if !status.success() {
         bail!("git {} failed", args.join(" "));
+    }
+
+    Ok(())
+}
+
+/// Shared head of every `fledge <x> publish` flow: load config, require a GitHub
+/// token, and canonicalize the source directory. Returns `(token, path)`.
+///
+/// Single-sourced so the three publish commands (`templates`/`plugins`/`lanes`)
+/// cannot drift on the token/path error messages (issue #443).
+pub fn publish_preflight(path: &Path) -> Result<(String, PathBuf)> {
+    let config = crate::config::Config::load()?;
+    let token = config.github_token().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No GitHub token configured. Run: fledge config set github.token <your-token>"
+        )
+    })?;
+    let path = path
+        .canonicalize()
+        .with_context(|| format!("Directory not found: {}", path.display()))?;
+    Ok((token, path))
+}
+
+/// Resolve the repo owner: the `--org` value if given, else the authenticated
+/// GitHub user (only then is `GET /user` hit, preserving org-vs-user behavior).
+pub fn resolve_owner(org: Option<&str>, token: &str) -> Result<String> {
+    match org {
+        Some(o) => Ok(o.to_string()),
+        None => get_authenticated_user(token),
+    }
+}
+
+/// Everything the shared [`run_publish`] orchestration needs, carrying the
+/// per-artifact differences (topic, commit message, envelope fields, and the
+/// human-facing noun/verb/command). Built by each publish command from its own
+/// manifest/config.
+pub struct PublishRequest<'a> {
+    pub path: &'a Path,
+    pub owner: &'a str,
+    pub repo_name: &'a str,
+    pub description: &'a str,
+    pub private: bool,
+    pub org: Option<&'a str>,
+    pub token: &'a str,
+    pub yes: bool,
+    pub json: bool,
+    /// GitHub topic to tag the repo with, e.g. `fledge-template`.
+    pub topic: &'a str,
+    /// Git commit subject, e.g. `Publish fledge plugin`.
+    pub commit_message: &'a str,
+    /// Singular artifact noun for progress text: `Pushing {noun} files:`.
+    pub noun: &'a str,
+    pub schema_version: u32,
+    /// Verb for the final tip: `Published! {verb} with:`.
+    pub success_verb: &'a str,
+    /// The command shown under the final tip.
+    pub success_command: &'a str,
+    /// Artifact-specific top-level envelope fields (e.g. `{"template": {...},
+    /// "use_hint": "..."}`) merged alongside the shared `cancelled`/`repo`/`topic`.
+    pub extra_fields: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Assemble the `publish` `--json` envelope. The shared keys (`cancelled`,
+/// `repo`, `topic`) plus the request's `extra_fields` are merged; serde_json
+/// sorts object keys, so the byte output matches the previous inline `json!`.
+fn build_publish_envelope(
+    req: &PublishRequest<'_>,
+    cancelled: bool,
+    created: bool,
+) -> serde_json::Value {
+    let mut fields = serde_json::Map::new();
+    fields.insert("cancelled".to_string(), cancelled.into());
+    fields.insert(
+        "repo".to_string(),
+        json!({
+            "owner": req.owner,
+            "name": req.repo_name,
+            "url": format!("https://github.com/{}/{}", req.owner, req.repo_name),
+            "created": created,
+            "private": req.private,
+        }),
+    );
+    fields.insert("topic".to_string(), req.topic.into());
+    for (key, value) in &req.extra_fields {
+        fields.insert(key.clone(), value.clone());
+    }
+    crate::envelope::action(
+        req.schema_version,
+        "publish",
+        serde_json::Value::Object(fields),
+    )
+}
+
+/// Shared publish orchestration tail: check-or-create the repo (honoring the
+/// existing-repo confirmation prompt), set the topic, push the directory, and
+/// emit the envelope or success text. Replaces the ~120 lines each of the three
+/// publish commands used to duplicate (issue #443).
+pub fn run_publish(req: PublishRequest<'_>) -> Result<()> {
+    // JSON mode implies non-interactive consent (the confirm prompt below is
+    // therefore never reached under --json — preserved existing behavior).
+    let yes = req.yes || crate::utils::is_non_interactive() || req.json;
+
+    let sp = if req.json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Checking repository:"))
+    };
+    let repo_exists = check_repo_exists(req.owner, req.repo_name, req.token)?;
+    if let Some(s) = sp {
+        s.finish();
+    }
+
+    let mut created_repo = false;
+    if repo_exists {
+        if !yes {
+            crate::utils::require_interactive("yes")?;
+            let confirm =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(format!(
+                        "Repository {}/{} already exists. Push update?",
+                        req.owner, req.repo_name
+                    ))
+                    .default(false)
+                    .interact()?;
+
+            if !confirm {
+                if req.json {
+                    let result = build_publish_envelope(&req, true, false);
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                } else {
+                    println!("{} Cancelled.", style("*").cyan().bold());
+                }
+                return Ok(());
+            }
+        }
+    } else {
+        let sp = if req.json {
+            None
+        } else {
+            Some(crate::spinner::Spinner::start("Creating repository:"))
+        };
+        create_github_repo(
+            req.repo_name,
+            req.description,
+            req.private,
+            req.org,
+            req.token,
+        )?;
+        if let Some(s) = sp {
+            s.finish();
+        }
+        created_repo = true;
+        if !req.json {
+            println!(
+                "  {} Created repository {}/{}",
+                style("✅").green().bold(),
+                req.owner,
+                req.repo_name
+            );
+        }
+    }
+
+    let sp = if req.json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start("Setting repository topics:"))
+    };
+    set_repo_topic(req.owner, req.repo_name, req.topic, req.token)?;
+    if let Some(s) = sp {
+        s.finish();
+    }
+    if !req.json {
+        println!(
+            "  {} Set {} topic",
+            style("✅").green().bold(),
+            style(req.topic).cyan()
+        );
+    }
+
+    let sp = if req.json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Pushing {} files:",
+            req.noun
+        )))
+    };
+    push_directory(
+        req.path,
+        req.owner,
+        req.repo_name,
+        req.token,
+        req.commit_message,
+        req.json,
+    )?;
+    if let Some(s) = sp {
+        s.finish();
+    }
+
+    if req.json {
+        let result = build_publish_envelope(&req, false, created_repo);
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        println!("  {} Pushed {} files", style("✅").green().bold(), req.noun);
+        println!(
+            "\n{} Published! {} with:\n\n  {}",
+            style("✅").green().bold(),
+            req.success_verb,
+            style(req.success_command).cyan()
+        );
     }
 
     Ok(())
@@ -312,5 +531,146 @@ mod tests {
     fn publish_live() {
         // Integration test: publish a real template
         // Run with: cargo test publish_live -- --ignored
+    }
+
+    use super::{build_publish_envelope, PublishRequest};
+    use serde_json::json;
+
+    fn sample_request<'a>(
+        topic: &'a str,
+        extra: serde_json::Map<String, serde_json::Value>,
+    ) -> PublishRequest<'a> {
+        PublishRequest {
+            path: std::path::Path::new("/tmp/x"),
+            owner: "octo",
+            repo_name: "widget",
+            description: "desc",
+            private: false,
+            org: None,
+            token: "t",
+            yes: true,
+            json: true,
+            topic,
+            commit_message: "Publish",
+            noun: "widget",
+            schema_version: 1,
+            success_verb: "Use",
+            success_command: "cmd",
+            extra_fields: extra,
+        }
+    }
+
+    // The three envelope tests below prove the shared `build_publish_envelope`
+    // produces byte-for-byte the same JSON the three publish commands used to
+    // emit via their inline `json!` blocks (issue #443 dedup), on both the
+    // success (created) and cancel paths — without touching the network.
+
+    #[test]
+    fn template_envelope_matches_legacy_inline_json() {
+        let mut extra = serde_json::Map::new();
+        extra.insert("template".to_string(), json!({ "description": "desc" }));
+        extra.insert(
+            "use_hint".to_string(),
+            serde_json::Value::from("fledge templates init <name> --template octo/widget"),
+        );
+        let req = sample_request("fledge-template", extra);
+
+        let expected_success = json!({
+            "schema_version": 1,
+            "action": "publish",
+            "cancelled": false,
+            "repo": {
+                "owner": "octo",
+                "name": "widget",
+                "url": "https://github.com/octo/widget",
+                "created": true,
+                "private": false,
+            },
+            "template": { "description": "desc" },
+            "topic": "fledge-template",
+            "use_hint": "fledge templates init <name> --template octo/widget",
+        });
+        let got = build_publish_envelope(&req, false, true);
+        assert_eq!(got, expected_success);
+        assert_eq!(
+            serde_json::to_string_pretty(&got).unwrap(),
+            serde_json::to_string_pretty(&expected_success).unwrap()
+        );
+
+        let expected_cancel = json!({
+            "schema_version": 1,
+            "action": "publish",
+            "cancelled": true,
+            "repo": {
+                "owner": "octo",
+                "name": "widget",
+                "url": "https://github.com/octo/widget",
+                "created": false,
+                "private": false,
+            },
+            "template": { "description": "desc" },
+            "topic": "fledge-template",
+            "use_hint": "fledge templates init <name> --template octo/widget",
+        });
+        assert_eq!(build_publish_envelope(&req, true, false), expected_cancel);
+    }
+
+    #[test]
+    fn plugin_envelope_matches_legacy_inline_json() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "plugin".to_string(),
+            json!({ "name": "widget", "version": "0.1.0", "description": "desc" }),
+        );
+        extra.insert(
+            "install_hint".to_string(),
+            serde_json::Value::from("fledge plugins install octo/widget"),
+        );
+        let req = sample_request("fledge-plugin", extra);
+
+        let expected = json!({
+            "schema_version": 1,
+            "action": "publish",
+            "cancelled": false,
+            "repo": {
+                "owner": "octo",
+                "name": "widget",
+                "url": "https://github.com/octo/widget",
+                "created": true,
+                "private": false,
+            },
+            "plugin": { "name": "widget", "version": "0.1.0", "description": "desc" },
+            "topic": "fledge-plugin",
+            "install_hint": "fledge plugins install octo/widget",
+        });
+        assert_eq!(build_publish_envelope(&req, false, true), expected);
+    }
+
+    #[test]
+    fn lanes_envelope_matches_legacy_inline_json() {
+        let mut extra = serde_json::Map::new();
+        extra.insert("lanes_published".to_string(), json!(["ci", "pre-commit"]));
+        extra.insert(
+            "import_hint".to_string(),
+            serde_json::Value::from("fledge lanes import octo/widget"),
+        );
+        let req = sample_request("fledge-lane", extra);
+
+        let expected = json!({
+            "schema_version": 1,
+            "action": "publish",
+            "cancelled": false,
+            "repo": {
+                "owner": "octo",
+                "name": "widget",
+                "url": "https://github.com/octo/widget",
+                "created": true,
+                "private": false,
+            },
+            "lanes_published": ["ci", "pre-commit"],
+            "topic": "fledge-lane",
+            "import_hint": "fledge lanes import octo/widget",
+        });
+        assert_eq!(build_publish_envelope(&req, false, true), expected);
     }
 }
