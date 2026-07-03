@@ -14,6 +14,57 @@ fn github_api_agent() -> ureq::Agent {
         .into()
 }
 
+/// Build the full GitHub REST API URL for `path`, appending percent-encoded
+/// query parameters. Split out from `github_api_get` so the URL assembly is
+/// testable without issuing a request.
+fn build_api_url(path: &str, query_params: &[(&str, &str)]) -> String {
+    let mut url = format!("https://api.github.com{}", path);
+
+    if !query_params.is_empty() {
+        url.push('?');
+        for (i, (k, v)) in query_params.iter().enumerate() {
+            if i > 0 {
+                url.push('&');
+            }
+            url.push_str(k);
+            url.push('=');
+            url.push_str(&crate::search::urlencod(v));
+        }
+    }
+
+    url
+}
+
+/// Map a GitHub API HTTP status code to a user-facing error message with a
+/// remediation hint. Returns `None` for statuses that have no special-cased
+/// message (the caller then emits a generic "request failed" error carrying the
+/// underlying transport error). Split out so the classification is testable
+/// without a live endpoint.
+fn github_status_error_message(status: u16, path: &str) -> Option<String> {
+    match status {
+        404 => {
+            let repo_id = path
+                .trim_start_matches('/')
+                .split('/')
+                .nth(2)
+                .map(|r| {
+                    let owner = path.trim_start_matches('/').split('/').nth(1).unwrap_or("?");
+                    format!("{}/{}", owner, r)
+                })
+                .unwrap_or_else(|| path.to_string());
+            Some(format!(
+                "Not found (404) for {}.\nThe repo may not exist, or it may be private — in that case configure a token with 'repo' scope: fledge config set github.token <token>",
+                repo_id
+            ))
+        }
+        403 => Some(
+            "GitHub API rate limit exceeded. Set a token with: fledge config set github.token <your-token>"
+                .to_string(),
+        ),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 fn parse_repo_url(url: &str) -> Result<(String, String)> {
     // SSH: git@github.com:owner/repo.git
@@ -60,19 +111,7 @@ pub fn github_api_get(
     token: Option<&str>,
     query_params: &[(&str, &str)],
 ) -> Result<serde_json::Value> {
-    let mut url = format!("https://api.github.com{}", path);
-
-    if !query_params.is_empty() {
-        url.push('?');
-        for (i, (k, v)) in query_params.iter().enumerate() {
-            if i > 0 {
-                url.push('&');
-            }
-            url.push_str(k);
-            url.push('=');
-            url.push_str(&crate::search::urlencod(v));
-        }
-    }
+    let url = build_api_url(path, query_params);
 
     let agent = github_api_agent();
     let mut request = agent
@@ -84,21 +123,13 @@ pub fn github_api_get(
         request = request.header("Authorization", &format!("Bearer {}", t));
     }
 
-    let mut response = request.call().map_err(|e| match e {
-        ureq::Error::StatusCode(404) => {
-            let repo_id = path.trim_start_matches('/').split('/').nth(2).map(|r| {
-                let owner = path.trim_start_matches('/').split('/').nth(1).unwrap_or("?");
-                format!("{}/{}", owner, r)
-            }).unwrap_or_else(|| path.to_string());
-            anyhow::anyhow!(
-                "Not found (404) for {}.\nThe repo may not exist, or it may be private — in that case configure a token with 'repo' scope: fledge config set github.token <token>",
-                repo_id
-            )
+    let mut response = request.call().map_err(|e| {
+        if let ureq::Error::StatusCode(code) = &e {
+            if let Some(msg) = github_status_error_message(*code, path) {
+                return anyhow::anyhow!("{msg}");
+            }
         }
-        ureq::Error::StatusCode(403) => anyhow::anyhow!(
-            "GitHub API rate limit exceeded. Set a token with: fledge config set github.token <your-token>"
-        ),
-        _ => anyhow::anyhow!("GitHub API request failed: {}", e),
+        anyhow::anyhow!("GitHub API request failed: {}", e)
     })?;
 
     let text = response
@@ -176,5 +207,65 @@ mod tests {
         crate::test_support::with_cwd(tmp.path(), || {
             assert!(ensure_git_repo().is_err());
         });
+    }
+
+    // ── URL building + error classification (no network) ───────────────────
+
+    #[test]
+    fn build_api_url_without_query() {
+        assert_eq!(
+            build_api_url("/repos/CorvidLabs/fledge", &[]),
+            "https://api.github.com/repos/CorvidLabs/fledge"
+        );
+    }
+
+    #[test]
+    fn build_api_url_encodes_and_joins_query() {
+        let url = build_api_url(
+            "/search/repositories",
+            &[("q", "topic:fledge-plugin lang:rust"), ("per_page", "5")],
+        );
+        // First param after '?', the rest joined with '&', values encoded.
+        assert_eq!(
+            url,
+            format!(
+                "https://api.github.com/search/repositories?q={}&per_page=5",
+                crate::search::urlencod("topic:fledge-plugin lang:rust")
+            )
+        );
+    }
+
+    #[test]
+    fn status_error_404_names_the_repo_and_hints_token() {
+        let msg = github_status_error_message(404, "/repos/CorvidLabs/fledge").unwrap();
+        assert!(
+            msg.contains("CorvidLabs/fledge"),
+            "should name the repo: {msg}"
+        );
+        assert!(
+            msg.contains("'repo' scope"),
+            "should hint the token scope: {msg}"
+        );
+    }
+
+    #[test]
+    fn status_error_404_falls_back_to_raw_path_without_repo_segment() {
+        // A path with no owner/repo pair (e.g. /user) keeps the raw path.
+        let msg = github_status_error_message(404, "/user").unwrap();
+        assert!(msg.contains("/user"), "should fall back to the path: {msg}");
+    }
+
+    #[test]
+    fn status_error_403_mentions_rate_limit() {
+        let msg = github_status_error_message(403, "/anything").unwrap();
+        assert!(msg.contains("rate limit"));
+    }
+
+    #[test]
+    fn status_error_other_codes_are_uncategorized() {
+        // Everything but 404/403 falls through to the generic "request failed".
+        assert!(github_status_error_message(500, "/x").is_none());
+        assert!(github_status_error_message(401, "/x").is_none());
+        assert!(github_status_error_message(200, "/x").is_none());
     }
 }
