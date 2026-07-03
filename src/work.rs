@@ -990,4 +990,55 @@ test = "cargo test"
             "feat: support http: and https: URLs"
         );
     }
+
+    // ── git read helpers, driven against a real temp repo ──────────────────
+
+    #[test]
+    fn current_branch_reflects_checkout() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        repo.git(&["branch", "-M", "feature-x"]);
+        assert_eq!(repo.run_in(current_branch).unwrap(), "feature-x");
+    }
+
+    #[test]
+    fn has_uncommitted_changes_tracks_worktree_state() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        assert!(!repo.run_in(has_uncommitted_changes).unwrap());
+        std::fs::write(repo.path().join("b.txt"), "new\n").unwrap();
+        assert!(repo.run_in(has_uncommitted_changes).unwrap());
+    }
+
+    #[test]
+    fn default_branch_prefers_origin_head() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        // A symbolic-ref for origin/HEAD wins over the local-branch ladder,
+        // and the `origin/` prefix is stripped.
+        repo.git(&[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/develop",
+        ]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "develop");
+    }
+
+    #[test]
+    fn default_branch_falls_back_to_master() {
+        // Isolates the rev-parse ladder: "master" differs from the hardcoded
+        // "main" fallback, so this genuinely exercises branch detection.
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        repo.git(&["branch", "-M", "master"]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "master");
+    }
+
+    #[test]
+    fn default_branch_falls_back_to_main() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        repo.git(&["branch", "-M", "main"]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "main");
+    }
 }

@@ -163,4 +163,18 @@ mod tests {
     fn parse_invalid_url_errors() {
         assert!(parse_repo_url("https://gitlab.com/user/repo").is_err());
     }
+
+    #[test]
+    fn ensure_git_repo_ok_inside_repo() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.run_in(|| assert!(ensure_git_repo().is_ok()));
+    }
+
+    #[test]
+    fn ensure_git_repo_errors_outside_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        crate::test_support::with_cwd(tmp.path(), || {
+            assert!(ensure_git_repo().is_err());
+        });
+    }
 }
