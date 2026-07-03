@@ -130,3 +130,73 @@ impl Drop for ConfigDirGuard {
         }
     }
 }
+
+/// Run `f` with the process current directory set to `dir`, serialized on the
+/// shared [`cwd_lock`] and restoring the previous directory afterward — even on
+/// panic. Use to drive production helpers that shell out to `git` (or any tool)
+/// in the current directory. Because the CWD is process-global, this holds
+/// `cwd_lock` for the whole closure; keep `f` short.
+pub(crate) fn with_cwd<F: FnOnce() -> R, R>(dir: &std::path::Path, f: F) -> R {
+    let _guard = cwd_lock();
+    let saved = std::env::current_dir().unwrap();
+    std::env::set_current_dir(dir).unwrap();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    let _ = std::env::set_current_dir(saved);
+    match result {
+        Ok(r) => r,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
+
+/// A throwaway git repository in a tempdir, for exercising the git-subprocess
+/// helpers against a real `git` — the same approach `release::tests` already
+/// uses (real git is more faithful than any canned-stdout double). Seed it with
+/// the builder methods, then drive a CWD-bound production helper via
+/// [`TestRepo::run_in`]. The repo is deleted when the `TestRepo` drops.
+pub(crate) struct TestRepo {
+    dir: tempfile::TempDir,
+}
+
+impl TestRepo {
+    /// Initialize a repo (`git init` + a committer identity) in a fresh tempdir.
+    pub(crate) fn init() -> Self {
+        let repo = Self {
+            dir: tempfile::tempdir().expect("create tempdir for TestRepo"),
+        };
+        repo.git(&["init"]);
+        repo.git(&["config", "user.email", "test@test.com"]);
+        repo.git(&["config", "user.name", "Test"]);
+        repo
+    }
+
+    /// The repository's working-directory path.
+    #[allow(dead_code)]
+    pub(crate) fn path(&self) -> &std::path::Path {
+        self.dir.path()
+    }
+
+    /// Run a git command in the repo, returning its `Output`. Panics only if
+    /// `git` can't be spawned; the exit status is left for the caller to
+    /// inspect (setup steps like `symbolic-ref` may legitimately be checked).
+    pub(crate) fn git(&self, args: &[&str]) -> std::process::Output {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(self.dir.path())
+            .output()
+            .expect("spawn git")
+    }
+
+    /// Write `content` to `name` and commit it as "add {name}". Returns `&self`
+    /// for chaining.
+    pub(crate) fn commit_file(&self, name: &str, content: &str) -> &Self {
+        std::fs::write(self.dir.path().join(name), content).expect("write test file");
+        self.git(&["add", name]);
+        self.git(&["commit", "-m", &format!("add {name}")]);
+        self
+    }
+
+    /// Run `f` with the process CWD set to this repo (see [`with_cwd`]).
+    pub(crate) fn run_in<F: FnOnce() -> R, R>(&self, f: F) -> R {
+        with_cwd(self.dir.path(), f)
+    }
+}

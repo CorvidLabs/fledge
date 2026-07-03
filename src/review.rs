@@ -1060,4 +1060,75 @@ mod tests {
         assert!(env.get("review").is_none());
         assert!(env.get("error").is_none());
     }
+
+    // ── git read helpers, driven against a real temp repo ──────────────────
+
+    #[test]
+    fn default_branch_prefers_origin_head() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        // A symbolic-ref for origin/HEAD wins over the local-branch ladder.
+        repo.git(&[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/develop",
+        ]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "develop");
+    }
+
+    #[test]
+    fn default_branch_falls_back_to_main() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        repo.git(&["branch", "-M", "main"]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "main");
+    }
+
+    #[test]
+    fn default_branch_falls_back_to_master() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        repo.git(&["branch", "-M", "master"]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "master");
+    }
+
+    #[test]
+    fn default_branch_defaults_to_main_when_none_present() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("a.txt", "1\n");
+        // Neither origin/HEAD, main, nor master exists → the "main" fallback.
+        repo.git(&["branch", "-M", "feature"]);
+        assert_eq!(repo.run_in(default_branch).unwrap(), "main");
+    }
+
+    #[test]
+    fn get_diff_and_changed_files_report_the_change() {
+        let repo = crate::test_support::TestRepo::init();
+        repo.commit_file("x.txt", "one\n");
+        repo.commit_file("x.txt", "two\n");
+        let (diff, files) = repo.run_in(|| {
+            (
+                get_diff("HEAD~1", None).unwrap(),
+                get_changed_files("HEAD~1", None).unwrap(),
+            )
+        });
+        assert!(
+            diff.contains("-one"),
+            "diff should show the removed line: {diff}"
+        );
+        assert!(
+            diff.contains("+two"),
+            "diff should show the added line: {diff}"
+        );
+        assert_eq!(files, vec!["x.txt".to_string()]);
+    }
+
+    #[test]
+    fn get_diff_helpers_reject_dash_base() {
+        // The `base.starts_with('-')` guard blocks option-injection; it fires
+        // before any git call, so no repo is needed.
+        assert!(get_diff("-rf", None).is_err());
+        assert!(get_diff_stats("-rf", None).is_err());
+        assert!(get_changed_files("-rf", None).is_err());
+    }
 }

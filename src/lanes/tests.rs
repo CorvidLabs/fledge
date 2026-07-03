@@ -311,7 +311,7 @@ description = "Sequential"
 steps = ["a", "b"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "seq",
         &config.lanes["seq"],
@@ -333,7 +333,7 @@ fn execute_inline_step() {
 steps = [{ run = "echo inline-works" }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "inline",
         &config.lanes["inline"],
@@ -357,7 +357,7 @@ b = "echo parallel-b"
 steps = [{ parallel = ["a", "b"] }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "par",
         &config.lanes["par"],
@@ -404,7 +404,7 @@ a = "echo task-a"
 steps = [{ parallel = ["a", { run = "echo inline-b" }] }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "mixed",
         &config.lanes["mixed"],
@@ -426,7 +426,7 @@ fn execute_parallel_all_inline() {
 steps = [{ parallel = [{ run = "echo one" }, { run = "echo two" }] }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "inlines",
         &config.lanes["inlines"],
@@ -489,7 +489,7 @@ fail_fast = true
 steps = ["fail", "ok"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ff",
         &config.lanes["ff"],
@@ -515,7 +515,7 @@ fail_fast = false
 steps = ["fail", "ok"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "noff",
         &config.lanes["noff"],
@@ -543,7 +543,7 @@ cmd = "echo preparing"
 steps = ["build"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1147,7 +1147,7 @@ c = "echo ok-c"
 steps = ["a", "b", "c"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // Step "a" would fail, but --from 2 skips it
     let result = execute_lane(
         "ci",
@@ -1172,7 +1172,7 @@ ok = "echo ok"
 steps = ["fail", "ok"]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // Skip "fail", start from "ok"
     let result = execute_lane(
         "ci",
@@ -1330,7 +1330,7 @@ steps = [
 ]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // First step has when condition that's not met, so it's skipped
     // Second step runs and passes
     let result = execute_lane(
@@ -1355,7 +1355,7 @@ fn execute_when_runs_step() {
 steps = [{ run = "echo conditional-ok", when = "FLEDGE_TEST_RUN=yes" }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1423,7 +1423,7 @@ fn execute_timeout_kills_slow_command() {
 steps = [{ run = "sleep 30", timeout = 1 }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1453,7 +1453,7 @@ fn execute_timeout_fast_command_succeeds() {
 steps = [{ run = "echo fast", timeout = 30 }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1477,7 +1477,7 @@ fn execute_retries_succeed_on_first_try() {
 steps = [{ run = "echo ok", retries = 3 }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1499,7 +1499,7 @@ fn execute_retries_still_fail_after_exhaustion() {
 steps = [{ run = "exit 1", retries = 2 }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "ci",
         &config.lanes["ci"],
@@ -1539,7 +1539,7 @@ fn execute_retry_delay_zero_skips_sleep() {
 steps = [{ run = "exit 1", retries = 2, retry_delay = 0 }]
 "#,
     );
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let start = std::time::Instant::now();
     let result = execute_lane(
         "fast-fail",
@@ -1590,7 +1590,7 @@ steps = [{{ run = "{cmd}", retries = 2 }}]
 "#
     );
     let config = parse_config(&toml_str);
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "flaky",
         &config.lanes["flaky"],
@@ -1826,7 +1826,7 @@ steps = [{{ run = "{cmd}", timeout = 1 }}]
 "#
     );
     let config = parse_config(&toml_str);
-    let project_dir = std::env::current_dir().unwrap();
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let result = execute_lane(
         "timeout",
         &config.lanes["timeout"],

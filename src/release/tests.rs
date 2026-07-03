@@ -4,20 +4,8 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 
-use crate::test_support::cwd_lock;
+use crate::test_support::with_cwd;
 use crate::versioning::parse_version;
-
-fn with_cwd<F: FnOnce() -> R, R>(dir: &Path, f: F) -> R {
-    let _guard = cwd_lock();
-    let saved = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir).unwrap();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-    let _ = std::env::set_current_dir(saved);
-    match result {
-        Ok(r) => r,
-        Err(payload) => std::panic::resume_unwind(payload),
-    }
-}
 
 fn init_git_repo(dir: &Path) {
     Command::new("git")
