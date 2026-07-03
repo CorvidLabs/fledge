@@ -166,13 +166,7 @@ pub(crate) fn print_plugin_report(
         // schema_version (matches plugins list/audit/search shape).
         // The full report is flattened so existing fields (path,
         // plugin_name, errors, warnings) sit at the same level.
-        let mut value = serde_json::to_value(report)?;
-        if let Some(obj) = value.as_object_mut() {
-            obj.insert(
-                "schema_version".to_string(),
-                serde_json::Value::Number(serde_json::Number::from(1)),
-            );
-        }
+        let value = crate::envelope::versioned(1, serde_json::to_value(report)?);
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         let name = if report.plugin_name.is_empty() {

@@ -320,14 +320,16 @@ pub(crate) fn install_action(
     })?;
     let report = install_plugin(source, force, copy, json)?;
     if json {
-        let result = serde_json::json!({
-            "schema_version": PLUGINS_INSTALL_SCHEMA,
-            "action": "install",
-            "scope": "single",
-            "installed": [report],
-            "failed": [],
-            "summary": { "total": 1, "installed": 1, "failed": 0 },
-        });
+        let result = crate::envelope::action(
+            PLUGINS_INSTALL_SCHEMA,
+            "install",
+            serde_json::json!({
+                "scope": "single",
+                "installed": [report],
+                "failed": [],
+                "summary": { "total": 1, "installed": 1, "failed": 0 },
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     }
     Ok(())
@@ -393,18 +395,20 @@ pub(crate) fn install_defaults(force: bool, json: bool) -> Result<()> {
             .iter()
             .map(|(source, err)| serde_json::json!({ "source": source, "error": err }))
             .collect();
-        let result = serde_json::json!({
-            "schema_version": PLUGINS_INSTALL_SCHEMA,
-            "action": "install",
-            "scope": "defaults",
-            "installed": installed,
-            "failed": failed_json,
-            "summary": {
-                "total": DEFAULT_PLUGINS.len(),
-                "installed": installed_sources.len(),
-                "failed": failed.len(),
-            },
-        });
+        let result = crate::envelope::action(
+            PLUGINS_INSTALL_SCHEMA,
+            "install",
+            serde_json::json!({
+                "scope": "defaults",
+                "installed": installed,
+                "failed": failed_json,
+                "summary": {
+                    "total": DEFAULT_PLUGINS.len(),
+                    "installed": installed_sources.len(),
+                    "failed": failed.len(),
+                },
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     }
 

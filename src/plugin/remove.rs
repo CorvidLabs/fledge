@@ -64,16 +64,18 @@ pub(crate) fn remove_plugin(name: &str, json: bool) -> Result<()> {
     save_registry(&registry)?;
 
     if json {
-        let result = serde_json::json!({
-            "schema_version": PLUGINS_REMOVE_SCHEMA,
-            "action": "remove",
-            "removed": {
-                "name": removed_name,
-                "source": removed_source,
-                "version": removed_version,
-                "commands": removed_commands,
-            },
-        });
+        let result = crate::envelope::action(
+            PLUGINS_REMOVE_SCHEMA,
+            "remove",
+            serde_json::json!({
+                "removed": {
+                    "name": removed_name,
+                    "source": removed_source,
+                    "version": removed_version,
+                    "commands": removed_commands,
+                },
+            }),
+        );
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
         println!(
