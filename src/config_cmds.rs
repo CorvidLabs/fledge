@@ -84,180 +84,7 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             utils::require_interactive("fledge config edit")?;
             interactive_config_edit()?;
         }
-        ConfigAction::List => {
-            let config = config::Config::load()?;
-            let path = config::Config::config_path();
-            println!(
-                "{} Config: {}\n",
-                style("*").cyan().bold(),
-                style(path.display()).dim()
-            );
-
-            println!("  {}", style("Defaults").bold().underlined());
-            print_config_described(
-                "defaults.author",
-                &config.defaults.author,
-                "Author name for new projects",
-            );
-            print_config_described(
-                "defaults.github_org",
-                &config.defaults.github_org,
-                "GitHub org for new projects",
-            );
-            print_config_described(
-                "defaults.license",
-                &config.defaults.license,
-                "Default license (e.g. MIT, Apache-2.0)",
-            );
-            println!();
-
-            println!("  {}", style("GitHub").bold().underlined());
-            print_config_described(
-                "github.token",
-                &config.github.token.as_ref().map(|_| "***".to_string()),
-                "API token for GitHub operations",
-            );
-            println!();
-
-            println!("  {}", style("Templates").bold().underlined());
-            print_config_list_described(
-                "templates.paths",
-                &config.templates.paths,
-                "Local dirs with project templates",
-            );
-            print_config_list_described(
-                "templates.repos",
-                &config.templates.repos,
-                "GitHub repos with templates (owner/repo)",
-            );
-            println!();
-
-            println!("  {}", style("Trust").bold().underlined());
-            print_config_list_described(
-                "trust.orgs",
-                &config.trust.orgs,
-                "Extra trusted orgs (team tier)",
-            );
-            print_config_list_described(
-                "trust.users",
-                &config.trust.users,
-                "Extra trusted users (team tier)",
-            );
-            println!();
-
-            println!("  {}", style("AI").bold().underlined());
-            print_config_described(
-                "ai.provider",
-                &config.ai.provider,
-                "LLM backend: anthropic, openai, or ollama",
-            );
-            print_config_described(
-                "ai.anthropic.model",
-                &config.ai.anthropic.model,
-                "Anthropic model id",
-            );
-
-            let anthropic_key_env = std::env::var("ANTHROPIC_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty());
-            if anthropic_key_env.is_some() {
-                print_config_value_described(
-                    "ai.anthropic.api_key",
-                    &format!("*** {}", style("(from ANTHROPIC_API_KEY env)").dim()),
-                    "Anthropic API key",
-                );
-            } else {
-                print_config_described(
-                    "ai.anthropic.api_key",
-                    &config
-                        .ai
-                        .anthropic
-                        .api_key
-                        .as_ref()
-                        .map(|_| "***".to_string()),
-                    "Anthropic API key (or export ANTHROPIC_API_KEY)",
-                );
-            }
-            if let Some(b) = &config.ai.anthropic.base_url {
-                print_config_value_described("ai.anthropic.base_url", b, "Anthropic base URL");
-            }
-
-            if let Some(b) = &config.ai.openai.base_url {
-                print_config_value_described(
-                    "ai.openai.base_url",
-                    b,
-                    "OpenAI-compatible base URL (gateway)",
-                );
-            }
-            let openai_key_env = std::env::var("OPENAI_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty());
-            if openai_key_env.is_some() {
-                print_config_value_described(
-                    "ai.openai.api_key",
-                    &format!("*** {}", style("(from OPENAI_API_KEY env)").dim()),
-                    "OpenAI-compatible API key",
-                );
-            } else {
-                print_config_described(
-                    "ai.openai.api_key",
-                    &config.ai.openai.api_key.as_ref().map(|_| "***".to_string()),
-                    "OpenAI-compatible API key (or export OPENAI_API_KEY)",
-                );
-            }
-            print_config_described(
-                "ai.openai.model",
-                &config.ai.openai.model,
-                "OpenAI-compatible model id",
-            );
-
-            let host_override = std::env::var("OLLAMA_HOST").ok();
-            if host_override.is_some() {
-                print_config_value_described(
-                    "ai.ollama.host",
-                    &format!(
-                        "{} {}",
-                        config.ai.ollama.host,
-                        style("(⚠ overridden by OLLAMA_HOST env)").yellow()
-                    ),
-                    "Ollama API endpoint URL",
-                );
-            } else {
-                print_config_value_described(
-                    "ai.ollama.host",
-                    &config.ai.ollama.host,
-                    "Ollama API endpoint URL",
-                );
-            }
-
-            let key_override = std::env::var("OLLAMA_API_KEY")
-                .ok()
-                .filter(|k| !k.is_empty());
-            if key_override.is_some() {
-                print_config_value_described(
-                    "ai.ollama.api_key",
-                    &format!("*** {}", style("(from OLLAMA_API_KEY env)").dim()),
-                    "Ollama Cloud API key",
-                );
-            } else {
-                print_config_described(
-                    "ai.ollama.api_key",
-                    &config.ai.ollama.api_key.as_ref().map(|_| "***".to_string()),
-                    "Ollama Cloud API key",
-                );
-            }
-
-            print_config_value_described(
-                "ai.ollama.model",
-                &config.ai.ollama.model,
-                "Ollama model name",
-            );
-            print_config_value_described(
-                "ai.ollama.timeout_seconds",
-                &config.ai.ollama.timeout_seconds.to_string(),
-                "Request timeout in seconds",
-            );
-        }
+        ConfigAction::List => handle_config_list()?,
         ConfigAction::Path => {
             println!("{}", config::Config::config_path().display());
         }
@@ -265,6 +92,191 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             config::init_config(preset.as_deref())?;
         }
     }
+    Ok(())
+}
+
+/// Print an API-key config row honoring an environment-variable override. When
+/// `env_var` is set (and non-empty) the key is sourced from the environment and
+/// shown masked with a "(from ENV env)" note; otherwise the stored config value
+/// (if any) is shown masked. Dedups the anthropic/openai/ollama key rows, which
+/// share this pattern but differ only in var name, field, and descriptions.
+/// The stored value is never printed — only whether it is set.
+fn print_masked_env_key(
+    key: &str,
+    env_var: &str,
+    config_value: &Option<String>,
+    env_desc: &str,
+    plain_desc: &str,
+) {
+    let env_set = std::env::var(env_var)
+        .ok()
+        .filter(|k| !k.is_empty())
+        .is_some();
+    if env_set {
+        print_config_value_described(
+            key,
+            &format!("*** {}", style(format!("(from {env_var} env)")).dim()),
+            env_desc,
+        );
+    } else {
+        print_config_described(
+            key,
+            &config_value.as_ref().map(|_| "***".to_string()),
+            plain_desc,
+        );
+    }
+}
+
+/// Print the `AI` section of `fledge config list`: provider plus the
+/// anthropic/openai/ollama rows, each honoring the relevant environment-variable
+/// overrides for keys and the Ollama host.
+fn print_ai_config(config: &config::Config) {
+    println!("  {}", style("AI").bold().underlined());
+    print_config_described(
+        "ai.provider",
+        &config.ai.provider,
+        "LLM backend: anthropic, openai, or ollama",
+    );
+    print_config_described(
+        "ai.anthropic.model",
+        &config.ai.anthropic.model,
+        "Anthropic model id",
+    );
+
+    print_masked_env_key(
+        "ai.anthropic.api_key",
+        "ANTHROPIC_API_KEY",
+        &config.ai.anthropic.api_key,
+        "Anthropic API key",
+        "Anthropic API key (or export ANTHROPIC_API_KEY)",
+    );
+    if let Some(b) = &config.ai.anthropic.base_url {
+        print_config_value_described("ai.anthropic.base_url", b, "Anthropic base URL");
+    }
+
+    if let Some(b) = &config.ai.openai.base_url {
+        print_config_value_described(
+            "ai.openai.base_url",
+            b,
+            "OpenAI-compatible base URL (gateway)",
+        );
+    }
+    print_masked_env_key(
+        "ai.openai.api_key",
+        "OPENAI_API_KEY",
+        &config.ai.openai.api_key,
+        "OpenAI-compatible API key",
+        "OpenAI-compatible API key (or export OPENAI_API_KEY)",
+    );
+    print_config_described(
+        "ai.openai.model",
+        &config.ai.openai.model,
+        "OpenAI-compatible model id",
+    );
+
+    let host_override = std::env::var("OLLAMA_HOST").ok();
+    if host_override.is_some() {
+        print_config_value_described(
+            "ai.ollama.host",
+            &format!(
+                "{} {}",
+                config.ai.ollama.host,
+                style("(⚠ overridden by OLLAMA_HOST env)").yellow()
+            ),
+            "Ollama API endpoint URL",
+        );
+    } else {
+        print_config_value_described(
+            "ai.ollama.host",
+            &config.ai.ollama.host,
+            "Ollama API endpoint URL",
+        );
+    }
+
+    print_masked_env_key(
+        "ai.ollama.api_key",
+        "OLLAMA_API_KEY",
+        &config.ai.ollama.api_key,
+        "Ollama Cloud API key",
+        "Ollama Cloud API key",
+    );
+
+    print_config_value_described(
+        "ai.ollama.model",
+        &config.ai.ollama.model,
+        "Ollama model name",
+    );
+    print_config_value_described(
+        "ai.ollama.timeout_seconds",
+        &config.ai.ollama.timeout_seconds.to_string(),
+        "Request timeout in seconds",
+    );
+}
+
+/// Render the full `fledge config list` output: the config path plus the
+/// Defaults, GitHub, Templates, Trust, and AI sections.
+fn handle_config_list() -> Result<()> {
+    let config = config::Config::load()?;
+    let path = config::Config::config_path();
+    println!(
+        "{} Config: {}\n",
+        style("*").cyan().bold(),
+        style(path.display()).dim()
+    );
+
+    println!("  {}", style("Defaults").bold().underlined());
+    print_config_described(
+        "defaults.author",
+        &config.defaults.author,
+        "Author name for new projects",
+    );
+    print_config_described(
+        "defaults.github_org",
+        &config.defaults.github_org,
+        "GitHub org for new projects",
+    );
+    print_config_described(
+        "defaults.license",
+        &config.defaults.license,
+        "Default license (e.g. MIT, Apache-2.0)",
+    );
+    println!();
+
+    println!("  {}", style("GitHub").bold().underlined());
+    print_config_described(
+        "github.token",
+        &config.github.token.as_ref().map(|_| "***".to_string()),
+        "API token for GitHub operations",
+    );
+    println!();
+
+    println!("  {}", style("Templates").bold().underlined());
+    print_config_list_described(
+        "templates.paths",
+        &config.templates.paths,
+        "Local dirs with project templates",
+    );
+    print_config_list_described(
+        "templates.repos",
+        &config.templates.repos,
+        "GitHub repos with templates (owner/repo)",
+    );
+    println!();
+
+    println!("  {}", style("Trust").bold().underlined());
+    print_config_list_described(
+        "trust.orgs",
+        &config.trust.orgs,
+        "Extra trusted orgs (team tier)",
+    );
+    print_config_list_described(
+        "trust.users",
+        &config.trust.users,
+        "Extra trusted users (team tier)",
+    );
+    println!();
+
+    print_ai_config(&config);
     Ok(())
 }
 
