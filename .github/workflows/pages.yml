@@ -29,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -69,7 +71,7 @@ jobs:
         with:
           path: .
           output-dir: site/public/badges
-          components: "coverage langmix treemap sunburst"
+          components: "coverage langmix treemap sunburst calendar"
 
       - name: Build site (runs prebuild for plugin registry + redirects)
         working-directory: site
