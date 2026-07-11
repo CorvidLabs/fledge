@@ -7,3 +7,9 @@ site/
 tests/
 benches/
 examples/
+
+# Build and test-only support code is verified against the product specs but is
+# not part of the shipped CLI contract.
+build.rs
+src/test_support.rs
+templates/python-cli/tests/__init__.py
