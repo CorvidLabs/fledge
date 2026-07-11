@@ -183,11 +183,11 @@ pub fn run(options: ReviewOptions) -> Result<()> {
         .join(", ");
 
     let spinner_msg = if panel_size == 1 {
-        format!("Reviewing changes against {} [{}]:", &base, panel_summary)
+        format!("Reviewing changes against {} [{}]:", base, panel_summary)
     } else {
         format!(
             "Reviewing changes against {} across {} models [{}]:",
-            &base, panel_size, panel_summary
+            base, panel_size, panel_summary
         )
     };
     let sp = crate::spinner::Spinner::start(&spinner_msg);

@@ -524,7 +524,7 @@ fn push(force: bool, json: bool) -> Result<()> {
     } else {
         Some(crate::spinner::Spinner::start(&format!(
             "Pushing {} to origin:",
-            &branch
+            branch
         )))
     };
 
