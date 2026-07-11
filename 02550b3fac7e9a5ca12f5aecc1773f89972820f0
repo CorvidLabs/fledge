@@ -1,0 +1,1 @@
+{"commit":"02550b3fac7e9a5ca12f5aecc1773f89972820f0","confidence":0.9,"humanApproved":false,"note":"CI: cargo test + lint + audit + spec-check green","reviewer":"agent:ci","testsPassed":true,"timestamp":1783740300,"verdict":"proceed"}
