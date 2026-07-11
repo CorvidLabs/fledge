@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixes
+
+- scope Atlas coverage to shipped product code by excluding build/test-only support files (#495)
+- pin the spec-sync CI binary to 4.7.1 after 4.8.0 introduced false missing-export failures
+
 ## [v1.7.0] - 2026-07-03
 
 ### CI

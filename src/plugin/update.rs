@@ -189,7 +189,7 @@ fn update_one_plugin(
                     } else {
                         Some(crate::spinner::Spinner::start(&format!(
                             "Upgrading {} {} → {}:",
-                            &entry.name, pinned, tag
+                            entry.name, pinned, tag
                         )))
                     };
 
@@ -280,7 +280,7 @@ fn update_one_plugin(
         } else {
             Some(crate::spinner::Spinner::start(&format!(
                 "Updating {}:",
-                &entry.name
+                entry.name
             )))
         };
 

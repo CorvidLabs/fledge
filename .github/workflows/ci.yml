@@ -115,6 +115,10 @@ jobs:
         id: specsync
         uses: CorvidLabs/spec-sync@v4.3.2
         with:
+          # 4.8.0 under-detects exports in multi-file Rust specs and makes this
+          # strict gate false-fail. Keep the newest verified release pinned
+          # until spec-sync publishes the scanner fix.
+          version: 4.7.1
           strict: true
           comment: false
           # Enforce reverse coverage: every production source file must be
