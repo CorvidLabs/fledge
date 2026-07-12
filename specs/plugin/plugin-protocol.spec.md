@@ -1,6 +1,6 @@
 ---
 module: plugin-protocol
-version: 7
+version: 8
 status: active
 files:
   - src/protocol/mod.rs
@@ -62,6 +62,7 @@ Public API — `run_protocol_plugin`, `OutboundMessage`, and `PluginContext` are
 | `detect_project_context` | Detect project name, root path, language, and git context from current environment |
 | `sanitize_remote_url` | Strip credentials from HTTPS/HTTP git URLs |
 | `detect_git_context` | Extract git branch, dirty status, remote name, and sanitized remote URL |
+| `Read` | Crate-internal I/O trait re-export used by protocol stream readers |
 
 ### Structs & Enums
 
@@ -604,6 +605,7 @@ These are not part of v1 but are designed to be additive under the policy above:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 8 | 2026-07-11 | Document the crate-internal `Read` re-export detected by SpecSync 5 multi-file scanning |
 | 7 | 2026-05-02 | Remove misleading "sandboxed" language from exec security notes; clarify that cwd is validated but command string is unfiltered. Change future file_operations wording from "sandboxed" to "path-validated" |
 | 6 | 2026-05-02 | Clarify public vs internal exports in single table (spec-sync requires all exports in one `Exported Functions` table). Add platform-correct storage paths using `<config_dir>` notation |
 | 5 | 2026-04-29 | Fix spec-sync: consolidate all exports into standard `Exported Functions` table (custom subsection headers were not parsed by spec-sync) |
