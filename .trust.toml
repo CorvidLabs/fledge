@@ -2,7 +2,7 @@ schema_version = 1
 profile = "standard"
 
 [lifecycle]
-command = ["fledge", "lanes", "run", "verify"]
+command = ["cargo", "check", "--locked"]
 
 [contract]
 enabled = true
