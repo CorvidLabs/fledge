@@ -111,6 +111,8 @@ jobs:
       body: ${{ steps.specsync.outputs.body }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - name: Run spec-sync
         id: specsync
         uses: CorvidLabs/spec-sync@59bbfa766c6cce01ab815ab47db195b0629cc014 # v5.0.1
