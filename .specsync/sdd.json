@@ -37,7 +37,7 @@
     "specs/"
   ],
   "verification_commands": [
-    "fledge run test"
+    "fledge run validate-templates"
   ],
   "custom_artifacts": {},
   "principles_file": null
