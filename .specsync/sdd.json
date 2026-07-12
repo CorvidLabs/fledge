@@ -37,7 +37,7 @@
     "specs/"
   ],
   "verification_commands": [
-    "fledge lanes run verify"
+    "fledge run test"
   ],
   "custom_artifacts": {},
   "principles_file": null
