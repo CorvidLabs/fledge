@@ -9,6 +9,64 @@ spec: prompts.spec.md
 - As a template author, I want to define custom prompts with optional defaults in `template.toml`
 - As a template author, I want prompt defaults to reference previously collected variables
 
+## Durable Requirements
+
+### REQ-prompts-001
+
+The implementation SHALL satisfy the following criterion: `select_template()` presents an interactive list with name and description columns
+
+Acceptance Criteria
+
+- `select_template()` presents an interactive list with name and description columns
+
+### REQ-prompts-002
+
+The implementation SHALL satisfy the following criterion: `prompt_variables()` collects all core variables (project_name, author, github_org, license, year, date) and template-specific prompts
+
+Acceptance Criteria
+
+- `prompt_variables()` collects all core variables (project_name, author, github_org, license, year, date) and template-specific prompts
+
+### REQ-prompts-003
+
+The implementation SHALL satisfy the following criterion: Author falls back: config → `git config user.name` → interactive prompt
+
+Acceptance Criteria
+
+- Author falls back: config → `git config user.name` → interactive prompt
+
+### REQ-prompts-004
+
+The implementation SHALL satisfy the following criterion: GitHub org falls back: config → interactive prompt with "CorvidLabs" default
+
+Acceptance Criteria
+
+- GitHub org falls back: config → interactive prompt with "CorvidLabs" default
+
+### REQ-prompts-005
+
+The implementation SHALL satisfy the following criterion: License is always pulled from config (defaults to MIT)
+
+Acceptance Criteria
+
+- License is always pulled from config (defaults to MIT)
+
+### REQ-prompts-006
+
+The implementation SHALL satisfy the following criterion: Template-specific prompt defaults support Tera variable interpolation
+
+Acceptance Criteria
+
+- Template-specific prompt defaults support Tera variable interpolation
+
+### REQ-prompts-007
+
+The implementation SHALL satisfy the following criterion: Case conversion produces correct snake_case and PascalCase variants
+
+Acceptance Criteria
+
+- Case conversion produces correct snake_case and PascalCase variants
+
 ## Acceptance Criteria
 
 - `select_template()` presents an interactive list with name and description columns

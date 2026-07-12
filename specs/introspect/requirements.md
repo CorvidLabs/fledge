@@ -8,6 +8,48 @@ spec: introspect.spec.md
 - As a tooling author (e.g. someone building a wrapper, a fledge-aware editor integration, or generating docs), I want a single structured source of truth for the command surface that changes automatically as the binary changes
 - As a human, I want a bird's-eye view of the whole command tree as a readable indented listing
 
+## Durable Requirements
+
+### REQ-introspect-001
+
+The implementation SHALL satisfy the following criterion: `fledge introspect --json` produces a single JSON object parseable by `serde_json::from_str` and `jq`
+
+Acceptance Criteria
+
+- `fledge introspect --json` produces a single JSON object parseable by `serde_json::from_str` and `jq`
+
+### REQ-introspect-002
+
+The implementation SHALL satisfy the following criterion: `fledge introspect` without `--json` produces a human-readable indented tree
+
+Acceptance Criteria
+
+- `fledge introspect` without `--json` produces a human-readable indented tree
+
+### REQ-introspect-003
+
+The implementation SHALL satisfy the following criterion: The output includes every user-facing subcommand and arg — no silent gaps
+
+Acceptance Criteria
+
+- The output includes every user-facing subcommand and arg — no silent gaps
+
+### REQ-introspect-004
+
+The implementation SHALL satisfy the following criterion: clap's auto-generated `--help` and `--version` and `help` subcommand are excluded as noise
+
+Acceptance Criteria
+
+- clap's auto-generated `--help` and `--version` and `help` subcommand are excluded as noise
+
+### REQ-introspect-005
+
+The implementation SHALL satisfy the following criterion: Subcommand aliases and global args are explicitly labeled in the output so agents can reason about them
+
+Acceptance Criteria
+
+- Subcommand aliases and global args are explicitly labeled in the output so agents can reason about them
+
 ## Acceptance Criteria
 
 - `fledge introspect --json` produces a single JSON object parseable by `serde_json::from_str` and `jq`

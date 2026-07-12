@@ -11,6 +11,96 @@ spec: init.spec.md
 - As a user, I want post-create hooks (like `npm install`) to run automatically for local templates
 - As a user, I want to be warned before remote templates execute hooks on my machine
 
+## Durable Requirements
+
+### REQ-init-001
+
+The implementation SHALL satisfy the following criterion: `fledge init <name>` creates a directory with rendered template files
+
+Acceptance Criteria
+
+- `fledge init <name>` creates a directory with rendered template files
+
+### REQ-init-002
+
+The implementation SHALL satisfy the following criterion: `fledge init <name> --template <name>` uses the specified template
+
+Acceptance Criteria
+
+- `fledge init <name> --template <name>` uses the specified template
+
+### REQ-init-003
+
+The implementation SHALL satisfy the following criterion: `fledge init <name> --template owner/repo` fetches and uses a remote template
+
+Acceptance Criteria
+
+- `fledge init <name> --template owner/repo` fetches and uses a remote template
+
+### REQ-init-004
+
+The implementation SHALL satisfy the following criterion: Without `--template`, an interactive selector is shown
+
+Acceptance Criteria
+
+- Without `--template`, an interactive selector is shown
+
+### REQ-init-005
+
+The implementation SHALL satisfy the following criterion: `--dry-run` prints file list, hooks, and git status without writing
+
+Acceptance Criteria
+
+- `--dry-run` prints file list, hooks, and git status without writing
+
+### REQ-init-006
+
+The implementation SHALL satisfy the following criterion: `--no-git` skips git init and initial commit
+
+Acceptance Criteria
+
+- `--no-git` skips git init and initial commit
+
+### REQ-init-007
+
+The implementation SHALL satisfy the following criterion: `--no-install` skips post-create hooks
+
+Acceptance Criteria
+
+- `--no-install` skips post-create hooks
+
+### REQ-init-008
+
+The implementation SHALL satisfy the following criterion: `--yes` auto-confirms remote hook prompts
+
+Acceptance Criteria
+
+- `--yes` auto-confirms remote hook prompts
+
+### REQ-init-009
+
+The implementation SHALL satisfy the following criterion: `--refresh` clears cached remote repos before fetching
+
+Acceptance Criteria
+
+- `--refresh` clears cached remote repos before fetching
+
+### REQ-init-010
+
+The implementation SHALL satisfy the following criterion: If the target directory already exists, the command errors immediately
+
+Acceptance Criteria
+
+- If the target directory already exists, the command errors immediately
+
+### REQ-init-011
+
+The implementation SHALL satisfy the following criterion: Git init includes an initial commit with all scaffolded files
+
+Acceptance Criteria
+
+- Git init includes an initial commit with all scaffolded files
+
 ## Acceptance Criteria
 
 - `fledge init <name>` creates a directory with rendered template files

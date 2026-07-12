@@ -19,6 +19,10 @@ description = "Validate all built-in templates"
 description = "Full CI pipeline"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
 
+[lanes.verify]
+description = "Required Trust gate for the Fledge repository"
+steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
+
 [lanes.check]
 description = "Quick quality check"
 steps = [

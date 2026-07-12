@@ -9,6 +9,64 @@ spec: run.spec.md
 - As a developer, I want to see all available tasks with `fledge run --list`
 - As a developer, I want `fledge run --init` to generate a starter task file for my project type
 
+## Durable Requirements
+
+### REQ-run-001
+
+The implementation SHALL satisfy the following criterion: `fledge run <task>` executes the named task from `fledge.toml`
+
+Acceptance Criteria
+
+- `fledge run <task>` executes the named task from `fledge.toml`
+
+### REQ-run-002
+
+The implementation SHALL satisfy the following criterion: Task dependencies run in topological order before the requested task
+
+Acceptance Criteria
+
+- Task dependencies run in topological order before the requested task
+
+### REQ-run-003
+
+The implementation SHALL satisfy the following criterion: Circular dependencies produce an error listing the cycle
+
+Acceptance Criteria
+
+- Circular dependencies produce an error listing the cycle
+
+### REQ-run-004
+
+The implementation SHALL satisfy the following criterion: `fledge run --list` shows task names and descriptions
+
+Acceptance Criteria
+
+- `fledge run --list` shows task names and descriptions
+
+### REQ-run-005
+
+The implementation SHALL satisfy the following criterion: `fledge run --init` generates `fledge.toml` with defaults for the detected project type
+
+Acceptance Criteria
+
+- `fledge run --init` generates `fledge.toml` with defaults for the detected project type
+
+### REQ-run-006
+
+The implementation SHALL satisfy the following criterion: Unknown task names produce an error listing available tasks
+
+Acceptance Criteria
+
+- Unknown task names produce an error listing available tasks
+
+### REQ-run-007
+
+The implementation SHALL satisfy the following criterion: Tasks support environment variables and working directory overrides
+
+Acceptance Criteria
+
+- Tasks support environment variables and working directory overrides
+
 ## Acceptance Criteria
 
 - `fledge run <task>` executes the named task from `fledge.toml`

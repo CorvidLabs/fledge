@@ -9,6 +9,56 @@ spec: ai.spec.md
 - As a user switching between local Ollama and Ollama Cloud, I want `fledge ai models` to show me exactly what my daemon reports via `/api/tags` — not a stale hardcoded list
 - As a user debugging "why did `fledge ask` pick this model?", I want `fledge ai status` to tell me not just what's active but *where* the value came from (env / config / default)
 
+## Durable Requirements
+
+### REQ-ai-001
+
+The implementation SHALL satisfy the following criterion: `fledge ai status` matches the provider/model/host that `llm::build_provider` would resolve; regression between the two is a tracked bug
+
+Acceptance Criteria
+
+- `fledge ai status` matches the provider/model/host that `llm::build_provider` would resolve; regression between the two is a tracked bug
+
+### REQ-ai-002
+
+The implementation SHALL satisfy the following criterion: `fledge ai models --provider ollama --json` parses cleanly with `jq` and includes at least `name` per model
+
+Acceptance Criteria
+
+- `fledge ai models --provider ollama --json` parses cleanly with `jq` and includes at least `name` per model
+
+### REQ-ai-003
+
+The implementation SHALL satisfy the following criterion: `fledge ai use <provider> <model>` writes `ai.provider` + per-provider `model` to `~/.config/fledge/config.toml` atomically
+
+Acceptance Criteria
+
+- `fledge ai use <provider> <model>` writes `ai.provider` + per-provider `model` to `~/.config/fledge/config.toml` atomically
+
+### REQ-ai-004
+
+The implementation SHALL satisfy the following criterion: `fledge ai use` in `--non-interactive` without a provider arg errors via `utils::require_interactive`
+
+Acceptance Criteria
+
+- `fledge ai use` in `--non-interactive` without a provider arg errors via `utils::require_interactive`
+
+### REQ-ai-005
+
+The implementation SHALL satisfy the following criterion: `fledge ai use ollama` interactively, with a running daemon, offers a Select with the live model list
+
+Acceptance Criteria
+
+- `fledge ai use ollama` interactively, with a running daemon, offers a Select with the live model list
+
+### REQ-ai-006
+
+The implementation SHALL satisfy the following criterion: Unknown providers on any `--provider` flag reject at clap parse time (not at runtime)
+
+Acceptance Criteria
+
+- Unknown providers on any `--provider` flag reject at clap parse time (not at runtime)
+
 ## Acceptance Criteria
 
 - `fledge ai status` matches the provider/model/host that `llm::build_provider` would resolve; regression between the two is a tracked bug

@@ -11,6 +11,104 @@ spec: templates.spec.md
 - As a template author, I want `.tera` files to always be rendered with the extension stripped
 - As a template author, I want to use template variables in file and directory names
 
+## Durable Requirements
+
+### REQ-templates-001
+
+The implementation SHALL satisfy the following criterion: `discover_templates()` finds all built-in templates (8 language starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`; plus setup-only `fledge-plugin` and `corvid-stack`)
+
+Acceptance Criteria
+
+- `discover_templates()` finds all built-in templates (8 language starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`; plus setup-only `fledge-plugin` and `corvid-stack`)
+
+### REQ-templates-002
+
+The implementation SHALL satisfy the following criterion: Extra paths from config are searched for template directories
+
+Acceptance Criteria
+
+- Extra paths from config are searched for template directories
+
+### REQ-templates-003
+
+The implementation SHALL satisfy the following criterion: Remote repos from config are fetched and searched for templates
+
+Acceptance Criteria
+
+- Remote repos from config are fetched and searched for templates
+
+### REQ-templates-004
+
+The implementation SHALL satisfy the following criterion: Templates are returned sorted alphabetically by name
+
+Acceptance Criteria
+
+- Templates are returned sorted alphabetically by name
+
+### REQ-templates-005
+
+The implementation SHALL satisfy the following criterion: Directories without `template.toml` are silently skipped
+
+Acceptance Criteria
+
+- Directories without `template.toml` are silently skipped
+
+### REQ-templates-006
+
+The implementation SHALL satisfy the following criterion: Non-existent extra paths are silently skipped
+
+Acceptance Criteria
+
+- Non-existent extra paths are silently skipped
+
+### REQ-templates-007
+
+The implementation SHALL satisfy the following criterion: `render_template()` renders `.tera` files and strips the extension
+
+Acceptance Criteria
+
+- `render_template()` renders `.tera` files and strips the extension
+
+### REQ-templates-008
+
+The implementation SHALL satisfy the following criterion: `render_template()` renders files matching `files.render` globs
+
+Acceptance Criteria
+
+- `render_template()` renders files matching `files.render` globs
+
+### REQ-templates-009
+
+The implementation SHALL satisfy the following criterion: `render_template()` copies non-matching files as-is
+
+Acceptance Criteria
+
+- `render_template()` copies non-matching files as-is
+
+### REQ-templates-010
+
+The implementation SHALL satisfy the following criterion: `render_template()` skips files matching `files.ignore` globs
+
+Acceptance Criteria
+
+- `render_template()` skips files matching `files.ignore` globs
+
+### REQ-templates-011
+
+The implementation SHALL satisfy the following criterion: `render_template()` renders Tera variables in file/directory paths
+
+Acceptance Criteria
+
+- `render_template()` renders Tera variables in file/directory paths
+
+### REQ-templates-012
+
+The implementation SHALL satisfy the following criterion: Created files list is returned sorted alphabetically
+
+Acceptance Criteria
+
+- Created files list is returned sorted alphabetically
+
 ## Acceptance Criteria
 
 - `discover_templates()` finds all built-in templates (8 language starters: `go-cli`, `kotlin-kmp`, `kotlin-ktor-api`, `python-cli`, `rust-cli`, `static-site`, `ts-bun`, `ts-node`; plus setup-only `fledge-plugin` and `corvid-stack`)

@@ -14,6 +14,160 @@ spec: work.spec.md
 - As a developer, I want `fledge work push` to push my branch to origin with tracking
 - As a developer, I want `fledge work status` to see my branch state (ahead/behind, dirty files)
 
+## Durable Requirements
+
+### REQ-work-001
+
+The implementation SHALL satisfy the following criterion: `fledge work start <name>` creates a branch using the configured format (default: `{author}/{type}/{name}`)
+
+Acceptance Criteria
+
+- `fledge work start <name>` creates a branch using the configured format (default: `{author}/{type}/{name}`)
+
+### REQ-work-002
+
+The implementation SHALL satisfy the following criterion: `fledge work start <name> --branch-type fix` creates a fix-type branch
+
+Acceptance Criteria
+
+- `fledge work start <name> --branch-type fix` creates a fix-type branch
+
+### REQ-work-003
+
+The implementation SHALL satisfy the following criterion: `fledge work start <name> --issue 42` includes issue number in branch name
+
+Acceptance Criteria
+
+- `fledge work start <name> --issue 42` includes issue number in branch name
+
+### REQ-work-004
+
+The implementation SHALL satisfy the following criterion: `fledge work start <name> --prefix user/leif` creates `user/leif/<name>` branch
+
+Acceptance Criteria
+
+- `fledge work start <name> --prefix user/leif` creates `user/leif/<name>` branch
+
+### REQ-work-005
+
+The implementation SHALL satisfy the following criterion: `fledge work start` refuses if working tree is dirty
+
+Acceptance Criteria
+
+- `fledge work start` refuses if working tree is dirty
+
+### REQ-work-006
+
+The implementation SHALL satisfy the following criterion: `fledge work start` rejects invalid branch types (not in feat, feature, fix, bug, chore, task, docs, hotfix, refactor)
+
+Acceptance Criteria
+
+- `fledge work start` rejects invalid branch types (not in feat, feature, fix, bug, chore, task, docs, hotfix, refactor)
+
+### REQ-work-007
+
+The implementation SHALL satisfy the following criterion: `fledge work commit` stages all changes and creates a commit (prompts for type + message interactively)
+
+Acceptance Criteria
+
+- `fledge work commit` stages all changes and creates a commit (prompts for type + message interactively)
+
+### REQ-work-008
+
+The implementation SHALL satisfy the following criterion: `fledge work commit -m "message"` uses the given message with default type
+
+Acceptance Criteria
+
+- `fledge work commit -m "message"` uses the given message with default type
+
+### REQ-work-009
+
+The implementation SHALL satisfy the following criterion: `fledge work commit --type fix -m "null pointer"` creates `fix: null pointer` commit
+
+Acceptance Criteria
+
+- `fledge work commit --type fix -m "null pointer"` creates `fix: null pointer` commit
+
+### REQ-work-010
+
+The implementation SHALL satisfy the following criterion: `fledge work commit --ai` generates the commit message from staged diff using the configured AI provider
+
+Acceptance Criteria
+
+- `fledge work commit --ai` generates the commit message from staged diff using the configured AI provider
+
+### REQ-work-011
+
+The implementation SHALL satisfy the following criterion: `fledge work commit` refuses if there are no changes to commit
+
+Acceptance Criteria
+
+- `fledge work commit` refuses if there are no changes to commit
+
+### REQ-work-012
+
+The implementation SHALL satisfy the following criterion: `fledge work push` pushes the current branch to origin with `-u` tracking
+
+Acceptance Criteria
+
+- `fledge work push` pushes the current branch to origin with `-u` tracking
+
+### REQ-work-013
+
+The implementation SHALL satisfy the following criterion: `fledge work push` refuses if on the default branch
+
+Acceptance Criteria
+
+- `fledge work push` refuses if on the default branch
+
+### REQ-work-014
+
+The implementation SHALL satisfy the following criterion: `fledge work push` refuses if there are no commits ahead of the remote
+
+Acceptance Criteria
+
+- `fledge work push` refuses if there are no commits ahead of the remote
+
+### REQ-work-015
+
+The implementation SHALL satisfy the following criterion: `fledge work status` shows branch name, commits ahead/behind, and uncommitted file count
+
+Acceptance Criteria
+
+- `fledge work status` shows branch name, commits ahead/behind, and uncommitted file count
+
+### REQ-work-016
+
+The implementation SHALL satisfy the following criterion: `fledge work status` does NOT call `gh` or any GitHub API — pure git only
+
+Acceptance Criteria
+
+- `fledge work status` does NOT call `gh` or any GitHub API — pure git only
+
+### REQ-work-017
+
+The implementation SHALL satisfy the following criterion: Branch names are sanitized (lowercase, hyphens only)
+
+Acceptance Criteria
+
+- Branch names are sanitized (lowercase, hyphens only)
+
+### REQ-work-018
+
+The implementation SHALL satisfy the following criterion: `[work]` section in `fledge.toml` can override `branch_format` and `default_type`
+
+Acceptance Criteria
+
+- `[work]` section in `fledge.toml` can override `branch_format` and `default_type`
+
+### REQ-work-019
+
+The implementation SHALL satisfy the following criterion: All subcommands support `--json` for agent consumption
+
+Acceptance Criteria
+
+- All subcommands support `--json` for agent consumption
+
 ## Acceptance Criteria
 
 - `fledge work start <name>` creates a branch using the configured format (default: `{author}/{type}/{name}`)

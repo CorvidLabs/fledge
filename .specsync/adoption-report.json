@@ -1,0 +1,165 @@
+{
+  "bootstrap_policy": {
+    "base_commit": "695ca94a54371e380be1ffbb603e3ee5cc387454",
+    "digest": "5e8da30e6bfa76381497a516801b6d2f606d7efcd70ebde615e795642abfc76b",
+    "path": ".specsync/sdd.json"
+  },
+  "generated_at": 1783831218,
+  "requirements_needing_ids": [
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/init/requirements.md",
+      "suggested_first_id": "REQ-init-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/validate/requirements.md",
+      "suggested_first_id": "REQ-validate-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/llm/requirements.md",
+      "suggested_first_id": "REQ-llm-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/introspect/requirements.md",
+      "suggested_first_id": "REQ-introspect-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/ask/requirements.md",
+      "suggested_first_id": "REQ-ask-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/changelog/requirements.md",
+      "suggested_first_id": "REQ-changelog-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/config/requirements.md",
+      "suggested_first_id": "REQ-config-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/create_template/requirements.md",
+      "suggested_first_id": "REQ-create-template-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/doctor/requirements.md",
+      "suggested_first_id": "REQ-doctor-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/plugin/requirements.md",
+      "suggested_first_id": "REQ-plugin-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/spec/requirements.md",
+      "suggested_first_id": "REQ-spec-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/meta/requirements.md",
+      "suggested_first_id": "REQ-meta-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/utils/requirements.md",
+      "suggested_first_id": "REQ-utils-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/release/requirements.md",
+      "suggested_first_id": "REQ-release-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/spinner/requirements.md",
+      "suggested_first_id": "REQ-spinner-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/lanes/requirements.md",
+      "suggested_first_id": "REQ-lanes-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/search/requirements.md",
+      "suggested_first_id": "REQ-search-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/envelope/requirements.md",
+      "suggested_first_id": "REQ-envelope-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/publish/requirements.md",
+      "suggested_first_id": "REQ-publish-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/github/requirements.md",
+      "suggested_first_id": "REQ-github-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/ai/requirements.md",
+      "suggested_first_id": "REQ-ai-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/review/requirements.md",
+      "suggested_first_id": "REQ-review-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/work/requirements.md",
+      "suggested_first_id": "REQ-work-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/prompts/requirements.md",
+      "suggested_first_id": "REQ-prompts-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/watch/requirements.md",
+      "suggested_first_id": "REQ-watch-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/templates/requirements.md",
+      "suggested_first_id": "REQ-templates-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/trust/requirements.md",
+      "suggested_first_id": "REQ-trust-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/run/requirements.md",
+      "suggested_first_id": "REQ-run-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/versioning/requirements.md",
+      "suggested_first_id": "REQ-versioning-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/main/requirements.md",
+      "suggested_first_id": "REQ-main-001"
+    },
+    {
+      "action": "review and assign one stable ID per durable requirement",
+      "path": "specs/remote/requirements.md",
+      "suggested_first_id": "REQ-remote-001"
+    }
+  ]
+}

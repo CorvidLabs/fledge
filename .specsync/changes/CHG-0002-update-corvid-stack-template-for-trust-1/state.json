@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0002-update-corvid-stack-template-for-trust-1",
+  "slug": "update-corvid-stack-template-for-trust-1",
+  "title": "Update Corvid stack template for Trust 1",
+  "description": "Update Corvid stack template for Trust 1",
+  "kind": "migration",
+  "state": "implementing",
+  "base_commit": "695ca94a54371e380be1ffbb603e3ee5cc387454",
+  "created_at": 1783831323,
+  "updated_at": 1783831395,
+  "affected_specs": [],
+  "affected_paths": [
+    "templates/corvid-stack/"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Template governance defaults do not change Fledge runtime behavior.",
+  "acceptance_criteria": [
+    "The Corvid stack template emits SpecSync 5.0.1 SDD and the immutable Trust 1 workflow"
+  ],
+  "selected_artifacts": [
+    "context",
+    "research",
+    "design",
+    "plan",
+    "tasks",
+    "testing",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}
