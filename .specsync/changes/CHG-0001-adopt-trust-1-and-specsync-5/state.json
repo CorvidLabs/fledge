@@ -6,7 +6,7 @@
   "description": "Adopt Trust 1 and SpecSync 5",
   "kind": "migration",
   "state": "implementing",
-  "base_commit": "695ca94a54371e380be1ffbb603e3ee5cc387454",
+  "base_commit": "02550b3fac7e9a5ca12f5aecc1773f89972820f0",
   "created_at": 1783831307,
   "updated_at": 1783831307,
   "affected_specs": [],
