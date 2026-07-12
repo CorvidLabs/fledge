@@ -196,7 +196,7 @@ jobs:
   attest:
     name: Record attestation
     runs-on: ubuntu-latest
-    needs: [test, lint, audit, spec-check]
+    needs: [test, lint, audit, spec-check, integration]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # contents: write lets the step push refs/notes/attest.
     permissions:
@@ -224,7 +224,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git fetch origin "+refs/notes/attest:refs/notes/attest" 2>/dev/null || true
             if "$bin" sign --commit HEAD --reviewer agent:ci --confidence 0.9 --tests-passed \
-                 --verdict proceed --note "CI: cargo test + lint + audit + spec-check green" \
+                 --verdict proceed --note "CI: tests + integration + lint + audit + spec-check green" \
                && git push origin refs/notes/attest ; then
               echo "attestation recorded for $(git rev-parse --short HEAD)"
             else

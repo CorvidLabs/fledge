@@ -12,10 +12,14 @@
     "bun.lock",
     ".specsync/sdd.json",
     ".specsync/config.toml",
-    ".specsync/version"
+    ".specsync/version",
+    "fledge.toml",
+    ".trust.toml",
+    ".augur.toml",
+    ".attest.json",
+    "AGENTS.md"
   ],
   "ignored_paths": [
-    ".specsync/",
     "specs/"
   ],
   "verification_commands": [

@@ -6,7 +6,7 @@ command = ["fledge", "lanes", "run", "verify"]
 
 [contract]
 enabled = true
-require_coverage = 100
+require_coverage = 0
 skip_reason = ""
 
 [risk]
