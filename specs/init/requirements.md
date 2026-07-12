@@ -11,108 +11,84 @@ spec: init.spec.md
 - As a user, I want post-create hooks (like `npm install`) to run automatically for local templates
 - As a user, I want to be warned before remote templates execute hooks on my machine
 
-## Durable Requirements
+## Acceptance Criteria
 
 ### REQ-init-001
 
-The implementation SHALL satisfy the following criterion: `fledge init <name>` creates a directory with rendered template files
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge init <name>` creates a directory with rendered template files
-
 ### REQ-init-002
 
-The implementation SHALL satisfy the following criterion: `fledge init <name> --template <name>` uses the specified template
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge init <name> --template <name>` uses the specified template
-
 ### REQ-init-003
 
-The implementation SHALL satisfy the following criterion: `fledge init <name> --template owner/repo` fetches and uses a remote template
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge init <name> --template owner/repo` fetches and uses a remote template
-
 ### REQ-init-004
 
-The implementation SHALL satisfy the following criterion: Without `--template`, an interactive selector is shown
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Without `--template`, an interactive selector is shown
-
 ### REQ-init-005
 
-The implementation SHALL satisfy the following criterion: `--dry-run` prints file list, hooks, and git status without writing
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `--dry-run` prints file list, hooks, and git status without writing
-
 ### REQ-init-006
 
-The implementation SHALL satisfy the following criterion: `--no-git` skips git init and initial commit
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `--no-git` skips git init and initial commit
-
 ### REQ-init-007
 
-The implementation SHALL satisfy the following criterion: `--no-install` skips post-create hooks
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `--no-install` skips post-create hooks
-
 ### REQ-init-008
 
-The implementation SHALL satisfy the following criterion: `--yes` auto-confirms remote hook prompts
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `--yes` auto-confirms remote hook prompts
-
 ### REQ-init-009
 
-The implementation SHALL satisfy the following criterion: `--refresh` clears cached remote repos before fetching
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `--refresh` clears cached remote repos before fetching
-
 ### REQ-init-010
 
-The implementation SHALL satisfy the following criterion: If the target directory already exists, the command errors immediately
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - If the target directory already exists, the command errors immediately
-
 ### REQ-init-011
 
-The implementation SHALL satisfy the following criterion: Git init includes an initial commit with all scaffolded files
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
-- Git init includes an initial commit with all scaffolded files
-
-## Acceptance Criteria
-
-- `fledge init <name>` creates a directory with rendered template files
-- `fledge init <name> --template <name>` uses the specified template
-- `fledge init <name> --template owner/repo` fetches and uses a remote template
-- Without `--template`, an interactive selector is shown
-- `--dry-run` prints file list, hooks, and git status without writing
-- `--no-git` skips git init and initial commit
-- `--no-install` skips post-create hooks
-- `--yes` auto-confirms remote hook prompts
-- `--refresh` clears cached remote repos before fetching
-- If the target directory already exists, the command errors immediately
 - Git init includes an initial commit with all scaffolded files
 
 ## Constraints

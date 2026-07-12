@@ -12,79 +12,61 @@ type: requirements
 3. As a developer, I want JSON output so I can pipe changelog data to other tools.
 4. As a developer, I want commits grouped by type so I can scan features vs fixes at a glance.
 
-## Durable Requirements
+## Acceptance Criteria
 
 ### REQ-changelog-001
 
-The implementation SHALL satisfy the following criterion: `fledge changelog` shows all tagged releases with commits grouped by conventional commit type
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge changelog` shows all tagged releases with commits grouped by conventional commit type
-
 ### REQ-changelog-002
 
-The implementation SHALL satisfy the following criterion: `fledge changelog --limit 3` shows only the 3 most recent releases
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge changelog --limit 3` shows only the 3 most recent releases
-
 ### REQ-changelog-003
 
-The implementation SHALL satisfy the following criterion: `fledge changelog --tag v0.5.0` shows only that release
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge changelog --tag v0.5.0` shows only that release
-
 ### REQ-changelog-004
 
-The implementation SHALL satisfy the following criterion: `fledge changelog --unreleased` shows commits since the latest tag
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge changelog --unreleased` shows commits since the latest tag
-
 ### REQ-changelog-005
 
-The implementation SHALL satisfy the following criterion: `fledge changelog --json` outputs structured JSON
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge changelog --json` outputs structured JSON
-
 ### REQ-changelog-006
 
-The implementation SHALL satisfy the following criterion: Merge commits are excluded
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Merge commits are excluded
-
 ### REQ-changelog-007
 
-The implementation SHALL satisfy the following criterion: Scoped commits (e.g., `fix(parser): msg`) are correctly parsed
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Scoped commits (e.g., `fix(parser): msg`) are correctly parsed
-
 ### REQ-changelog-008
 
-The implementation SHALL satisfy the following criterion: Non-conventional commits appear under "Other"
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
-- Non-conventional commits appear under "Other"
-
-## Acceptance Criteria
-
-- `fledge changelog` shows all tagged releases with commits grouped by conventional commit type
-- `fledge changelog --limit 3` shows only the 3 most recent releases
-- `fledge changelog --tag v0.5.0` shows only that release
-- `fledge changelog --unreleased` shows commits since the latest tag
-- `fledge changelog --json` outputs structured JSON
-- Merge commits are excluded
-- Scoped commits (e.g., `fix(parser): msg`) are correctly parsed
 - Non-conventional commits appear under "Other"

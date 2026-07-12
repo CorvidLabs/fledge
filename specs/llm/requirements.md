@@ -9,72 +9,56 @@ spec: llm.spec.md
 - As an agent, I want to choose my provider per-invocation via `--provider` flag so I can mix local (cheap, fast) and cloud (stronger) per task
 - As a maintainer, I want the prompt composition in `ask` / `review` to remain provider-agnostic so adding a new provider is localized to one file
 
-## Durable Requirements
+## Acceptance Criteria
 
 ### REQ-llm-001
 
-The implementation SHALL satisfy the following criterion: Default behavior (no config, no env, no flag) is identical to the pre-v0.13 Claude-CLI-only behavior
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Default behavior (no config, no env, no flag) is identical to the pre-v0.13 Claude-CLI-only behavior
-
 ### REQ-llm-002
 
-The implementation SHALL satisfy the following criterion: Setting `ai.provider = "ollama"` in config OR `FLEDGE_AI_PROVIDER=ollama` in env routes all AI commands through Ollama
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Setting `ai.provider = "ollama"` in config OR `FLEDGE_AI_PROVIDER=ollama` in env routes all AI commands through Ollama
-
 ### REQ-llm-003
 
-The implementation SHALL satisfy the following criterion: Per-invocation `--provider ollama` overrides both env and config
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Per-invocation `--provider ollama` overrides both env and config
-
 ### REQ-llm-004
 
-The implementation SHALL satisfy the following criterion: Model selection follows the same override > env > config > default precedence
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Model selection follows the same override > env > config > default precedence
-
 ### REQ-llm-005
 
-The implementation SHALL satisfy the following criterion: Ollama's HTTP request shape matches the `/api/generate` endpoint's published schema
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Ollama's HTTP request shape matches the `/api/generate` endpoint's published schema
-
 ### REQ-llm-006
 
-The implementation SHALL satisfy the following criterion: `fledge doctor` reports both providers and which is active
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `fledge doctor` reports both providers and which is active
-
 ### REQ-llm-007
 
-The implementation SHALL satisfy the following criterion: No regression: `fledge ask --json` and `fledge review --json` outputs remain parseable; payloads gain a `provider` and `model` field
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
-- No regression: `fledge ask --json` and `fledge review --json` outputs remain parseable; payloads gain a `provider` and `model` field
-
-## Acceptance Criteria
-
-- Default behavior (no config, no env, no flag) is identical to the pre-v0.13 Claude-CLI-only behavior
-- Setting `ai.provider = "ollama"` in config OR `FLEDGE_AI_PROVIDER=ollama` in env routes all AI commands through Ollama
-- Per-invocation `--provider ollama` overrides both env and config
-- Model selection follows the same override > env > config > default precedence
-- Ollama's HTTP request shape matches the `/api/generate` endpoint's published schema
-- `fledge doctor` reports both providers and which is active
 - No regression: `fledge ask --json` and `fledge review --json` outputs remain parseable; payloads gain a `provider` and `model` field
 
 ## Constraints

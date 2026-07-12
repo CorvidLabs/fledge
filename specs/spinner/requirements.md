@@ -7,45 +7,35 @@ spec: spinner.spec.md
 - As a user, I want visual feedback during long-running operations so I know the CLI hasn't frozen
 - As a user, I want the spinner to clean up after itself so my terminal isn't cluttered
 
-## Durable Requirements
+## Acceptance Criteria
 
 ### REQ-spinner-001
 
-The implementation SHALL satisfy the following criterion: `Spinner::start(msg)` displays an animated spinner with the given message
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `Spinner::start(msg)` displays an animated spinner with the given message
-
 ### REQ-spinner-002
 
-The implementation SHALL satisfy the following criterion: `Spinner::finish()` clears the spinner line completely
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `Spinner::finish()` clears the spinner line completely
-
 ### REQ-spinner-003
 
-The implementation SHALL satisfy the following criterion: A random theme is chosen each time a spinner starts
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - A random theme is chosen each time a spinner starts
-
 ### REQ-spinner-004
 
-The implementation SHALL satisfy the following criterion: All themes animate smoothly without visual glitches
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
-- All themes animate smoothly without visual glitches
-
-## Acceptance Criteria
-
-- `Spinner::start(msg)` displays an animated spinner with the given message
-- `Spinner::finish()` clears the spinner line completely
-- A random theme is chosen each time a spinner starts
 - All themes animate smoothly without visual glitches
 
 ## Constraints

@@ -10,90 +10,70 @@ spec: utils.spec.md
 - As a security-conscious maintainer, I want project names, GitHub orgs, and commit scopes validated before they reach the filesystem or an LLM prompt
 - As a user, I want credentials scrubbed out of error messages so tokens never leak into logs or terminal output
 
-## Durable Requirements
+## Acceptance Criteria
 
 ### REQ-utils-001
 
-The implementation SHALL satisfy the following criterion: `set_non_interactive` / `is_non_interactive` are the only accessors to the global flag
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `set_non_interactive` / `is_non_interactive` are the only accessors to the global flag
-
 ### REQ-utils-002
 
-The implementation SHALL satisfy the following criterion: `init_non_interactive_from_env` flips the flag when `FLEDGE_NON_INTERACTIVE` is a truthy value (`1`/`true`/`yes`/`y`/`on`, case-insensitive, trimmed)
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `init_non_interactive_from_env` flips the flag when `FLEDGE_NON_INTERACTIVE` is a truthy value (`1`/`true`/`yes`/`y`/`on`, case-insensitive, trimmed)
-
 ### REQ-utils-003
 
-The implementation SHALL satisfy the following criterion: `is_interactive` returns true only when stdin is a TTY and the non-interactive flag is unset
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `is_interactive` returns true only when stdin is a TTY and the non-interactive flag is unset
-
 ### REQ-utils-004
 
-The implementation SHALL satisfy the following criterion: `require_interactive` / `require_interactive_hint` return `Ok(())` only when `is_interactive`, otherwise bail with a flag- or hint-named error
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `require_interactive` / `require_interactive_hint` return `Ok(())` only when `is_interactive`, otherwise bail with a flag- or hint-named error
-
 ### REQ-utils-005
 
-The implementation SHALL satisfy the following criterion: Case conversions are pure and total — any input (including empty) returns a `String` without panicking
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - Case conversions are pure and total — any input (including empty) returns a `String` without panicking
-
 ### REQ-utils-006
 
-The implementation SHALL satisfy the following criterion: `validate_project_name` rejects empty strings, `/`, `\`, `..`, null bytes, and Windows-reserved device names
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `validate_project_name` rejects empty strings, `/`, `\`, `..`, null bytes, and Windows-reserved device names
-
 ### REQ-utils-007
 
-The implementation SHALL satisfy the following criterion: `validate_github_org` rejects empty and slash-containing names but permits spaces
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `validate_github_org` rejects empty and slash-containing names but permits spaces
-
 ### REQ-utils-008
 
-The implementation SHALL satisfy the following criterion: `validate_commit_scope` requires non-empty, ≤64 chars, ASCII alphanumerics plus `-`/`_`
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
 - `validate_commit_scope` requires non-empty, ≤64 chars, ASCII alphanumerics plus `-`/`_`
-
 ### REQ-utils-009
 
-The implementation SHALL satisfy the following criterion: `redact_secrets` scrubs Authorization / x-access-token headers, URL credentials, and Bearer tokens; clean input passes through byte-identical
+The implementation SHALL satisfy this requirement.
 
 Acceptance Criteria
 
-- `redact_secrets` scrubs Authorization / x-access-token headers, URL credentials, and Bearer tokens; clean input passes through byte-identical
-
-## Acceptance Criteria
-
-- `set_non_interactive` / `is_non_interactive` are the only accessors to the global flag
-- `init_non_interactive_from_env` flips the flag when `FLEDGE_NON_INTERACTIVE` is a truthy value (`1`/`true`/`yes`/`y`/`on`, case-insensitive, trimmed)
-- `is_interactive` returns true only when stdin is a TTY and the non-interactive flag is unset
-- `require_interactive` / `require_interactive_hint` return `Ok(())` only when `is_interactive`, otherwise bail with a flag- or hint-named error
-- Case conversions are pure and total — any input (including empty) returns a `String` without panicking
-- `validate_project_name` rejects empty strings, `/`, `\`, `..`, null bytes, and Windows-reserved device names
-- `validate_github_org` rejects empty and slash-containing names but permits spaces
-- `validate_commit_scope` requires non-empty, ≤64 chars, ASCII alphanumerics plus `-`/`_`
 - `redact_secrets` scrubs Authorization / x-access-token headers, URL credentials, and Bearer tokens; clean input passes through byte-identical
 
 ## Constraints
