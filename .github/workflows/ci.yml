@@ -106,7 +106,7 @@ jobs:
 
   spec-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     outputs:
       body: ${{ steps.specsync.outputs.body }}
     steps:
@@ -116,9 +116,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build the branch Fledge CLI
-        run: cargo build --release --locked
+        run: cargo build --locked
       - name: Add the branch Fledge CLI to PATH
-        run: echo "${{ github.workspace }}/target/release" >> "$GITHUB_PATH"
+        run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
       - name: Run spec-sync
         id: specsync
         uses: CorvidLabs/spec-sync@59bbfa766c6cce01ab815ab47db195b0629cc014 # v5.0.1
