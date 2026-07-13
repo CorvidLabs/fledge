@@ -2,7 +2,7 @@
 # Docs: https://github.com/CorvidLabs/fledge
 
 # These deterministic starter checks work before application source exists.
-# `fledge run --init` can replace or extend them with detected stack-native checks.
+# Replace or extend them with stack-native checks when application code is added.
 [tasks]
 format-check = "git diff --check"
 config-check = "fledge introspect"

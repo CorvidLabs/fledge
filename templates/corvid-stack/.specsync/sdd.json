@@ -5,6 +5,7 @@
   "meaningful_paths": [
     "src/",
     "tests/",
+    "specs/",
     ".github/",
     "Cargo.toml",
     "Cargo.lock",
@@ -27,11 +28,10 @@
     ".trust.toml",
     ".augur.toml",
     ".attest.json",
-    "AGENTS.md"
+    "AGENTS.md",
+    "CLAUDE.md"
   ],
-  "ignored_paths": [
-    "specs/"
-  ],
+  "ignored_paths": [],
   "verification_commands": [
     "fledge lanes run verify"
   ],

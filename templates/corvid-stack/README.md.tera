@@ -27,8 +27,10 @@ that gates every change through four tools. See https://corvidlabs.xyz/integrate
 # Install the toolchain (macOS shown; see the guide for Linux/cargo)
 brew install CorvidLabs/tap/corvid-trust
 
-# Wire up your stack's tasks (auto-detects Rust, Node, Go, Python, Ruby, Java, Swift)
-fledge run --init
+# This source-free template starts with deterministic bootstrap checks.
+# Before committing native application code, replace or extend those tasks in
+# fledge.toml with the stack's format, lint, test, and build commands, and add
+# every native task name to lanes.verify so Trust executes them.
 
 # Run the gate locally
 fledge trust doctor
@@ -38,6 +40,11 @@ fledge trust verify
 Then fill in the `[tasks]` in `fledge.toml`, set `source_dirs` in
 `.specsync/config.toml` to match your layout, add a `*.spec.md` per module under
 `specs/`, and register it in `.specsync/registry.toml`.
+
+The bootstrap lane validates real repository content and manifests; it is not a
+substitute for native checks after source code is added. A generated project
+must extend `lanes.verify` with its stack's checks in the same change that adds
+native code.
 
 ## The gate
 

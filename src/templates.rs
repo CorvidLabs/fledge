@@ -1032,6 +1032,33 @@ ignore = ["template.toml"]
     }
 
     #[test]
+    fn corvid_stack_bootstrap_lane_is_substantive_and_placeholder_free() {
+        let template_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/corvid-stack/fledge.toml");
+        let contents = fs::read_to_string(template_path).unwrap();
+
+        for forbidden in ["TODO", "placeholder", "echo '", "echo \""] {
+            assert!(
+                !contents.contains(forbidden),
+                "corvid-stack bootstrap must not contain {forbidden}"
+            );
+        }
+
+        for required in [
+            "git diff --check",
+            "fledge introspect",
+            "governance-check",
+            "workflow-check",
+            "steps = [\"format-check\", \"config-check\", \"governance-check\", \"workflow-check\"]",
+        ] {
+            assert!(
+                contents.contains(required),
+                "corvid-stack bootstrap is missing substantive check: {required}"
+            );
+        }
+    }
+
+    #[test]
     fn render_template_creates_parent_dirs() {
         let tmp = TempDir::new().unwrap();
         let tpl_dir = tmp.path().join("templates");
