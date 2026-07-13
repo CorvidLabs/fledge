@@ -4,9 +4,9 @@
 # These deterministic starter checks work before application source exists.
 # Replace or extend them with stack-native checks when application code is added.
 [tasks]
-format-check = "git diff --check"
+format-check = "git diff-tree --check --root -r -m --no-commit-id HEAD"
 config-check = "fledge introspect"
-governance-check = "git ls-files --error-unmatch .trust.toml .augur.toml .attest.json .specsync/sdd.json"
+governance-check = "git ls-files --error-unmatch .trust.toml .augur.toml .attest.json .specsync/sdd.json .specsync/config.toml .specsync/registry.toml .specsync/version AGENTS.md CLAUDE.md"
 workflow-check = "git ls-files --error-unmatch .github/workflows/trust.yml && git grep -q -F \"CorvidLabs/trust@9d32b5786d2e9e4d39fc581c0091c721ee3d4226\" -- .github/workflows/trust.yml"
 
 # The single quality gate. `.github/workflows/trust.yml` runs `fledge lanes run verify`.

@@ -55,6 +55,13 @@
       "timestamp": 1783923481,
       "digest": "d395258a462cf9cba7cf47abe6be4233715895293010ea39c78641c33a2b1957",
       "note": "Accepted after final generated-template policy and local-gate review fixes."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924408,
+      "digest": "b0fd1f2ce8e999ca1cbbfa1f2139a7e6610f32bf974e09922a7108b506066aff",
+      "note": "Accepted after committed-tree, complete-governance, and alternate-source-layout template validation."
     }
   ]
 }

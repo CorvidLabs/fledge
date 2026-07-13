@@ -1045,9 +1045,9 @@ ignore = ["template.toml"]
         }
 
         for required in [
-            "git diff --check",
+            "git diff-tree --check --root -r -m --no-commit-id HEAD",
             "fledge introspect",
-            "governance-check",
+            ".specsync/config.toml .specsync/registry.toml .specsync/version AGENTS.md CLAUDE.md",
             "workflow-check",
             "steps = [\"format-check\", \"config-check\", \"governance-check\", \"workflow-check\"]",
         ] {
@@ -1056,6 +1056,17 @@ ignore = ["template.toml"]
                 "corvid-stack bootstrap is missing substantive check: {required}"
             );
         }
+
+        let policy_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/corvid-stack/.specsync/sdd.json");
+        let policy: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(policy_path).unwrap()).unwrap();
+        assert!(
+            policy["meaningful_paths"]
+                .as_array()
+                .is_some_and(|paths| paths.iter().any(|path| path.as_str() == Some("."))),
+            "corvid-stack SDD policy must cover root-level and alternate source layouts"
+        );
     }
 
     #[test]

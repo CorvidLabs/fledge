@@ -55,6 +55,13 @@
       "timestamp": 1783923481,
       "digest": "1b71dcb19cf474784ccc9aa4e4bfe4aee685f20941b368bb96fd7bf3d451dc38",
       "note": "Accepted after addressing final policy and semantic requirement review findings."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924404,
+      "digest": "90d9f68e49630a9a86bb3eba03f1a74f7ba4aa199252c650e57a8a712a4d0e8c",
+      "note": "Accepted after strict Trust workflow and final generated-policy review fixes."
     }
   ]
 }
