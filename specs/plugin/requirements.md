@@ -1,5 +1,11 @@
 # Plugin — Requirements
 
+### REQ-plugin-001
+
+The implementation SHALL satisfy the behavior described by this companion.
+
+Acceptance Criteria
+
 ## Functional Requirements
 
 1. Install plugins from GitHub shorthand, generic git URLs, and local paths via `fledge plugins install <source>`

@@ -10,11 +10,25 @@ spec: introspect.spec.md
 
 ## Acceptance Criteria
 
-- `fledge introspect --json` produces a single JSON object parseable by `serde_json::from_str` and `jq`
-- `fledge introspect` without `--json` produces a human-readable indented tree
-- The output includes every user-facing subcommand and arg — no silent gaps
-- clap's auto-generated `--help` and `--version` and `help` subcommand are excluded as noise
-- Subcommand aliases and global args are explicitly labeled in the output so agents can reason about them
+### REQ-introspect-001
+
+The implementation SHALL meet this contract: `fledge introspect --json` produces a single JSON object parseable by `serde_json::from_str` and `jq`
+
+### REQ-introspect-002
+
+The implementation SHALL meet this contract: `fledge introspect` without `--json` produces a human-readable indented tree
+
+### REQ-introspect-003
+
+The implementation SHALL meet this contract: The output includes every user-facing subcommand and arg — no silent gaps
+
+### REQ-introspect-004
+
+The implementation SHALL meet this contract: clap's auto-generated `--help` and `--version` and `help` subcommand are excluded as noise
+
+### REQ-introspect-005
+
+The implementation SHALL meet this contract: Subcommand aliases and global args are explicitly labeled in the output so agents can reason about them
 
 ## Constraints
 

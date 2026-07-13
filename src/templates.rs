@@ -1032,6 +1032,57 @@ ignore = ["template.toml"]
     }
 
     #[test]
+    fn corvid_stack_bootstrap_lane_is_substantive_and_placeholder_free() {
+        let template_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/corvid-stack/fledge.toml");
+        let contents = fs::read_to_string(template_path).unwrap();
+
+        for forbidden in ["TODO", "placeholder", "echo '", "echo \""] {
+            assert!(
+                !contents.contains(forbidden),
+                "corvid-stack bootstrap must not contain {forbidden}"
+            );
+        }
+
+        for required in [
+            "git diff-tree --check --root -r -m --no-commit-id HEAD",
+            "fledge introspect",
+            ".specsync/config.toml .specsync/registry.toml .specsync/version AGENTS.md CLAUDE.md",
+            "workflow-check",
+            "steps = [\"format-check\", \"config-check\", \"governance-check\", \"workflow-check\"]",
+        ] {
+            assert!(
+                contents.contains(required),
+                "corvid-stack bootstrap is missing substantive check: {required}"
+            );
+        }
+
+        let policy_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/corvid-stack/.specsync/sdd.json");
+        let policy: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(policy_path).unwrap()).unwrap();
+        assert!(
+            policy["meaningful_paths"]
+                .as_array()
+                .is_some_and(|paths| paths.iter().any(|path| path.as_str() == Some("."))),
+            "corvid-stack SDD policy must cover root-level and alternate source layouts"
+        );
+
+        let trust_workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("templates/corvid-stack/.github/workflows/trust.yml");
+        let trust_workflow = fs::read_to_string(trust_workflow_path).unwrap();
+        for required in [
+            "specsync lifecycle enforce --all",
+            "specsync change check --strict",
+        ] {
+            assert!(
+                trust_workflow.contains(required),
+                "corvid-stack Trust workflow is missing SDD enforcement: {required}"
+            );
+        }
+    }
+
+    #[test]
     fn render_template_creates_parent_dirs() {
         let tmp = TempDir::new().unwrap();
         let tpl_dir = tmp.path().join("templates");

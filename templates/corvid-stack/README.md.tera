@@ -11,8 +11,10 @@ that gates every change through four tools. See https://corvidlabs.xyz/integrate
 |------|---------|
 | `fledge.toml` | Tasks plus the `verify` lane (the single quality gate) |
 | `.specsync/config.toml` | spec-sync configuration (spec-as-contract validation) |
+| `.trust.toml` | unified Trust profile and component policy |
+| `.augur.toml` | deterministic change-risk thresholds |
 | `.attest.json` | attestation policy (provenance verification) |
-| `.github/workflows/trust.yml` | CI: fledge, spec-sync, augur, attest |
+| `.github/workflows/trust.yml` | CI: unified Trust 1 gate |
 | `AGENTS.md` | Agent/human rules, incl. the managed trust-toolchain block |
 
 > Dropping this onto an existing repo? Merge the `.gitignore` and `AGENTS.md`
@@ -23,14 +25,15 @@ that gates every change through four tools. See https://corvidlabs.xyz/integrate
 
 ```bash
 # Install the toolchain (macOS shown; see the guide for Linux/cargo)
-brew install CorvidLabs/tap/fledge
-cargo install specsync
-# augur + attest run as GitHub Actions in trust.yml
+brew install CorvidLabs/tap/corvid-trust
 
-# Wire up your stack's tasks (auto-detects Rust, Node, Go, Python, Ruby, Java, Swift)
-fledge run --init
+# This source-free template starts with deterministic bootstrap checks.
+# Before committing native application code, replace or extend those tasks in
+# fledge.toml with the stack's format, lint, test, and build commands, and add
+# every native task name to lanes.verify so Trust executes them.
 
 # Run the gate locally
+fledge trust doctor
 fledge lanes run verify
 ```
 
@@ -38,10 +41,15 @@ Then fill in the `[tasks]` in `fledge.toml`, set `source_dirs` in
 `.specsync/config.toml` to match your layout, add a `*.spec.md` per module under
 `specs/`, and register it in `.specsync/registry.toml`.
 
+The bootstrap lane validates real repository content and manifests; it is not a
+substitute for native checks after source code is added. A generated project
+must extend `lanes.verify` with its stack's checks in the same change that adds
+native code.
+
 ## The gate
 
-Every push and PR runs `.github/workflows/trust.yml` as **five parallel checks**,
-so a failure points straight at the tool:
+Every push and PR runs one required `trust` job. Its component status outputs and
+summary identify which layer failed:
 
 - **fledge** `lanes run verify`: fmt + lint + test + build
 - **spec-sync**: specs match code (soft until specs land)
@@ -49,6 +57,6 @@ so a failure points straight at the tool:
 - **attest**: provenance verified against `.attest.json`
 - **rules**: the managed `AGENTS.md` trust block must be present
 
-They run independently because, in verify form, none consumes another's output.
-If you later switch attest to `sign --from-augur` (which needs augur's verdict
-and the test result), make the attest job `needs: [augur, fledge]`.
+The template starts with advisory contract coverage (`0`) because it contains no
+source files or canonical companions. Raise `contract.require_coverage` as specs
+are adopted; new specified behavior should reach 100%.

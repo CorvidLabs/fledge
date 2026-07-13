@@ -1,5 +1,11 @@
 # Lanes — Requirements
 
+### REQ-lanes-001
+
+The implementation SHALL satisfy the behavior described by this companion.
+
+Acceptance Criteria
+
 ## Functional Requirements
 
 1. Define named workflow pipelines in `fledge.toml` under `[lanes]`

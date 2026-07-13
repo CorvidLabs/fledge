@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "enabled": true,
+  "require_change_for_meaningful_files": true,
+  "meaningful_paths": [
+    ".",
+    "src/",
+    "tests/",
+    "specs/",
+    ".github/",
+    "Cargo.toml",
+    "Cargo.lock",
+    "package.json",
+    "bun.lock",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "Package.swift",
+    "Package.resolved",
+    "go.mod",
+    "go.sum",
+    "pyproject.toml",
+    "uv.lock",
+    "requirements.txt",
+    ".specsync/sdd.json",
+    ".specsync/config.toml",
+    ".specsync/registry.toml",
+    ".specsync/version",
+    "fledge.toml",
+    ".trust.toml",
+    ".augur.toml",
+    ".attest.json",
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "ignored_paths": [],
+  "verification_commands": [
+    "fledge lanes run verify"
+  ],
+  "custom_artifacts": {},
+  "principles_file": null
+}

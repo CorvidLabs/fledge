@@ -11,13 +11,33 @@ spec: run.spec.md
 
 ## Acceptance Criteria
 
-- `fledge run <task>` executes the named task from `fledge.toml`
-- Task dependencies run in topological order before the requested task
-- Circular dependencies produce an error listing the cycle
-- `fledge run --list` shows task names and descriptions
-- `fledge run --init` generates `fledge.toml` with defaults for the detected project type
-- Unknown task names produce an error listing available tasks
-- Tasks support environment variables and working directory overrides
+### REQ-run-001
+
+The implementation SHALL meet this contract: `fledge run <task>` executes the named task from `fledge.toml`
+
+### REQ-run-002
+
+The implementation SHALL meet this contract: Task dependencies run in topological order before the requested task
+
+### REQ-run-003
+
+The implementation SHALL meet this contract: Circular dependencies produce an error listing the cycle
+
+### REQ-run-004
+
+The implementation SHALL meet this contract: `fledge run --list` shows task names and descriptions
+
+### REQ-run-005
+
+The implementation SHALL meet this contract: `fledge run --init` generates `fledge.toml` with defaults for the detected project type
+
+### REQ-run-006
+
+The implementation SHALL meet this contract: Unknown task names produce an error listing available tasks
+
+### REQ-run-007
+
+The implementation SHALL meet this contract: Tasks support environment variables and working directory overrides
 
 ## Constraints
 

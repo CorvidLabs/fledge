@@ -11,13 +11,33 @@ spec: prompts.spec.md
 
 ## Acceptance Criteria
 
-- `select_template()` presents an interactive list with name and description columns
-- `prompt_variables()` collects all core variables (project_name, author, github_org, license, year, date) and template-specific prompts
-- Author falls back: config → `git config user.name` → interactive prompt
-- GitHub org falls back: config → interactive prompt with "CorvidLabs" default
-- License is always pulled from config (defaults to MIT)
-- Template-specific prompt defaults support Tera variable interpolation
-- Case conversion produces correct snake_case and PascalCase variants
+### REQ-prompts-001
+
+The implementation SHALL meet this contract: `select_template()` presents an interactive list with name and description columns
+
+### REQ-prompts-002
+
+The implementation SHALL meet this contract: `prompt_variables()` collects all core variables (project_name, author, github_org, license, year, date) and template-specific prompts
+
+### REQ-prompts-003
+
+The implementation SHALL meet this contract: Author falls back: config → `git config user.name` → interactive prompt
+
+### REQ-prompts-004
+
+The implementation SHALL meet this contract: GitHub org falls back: config → interactive prompt with "CorvidLabs" default
+
+### REQ-prompts-005
+
+The implementation SHALL meet this contract: License is always pulled from config (defaults to MIT)
+
+### REQ-prompts-006
+
+The implementation SHALL meet this contract: Template-specific prompt defaults support Tera variable interpolation
+
+### REQ-prompts-007
+
+The implementation SHALL meet this contract: Case conversion produces correct snake_case and PascalCase variants
 
 ## Constraints
 

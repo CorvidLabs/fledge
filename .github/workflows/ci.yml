@@ -106,27 +106,36 @@ jobs:
 
   spec-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     outputs:
       body: ${{ steps.specsync.outputs.body }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the branch Fledge CLI
+        run: cargo build --locked
+      - name: Add the branch Fledge CLI to PATH
+        run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
       - name: Run spec-sync
         id: specsync
-        uses: CorvidLabs/spec-sync@v4.3.2
+        uses: CorvidLabs/spec-sync@59bbfa766c6cce01ab815ab47db195b0629cc014 # v5.0.1
         with:
-          # 4.8.0 under-detects exports in multi-file Rust specs and makes this
-          # strict gate false-fail. Keep the newest verified release pinned
-          # until spec-sync publishes the scanner fix.
-          version: 4.7.1
+          version: 5.0.1
           strict: true
           comment: false
           # Enforce reverse coverage: every production source file must be
           # claimed by a spec (test-only + template CI files are excluded in
           # .specsync/config.toml). Fails CI if an unclaimed file is added (#448).
           require-coverage: 100
+          lifecycle-enforce: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce SpecSync change workspaces
+        run: specsync change check --strict --require-coverage 100
 
   corvid-pet:
     runs-on: ubuntu-latest
@@ -197,7 +206,7 @@ jobs:
   attest:
     name: Record attestation
     runs-on: ubuntu-latest
-    needs: [test, lint, audit, spec-check]
+    needs: [test, lint, audit, spec-check, integration]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # contents: write lets the step push refs/notes/attest.
     permissions:
@@ -225,7 +234,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git fetch origin "+refs/notes/attest:refs/notes/attest" 2>/dev/null || true
             if "$bin" sign --commit HEAD --reviewer agent:ci --confidence 0.9 --tests-passed \
-                 --verdict proceed --note "CI: cargo test + lint + audit + spec-check green" \
+                 --verdict proceed --note "CI: tests + integration + lint + audit + spec-check green" \
                && git push origin refs/notes/attest ; then
               echo "attestation recorded for $(git rev-parse --short HEAD)"
             else

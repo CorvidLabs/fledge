@@ -1,4 +1,4 @@
-# spec-sync v4 configuration
+# spec-sync v5 configuration
 # Docs: https://github.com/CorvidLabs/spec-sync
 
 specs_dir = "specs"
@@ -10,8 +10,5 @@ exclude_dirs = []
 exclude_patterns = ["src/test_support.rs", "**/.github/**"]
 required_sections = ["Purpose", "Public API", "Invariants", "Behavioral Examples", "Error Cases", "Dependencies", "Change Log"]
 enforcement = "strict"
-ai_command = "claude -p --output-format text"
-ai_timeout = 300
-
 [lifecycle]
 track_history = false

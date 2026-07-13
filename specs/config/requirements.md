@@ -11,15 +11,41 @@ spec: config.spec.md
 
 ## Acceptance Criteria
 
-- `fledge config list` displays all configured values and empty list sections
-- `fledge config get <key>` prints the value for any valid key (scalar or list)
-- `fledge config set <key> <value>` persists scalar values to `config.toml`
-- `fledge config unset <key>` removes values (clears lists for list keys)
-- `fledge config add <key> <value>` appends to list keys with deduplication
-- `fledge config remove <key> <value>` removes from list keys and reports whether found
-- Using `set` on a list key (or `add`/`remove` on a scalar key) produces a clear error with guidance
-- Config file is created on first write if it doesn't exist
-- Missing config file returns sensible defaults (MIT license, no author, empty lists)
+### REQ-config-001
+
+The implementation SHALL meet this contract: `fledge config list` displays all configured values and empty list sections
+
+### REQ-config-002
+
+The implementation SHALL meet this contract: `fledge config get <key>` prints the value for any valid key (scalar or list)
+
+### REQ-config-003
+
+The implementation SHALL meet this contract: `fledge config set <key> <value>` persists scalar values to `config.toml`
+
+### REQ-config-004
+
+The implementation SHALL meet this contract: `fledge config unset <key>` removes values (clears lists for list keys)
+
+### REQ-config-005
+
+The implementation SHALL meet this contract: `fledge config add <key> <value>` appends to list keys with deduplication
+
+### REQ-config-006
+
+The implementation SHALL meet this contract: `fledge config remove <key> <value>` removes from list keys and reports whether found
+
+### REQ-config-007
+
+The implementation SHALL meet this contract: Using `set` on a list key (or `add`/`remove` on a scalar key) produces a clear error with guidance
+
+### REQ-config-008
+
+The implementation SHALL meet this contract: Config file is created on first write if it doesn't exist
+
+### REQ-config-009
+
+The implementation SHALL meet this contract: Missing config file returns sensible defaults (MIT license, no author, empty lists)
 
 ## Constraints
 

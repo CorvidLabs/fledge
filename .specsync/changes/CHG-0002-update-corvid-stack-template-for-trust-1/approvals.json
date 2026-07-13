@@ -1,0 +1,81 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1783831331,
+      "digest": "3bef6eeeec488d6fb44252b8e3e755b94555f91d677f7d4731d69f9b8daf7421",
+      "note": "Authorized by the approved organization-wide SpecSync 5 / Trust 1 migration plan."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1783831395,
+      "digest": "62b4cdc0055b7d9c77ee517b7549cd4ef23f69dc596edb23ecb0bffc5a332c68",
+      "note": "Authorized by the approved organization-wide SpecSync 5 / Trust 1 migration plan."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783904120,
+      "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
+      "note": "Reviewed placeholder-free Corvid stack defaults and successful generated-project governance lane."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783917636,
+      "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
+      "note": "Reapproved template migration for final workspace verification with the non-recursive native Fledge lane"
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783918310,
+      "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
+      "note": "Approved cross-platform git-based starter governance checks for generated Corvid stack projects"
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783918406,
+      "digest": "49d121ae0fbf2b8f27c2317fc50b236ed4ef02011b00e9f1ab62ac88a6eeeebb",
+      "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783922642,
+      "digest": "dd0475dd7f22aea80ecdb40a9ce20062d20bfa4ae6db6006b2b6915f0a35b44a",
+      "note": "Accepted after renewing verification against the final non-recursive governance lane."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783923481,
+      "digest": "d395258a462cf9cba7cf47abe6be4233715895293010ea39c78641c33a2b1957",
+      "note": "Accepted after final generated-template policy and local-gate review fixes."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924408,
+      "digest": "b0fd1f2ce8e999ca1cbbfa1f2139a7e6610f32bf974e09922a7108b506066aff",
+      "note": "Accepted after committed-tree, complete-governance, and alternate-source-layout template validation."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924858,
+      "digest": "170d5e1b7deb38150927144f92f7705d632a769b104e688e2562da1b19138f96",
+      "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783925640,
+      "digest": "f585f05d994b3aca1007087c612db8ae8184227e6199c88f2484ffba2aa60ba9",
+      "note": null
+    }
+  ]
+}

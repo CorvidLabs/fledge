@@ -11,14 +11,37 @@ spec: spec.spec.md
 
 ## Acceptance Criteria
 
-- `fledge spec check` validates all specs in the configured specs directory
-- `fledge spec check --strict` treats warnings as errors
-- `fledge spec init` creates `.specsync/` with config.toml, registry.toml, .gitignore, and version
-- `fledge spec init` creates `specs/` directory if it doesn't exist
-- `fledge spec new <name>` creates `specs/<name>/` with spec.md and companion files
-- Validation checks: frontmatter fields, required sections, source file existence
-- Exit code 1 on errors (or warnings in strict mode), 0 otherwise
-- Colored output with checkmarks/crosses for each spec
+### REQ-spec-001
+
+The implementation SHALL meet this contract: `fledge spec check` validates all specs in the configured specs directory
+
+### REQ-spec-002
+
+The implementation SHALL meet this contract: `fledge spec check --strict` treats warnings as errors
+
+### REQ-spec-003
+
+The implementation SHALL meet this contract: `fledge spec init` creates `.specsync/` with config.toml, registry.toml, .gitignore, and version
+
+### REQ-spec-004
+
+The implementation SHALL meet this contract: `fledge spec init` creates `specs/` directory if it doesn't exist
+
+### REQ-spec-005
+
+The implementation SHALL meet this contract: `fledge spec new <name>` creates `specs/<name>/` with spec.md and companion files
+
+### REQ-spec-006
+
+The implementation SHALL meet this contract: Validation checks: frontmatter fields, required sections, source file existence
+
+### REQ-spec-007
+
+The implementation SHALL meet this contract: Exit code 1 on errors (or warnings in strict mode), 0 otherwise
+
+### REQ-spec-008
+
+The implementation SHALL meet this contract: Colored output with checkmarks/crosses for each spec
 
 ## Constraints
 

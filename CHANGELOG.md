@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Update SpecSync validation to 5.0.1 and remove obsolete embedded-AI configuration.
+- Generate new Corvid stack projects with the unified Trust 1.0 gate and SpecSync SDD policy.
+
 ### Fixes
 
 - scope Atlas coverage to shipped product code by excluding build/test-only support files (#495)

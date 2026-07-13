@@ -1,5 +1,11 @@
 # Search — Requirements
 
+### REQ-search-001
+
+The implementation SHALL satisfy the behavior described by this companion.
+
+Acceptance Criteria
+
 This module is a library — its requirements are about the helpers it exposes. The user-facing search commands (`templates search`, `lanes search`, `plugins search`) define their own requirements in their respective specs.
 
 ## Functional Requirements

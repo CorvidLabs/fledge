@@ -1,0 +1,29 @@
+name: trust
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  trust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: CorvidLabs Trust gate
+        id: trust
+        uses: CorvidLabs/trust@9d32b5786d2e9e4d39fc581c0091c721ee3d4226 # v1.0.0
+
+      - name: Check managed agent rules
+        run: |
+          grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md
+          grep -q "CorvidLabs trust toolchain: END" AGENTS.md

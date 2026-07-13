@@ -11,12 +11,29 @@ spec: ai.spec.md
 
 ## Acceptance Criteria
 
-- `fledge ai status` matches the provider/model/host that `llm::build_provider` would resolve; regression between the two is a tracked bug
-- `fledge ai models --provider ollama --json` parses cleanly with `jq` and includes at least `name` per model
-- `fledge ai use <provider> <model>` writes `ai.provider` + per-provider `model` to `~/.config/fledge/config.toml` atomically
-- `fledge ai use` in `--non-interactive` without a provider arg errors via `utils::require_interactive`
-- `fledge ai use ollama` interactively, with a running daemon, offers a Select with the live model list
-- Unknown providers on any `--provider` flag reject at clap parse time (not at runtime)
+### REQ-ai-001
+
+The implementation SHALL meet this contract: `fledge ai status` matches the provider/model/host that `llm::build_provider` would resolve; regression between the two is a tracked bug
+
+### REQ-ai-002
+
+The implementation SHALL meet this contract: `fledge ai models --provider ollama --json` parses cleanly with `jq` and includes at least `name` per model
+
+### REQ-ai-003
+
+The implementation SHALL meet this contract: `fledge ai use <provider> <model>` writes `ai.provider` + per-provider `model` to `~/.config/fledge/config.toml` atomically
+
+### REQ-ai-004
+
+The implementation SHALL meet this contract: `fledge ai use` in `--non-interactive` without a provider arg errors via `utils::require_interactive`
+
+### REQ-ai-005
+
+The implementation SHALL meet this contract: `fledge ai use ollama` interactively, with a running daemon, offers a Select with the live model list
+
+### REQ-ai-006
+
+The implementation SHALL meet this contract: Unknown providers on any `--provider` flag reject at clap parse time (not at runtime)
 
 ## Constraints
 

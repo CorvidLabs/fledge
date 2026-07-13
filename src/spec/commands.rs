@@ -584,7 +584,7 @@ hashes.json
         style("✅").green().bold()
     );
 
-    fs::write(specsync_dir.join("version"), "4.3.1\n")?;
+    fs::write(specsync_dir.join("version"), "5.0.1\n")?;
     println!("{} Created .specsync/version", style("✅").green().bold());
 
     if !specs_dir.exists() {

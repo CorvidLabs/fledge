@@ -11,13 +11,33 @@ spec: llm.spec.md
 
 ## Acceptance Criteria
 
-- Default behavior (no config, no env, no flag) is identical to the pre-v0.13 Claude-CLI-only behavior
-- Setting `ai.provider = "ollama"` in config OR `FLEDGE_AI_PROVIDER=ollama` in env routes all AI commands through Ollama
-- Per-invocation `--provider ollama` overrides both env and config
-- Model selection follows the same override > env > config > default precedence
-- Ollama's HTTP request shape matches the `/api/generate` endpoint's published schema
-- `fledge doctor` reports both providers and which is active
-- No regression: `fledge ask --json` and `fledge review --json` outputs remain parseable; payloads gain a `provider` and `model` field
+### REQ-llm-001
+
+The implementation SHALL meet this contract: Default behavior (no config, no env, no flag) is identical to the pre-v0.13 Claude-CLI-only behavior
+
+### REQ-llm-002
+
+The implementation SHALL meet this contract: Setting `ai.provider = "ollama"` in config OR `FLEDGE_AI_PROVIDER=ollama` in env routes all AI commands through Ollama
+
+### REQ-llm-003
+
+The implementation SHALL meet this contract: Per-invocation `--provider ollama` overrides both env and config
+
+### REQ-llm-004
+
+The implementation SHALL meet this contract: Model selection follows the same override > env > config > default precedence
+
+### REQ-llm-005
+
+The implementation SHALL meet this contract: Ollama's HTTP request shape matches the `/api/generate` endpoint's published schema
+
+### REQ-llm-006
+
+The implementation SHALL meet this contract: `fledge doctor` reports both providers and which is active
+
+### REQ-llm-007
+
+The implementation SHALL meet this contract: No regression: `fledge ask --json` and `fledge review --json` outputs remain parseable; payloads gain a `provider` and `model` field
 
 ## Constraints
 

@@ -10,11 +10,25 @@ spec: validate.spec.md
 
 ## Acceptance Criteria
 
-- Single template validation checks manifest, Tera syntax, variable definitions, and render globs
-- Batch validation validates all templates in a directory independently
-- Strict mode exits non-zero on warnings
-- JSON mode outputs structured ValidationReport array
-- GitHub Actions `${{ }}` expressions are not flagged as Tera variables
+### REQ-validate-001
+
+The implementation SHALL meet this contract: Single template validation checks manifest, Tera syntax, variable definitions, and render globs
+
+### REQ-validate-002
+
+The implementation SHALL meet this contract: Batch validation validates all templates in a directory independently
+
+### REQ-validate-003
+
+The implementation SHALL meet this contract: Strict mode exits non-zero on warnings
+
+### REQ-validate-004
+
+The implementation SHALL meet this contract: JSON mode outputs structured ValidationReport array
+
+### REQ-validate-005
+
+The implementation SHALL meet this contract: GitHub Actions `${{ }}` expressions are not flagged as Tera variables
 
 ## Constraints
 

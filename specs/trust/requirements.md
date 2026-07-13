@@ -9,14 +9,37 @@ spec: trust.spec.md
 
 ## Acceptance Criteria
 
-- `determine_trust_tier` classifies `CorvidLabs/*` sources as Official
-- `determine_trust_tier` classifies filesystem path sources as Local
-- `determine_trust_tier` classifies sources owned by a human member of the CorvidLabs org (e.g. `0xLeif/*`) as Team
-- `determine_trust_tier` classifies all other sources as Unverified
-- Supports local paths, HTTPS URLs, SSH URLs, and `owner/repo` shorthand
-- `parse_source_ref` splits `source@ref` without false-splitting on credential `@` signs
-- `label` returns lowercase string representation
-- `styled_label` returns colored console output (magenta=local, green=official, cyan=team, yellow=unverified)
+### REQ-trust-001
+
+The implementation SHALL meet this contract: `determine_trust_tier` classifies `CorvidLabs/*` sources as Official
+
+### REQ-trust-002
+
+The implementation SHALL meet this contract: `determine_trust_tier` classifies filesystem path sources as Local
+
+### REQ-trust-003
+
+The implementation SHALL meet this contract: `determine_trust_tier` classifies sources owned by a human member of the CorvidLabs org (e.g. `0xLeif/*`) as Team
+
+### REQ-trust-004
+
+The implementation SHALL meet this contract: `determine_trust_tier` classifies all other sources as Unverified
+
+### REQ-trust-005
+
+The implementation SHALL meet this contract: Supports local paths, HTTPS URLs, SSH URLs, and `owner/repo` shorthand
+
+### REQ-trust-006
+
+The implementation SHALL meet this contract: `parse_source_ref` splits `source@ref` without false-splitting on credential `@` signs
+
+### REQ-trust-007
+
+The implementation SHALL meet this contract: `label` returns lowercase string representation
+
+### REQ-trust-008
+
+The implementation SHALL meet this contract: `styled_label` returns colored console output (magenta=local, green=official, cyan=team, yellow=unverified)
 
 ## Constraints
 

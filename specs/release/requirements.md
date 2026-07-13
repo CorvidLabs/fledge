@@ -1,5 +1,11 @@
 # Release — Requirements
 
+### REQ-release-001
+
+The implementation SHALL satisfy the behavior described by this companion.
+
+Acceptance Criteria
+
 1. Bump version in language-specific files (Cargo.toml, package.json, pyproject.toml, etc.)
 2. Support semver bump levels: major, minor, patch, or explicit version
 3. Auto-detect project language to find version files

@@ -9,10 +9,21 @@ spec: spinner.spec.md
 
 ## Acceptance Criteria
 
-- `Spinner::start(msg)` displays an animated spinner with the given message
-- `Spinner::finish()` clears the spinner line completely
-- A random theme is chosen each time a spinner starts
-- All themes animate smoothly without visual glitches
+### REQ-spinner-001
+
+The implementation SHALL meet this contract: `Spinner::start(msg)` displays an animated spinner with the given message
+
+### REQ-spinner-002
+
+The implementation SHALL meet this contract: `Spinner::finish()` clears the spinner line completely
+
+### REQ-spinner-003
+
+The implementation SHALL meet this contract: A random theme is chosen each time a spinner starts
+
+### REQ-spinner-004
+
+The implementation SHALL meet this contract: All themes animate smoothly without visual glitches
 
 ## Constraints
 

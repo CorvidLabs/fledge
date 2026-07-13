@@ -13,17 +13,49 @@ spec: init.spec.md
 
 ## Acceptance Criteria
 
-- `fledge init <name>` creates a directory with rendered template files
-- `fledge init <name> --template <name>` uses the specified template
-- `fledge init <name> --template owner/repo` fetches and uses a remote template
-- Without `--template`, an interactive selector is shown
-- `--dry-run` prints file list, hooks, and git status without writing
-- `--no-git` skips git init and initial commit
-- `--no-install` skips post-create hooks
-- `--yes` auto-confirms remote hook prompts
-- `--refresh` clears cached remote repos before fetching
-- If the target directory already exists, the command errors immediately
-- Git init includes an initial commit with all scaffolded files
+### REQ-init-001
+
+The implementation SHALL meet this contract: `fledge init <name>` creates a directory with rendered template files
+
+### REQ-init-002
+
+The implementation SHALL meet this contract: `fledge init <name> --template <name>` uses the specified template
+
+### REQ-init-003
+
+The implementation SHALL meet this contract: `fledge init <name> --template owner/repo` fetches and uses a remote template
+
+### REQ-init-004
+
+The implementation SHALL meet this contract: Without `--template`, an interactive selector is shown
+
+### REQ-init-005
+
+The implementation SHALL meet this contract: `--dry-run` prints file list, hooks, and git status without writing
+
+### REQ-init-006
+
+The implementation SHALL meet this contract: `--no-git` skips git init and initial commit
+
+### REQ-init-007
+
+The implementation SHALL meet this contract: `--no-install` skips post-create hooks
+
+### REQ-init-008
+
+The implementation SHALL meet this contract: `--yes` auto-confirms remote hook prompts
+
+### REQ-init-009
+
+The implementation SHALL meet this contract: `--refresh` clears cached remote repos before fetching
+
+### REQ-init-010
+
+The implementation SHALL meet this contract: If the target directory already exists, the command errors immediately
+
+### REQ-init-011
+
+The implementation SHALL meet this contract: Git init includes an initial commit with all scaffolded files
 
 ## Constraints
 

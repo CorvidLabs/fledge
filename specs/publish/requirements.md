@@ -1,5 +1,11 @@
 # Publish — Requirements
 
+### REQ-publish-001
+
+The implementation SHALL satisfy the behavior described by this companion.
+
+Acceptance Criteria
+
 This module is a library — its requirements describe the helpers it exposes. The user-facing publish commands (`templates publish`, `lanes publish`, `plugins publish`) define their own validation and prompting in their respective specs.
 
 ## Functional Requirements

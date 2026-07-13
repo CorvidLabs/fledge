@@ -1,0 +1,81 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1783831307,
+      "digest": "a4efac74ec54e8951785201cf048510fd9164e1ff04edfc1b1f6e312d17ff1a6",
+      "note": "Authorized by the approved organization-wide SpecSync 5 / Trust 1 migration plan."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783904137,
+      "digest": "d1f8bdbac64b57504f016a4ac604863117e2afeb74cd9d3e55d6942869e60165",
+      "note": "Reviewed Fledge governance adoption after placeholder-free template verification, 100% strict coverage, hosted technical matrices, and required trust protection."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783913704,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved final strict Trust policy, SpecSync 5.0.1 scaffolding, build-manifest governance, and substantive template regression scope."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783917629,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved non-recursive native verification lane after hosted Trust and spec-check cancellation exposed recursive contract execution"
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783918310,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved standard-profile progressive provenance and complete managed-marker enforcement"
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783918406,
+      "digest": "e6dceae128713731a5202a5b7de38b8be129f7fc1eb2f82cb1742725962c0177",
+      "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783922639,
+      "digest": "29aef45929401f47b9d945bf73a850032af3efbaf9d7fd35bfb55f3ee748aca1",
+      "note": "Accepted after renewing verification for the non-recursive governance test lane."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783923481,
+      "digest": "1b71dcb19cf474784ccc9aa4e4bfe4aee685f20941b368bb96fd7bf3d451dc38",
+      "note": "Accepted after addressing final policy and semantic requirement review findings."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924404,
+      "digest": "90d9f68e49630a9a86bb3eba03f1a74f7ba4aa199252c650e57a8a712a4d0e8c",
+      "note": "Accepted after strict Trust workflow and final generated-policy review fixes."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924837,
+      "digest": "b672b2c889ec39d1cbf4f4dfe1afee382fe5a2ff47c29df81c43e111be5d5ec0",
+      "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783925618,
+      "digest": "9abb81e538873dfec876e7f5ee2c41b3af11ef3215db9fb94501209640a0bde9",
+      "note": null
+    }
+  ]
+}
