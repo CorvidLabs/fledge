@@ -20,6 +20,11 @@ jobs:
         id: trust
         uses: CorvidLabs/trust@9d32b5786d2e9e4d39fc581c0091c721ee3d4226 # v1.0.0
 
+      - name: Enforce SpecSync SDD lifecycle
+        run: |
+          specsync lifecycle enforce --all
+          specsync change check --strict
+
       - name: Check managed agent rules
         run: |
           grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md

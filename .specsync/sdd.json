@@ -37,6 +37,7 @@
     "templates/",
     "fledge.toml",
     "install.sh",
+    "install.ps1",
     ".trust.toml",
     ".augur.toml",
     ".attest.json",

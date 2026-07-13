@@ -130,8 +130,12 @@ jobs:
           # claimed by a spec (test-only + template CI files are excluded in
           # .specsync/config.toml). Fails CI if an unclaimed file is added (#448).
           require-coverage: 100
+          lifecycle-enforce: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce SpecSync change workspaces
+        run: specsync change check --strict --require-coverage 100
 
   corvid-pet:
     runs-on: ubuntu-latest

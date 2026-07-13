@@ -1067,6 +1067,19 @@ ignore = ["template.toml"]
                 .is_some_and(|paths| paths.iter().any(|path| path.as_str() == Some("."))),
             "corvid-stack SDD policy must cover root-level and alternate source layouts"
         );
+
+        let trust_workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("templates/corvid-stack/.github/workflows/trust.yml");
+        let trust_workflow = fs::read_to_string(trust_workflow_path).unwrap();
+        for required in [
+            "specsync lifecycle enforce --all",
+            "specsync change check --strict",
+        ] {
+            assert!(
+                trust_workflow.contains(required),
+                "corvid-stack Trust workflow is missing SDD enforcement: {required}"
+            );
+        }
     }
 
     #[test]

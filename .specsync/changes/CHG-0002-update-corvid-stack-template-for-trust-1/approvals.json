@@ -69,6 +69,13 @@
       "timestamp": 1783924858,
       "digest": "170d5e1b7deb38150927144f92f7705d632a769b104e688e2562da1b19138f96",
       "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783925640,
+      "digest": "f585f05d994b3aca1007087c612db8ae8184227e6199c88f2484ffba2aa60ba9",
+      "note": null
     }
   ]
 }
