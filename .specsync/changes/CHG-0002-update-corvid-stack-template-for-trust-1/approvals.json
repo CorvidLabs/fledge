@@ -29,10 +29,17 @@
       "note": "Reapproved template migration for final workspace verification with the non-recursive native Fledge lane"
     },
     {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783918310,
+      "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
+      "note": "Approved cross-platform git-based starter governance checks for generated Corvid stack projects"
+    },
+    {
       "gate": "acceptance",
       "actor": "0xLeif",
-      "timestamp": 1783917705,
-      "digest": "61fa4a17cffebf36e92923a37dd6497bf7e64f285ed1c2374a7578aff94a0dcf",
+      "timestamp": 1783918406,
+      "digest": "49d121ae0fbf2b8f27c2317fc50b236ed4ef02011b00e9f1ab62ac88a6eeeebb",
       "note": null
     }
   ]

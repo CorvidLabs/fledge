@@ -23,4 +23,6 @@ jobs:
         uses: CorvidLabs/trust@9d32b5786d2e9e4d39fc581c0091c721ee3d4226 # v1.0.0
 
       - name: Check managed agent rules
-        run: 'grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md'
+        run: |
+          grep -q "CorvidLabs trust toolchain: BEGIN" AGENTS.md
+          grep -q "CorvidLabs trust toolchain: END" AGENTS.md

@@ -1,5 +1,5 @@
 schema_version = 1
-profile = "strict"
+profile = "standard"
 
 [lifecycle]
 command = ["fledge", "lanes", "run", "verify-native"]

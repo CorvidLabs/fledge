@@ -29,10 +29,17 @@
       "note": "Approved non-recursive native verification lane after hosted Trust and spec-check cancellation exposed recursive contract execution"
     },
     {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783918310,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved standard-profile progressive provenance and complete managed-marker enforcement"
+    },
+    {
       "gate": "acceptance",
       "actor": "0xLeif",
-      "timestamp": 1783917701,
-      "digest": "ec6cd13d5bffc538c35b11915d613b3ddff1543038e82147b1796b2feb7a3565",
+      "timestamp": 1783918406,
+      "digest": "e6dceae128713731a5202a5b7de38b8be129f7fc1eb2f82cb1742725962c0177",
       "note": null
     }
   ]
