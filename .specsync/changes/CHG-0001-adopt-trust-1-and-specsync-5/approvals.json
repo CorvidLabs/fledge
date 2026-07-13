@@ -22,11 +22,18 @@
       "note": "Approved final strict Trust policy, SpecSync 5.0.1 scaffolding, build-manifest governance, and substantive template regression scope."
     },
     {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783917629,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved non-recursive native verification lane after hosted Trust and spec-check cancellation exposed recursive contract execution"
+    },
+    {
       "gate": "acceptance",
       "actor": "0xLeif",
-      "timestamp": 1783913853,
-      "digest": "0368e97d1b997b7608668cc54a0b0c0896b419d940f0b288107ea541e3c4d460",
-      "note": "Accepted after full verification of strict Trust, SpecSync 5.0.1 scaffolding, governed build manifests, and template regression coverage."
+      "timestamp": 1783917701,
+      "digest": "ec6cd13d5bffc538c35b11915d613b3ddff1543038e82147b1796b2feb7a3565",
+      "note": null
     }
   ]
 }

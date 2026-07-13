@@ -42,7 +42,7 @@
   ],
   "ignored_paths": [],
   "verification_commands": [
-    "fledge lanes run verify"
+    "fledge lanes run verify-native"
   ],
   "custom_artifacts": {},
   "principles_file": null

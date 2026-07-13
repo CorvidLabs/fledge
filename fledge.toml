@@ -23,6 +23,10 @@ steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
 description = "Required Trust gate for the Fledge repository"
 steps = ["fmt", "lint", "test", "build", "spec-check", "validate-templates"]
 
+[lanes.verify-native]
+description = "Native verification used by Trust and SpecSync without recursive contract checks"
+steps = ["fmt", "lint", "test", "build", "validate-templates"]
+
 [lanes.check]
 description = "Quick quality check"
 steps = [

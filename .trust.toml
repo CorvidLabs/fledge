@@ -2,7 +2,7 @@ schema_version = 1
 profile = "strict"
 
 [lifecycle]
-command = ["fledge", "lanes", "run", "verify"]
+command = ["fledge", "lanes", "run", "verify-native"]
 
 [contract]
 enabled = true
