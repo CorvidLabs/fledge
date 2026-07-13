@@ -1,6 +1,6 @@
 ---
 id: CHG-0002-update-corvid-stack-template-for-trust-1
-state: implementing
+state: accepted
 type: migration
 base_commit: 02550b3fac7e9a5ca12f5aecc1773f89972820f0
 ---

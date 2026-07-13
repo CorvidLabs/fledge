@@ -13,6 +13,20 @@
       "timestamp": 1783904137,
       "digest": "d1f8bdbac64b57504f016a4ac604863117e2afeb74cd9d3e55d6942869e60165",
       "note": "Reviewed Fledge governance adoption after placeholder-free template verification, 100% strict coverage, hosted technical matrices, and required trust protection."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783913704,
+      "digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+      "note": "Approved final strict Trust policy, SpecSync 5.0.1 scaffolding, build-manifest governance, and substantive template regression scope."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783913853,
+      "digest": "0368e97d1b997b7608668cc54a0b0c0896b419d940f0b288107ea541e3c4d460",
+      "note": "Accepted after full verification of strict Trust, SpecSync 5.0.1 scaffolding, governed build manifests, and template regression coverage."
     }
   ]
 }

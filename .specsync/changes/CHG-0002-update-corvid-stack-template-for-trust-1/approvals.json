@@ -20,6 +20,13 @@
       "timestamp": 1783904120,
       "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
       "note": "Reviewed placeholder-free Corvid stack defaults and successful generated-project governance lane."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783913805,
+      "digest": "35f47eff5b2087fe61da58aa9a9fecf0f1a0621da60bec47765ccf054ebc44ba",
+      "note": "Accepted after full verification of the placeholder-free bootstrap lane, explicit native-check extension policy, and final Trust 1 template."
     }
   ]
 }
