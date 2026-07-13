@@ -41,6 +41,13 @@
       "timestamp": 1783918406,
       "digest": "e6dceae128713731a5202a5b7de38b8be129f7fc1eb2f82cb1742725962c0177",
       "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783922639,
+      "digest": "29aef45929401f47b9d945bf73a850032af3efbaf9d7fd35bfb55f3ee748aca1",
+      "note": "Accepted after renewing verification for the non-recursive governance test lane."
     }
   ]
 }
