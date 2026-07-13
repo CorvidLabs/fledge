@@ -1,0 +1,16 @@
+{
+  "timestamp": 1783904140,
+  "commit": "0eaccc12aded0f311d81a442c543645db7da9c18",
+  "contract_digest": "d1f8bdbac64b57504f016a4ac604863117e2afeb74cd9d3e55d6942869e60165",
+  "workspace_digest": "f9e92e6f24f7afb8cd6a25424bfe8ce553786bfadbb3e3e62146222dc7fc5c24",
+  "acceptance_input_digest": "4bd74288dc718a9fde38c1d95212a59d9ead30dd08af621fcd2d87488f5fb562",
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge run validate-templates",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}

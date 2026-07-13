@@ -8,5 +8,5 @@ artifact: tasks
 - [x] Adopt SpecSync 5.0.1 and install agent integrations.
 - [x] Configure Trust 1 with immutable action pins.
 - [x] Preserve native validation and specialized workflows.
-- [ ] Pass hosted pull-request checks.
-- [ ] Require the green trust check on the protected branch.
+- [x] Pass hosted native, integration, lint, audit, template-validation, and CodeQL checks.
+- [x] Require the green trust check on the protected branch.

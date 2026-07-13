@@ -13,6 +13,20 @@
       "timestamp": 1783831395,
       "digest": "62b4cdc0055b7d9c77ee517b7549cd4ef23f69dc596edb23ecb0bffc5a332c68",
       "note": "Authorized by the approved organization-wide SpecSync 5 / Trust 1 migration plan."
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1783904120,
+      "digest": "eba5b5589df084078203786c6f051df9378749313f2ffa761fddcff0e9d49c57",
+      "note": "Reviewed placeholder-free Corvid stack defaults and successful generated-project governance lane."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783904137,
+      "digest": "d91074df5f3e1d1b8f344d575ebd1d68a0003376e3682e31ded94adb0238d9f2",
+      "note": "Approved after strict template verification and a successful four-step generated-project governance lane without placeholders."
     }
   ]
 }
