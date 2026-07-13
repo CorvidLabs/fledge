@@ -114,6 +114,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Build the branch Fledge CLI
         run: cargo build --release --locked
       - name: Add the branch Fledge CLI to PATH
