@@ -62,6 +62,13 @@
       "timestamp": 1783924408,
       "digest": "b0fd1f2ce8e999ca1cbbfa1f2139a7e6610f32bf974e09922a7108b506066aff",
       "note": "Accepted after committed-tree, complete-governance, and alternate-source-layout template validation."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924858,
+      "digest": "170d5e1b7deb38150927144f92f7705d632a769b104e688e2562da1b19138f96",
+      "note": null
     }
   ]
 }

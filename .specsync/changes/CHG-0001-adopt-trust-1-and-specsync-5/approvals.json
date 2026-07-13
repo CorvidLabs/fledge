@@ -62,6 +62,13 @@
       "timestamp": 1783924404,
       "digest": "90d9f68e49630a9a86bb3eba03f1a74f7ba4aa199252c650e57a8a712a4d0e8c",
       "note": "Accepted after strict Trust workflow and final generated-policy review fixes."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783924837,
+      "digest": "b672b2c889ec39d1cbf4f4dfe1afee382fe5a2ff47c29df81c43e111be5d5ec0",
+      "note": null
     }
   ]
 }
