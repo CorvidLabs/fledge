@@ -12,53 +12,31 @@ spec: envelope.spec.md
 
 ### REQ-envelope-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `resource(schema_version, key, items)` builds `{schema_version, <key>: items}` with no `action` key
 
-Acceptance Criteria
-
-- `resource(schema_version, key, items)` builds `{schema_version, <key>: items}` with no `action` key
 ### REQ-envelope-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `action(schema_version, action, fields)` builds `{schema_version, action, ...fields}`, inserting the fixed keys first then merging an object `fields`
 
-Acceptance Criteria
-
-- `action(schema_version, action, fields)` builds `{schema_version, action, ...fields}`, inserting the fixed keys first then merging an object `fields`
 ### REQ-envelope-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `versioned(schema_version, fields)` builds `{schema_version, ...fields}` with no `action` key
 
-Acceptance Criteria
-
-- `versioned(schema_version, fields)` builds `{schema_version, ...fields}` with no `action` key
 ### REQ-envelope-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Every envelope carries a `schema_version` from the caller-supplied `u32`
 
-Acceptance Criteria
-
-- Every envelope carries a `schema_version` from the caller-supplied `u32`
 ### REQ-envelope-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Output is byte-for-byte identical to the equivalent hand-rolled `serde_json::json!`
 
-Acceptance Criteria
-
-- Output is byte-for-byte identical to the equivalent hand-rolled `serde_json::json!`
 ### REQ-envelope-006
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: A non-object `fields` value contributes no extra keys; the envelope still carries its fixed keys
 
-Acceptance Criteria
-
-- A non-object `fields` value contributes no extra keys; the envelope still carries its fixed keys
 ### REQ-envelope-007
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- Non-serializable `resource` items store `Value::Null` under the key instead of panicking
+The implementation SHALL meet this contract: Non-serializable `resource` items store `Value::Null` under the key instead of panicking
 
 ## Constraints
 

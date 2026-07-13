@@ -13,46 +13,27 @@ spec: meta.spec.md
 
 ### REQ-meta-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `write_project_meta` writes `.fledge/meta.toml` with `SourceInfo` provenance, string template variables, and a hash for each existing created file
 
-Acceptance Criteria
-
-- `write_project_meta` writes `.fledge/meta.toml` with `SourceInfo` provenance, string template variables, and a hash for each existing created file
 ### REQ-meta-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `compute_file_hash` returns a 64-character lowercase hex SHA-256 digest and is deterministic
 
-Acceptance Criteria
-
-- `compute_file_hash` returns a 64-character lowercase hex SHA-256 digest and is deterministic
 ### REQ-meta-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: The `.fledge` directory is created if missing
 
-Acceptance Criteria
-
-- The `.fledge` directory is created if missing
 ### REQ-meta-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: A `.fledge/.gitignore` is created if one does not already exist, and an existing one is never overwritten
 
-Acceptance Criteria
-
-- A `.fledge/.gitignore` is created if one does not already exist, and an existing one is never overwritten
 ### REQ-meta-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Created files that no longer exist on disk are silently skipped, not errored
 
-Acceptance Criteria
-
-- Created files that no longer exist on disk are silently skipped, not errored
 ### REQ-meta-006
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- `fledge_version` is captured from `CARGO_PKG_VERSION` at compile time and `created` is the local date as `YYYY-MM-DD`
+The implementation SHALL meet this contract: `fledge_version` is captured from `CARGO_PKG_VERSION` at compile time and `created` is the local date as `YYYY-MM-DD`
 
 ## Constraints
 

@@ -11,32 +11,19 @@ spec: spinner.spec.md
 
 ### REQ-spinner-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `Spinner::start(msg)` displays an animated spinner with the given message
 
-Acceptance Criteria
-
-- `Spinner::start(msg)` displays an animated spinner with the given message
 ### REQ-spinner-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `Spinner::finish()` clears the spinner line completely
 
-Acceptance Criteria
-
-- `Spinner::finish()` clears the spinner line completely
 ### REQ-spinner-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: A random theme is chosen each time a spinner starts
 
-Acceptance Criteria
-
-- A random theme is chosen each time a spinner starts
 ### REQ-spinner-004
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- All themes animate smoothly without visual glitches
+The implementation SHALL meet this contract: All themes animate smoothly without visual glitches
 
 ## Constraints
 

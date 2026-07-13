@@ -48,6 +48,13 @@
       "timestamp": 1783922642,
       "digest": "dd0475dd7f22aea80ecdb40a9ce20062d20bfa4ae6db6006b2b6915f0a35b44a",
       "note": "Accepted after renewing verification against the final non-recursive governance lane."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1783923481,
+      "digest": "d395258a462cf9cba7cf47abe6be4233715895293010ea39c78641c33a2b1957",
+      "note": "Accepted after final generated-template policy and local-gate review fixes."
     }
   ]
 }

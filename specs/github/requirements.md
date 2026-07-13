@@ -12,74 +12,43 @@ spec: github.spec.md
 
 ### REQ-github-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `detect_repo` parses HTTPS remote URLs (`https://github.com/owner/repo.git`)
 
-Acceptance Criteria
-
-- `detect_repo` parses HTTPS remote URLs (`https://github.com/owner/repo.git`)
 ### REQ-github-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `detect_repo` parses SSH remote URLs (`git@github.com:owner/repo.git`)
 
-Acceptance Criteria
-
-- `detect_repo` parses SSH remote URLs (`git@github.com:owner/repo.git`)
 ### REQ-github-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `detect_repo` handles token-authenticated HTTPS URLs
 
-Acceptance Criteria
-
-- `detect_repo` handles token-authenticated HTTPS URLs
 ### REQ-github-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `detect_repo` strips trailing `.git` suffix
 
-Acceptance Criteria
-
-- `detect_repo` strips trailing `.git` suffix
 ### REQ-github-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `github_api_get` reads token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN`, or config
 
-Acceptance Criteria
-
-- `github_api_get` reads token from `FLEDGE_GITHUB_TOKEN`, `GITHUB_TOKEN`, or config
 ### REQ-github-006
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `github_api_get` returns parsed JSON on success
 
-Acceptance Criteria
-
-- `github_api_get` returns parsed JSON on success
 ### REQ-github-007
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: 403 responses produce a message about setting a token
 
-Acceptance Criteria
-
-- 403 responses produce a message about setting a token
 ### REQ-github-008
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: 404 responses produce a "Not found" error
 
-Acceptance Criteria
-
-- 404 responses produce a "Not found" error
 ### REQ-github-009
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `format_relative_time` converts ISO 8601 timestamps to human-readable relative times
 
-Acceptance Criteria
-
-- `format_relative_time` converts ISO 8601 timestamps to human-readable relative times
 ### REQ-github-010
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- `format_relative_time` falls back to the raw string for unparseable input
+The implementation SHALL meet this contract: `format_relative_time` falls back to the raw string for unparseable input
 
 ## Constraints
 

@@ -12,46 +12,27 @@ spec: doctor.spec.md
 
 ### REQ-doctor-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge doctor` reports four sections: `fledge`, `Git`, `AI`, `Toolchains`
 
-Acceptance Criteria
-
-- `fledge doctor` reports four sections: `fledge`, `Git`, `AI`, `Toolchains`
 ### REQ-doctor-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Each failing check in a non-informational section shows an actionable fix command
 
-Acceptance Criteria
-
-- Each failing check in a non-informational section shows an actionable fix command
 ### REQ-doctor-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: The `Toolchains` section is informational — missing entries render dimmed and don't pollute the pass/fail totals
 
-Acceptance Criteria
-
-- The `Toolchains` section is informational — missing entries render dimmed and don't pollute the pass/fail totals
 ### REQ-doctor-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `--json` outputs a structured `DoctorReport` with all check results, including `informational: bool` per Section
 
-Acceptance Criteria
-
-- `--json` outputs a structured `DoctorReport` with all check results, including `informational: bool` per Section
 ### REQ-doctor-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Exit summary shows count of passed checks and issues found, computed only over non-informational sections
 
-Acceptance Criteria
-
-- Exit summary shows count of passed checks and issues found, computed only over non-informational sections
 ### REQ-doctor-006
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- Toolchains probed: rustc, cargo, node, npm, pnpm, bun, yarn, python3, uv, poetry, go, ruby, swift, java, gradle, mvn
+The implementation SHALL meet this contract: Toolchains probed: rustc, cargo, node, npm, pnpm, bun, yarn, python3, uv, poetry, go, ruby, swift, java, gradle, mvn
 
 ## Constraints
 

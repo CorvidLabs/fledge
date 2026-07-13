@@ -12,46 +12,27 @@ spec: review.spec.md
 
 ### REQ-review-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge review` diffs the current branch against the default base (main/master) and sends it to Claude CLI
 
-Acceptance Criteria
-
-- `fledge review` diffs the current branch against the default base (main/master) and sends it to Claude CLI
 ### REQ-review-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge review --base develop` uses a custom base branch
 
-Acceptance Criteria
-
-- `fledge review --base develop` uses a custom base branch
 ### REQ-review-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge review --file src/foo.rs` restricts the review to one file
 
-Acceptance Criteria
-
-- `fledge review --file src/foo.rs` restricts the review to one file
 ### REQ-review-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Diff stats are displayed before the AI output
 
-Acceptance Criteria
-
-- Diff stats are displayed before the AI output
 ### REQ-review-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Empty diffs bail with a clear message
 
-Acceptance Criteria
-
-- Empty diffs bail with a clear message
 ### REQ-review-006
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- Missing Claude CLI produces install instructions
+The implementation SHALL meet this contract: Missing Claude CLI produces install instructions
 
 ## Constraints
 

@@ -34,7 +34,7 @@ brew install CorvidLabs/tap/corvid-trust
 
 # Run the gate locally
 fledge trust doctor
-fledge trust verify
+fledge lanes run verify
 ```
 
 Then fill in the `[tasks]` in `fledge.toml`, set `source_dirs` in

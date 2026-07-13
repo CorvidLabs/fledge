@@ -13,67 +13,39 @@ spec: config.spec.md
 
 ### REQ-config-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config list` displays all configured values and empty list sections
 
-Acceptance Criteria
-
-- `fledge config list` displays all configured values and empty list sections
 ### REQ-config-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config get <key>` prints the value for any valid key (scalar or list)
 
-Acceptance Criteria
-
-- `fledge config get <key>` prints the value for any valid key (scalar or list)
 ### REQ-config-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config set <key> <value>` persists scalar values to `config.toml`
 
-Acceptance Criteria
-
-- `fledge config set <key> <value>` persists scalar values to `config.toml`
 ### REQ-config-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config unset <key>` removes values (clears lists for list keys)
 
-Acceptance Criteria
-
-- `fledge config unset <key>` removes values (clears lists for list keys)
 ### REQ-config-005
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config add <key> <value>` appends to list keys with deduplication
 
-Acceptance Criteria
-
-- `fledge config add <key> <value>` appends to list keys with deduplication
 ### REQ-config-006
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge config remove <key> <value>` removes from list keys and reports whether found
 
-Acceptance Criteria
-
-- `fledge config remove <key> <value>` removes from list keys and reports whether found
 ### REQ-config-007
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Using `set` on a list key (or `add`/`remove` on a scalar key) produces a clear error with guidance
 
-Acceptance Criteria
-
-- Using `set` on a list key (or `add`/`remove` on a scalar key) produces a clear error with guidance
 ### REQ-config-008
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Config file is created on first write if it doesn't exist
 
-Acceptance Criteria
-
-- Config file is created on first write if it doesn't exist
 ### REQ-config-009
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- Missing config file returns sensible defaults (MIT license, no author, empty lists)
+The implementation SHALL meet this contract: Missing config file returns sensible defaults (MIT license, no author, empty lists)
 
 ## Constraints
 

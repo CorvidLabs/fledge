@@ -23,6 +23,7 @@
     "requirements.txt",
     ".specsync/sdd.json",
     ".specsync/config.toml",
+    ".specsync/registry.toml",
     ".specsync/version",
     "fledge.toml",
     ".trust.toml",

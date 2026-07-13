@@ -11,39 +11,23 @@ spec: ask.spec.md
 
 ### REQ-ask-001
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: `fledge ask <words...>` joins all trailing arguments into a single question
 
-Acceptance Criteria
-
-- `fledge ask <words...>` joins all trailing arguments into a single question
 ### REQ-ask-002
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: The question is sent to Claude CLI running in the current project directory
 
-Acceptance Criteria
-
-- The question is sent to Claude CLI running in the current project directory
 ### REQ-ask-003
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: The response is streamed to stdout
 
-Acceptance Criteria
-
-- The response is streamed to stdout
 ### REQ-ask-004
 
-The implementation SHALL satisfy this requirement.
+The implementation SHALL meet this contract: Missing Claude CLI produces install instructions
 
-Acceptance Criteria
-
-- Missing Claude CLI produces install instructions
 ### REQ-ask-005
 
-The implementation SHALL satisfy this requirement.
-
-Acceptance Criteria
-
-- No question provided produces a usage hint
+The implementation SHALL meet this contract: No question provided produces a usage hint
 
 ## Constraints
 
