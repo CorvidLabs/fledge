@@ -76,6 +76,63 @@
       "timestamp": 1783925618,
       "digest": "9abb81e538873dfec876e7f5ee2c41b3af11ef3215db9fb94501209640a0bde9",
       "note": null
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1784413892,
+      "digest": "af00161a83329e33a4a3dab98d7a07abeab393f4b6a3f1cd396210ee876d7d1b",
+      "note": null
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1784414138,
+      "digest": "69927c6a0655c036bc288d2ffb625676bea1b0876e2eac5315a7e0e2f96b9907",
+      "note": null
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xLeif",
+      "timestamp": 1784414208,
+      "digest": "3aa0f4c5b2c0cf5554c1c2bcac031657ac82aa870dc4e8cf8047f10d92ea75e9",
+      "note": "Re-acceptance with canonical ownership correction for src/spec/commands.rs; canonical deltas were already integrated and were not replayed."
+    }
+  ],
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0001-adopt-trust-1-and-specsync-5",
+      "actor": "user:0xLeif",
+      "reason": "Trust consumer pin moves to the released v1.1.1 immutable commit; the Trust workflow is a governed delivery input of this change, so accepted verification is stale.",
+      "timestamp": 1784412101,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "0xLeif",
+        "timestamp": 1783925618,
+        "digest": "9abb81e538873dfec876e7f5ee2c41b3af11ef3215db9fb94501209640a0bde9",
+        "note": null
+      },
+      "prior_verification": {
+        "timestamp": 1783925618,
+        "commit": "abd4240b1699cf1f2fb79417641f0a82054b5972",
+        "contract_digest": "e501068a05e6748686f9e67c2abc8740da52e6d7df64770bbb7c6bd6e8d2c391",
+        "workspace_digest": "9a889f5a1f62f02e872ecbd4e3d055cff2603e7072ab66024d85816bc2c2bd25",
+        "acceptance_input_digest": "f562234962df8c999eae83354a041b963c0d89203f8c6bc235a5fa8b6b64cd94",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": []
+      },
+      "stale_acceptance_input_digest": "f562234962df8c999eae83354a041b963c0d89203f8c6bc235a5fa8b6b64cd94",
+      "current_acceptance_input_digest": "1f0a5585a071a48031c54d8b6043c845730df4d40e30ae9c138c50d1b9c755cc"
     }
   ]
 }

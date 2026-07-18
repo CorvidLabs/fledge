@@ -6,9 +6,10 @@
   "description": "Adopt Trust 1 and SpecSync 5",
   "kind": "migration",
   "state": "accepted",
+  "canonical_applied": true,
   "base_commit": "02550b3fac7e9a5ca12f5aecc1773f89972820f0",
   "created_at": 1783831307,
-  "updated_at": 1783925618,
+  "updated_at": 1784414208,
   "affected_specs": [],
   "affected_paths": [
     ".github/workflows/",
@@ -41,6 +42,26 @@
     "docs"
   ],
   "dependencies": [],
+  "acceptance_owner_corrections": [
+    {
+      "schema_version": 1,
+      "sequence": 1,
+      "path": "src/spec/commands.rs",
+      "module": "spec",
+      "actor": "user:0xLeif",
+      "reason": "The historical definition omitted the canonical owner of the already-scoped spec-command implementation input.",
+      "timestamp": 1784413882
+    },
+    {
+      "schema_version": 1,
+      "sequence": 2,
+      "path": "src/templates.rs",
+      "module": "templates",
+      "actor": "user:0xLeif",
+      "reason": "The historical definition omitted the canonical owner of the already-scoped templates implementation input.",
+      "timestamp": 1784414133
+    }
+  ],
   "answers": {
     "architecture_risk": "yes",
     "public_contract": "no"
