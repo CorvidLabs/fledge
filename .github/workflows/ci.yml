@@ -121,9 +121,9 @@ jobs:
         run: echo "${{ github.workspace }}/target/debug" >> "$GITHUB_PATH"
       - name: Run spec-sync
         id: specsync
-        uses: CorvidLabs/spec-sync@59bbfa766c6cce01ab815ab47db195b0629cc014 # v5.0.1
+        uses: CorvidLabs/spec-sync@a89d827e93fa0bc9e6168447e66a0ad30fa92e65 # v5.1.1
         with:
-          version: 5.0.1
+          version: 5.1.1
           strict: true
           comment: false
           # Enforce reverse coverage: every production source file must be
