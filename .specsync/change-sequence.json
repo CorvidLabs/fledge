@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 3,
-  "id": "CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c",
+  "sequence": 4,
+  "id": "CHG-0004-release-v1-7-1-bump-version-files-and-changelog",
   "acknowledged_collisions": []
 }
