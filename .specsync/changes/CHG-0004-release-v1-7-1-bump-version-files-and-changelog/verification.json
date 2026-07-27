@@ -1,0 +1,71 @@
+{
+  "timestamp": 1785181186,
+  "commit": "2919effe55c6800765c16dd473ee372970fc0e32",
+  "contract_digest": "579fccb803c22ff3338ce0411595dbec36be58f0b0dd73ce65071fa88a94ed81",
+  "workspace_digest": "8afdc98aae8c704902c1ca45a44a4daf79d0b8783e0bc29dc8a2e4439bfaad5b",
+  "acceptance_input_digest": "2eee885f6e915bf1fdb8b777b96e63fe33b60b14145890bac30fbf02ad4cb494",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": ".specsync/change-sequence.json",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "0d7c8d73b771f720b758ec1767248626d7785e2e9e50251bba153b3f57b5fc82",
+        "entry_digest": "cfd45ec6e986216f5b5bb770e39b5b18a11a8b10af8dba642b7909a6597c47d2",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "CHANGELOG.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5acdc942089f746bd9b2b65db55dd1d91349f35c22ed88c87c05eb43858a1734",
+        "entry_digest": "a32e33391dd197eaf744af6e5202e4a52bc834cae1ffc0fd8a2729266574d31f",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "Cargo.lock",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "fb9234eccd2fdde70beb549193f92b7e04f6ae534f7ad08508a97e9156001271",
+        "entry_digest": "4bd160a3b865ca3eb6471fa8451b86352c92633269a349d73839a22a69a0185c",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "Cargo.toml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "c5240428ce0904016f94e49d2ed126471c9bd95d2f2ec52bc1a975010bff18d8",
+        "entry_digest": "558005a11d5fe296f1d53c4abef5db7ff5b23246ccd719b74aa916b6940e3e83",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "flake.nix",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "d856f9451fa60e2fd6679bdd559fc790d417abc603532695785bc33c5bd0936d",
+        "entry_digest": "51935a1068dbba4ae7ff8339e06eabc41276209c402b7a2d7040f467569558a9",
+        "owners": [
+          "@exact:delivery"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}
