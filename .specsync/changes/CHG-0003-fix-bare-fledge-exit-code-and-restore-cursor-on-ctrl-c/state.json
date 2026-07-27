@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c",
+  "slug": "fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c",
+  "title": "Fix bare fledge exit code and restore cursor on Ctrl+C",
+  "description": "Fix bare fledge exit code and restore cursor on Ctrl+C",
+  "kind": "bug_fix",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+  "created_at": 1785170013,
+  "updated_at": 1785174642,
+  "affected_specs": [
+    "main",
+    "utils"
+  ],
+  "affected_paths": [
+    "src/cli.rs",
+    "src/main.rs",
+    "src/utils.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "tests/templates.rs",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "Bare fledge invocation exits 0 and prints help; Ctrl+C during fledge plugins search --interactive exits 130 and leaves the terminal cursor visible"
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "design",
+    "requirements",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "yes"
+  }
+}

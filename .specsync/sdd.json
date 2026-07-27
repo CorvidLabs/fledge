@@ -48,5 +48,9 @@
     "fledge lanes run verify-native"
   ],
   "custom_artifacts": {},
-  "principles_file": null
+  "principles_file": null,
+  "canonical_owners": {
+    "src/spec/commands.rs": "spec",
+    "src/templates.rs": "templates"
+  }
 }

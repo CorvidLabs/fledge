@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1785171110,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "a09707826b89eec8a35cc47f21c9962587a7ca45e25bda27f8e78a641c6aeba9",
+      "workspace_digest": "03c303345cd6bd137c9cd174579bd2bbd1fd739a8764eb6ce1c399cdc11df2ac",
+      "passed": false,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": false,
+          "exit_code": null
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-001",
+        "REQ-main-002",
+        "REQ-utils-001"
+      ]
+    },
+    {
+      "timestamp": 1785171155,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "a09707826b89eec8a35cc47f21c9962587a7ca45e25bda27f8e78a641c6aeba9",
+      "workspace_digest": "03c303345cd6bd137c9cd174579bd2bbd1fd739a8764eb6ce1c399cdc11df2ac",
+      "passed": false,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-001",
+        "REQ-main-002",
+        "REQ-utils-001"
+      ]
+    },
+    {
+      "timestamp": 1785171286,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "958c21f5ba57a30100a12f518dbbecf1757f2c48e8c0dd61a4434726cc507e3f",
+      "workspace_digest": "61e48139fca3878e8f38aba054987853b1abda4ed500411680c83bc8b21971c8",
+      "passed": false,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-005",
+        "REQ-main-006",
+        "REQ-utils-010"
+      ]
+    },
+    {
+      "timestamp": 1785171454,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "cb528f7e828b90f98966d687a2d9bd8fb2eeb0c6ac06de2fc41f8f7f7c706154",
+      "workspace_digest": "c2b1ee16f6472b683492e3d543ce8789c7465b742e64923efe4c035ed875f52f",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-005",
+        "REQ-main-006",
+        "REQ-utils-010"
+      ]
+    },
+    {
+      "timestamp": 1785173701,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "cb528f7e828b90f98966d687a2d9bd8fb2eeb0c6ac06de2fc41f8f7f7c706154",
+      "workspace_digest": "03cca78089b3ec8653f6daa291b73126f6cd70c27d4ce5ba9e8cf23676fa00d4",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-005",
+        "REQ-main-006",
+        "REQ-utils-010"
+      ]
+    },
+    {
+      "timestamp": 1785174628,
+      "commit": "fb6260ec05933dc8e11018bf6cfb66d482161078",
+      "contract_digest": "cb528f7e828b90f98966d687a2d9bd8fb2eeb0c6ac06de2fc41f8f7f7c706154",
+      "workspace_digest": "40bcdfb12b0d15665b780f9a19957281da5c2be412e37d870e877c6cbb1658e4",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-005",
+        "REQ-main-006",
+        "REQ-utils-010"
+      ]
+    }
+  ]
+}

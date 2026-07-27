@@ -118,14 +118,16 @@ fn cli_init_existing_dir_fails() {
     }
 }
 
+// Evidence: REQ-main-005
 #[test]
 fn cli_no_args_shows_help() {
     let bin = cargo_bin();
     let output = Command::new(&bin).output().unwrap();
 
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("Usage") || stderr.contains("usage"));
+    // A bare `fledge` invocation prints the top-level help and exits 0.
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Usage"));
 }
 
 #[test]
