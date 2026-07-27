@@ -1,0 +1,93 @@
+{
+  "timestamp": 1785182493,
+  "commit": "13855367dfb7a019425bdb063f42712d0e79ecd5",
+  "contract_digest": "4af0a4d9c1f9cbf1a779b95280bb594ca6557c4112b592c8747dbc2ecd9d86d8",
+  "workspace_digest": "b07e80a6ec95b2d2861b23734aa09e64041d1d78537b69b1c6f4dc8b778d496e",
+  "acceptance_input_digest": "265f5c6f62ec91ea209b2976b36a2f222c72d0f09798fe67efdac32d0c93c658",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": ".specsync/change-sequence.json",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "aef6aedd020464a720cb274856ea6ce7fca949b4f0a94b6ab8535d6399ba96fc",
+        "entry_digest": "b08711eda8d24a1b740d2f793bd5e478e66d233bbaebae661a098e296357fa70",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "specs/trust/context.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "367ac20cafdbcbcb269d2451b0f61a111c0d4a981c1ec927e81e50c9127a0d34",
+        "entry_digest": "1865bf2510cd6eae97e32f7246094867646f79ac1c4d7c454493d1579983010c",
+        "owners": [
+          "trust"
+        ]
+      },
+      {
+        "path": "specs/trust/requirements.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "316c4d681296a7c1060ea188fe12c8ce88395d67c4c60ea2ec19580bf8ab1405",
+        "entry_digest": "4aed9e3bfefe3b31711f763ae54c52d4982013e56084159ab5ddf18c26bf86b3",
+        "owners": [
+          "trust"
+        ]
+      },
+      {
+        "path": "specs/trust/tasks.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5af1c9004df2a7fb4c8d8b160f15ace373406d1e507745e3623db0beec195501",
+        "entry_digest": "c1ecb82a9794fd9449c22cfdc3f28af54c3cebb2e24db35cf2aa6c8cd78e69dc",
+        "owners": [
+          "trust"
+        ]
+      },
+      {
+        "path": "specs/trust/testing.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "ec50854aaea8028888a176f7c2b4ada9b77a4468c037e7225ffc847d612d9116",
+        "entry_digest": "68c9e5537f8153ab540996897ebe4eeb0705166f12b247f18994ae5e3bc4017c",
+        "owners": [
+          "trust"
+        ]
+      },
+      {
+        "path": "specs/trust/trust.spec.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "b0bfb2c3df63a8fe8c7033b7a3a683911baf4bbf426aed42315c7819a4d698b6",
+        "entry_digest": "a23dc379c70594881ff3ad525ed827aa622b1829c5ec5f8f6f1dca1c211b50a8",
+        "owners": [
+          "trust"
+        ]
+      },
+      {
+        "path": "src/trust.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "ebd08c85f39f0db328b4e4c035b980ef187cd3bf0137c3d2a76207e5f380ad29",
+        "entry_digest": "613507470eadd078f8d8e229b5161414fe671f5366f8a99a8dccd8d36aa3dd39",
+        "owners": [
+          "trust"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": [
+    "REQ-trust-006"
+  ]
+}
