@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 5,
-  "id": "CHG-0005-fix-parse-source-ref-rejecting-refs-containing-a-slash",
+  "sequence": 6,
+  "id": "CHG-0006-release-v1-7-2-bump-version-files-and-changelog",
   "acknowledged_collisions": []
 }

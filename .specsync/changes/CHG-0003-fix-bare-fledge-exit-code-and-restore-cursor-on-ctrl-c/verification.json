@@ -1,9 +1,9 @@
 {
-  "timestamp": 1785181235,
-  "commit": "2919effe55c6800765c16dd473ee372970fc0e32",
+  "timestamp": 1785185122,
+  "commit": "06c14e73d71f0ad62bdf3545440d2e9da015d7e3",
   "contract_digest": "cb528f7e828b90f98966d687a2d9bd8fb2eeb0c6ac06de2fc41f8f7f7c706154",
-  "workspace_digest": "8afdc98aae8c704902c1ca45a44a4daf79d0b8783e0bc29dc8a2e4439bfaad5b",
-  "acceptance_input_digest": "90cce0adb439e2ede19c7bd6e40079474eacf8fcbf934aa00999e3fd37d170d1",
+  "workspace_digest": "3d7d314cbe25d454c9296585a8b246783367fe3a53d857add677790f95a10a73",
+  "acceptance_input_digest": "c2d2659a31dce0ca09ee825a7df3d79a8582bad5082e735ea8cc92cfa7cad700",
   "acceptance_manifest": {
     "schema_version": 1,
     "entries": [
@@ -21,8 +21,8 @@
         "path": "Cargo.lock",
         "kind": "file",
         "mode": 33188,
-        "payload_digest": "fb9234eccd2fdde70beb549193f92b7e04f6ae534f7ad08508a97e9156001271",
-        "entry_digest": "4bd160a3b865ca3eb6471fa8451b86352c92633269a349d73839a22a69a0185c",
+        "payload_digest": "83367461551b0807e5bc71063be51cd553026ce2fa0475e66cab746a819a0b09",
+        "entry_digest": "49b77a2c4b7712c74ede05f22425a097187852807eda75fc3bf5f1dc119fd262",
         "owners": [
           "@exact:delivery"
         ]
@@ -31,8 +31,8 @@
         "path": "Cargo.toml",
         "kind": "file",
         "mode": 33188,
-        "payload_digest": "c5240428ce0904016f94e49d2ed126471c9bd95d2f2ec52bc1a975010bff18d8",
-        "entry_digest": "558005a11d5fe296f1d53c4abef5db7ff5b23246ccd719b74aa916b6940e3e83",
+        "payload_digest": "b0769772cfb33264e6f6c3b019c6909d0db30d1d62be68030d3033223f25489e",
+        "entry_digest": "9425e72a06292c8c59fda52030cb2eed598b32fe220194cdb5efef7a27a7206b",
         "owners": [
           "@exact:delivery"
         ]
