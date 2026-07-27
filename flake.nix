@@ -14,7 +14,7 @@
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "fledge";
-          version = "1.7.1";
+          version = "1.7.2";
           src = self;
 
           cargoLock = {
