@@ -1,9 +1,9 @@
 {
-  "timestamp": 1785177516,
-  "commit": "9ca0fca3d20088174fc415439702bd025f2a64ae",
+  "timestamp": 1785178915,
+  "commit": "594d16ac7117ca83ef4482386ec5d8a24fd8031c",
   "contract_digest": "208e03c9071862f56bcfc3adb222fd99efcc984021c9da355be0f0734f40e594",
-  "workspace_digest": "7578132225987f59af5f555c9cd4ff688a171d7050c44044ebca885f0258545a",
-  "acceptance_input_digest": "2a14de2a9ecbc0c6eab61bf653675fbac109e6b721ec0fef54a6a5403e4ec867",
+  "workspace_digest": "c5f747d0d3b190e851849d8782449de87744c7c60b5c0ff5164a4459f838d686",
+  "acceptance_input_digest": "0f7786943fc2f0ea0c12b85afa4655c47e97ba1e703db9a0fb82f3822ec63c27",
   "acceptance_manifest": {
     "schema_version": 1,
     "entries": [
@@ -131,8 +131,8 @@
         "path": ".github/workflows/ci.yml",
         "kind": "file",
         "mode": 33188,
-        "payload_digest": "a0cb007ef06470c4949da8d5a3646e4de85ae0cb37f7621c56ab22d0c07c95c0",
-        "entry_digest": "d141880d75778b12dca99d498c8e0ca5325d02867161ddcdc2b41f2c274670c0",
+        "payload_digest": "12d0ebbee9e233e8dab1e557bb74f17d7ac62431b07c0d7ccf80dcf37c1828d8",
+        "entry_digest": "e370e9f6617f0e428fd7ba21c3bef3e31a6fa0d13d1e75e29ecc2438291d0961",
         "owners": [
           "@exact:delivery"
         ]
