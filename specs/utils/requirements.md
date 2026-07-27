@@ -59,3 +59,12 @@ The implementation SHALL meet this contract: `redact_secrets` scrubs Authorizati
 - Prompt rendering itself (lives in `prompts.rs`)
 - Redaction of secret shapes beyond the four documented patterns (heuristic token detection, entropy scanning)
 - Localization of error messages
+
+### REQ-utils-010
+
+The `utils` module SHALL provide an idempotent helper that installs a Ctrl+C handler to restore the terminal cursor before exiting 130.
+
+Acceptance Criteria
+- `install_terminal_restore_handler` is callable from `main.rs` when stdin is a TTY.
+- Calling the helper multiple times is a no-op after the first installation.
+

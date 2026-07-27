@@ -68,23 +68,35 @@ fn run() -> Result<()> {
         utils::set_non_interactive(true);
     }
 
+    // Interactive dialoguer prompts hide the terminal cursor while rendering.
+    // If the user hits Ctrl+C during a prompt, the process exits with code 130
+    // before dialoguer can restore the cursor, leaving the shell cursor invisible.
+    // Install a one-shot handler that shows the cursor again before exiting.
+    if utils::is_interactive() {
+        utils::install_terminal_restore_handler();
+    }
+
     match cli.command {
-        Commands::Templates { action } => {
+        None => {
+            Cli::command().print_help()?;
+            println!();
+        }
+        Some(Commands::Templates { action }) => {
             template_cmds::handle_templates(action)?;
         }
-        Commands::Config { action } => {
+        Some(Commands::Config { action }) => {
             config_cmds::handle_config(action)?;
         }
-        Commands::Spec { action } => spec::run(spec_action_from(action))?,
-        Commands::Work { action } => work::run(work_action_from(action))?,
-        Commands::Run {
+        Some(Commands::Spec { action }) => spec::run(spec_action_from(action))?,
+        Some(Commands::Work { action }) => work::run(work_action_from(action))?,
+        Some(Commands::Run {
             task,
             init,
             list,
             lang,
             json,
             args,
-        } => {
+        }) => {
             run::run(run::RunOptions {
                 task,
                 init,
@@ -94,14 +106,14 @@ fn run() -> Result<()> {
                 args,
             })?;
         }
-        Commands::Watch {
+        Some(Commands::Watch {
             name,
             lane,
             path,
             ext,
             debounce,
             clear,
-        } => {
+        }) => {
             let extensions = ext.map(|e| watch::parse_extensions(&e)).unwrap_or_default();
             watch::run(watch::WatchOptions {
                 name,
@@ -112,7 +124,7 @@ fn run() -> Result<()> {
                 clear,
             })?;
         }
-        Commands::Review {
+        Some(Commands::Review {
             base,
             file,
             json,
@@ -124,7 +136,7 @@ fn run() -> Result<()> {
             provider,
             with_model,
             no_active,
-        } => {
+        }) => {
             let format: review::ReviewFormat =
                 format.parse().map_err(|e: String| anyhow::anyhow!(e))?;
             review::run(review::ReviewOptions {
@@ -141,13 +153,13 @@ fn run() -> Result<()> {
                 no_active,
             })?;
         }
-        Commands::Lanes { action } => lanes::run(lane_action_from(action))?,
-        Commands::Changelog {
+        Some(Commands::Lanes { action }) => lanes::run(lane_action_from(action))?,
+        Some(Commands::Changelog {
             limit,
             tag,
             unreleased,
             json,
-        } => {
+        }) => {
             changelog::run(changelog::ChangelogOptions {
                 limit,
                 tag,
@@ -155,20 +167,20 @@ fn run() -> Result<()> {
                 json,
             })?;
         }
-        Commands::Doctor { json } => {
+        Some(Commands::Doctor { json }) => {
             doctor::run(doctor::DoctorOptions { json })?;
         }
-        Commands::Introspect { json } => {
+        Some(Commands::Introspect { json }) => {
             let cmd = <Cli as clap::CommandFactory>::command();
             introspect::run(introspect::IntrospectOptions { json }, cmd)?;
         }
-        Commands::Plugins { action, json } => {
+        Some(Commands::Plugins { action, json }) => {
             plugin::run(plugin::PluginOptions {
                 action: plugin_action_from(action),
                 json,
             })?;
         }
-        Commands::Release {
+        Some(Commands::Release {
             bump,
             dry_run,
             no_tag,
@@ -178,7 +190,7 @@ fn run() -> Result<()> {
             pre_lane,
             allow_dirty,
             json,
-        } => {
+        }) => {
             release::run(release::ReleaseOptions {
                 bump,
                 dry_run,
@@ -191,15 +203,15 @@ fn run() -> Result<()> {
                 json,
             })?;
         }
-        Commands::Ai { action } => ai::run(ai_action_from(action))?,
-        Commands::Ask {
+        Some(Commands::Ai { action }) => ai::run(ai_action_from(action))?,
+        Some(Commands::Ask {
             question,
             json,
             with_specs,
             no_spec_index,
             provider,
             model,
-        } => {
+        }) => {
             if question.is_empty() {
                 anyhow::bail!("Please provide a question. Usage: fledge ask <question>");
             }
@@ -212,7 +224,7 @@ fn run() -> Result<()> {
                 model,
             })?;
         }
-        Commands::Completions { shell, install } => {
+        Some(Commands::Completions { shell, install }) => {
             if install {
                 template_cmds::install_completions(shell)?;
             } else {
@@ -229,7 +241,7 @@ fn run() -> Result<()> {
                 );
             }
         }
-        Commands::External(args) => {
+        Some(Commands::External(args)) => {
             let cmd_name = args.first().ok_or_else(|| {
                 anyhow::anyhow!(
                     "no subcommand provided\n\n  tip: use {} for help",
@@ -487,6 +499,15 @@ fn ai_action_from(action: AiSubcommand) -> ai::AiAction {
 #[cfg(test)]
 mod main_tests {
     use super::*;
+
+    #[test]
+    fn bare_invocation_has_no_subcommand() {
+        // A plain `fledge` call should parse successfully with `command: None`
+        // so the dispatcher can print help and exit 0 instead of treating it as
+        // a clap usage error.
+        let cli = Cli::parse_from(["fledge"]);
+        assert!(cli.command.is_none());
+    }
 
     #[test]
     fn external_lane_args_bare_name() {

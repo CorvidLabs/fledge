@@ -1,6 +1,6 @@
 ---
 module: utils
-version: 1
+version: 3
 status: active
 files:
   - src/utils.rs
@@ -13,14 +13,15 @@ depends_on: []
 
 ## Purpose
 
-Shared cross-cutting utilities used throughout the fledge CLI. Four concerns
+Shared cross-cutting utilities used throughout the fledge CLI. Five concerns
 live here: the process-wide **non-interactive flag** (set from `--non-interactive`
 or `FLEDGE_NON_INTERACTIVE`, plus the interactivity gates that every prompt site
 consults), **case conversions** (kebab/camel/snake/pascal) used by templating and
 scaffolding, **input validation** for project names, GitHub organizations, and
 conventional-commit scopes (the last is a security boundary before untrusted input
-reaches an LLM prompt), and **secret redaction** that scrubs credentials and auth
-tokens out of user-facing error strings.
+reaches an LLM prompt), **secret redaction** that scrubs credentials and auth
+tokens out of user-facing error strings, and **terminal cursor restoration** on
+Ctrl+C so dialoguer-based interactive prompts do not leave the shell cursor hidden.
 
 ## Public API
 
@@ -35,6 +36,7 @@ tokens out of user-facing error strings.
 | `is_interactive` | True when stdin is a TTY and the non-interactive flag is not set |
 | `require_interactive` | Bails with a flag-named error when a prompt cannot run; the arg is a `--flag` to suggest |
 | `require_interactive_hint` | Like `require_interactive` but splices a custom hint (for positional-arg commands) into the error |
+| `install_terminal_restore_handler` | Crate-internal helper that installs a one-shot Ctrl+C handler to restore the terminal cursor before exiting 130 |
 | `to_kebab_case` | Converts a string to kebab-case (`_`→`-`, lowercased) |
 | `to_camel_case` | Converts a string to camelCase |
 | `to_snake_case` | Converts a string to snake_case (`-`→`_`, lowercased) |
@@ -61,6 +63,7 @@ tokens out of user-facing error strings.
 7. `validate_commit_scope` caps length at 64 characters and permits only ASCII alphanumerics, `-`, and `_`, blocking whitespace and shell/prompt-injection metacharacters at the boundary.
 8. `redact_secrets` never emits a real credential: matched header values are replaced to end-of-line, and clean input passes through byte-identical.
 9. `validate_github_org` permits spaces but forbids `/` and `\`.
+10. `install_terminal_restore_handler` is idempotent: only the first call installs a Ctrl+C handler; subsequent calls are no-ops. The handler shows the terminal cursor and exits with code 130, preserving the standard shell convention for an interrupted process while fixing the hidden-cursor state left by dialoguer prompts.
 
 ## Behavioral Examples
 
@@ -108,9 +111,13 @@ And the token no longer appears in the string
 | `std` | `AtomicBool`/`Ordering`, `LazyLock`, `IsTerminal`, `env::var` |
 | `anyhow` | `Result`/`bail!` for validation and interactivity errors |
 | `regex_lite` | Compiled regex patterns for secret redaction |
+| `ctrlc` | Cross-platform Ctrl+C handler installed by `install_terminal_restore_handler` |
+| `console` | `Term::stdout().show_cursor()` to restore the terminal cursor on interruption |
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2 | 2026-07-27 | Add `install_terminal_restore_handler` for restoring the terminal cursor on Ctrl+C during dialoguer prompts; document `ctrlc` and `console` dependencies |
 | 1 | 2026-07-03 | Initial spec |
+| 3 | 2026-07-27 | CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c: Fix bare fledge exit code and restore cursor on Ctrl+C |

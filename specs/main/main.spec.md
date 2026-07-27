@@ -1,6 +1,6 @@
 ---
 module: main
-version: 11
+version: 13
 status: active
 files:
   - src/main.rs
@@ -50,7 +50,7 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 
 | Export | Description |
 |--------|-------------|
-| `Cli` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and the `Commands` subcommand enum |
+| `Cli` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and an optional `Commands` subcommand enum; when no subcommand is given, fledge prints help and exits 0 |
 | `Commands` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
 | `TemplatesSubcommand` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
 | `SpecSubcommand` | Enum of `spec` subcommands: Check, Init, List, New, Show |
@@ -74,7 +74,7 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 
 | Type | Source | Description |
 |------|--------|-------------|
-| `Cli` | `src/cli.rs` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and the `Commands` subcommand enum |
+| `Cli` | `src/cli.rs` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and an optional `Commands` subcommand enum; when no subcommand is given, fledge prints help and exits 0 |
 | `Commands` | `src/cli.rs` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
 | `TemplatesSubcommand` | `src/cli.rs` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
 | `SpecSubcommand` | `src/cli.rs` | Enum of `spec` subcommands: Check, Init, List, New, Show |
@@ -109,6 +109,11 @@ $ fledge --help
 Dev-lifecycle CLI — get your projects ready to fly.
 [lists all subcommands]
 
+$ fledge
+Dev-lifecycle CLI — get your projects ready to fly.
+[lists all subcommands]
+# exits 0, not 2
+
 $ fledge completions bash --install
 ✅ Completions installed for bash
 
@@ -138,11 +143,14 @@ All modules are dependencies — main dispatches to every subcommand module. See
 6. `utils::init_non_interactive_from_env()` runs before `Cli::parse()` so the env var is honored even when users don't pass the flag
 7. Tier-B JSON coverage (#271): `templates list` and `templates publish` (handled inline in `main.rs`) honour `--json` and emit a `{schema_version: 1, ...}` envelope on stdout — matching the same envelope contract as `plugins`, `lanes`, `init`, and `create_template`. `templates list --json` returns `{schema_version: 1, templates: [{name, description, source: "builtin"|"local"|"remote", source_ref, path}, ...]}`. `templates publish --json` returns `{schema_version: 1, action: "publish", repo, template, topic, use_hint}` (or `{cancelled: true}` if the user declines an update prompt). Failure paths still exit non-zero in both cases
 8. **Empty-list semantics for `templates list`:** when no templates are configured, both modes succeed (exit 0). JSON mode emits `{schema_version: 1, templates: [], hint: "..."}` with the configuration hint as a string field; non-JSON mode prints a friendly "No templates configured" message followed by the same hint. Previously both modes errored with non-zero exit, which forced agents to special-case a list query into an error path
+9. **Bare invocation is help, not an error:** when no subcommand is provided, fledge prints the top-level help and exits 0. This matches common CLI conventions and avoids making agents treat a plain `fledge` call as a usage failure
+10. **Interactive cursor restoration:** when stdin is a TTY, fledge installs a one-shot Ctrl+C handler that shows the terminal cursor before exiting with code 130, so dialoguer-based prompts (`fledge plugins search --interactive`, template selection, etc.) do not leave the cursor hidden after interruption
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 12 | 2026-07-27 | Bare `fledge` invocation prints help and exits 0 instead of clap usage-error 2; interactive runs install a one-shot Ctrl+C handler that restores the terminal cursor before exiting 130 |
 | 11 | 2026-06-11 | Help-text-only change in `src/cli.rs`: the `run` pass-through args example now shows `fledge run test -- --release` (valid when appended to `cargo test`) instead of `-- --nocapture`, which cargo rejects unless preceded by its own `--` |
 | 10 | 2026-04-29 | Document all public exports from `cli.rs`, `config_cmds.rs`, and `template_cmds.rs` now that these files are listed in spec frontmatter. No API changes |
 | 9 | 2026-04-26 | `templates list` empty case now exits 0 in both modes. JSON mode emits `{schema_version: 1, templates: [], hint}`; non-JSON prints "No templates configured" + hint. Previously both bailed with non-zero exit, breaking agents that call `templates list --json` defensively |
@@ -153,3 +161,4 @@ All modules are dependencies — main dispatches to every subcommand module. See
 | 3 | 2026-04-23 | Add `--non-interactive` global flag (alias `--ni`) and `FLEDGE_NON_INTERACTIVE` env var. Sets `utils::NON_INTERACTIVE` before dispatch; each subcommand with `--yes`/`--force` auto-promotes it when the flag is set; prompts that have no default bail with a clear error. |
 | 2 | 2026-04-23 | Add `watch` to depends_on |
 | 1 | 2026-04-21 | Initial spec |
+| 13 | 2026-07-27 | CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c: Fix bare fledge exit code and restore cursor on Ctrl+C |

@@ -52,6 +52,21 @@ pub fn is_interactive() -> bool {
     !is_non_interactive() && std::io::stdin().is_terminal()
 }
 
+/// Install a one-shot Ctrl+C handler that restores the terminal cursor before
+/// exiting with code 130. Dialoguer prompts hide the cursor during rendering,
+/// and a SIGINT can kill the process before the prompt gets a chance to show it
+/// again. This handler is a no-op on subsequent calls.
+pub(crate) fn install_terminal_restore_handler() {
+    use std::sync::Once;
+    static INSTALLED: Once = Once::new();
+    INSTALLED.call_once(|| {
+        let _ = ctrlc::set_handler(|| {
+            let _ = console::Term::stdout().show_cursor();
+            std::process::exit(130);
+        });
+    });
+}
+
 pub fn require_interactive(flag_name: &str) -> anyhow::Result<()> {
     if is_non_interactive() {
         anyhow::bail!(

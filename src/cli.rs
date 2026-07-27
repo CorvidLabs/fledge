@@ -16,7 +16,7 @@ pub struct Cli {
     pub non_interactive: bool,
 
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(clap::Subcommand)]
