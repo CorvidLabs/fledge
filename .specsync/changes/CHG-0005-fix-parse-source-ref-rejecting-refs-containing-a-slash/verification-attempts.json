@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1785182396,
+      "commit": "13855367dfb7a019425bdb063f42712d0e79ecd5",
+      "contract_digest": "aa3f539d30392c13a641e1f7dedfbd91cf857ea276387ba8bd83709e3cd1936e",
+      "workspace_digest": "b07e80a6ec95b2d2861b23734aa09e64041d1d78537b69b1c6f4dc8b778d496e",
+      "passed": false,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-trust-006"
+      ]
+    },
+    {
+      "timestamp": 1785182493,
+      "commit": "13855367dfb7a019425bdb063f42712d0e79ecd5",
+      "contract_digest": "4af0a4d9c1f9cbf1a779b95280bb594ca6557c4112b592c8747dbc2ecd9d86d8",
+      "workspace_digest": "b07e80a6ec95b2d2861b23734aa09e64041d1d78537b69b1c6f4dc8b778d496e",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-trust-006"
+      ]
+    }
+  ]
+}

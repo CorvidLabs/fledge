@@ -1,6 +1,6 @@
 ---
 module: trust
-version: 5
+version: 7
 status: active
 files:
   - src/trust.rs
@@ -53,13 +53,14 @@ Shared trust-tier classification for all extension types (plugins, templates, la
 2. `TEAM_MEMBERS` is a hardcoded list of GitHub usernames belonging to **human members of the CorvidLabs org**; their *personal* repos classify as `Team` (sources from the org itself classify as `Official`). The current list is `["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]` — every human in the org as of v2 of this spec. The `corvid-agent` org member is excluded (it is an AI agent, not a human). Membership is compared case-insensitively (`0xLeif` and `0xleif` both match)
 3. Official tier takes precedence over Team — if an owner appears in both lists (defensive, should not happen), the source classifies as `Official`
 4. `determine_trust_tier` supports local paths, HTTPS URLs, SSH URLs, and `owner/repo` shorthand
-5. `parse_source_ref` does not split on `@` in credential URLs (e.g., `https://user:token@github.com/...`)
+5. `parse_source_ref` does not split on `@` in credential URLs (e.g., `https://user:token@github.com/...`) — detected by checking whether the `@` falls inside the URL's authority component (before any path separator following the scheme)
 6. `parse_source_ref` handles SSH URLs with `git@` prefix without false-splitting on the prefix `@`
 7. Any source not matching a local path, official org, team member, or config entry returns `Unverified`
 8. `OFFICIAL_ORGS` and `TEAM_MEMBERS` are `&[&str]` constants providing the baseline trust lists. Users can extend the team tier at runtime via `trust.orgs` and `trust.users` in `config.toml` — these config entries grant **Team** tier only, never Official
 9. Config-based orgs and users are compared case-insensitively, matching the behavior of hardcoded `TEAM_MEMBERS`
 10. When config cannot be loaded (missing or malformed `config.toml`), the system falls back to an empty `TrustConfig` — only the hardcoded constants apply
 11. A source whose owner/repo path contains a `.` or `..` segment (e.g. `CorvidLabs/../attacker/evil`) classifies as `Unverified`, never Official or Team. git/curl collapse such segments client-side (RFC 3986 dot-segment removal), so the fetched repo would differ from the one classified — a trust-tier spoof. `source_has_path_traversal` exposes the same check so install/fetch paths can reject these sources outright
+12. `parse_source_ref` splits on a trailing `@ref` even when the ref contains `/` (e.g. a branch name like `chore/0.2.0-launch-prep`), including when the source is a full clone URL with embedded credentials
 
 ## Behavioral Examples
 
@@ -112,6 +113,8 @@ source_has_path_traversal("CorvidLabs/fledge-plugin-deploy")               -> fa
 parse_source_ref("someone/fledge-deploy@v1.2.0") -> ("someone/fledge-deploy", Some("v1.2.0"))
 parse_source_ref("someone/fledge-deploy") -> ("someone/fledge-deploy", None)
 parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://user:token@github.com/owner/repo.git", None)
+parse_source_ref("someone/rune@chore/0.2.0-launch-prep") -> ("someone/rune", Some("chore/0.2.0-launch-prep"))
+parse_source_ref("https://user:token@github.com/owner/repo.git@feature/thing") -> ("https://user:token@github.com/owner/repo.git", Some("feature/thing"))
 ```
 
 ## Error Cases
@@ -130,8 +133,10 @@ parse_source_ref("https://user:token@github.com/owner/repo.git") -> ("https://us
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-07-27 | Fix: `parse_source_ref` no longer rejects a trailing `@ref` just because the ref contains `/` — branch names like `chore/0.2.0-launch-prep` were previously left unsplit and globbed whole into the clone URL. The credential-URL guard (invariant 5) now checks specifically whether the `@` falls inside the URL's authority component instead of blanket-rejecting any ref containing a slash |
 | 5 | 2026-07-02 | Add `source_has_path_traversal` export and invariant 11: sources with `.`/`..` path segments classify as `Unverified` and are rejected at install time, closing a trust-tier spoof where a collapsed clone URL fetches a different repo than the one classified |
 | 4 | 2026-06-03 | Add `Local` trust tier for filesystem path plugin installs. Labels and styled labels include `"local"`; GitHub owner-based classification remains unchanged for search/discovery |
 | 3 | 2026-05-03 | Configurable trust: `trust.orgs` and `trust.users` config keys extend the team tier at runtime. Invariant 8 rewritten, invariants 9-10 added. Behavioral examples added for config-driven classification. Depends on `config` module |
 | 2 | 2026-04-25 | Rename `Community` → `Team`; add `TEAM_MEMBERS` allowlist of CorvidLabs members (`["0xGaspar", "0xLeif", "Kyntrin", "tofu-ux"]`) classifying their personal repos as `Team`. Drops the unused-variant `#[allow(dead_code)]` since all three tiers now have construction sites |
 | 1 | 2026-04-23 | Initial spec, extracted from plugin.rs |
+| 7 | 2026-07-27 | CHG-0005-fix-parse-source-ref-rejecting-refs-containing-a-slash: Fix parse_source_ref rejecting refs containing a slash |

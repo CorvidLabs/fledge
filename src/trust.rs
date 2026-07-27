@@ -75,14 +75,25 @@ pub fn parse_source_ref(source: &str) -> (&str, Option<&str>) {
         }
         return (source, None);
     }
-    match source.rsplit_once('@') {
-        Some((before, after))
-            if !after.is_empty() && !before.is_empty() && !after.contains('/') =>
-        {
-            (before, Some(after))
-        }
-        _ => (source, None),
+    let Some((before, after)) = source.rsplit_once('@') else {
+        return (source, None);
+    };
+    if before.is_empty() || after.is_empty() {
+        return (source, None);
     }
+    // A credential URL (`scheme://user:pass@host/...`) puts its `@` inside the
+    // authority component, before any path separator. If nothing between the
+    // scheme and this `@` contains a `/`, the split lands on that credential
+    // separator rather than a trailing git ref, so refuse to split. Otherwise
+    // the `@` is a genuine ref separator, and refs (branch names in particular,
+    // e.g. `chore/0.2.0-launch-prep`) may legitimately contain `/`.
+    if let Some(scheme_end) = before.find("://") {
+        let authority_start = scheme_end + 3;
+        if !before[authority_start..].contains('/') {
+            return (source, None);
+        }
+    }
+    (before, Some(after))
 }
 
 pub fn determine_trust_tier(source: &str) -> TrustTier {
@@ -363,6 +374,29 @@ mod tests {
         let (base, git_ref) = parse_source_ref("https://user:token@github.com/owner/repo.git");
         assert_eq!(base, "https://user:token@github.com/owner/repo.git");
         assert!(git_ref.is_none());
+    }
+
+    #[test]
+    fn parse_source_ref_branch_with_slash() {
+        let (base, git_ref) = parse_source_ref("someone/rune@chore/0.2.0-launch-prep");
+        assert_eq!(base, "someone/rune");
+        assert_eq!(git_ref, Some("chore/0.2.0-launch-prep"));
+    }
+
+    #[test]
+    fn parse_source_ref_full_url_branch_with_slash() {
+        let (base, git_ref) =
+            parse_source_ref("https://github.com/someone/rune.git@chore/0.2.0-launch-prep");
+        assert_eq!(base, "https://github.com/someone/rune.git");
+        assert_eq!(git_ref, Some("chore/0.2.0-launch-prep"));
+    }
+
+    #[test]
+    fn parse_source_ref_credential_url_with_branch_ref() {
+        let (base, git_ref) =
+            parse_source_ref("https://user:token@github.com/owner/repo.git@feature/thing");
+        assert_eq!(base, "https://user:token@github.com/owner/repo.git");
+        assert_eq!(git_ref, Some("feature/thing"));
     }
 
     #[test]
