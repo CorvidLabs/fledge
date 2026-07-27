@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.7.1] - 2026-07-27
+
+### Features
+
+- render the atlas calendar component on Pages (#494) (c946a8d)
+- record attest provenance on merged commits (#493) (5efd735)
+
+### Fixes
+
+- bare fledge exits 0 with help; restore cursor on Ctrl+C (#499) (7a2a5a1)
+- exclude non-product files from Atlas coverage (#496) (02550b3)
+
+### Other
+
+- Update project templates for Trust 1 and SpecSync 5 (#497) (fb6260e)
+
 ## [Unreleased]
 
 - Update SpecSync validation to 5.0.1 and remove obsolete embedded-AI configuration.
