@@ -108,6 +108,60 @@ mod tests {
     }
 
     #[test]
+    fn resource_is_byte_identical_to_hand_rolled_json() {
+        // Same migration guarantee the action/versioned dialects assert: the
+        // resource dialect must serialize identically to the hand-rolled form
+        // it replaced, so adopting the helper is never a wire change.
+        let built = resource(
+            1,
+            "plugins",
+            vec![serde_json::json!({ "name": "github", "version": "0.4.0" })],
+        );
+        let hand = serde_json::json!({
+            "schema_version": 1,
+            "plugins": [{ "name": "github", "version": "0.4.0" }],
+        });
+        assert_eq!(
+            serde_json::to_string_pretty(&built).unwrap(),
+            serde_json::to_string_pretty(&hand).unwrap()
+        );
+    }
+
+    #[test]
+    fn versioned_flattens_a_serialized_struct_alongside_schema_version() {
+        // The shape `plugins validate` / `lanes validate` emit: a report struct
+        // is serialized to a Value, then wrapped. The report's own fields must
+        // stay at the top level next to `schema_version`, not nested under a
+        // key, and the result must match the hand-rolled equivalent.
+        #[derive(Serialize)]
+        struct Report {
+            path: String,
+            lane_count: usize,
+            errors: Vec<String>,
+            warnings: Vec<String>,
+        }
+        let report = Report {
+            path: "fledge.toml".to_string(),
+            lane_count: 3,
+            errors: vec![],
+            warnings: vec!["unpinned step".to_string()],
+        };
+
+        let built = versioned(1, serde_json::to_value(&report).unwrap());
+        let hand = serde_json::json!({
+            "schema_version": 1,
+            "path": "fledge.toml",
+            "lane_count": 3,
+            "errors": [],
+            "warnings": ["unpinned step"],
+        });
+        assert_eq!(
+            serde_json::to_string_pretty(&built).unwrap(),
+            serde_json::to_string_pretty(&hand).unwrap()
+        );
+    }
+
+    #[test]
     fn action_leads_with_schema_version_and_action_then_merges_fields() {
         let out = action(
             2,

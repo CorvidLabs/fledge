@@ -174,7 +174,11 @@ pub(crate) fn print_lane_report(
 ) -> Result<()> {
     if json {
         // Wrap with schema_version envelope (matches lanes list/run/search shape).
-        let value = crate::envelope::versioned(1, serde_json::to_value(report)?);
+        // The version comes from the named per-command constant rather than a
+        // literal so a future shape change bumps it in the same place as every
+        // other `lanes` envelope.
+        let value =
+            crate::envelope::versioned(super::LANES_VALIDATE_SCHEMA, serde_json::to_value(report)?);
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         println!(

@@ -71,6 +71,7 @@ const PLUGINS_SEARCH_SCHEMA: u32 = 1;
 const PLUGINS_RECOMMEND_SCHEMA: u32 = 1;
 const PLUGINS_CREATE_SCHEMA: u32 = 1;
 const PLUGINS_PUBLISH_SCHEMA: u32 = 1;
+const PLUGINS_VALIDATE_SCHEMA: u32 = 1;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

@@ -40,6 +40,7 @@ pub(super) const LANES_SEARCH_SCHEMA: u32 = 1;
 pub(super) const LANES_IMPORT_SCHEMA: u32 = 1;
 pub(super) const LANES_CREATE_SCHEMA: u32 = 1;
 pub(super) const LANES_PUBLISH_SCHEMA: u32 = 1;
+pub(super) const LANES_VALIDATE_SCHEMA: u32 = 1;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct FledgeFileWithLanes {
