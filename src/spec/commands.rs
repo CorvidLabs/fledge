@@ -7,7 +7,8 @@ use walkdir::WalkDir;
 
 use super::{
     classify_companions, engine, find_spec_files, load_config, module_leaf, parse, to_title_case,
-    validate_module_name, validation, SPEC_CHECK_SCHEMA, SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
+    validate_module_name, validation, DEFAULT_REQUIRED_SECTIONS, SPEC_CHECK_SCHEMA,
+    SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
 };
 
 #[derive(Debug, Serialize)]
@@ -50,15 +51,10 @@ pub(super) fn structural_results(root: &Path) -> Vec<validation::SpecResult> {
         return Vec::new();
     }
     let required_sections = if config.required_sections.is_empty() {
-        vec![
-            "Purpose".to_string(),
-            "Public API".to_string(),
-            "Invariants".to_string(),
-            "Behavioral Examples".to_string(),
-            "Error Cases".to_string(),
-            "Dependencies".to_string(),
-            "Change Log".to_string(),
-        ]
+        DEFAULT_REQUIRED_SECTIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect()
     } else {
         config.required_sections.clone()
     };

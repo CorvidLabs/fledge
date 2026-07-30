@@ -432,4 +432,117 @@ ignore = ["template.toml"]
     let _status = output.status;
 }
 
+// MARK: - spec lint
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_spec_lint_succeeds_in_project() {
+    // fledge's own specs must clear the structural gate.
+    let output = run_fledge(&["spec", "lint"]);
+    assert!(
+        output.status.success(),
+        "spec lint failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cli_spec_lint_json_envelope() {
+    let output = run_fledge(&["spec", "lint", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("spec_lint"));
+    assert_eq!(parsed["passed"].as_bool(), Some(true));
+    // Layer 2 is opt-in, so a plain CI invocation never touches a provider.
+    assert_eq!(parsed["model_pass"]["requested"].as_bool(), Some(false));
+    assert_eq!(parsed["model_pass"]["ran"].as_bool(), Some(false));
+    assert!(parsed["model_pass"]["skipped_reason"].is_string());
+    let specs = parsed["specs"].as_array().expect("specs array");
+    assert!(!specs.is_empty());
+    for field in ["name", "path", "version", "status", "findings", "passed"] {
+        assert!(specs[0].get(field).is_some(), "missing field {field}");
+    }
+    assert!(parsed["totals"]["linted"].as_u64().unwrap() > 0);
+}
+
+#[test]
+fn cli_spec_lint_single_module() {
+    let output = run_fledge(&["spec", "lint", "spec", "--json"]);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(parsed["totals"]["linted"].as_u64(), Some(1));
+    assert_eq!(parsed["specs"][0]["name"].as_str(), Some("spec"));
+}
+
+#[test]
+fn cli_spec_lint_rejects_a_freshly_scaffolded_spec() {
+    // The point of the command: `spec new` output is structurally complete but
+    // says nothing, and `spec check` passes it. Lint must not.
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+    run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+
+    let output = run_fledge_in(tmp.path(), &["spec", "lint", "--json"]);
+    assert!(!output.status.success(), "scaffolded spec should fail lint");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(parsed["passed"].as_bool(), Some(false));
+    let checks: Vec<String> = parsed["specs"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["check"].as_str().unwrap().to_string())
+        .collect();
+    assert!(checks.contains(&"empty_section".to_string()), "{checks:?}");
+    assert!(checks.contains(&"missing_file".to_string()), "{checks:?}");
+    assert!(
+        checks.contains(&"no_rejection_signal".to_string()),
+        "{checks:?}"
+    );
+    // Errors go to stderr as plain text even under --json.
+    assert!(String::from_utf8_lossy(&output.stderr).contains("spec lint failed"));
+}
+
+#[test]
+fn cli_spec_lint_ignore_suppresses_a_check() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+    run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+
+    let output = run_fledge_in(
+        tmp.path(),
+        &["spec", "lint", "--ignore", "missing_file", "--json"],
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    let checks: Vec<String> = parsed["specs"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["check"].as_str().unwrap().to_string())
+        .collect();
+    assert!(!checks.contains(&"missing_file".to_string()), "{checks:?}");
+    assert!(parsed["totals"]["ignored"].as_u64().unwrap() > 0);
+}
+
+#[test]
+fn cli_spec_lint_rejects_unknown_ignore_id() {
+    let output = run_fledge(&["spec", "lint", "--ignore", "not_a_check"]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unknown --ignore check"));
+}
+
 // ──────────────────────────────────────────────────────────

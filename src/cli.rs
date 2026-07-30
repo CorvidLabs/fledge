@@ -386,6 +386,32 @@ pub enum SpecSubcommand {
     },
     /// Initialize spec-sync configuration
     Init,
+    /// Lint the quality of the specs themselves (structural + optional model-graded)
+    Lint {
+        /// Module name, `.spec.md` path, or directory (default: every spec)
+        target: Option<String>,
+        /// Run the model-graded quality pass (layer 2) in addition to the structural checks
+        #[arg(long)]
+        ai: bool,
+        /// Never run the model-graded pass (wins over --ai)
+        #[arg(long)]
+        no_ai: bool,
+        /// Provider override for the model-graded pass
+        #[arg(long)]
+        provider: Option<String>,
+        /// Model override for the model-graded pass
+        #[arg(long)]
+        model: Option<String>,
+        /// Suppress findings by check id (repeatable, comma-separated)
+        #[arg(long, value_name = "CHECK")]
+        ignore: Vec<String>,
+        /// Treat warnings as errors
+        #[arg(long)]
+        strict: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// List all specs in the project
     #[command(alias = "ls")]
     List {

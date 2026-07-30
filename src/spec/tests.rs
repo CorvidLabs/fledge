@@ -857,3 +857,599 @@ body
     let (fm, _) = parse_frontmatter(content).unwrap();
     assert_eq!(fm.files, vec!["src/a.rs", "src/b.rs"]);
 }
+
+// ── lint: shared fixtures ────────────────────────────────────────────────────
+
+use super::lint::{
+    apply_ignores, build_envelope, build_quality_prompt, ensure_provider_available,
+    frontmatter_block_has_items, frontmatter_value, grade_spec, is_known_check, lint_structural,
+    model_pass_skip_reason, normalize_check_id, parse_ignore_list, parse_quality_response,
+    resolve_targets, section_has_content, strip_code_spans, strip_html_comments, version_is_valid,
+    Finding, Layer, LintOptions, ModelPass, Severity, SpecLintResult, SpecMeta,
+};
+
+fn required() -> Vec<String> {
+    DEFAULT_REQUIRED_SECTIONS
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
+}
+
+/// A spec that passes every layer-1 check. Individual tests substitute one
+/// piece of it so each assertion isolates a single check.
+fn healthy_spec() -> String {
+    r#"---
+module: demo
+version: 3
+status: active
+files:
+  - src/demo.rs
+---
+
+# Demo
+
+## Purpose
+
+Demo turns a parsed config into a validated execution plan, so a malformed
+config fails before any task runs.
+
+## Public API
+
+| Export | Description |
+|--------|-------------|
+| `run` | Executes the validated plan |
+
+## Invariants
+
+1. `run` never mutates the config it was given.
+
+## Behavioral Examples
+
+Given a config with one task, when `run` is called, then the task executes once.
+
+## Error Cases
+
+| Error | When | Behavior |
+|-------|------|----------|
+| UnknownTask | the named task is absent | exits 1 and names the task |
+
+## Dependencies
+
+- serde
+
+## Change Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3 | 2026-01-01 | Initial spec |
+"#
+    .to_string()
+}
+
+/// Tempdir containing `src/demo.rs` so the `files:` existence check passes.
+fn lint_root() -> TempDir {
+    let tmp = TempDir::new().unwrap();
+    fs::create_dir_all(tmp.path().join("src")).unwrap();
+    fs::write(tmp.path().join("src/demo.rs"), "// demo\n").unwrap();
+    tmp
+}
+
+fn checks_of(findings: &[Finding]) -> Vec<&str> {
+    findings.iter().map(|f| f.check.as_str()).collect()
+}
+
+// ── lint layer 1: whole-spec outcomes ────────────────────────────────────────
+
+#[test]
+fn test_lint_healthy_spec_has_no_findings() {
+    let tmp = lint_root();
+    let (meta, findings) = lint_structural(&healthy_spec(), tmp.path(), &required());
+    assert_eq!(meta.name.as_deref(), Some("demo"));
+    assert_eq!(meta.version.as_deref(), Some("3"));
+    assert_eq!(meta.status.as_deref(), Some("active"));
+    assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+}
+
+#[test]
+fn test_lint_reports_missing_frontmatter() {
+    let tmp = lint_root();
+    let (_, findings) = lint_structural("# No frontmatter\n", tmp.path(), &required());
+    assert_eq!(checks_of(&findings), vec!["frontmatter"]);
+}
+
+#[test]
+fn test_lint_reports_missing_source_file() {
+    let tmp = lint_root();
+    let spec = healthy_spec().replace("  - src/demo.rs", "  - src/deleted.rs");
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert_eq!(checks_of(&findings), vec!["missing_file"]);
+    assert!(findings[0].message.contains("src/deleted.rs"));
+}
+
+#[test]
+fn test_lint_reports_missing_required_section() {
+    let tmp = lint_root();
+    let spec = healthy_spec().replace("## Invariants", "## Notes");
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert_eq!(checks_of(&findings), vec!["missing_section"]);
+    assert_eq!(findings[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_lint_reports_empty_section_of_pure_scaffolding() {
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "1. `run` never mutates the config it was given.",
+        "1. <!-- List invariants that must always hold. -->",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert_eq!(checks_of(&findings), vec!["empty_section"]);
+    assert_eq!(findings[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_lint_reports_placeholder_tokens_in_purpose_and_public_api() {
+    let tmp = lint_root();
+    let spec = healthy_spec()
+        .replace(
+            "Demo turns a parsed config into a validated execution plan, so a malformed",
+            "TODO: describe this. It also does things, so a malformed",
+        )
+        .replace("| `run` | Executes the validated plan |", "| `run` | TBD |");
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert_eq!(
+        checks_of(&findings),
+        vec!["placeholder_text", "placeholder_text"]
+    );
+    assert_eq!(findings[0].section.as_deref(), Some("Purpose"));
+    assert_eq!(findings[1].section.as_deref(), Some("Public API"));
+}
+
+#[test]
+fn test_lint_accepts_integer_and_semver_versions_but_rejects_others() {
+    let tmp = lint_root();
+    for good in ["3", "1.2.3", "0.1.0-rc.1"] {
+        let spec = healthy_spec().replace("version: 3", &format!("version: {good}"));
+        let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+        assert!(
+            !checks_of(&findings).contains(&"version_format"),
+            "{good} should be accepted, got {findings:?}"
+        );
+    }
+    for bad in ["v3", "1.2", "draft"] {
+        let spec = healthy_spec().replace("version: 3", &format!("version: {bad}"));
+        let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+        assert!(
+            checks_of(&findings).contains(&"version_format"),
+            "{bad} should be rejected, got {findings:?}"
+        );
+    }
+}
+
+#[test]
+fn test_lint_semver_version_still_yields_the_rest_of_the_frontmatter() {
+    // The typed parser wants a u32; lint normalizes the version first so a
+    // semver spec doesn't lose its `files:` checks as collateral damage.
+    let tmp = lint_root();
+    let spec = healthy_spec()
+        .replace("version: 3", "version: 1.2.3")
+        .replace("  - src/demo.rs", "  - src/deleted.rs");
+    let (meta, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert_eq!(meta.version.as_deref(), Some("1.2.3"));
+    assert_eq!(checks_of(&findings), vec!["missing_file"]);
+}
+
+#[test]
+fn test_lint_reports_missing_acceptance_and_rejection_signals() {
+    let tmp = lint_root();
+    let spec = healthy_spec()
+        .replace(
+            "Given a config with one task, when `run` is called, then the task executes once.",
+            "<!-- pending -->",
+        )
+        .replace(
+            "| UnknownTask | the named task is absent | exits 1 and names the task |",
+            "| | | |",
+        );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    let checks = checks_of(&findings);
+    assert!(checks.contains(&"no_acceptance_signal"), "{findings:?}");
+    assert!(checks.contains(&"no_rejection_signal"), "{findings:?}");
+    // Emptiness and "no signal" are separate facts; both are reported.
+    assert_eq!(checks.iter().filter(|c| **c == "empty_section").count(), 2);
+}
+
+#[test]
+fn test_lint_accepts_and_rejects_frontmatter_blocks_supply_the_signals() {
+    let tmp = lint_root();
+    let spec = healthy_spec()
+        .replace(
+            "files:\n  - src/demo.rs",
+            "files:\n  - src/demo.rs\naccepts:\n  - a valid config produces a plan\nrejects:\n  - an unknown task name exits 1",
+        )
+        .replace(
+            "Given a config with one task, when `run` is called, then the task executes once.",
+            "<!-- pending -->",
+        )
+        .replace(
+            "| UnknownTask | the named task is absent | exits 1 and names the task |",
+            "| | | |",
+        );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    let checks = checks_of(&findings);
+    assert!(!checks.contains(&"no_acceptance_signal"), "{findings:?}");
+    assert!(!checks.contains(&"no_rejection_signal"), "{findings:?}");
+}
+
+#[test]
+fn test_lint_check_ids_are_a_closed_vocabulary() {
+    // Guards `--ignore`: an id nothing can emit would silently suppress nothing.
+    for check in super::lint::STRUCTURAL_CHECKS {
+        assert!(is_known_check(check));
+    }
+    for check in super::lint::MODEL_CHECKS {
+        assert!(is_known_check(check));
+    }
+    assert!(is_known_check("model_pass_failed"));
+    assert!(!is_known_check("not_a_check"));
+}
+
+// ── lint layer 1: helpers ────────────────────────────────────────────────────
+
+#[test]
+fn test_lint_does_not_flag_backticked_placeholder_tokens() {
+    // A spec that *documents* placeholder detection (this module's own spec)
+    // must not fail its own check. Prose `TODO` fires; a citation does not.
+    let tmp = lint_root();
+    let cited = healthy_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed",
+        "Rejects a `TODO` / `TBD` / `FIXME` placeholder. Demo is a plan builder, so a malformed",
+    );
+    let (_, findings) = lint_structural(&cited, tmp.path(), &required());
+    assert!(
+        !checks_of(&findings).contains(&"placeholder_text"),
+        "{findings:?}"
+    );
+
+    let bare = healthy_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed",
+        "TODO write this. Demo is a plan builder, so a malformed",
+    );
+    let (_, findings) = lint_structural(&bare, tmp.path(), &required());
+    assert!(checks_of(&findings).contains(&"placeholder_text"));
+}
+
+#[test]
+fn test_strip_code_spans_removes_fences_and_inline_spans() {
+    assert_eq!(strip_code_spans("a `b` c\n").trim(), "a  c");
+    assert_eq!(
+        strip_code_spans("keep\n```\nTODO\n```\nkeep2\n"),
+        "keep\nkeep2\n"
+    );
+    // Double-backtick spans and an unmatched run are both handled.
+    assert_eq!(strip_code_spans("x ``a`b`` y\n").trim(), "x  y");
+    assert!(strip_code_spans("unmatched ` TODO\n").contains("TODO"));
+    // HTML comments survive: `<!-- TODO -->` is a placeholder, not a citation.
+    assert!(strip_code_spans("<!-- TODO -->\n").contains("TODO"));
+}
+
+#[test]
+fn test_strip_html_comments_handles_multiline_and_unterminated() {
+    assert_eq!(strip_html_comments("a <!-- x --> b"), "a  b");
+    assert_eq!(strip_html_comments("a <!-- x\ny\n--> b"), "a  b");
+    assert_eq!(strip_html_comments("a <!-- never closed"), "a ");
+}
+
+#[test]
+fn test_section_has_content_ignores_scaffolding() {
+    assert!(!section_has_content("\n\n"));
+    assert!(!section_has_content("<!-- Describe the module. -->"));
+    assert!(!section_has_content("1. <!-- list them -->"));
+    assert!(!section_has_content("- "));
+    assert!(!section_has_content("```\n```"));
+    // A table header + separator is structure; an empty data row adds nothing.
+    assert!(!section_has_content(
+        "| Error | When | Behavior |\n|-------|------|----------|\n| | | |"
+    ));
+    assert!(section_has_content("- None"));
+    assert!(section_has_content(
+        "| Error | When | Behavior |\n|-------|------|----------|\n| Bad | always | exits 1 |"
+    ));
+}
+
+#[test]
+fn test_version_is_valid() {
+    assert!(version_is_valid("1"));
+    assert!(version_is_valid("42"));
+    assert!(version_is_valid("1.2.3"));
+    assert!(version_is_valid("1.2.3-rc.1+build.5"));
+    assert!(!version_is_valid(""));
+    assert!(!version_is_valid("v1"));
+    assert!(!version_is_valid("1.2"));
+    assert!(!version_is_valid("1.2.3.4"));
+}
+
+#[test]
+fn test_frontmatter_value_reads_top_level_keys_only() {
+    let yaml = "module: demo\nversion: 3\nfiles:\n  - version: nope\n";
+    assert_eq!(frontmatter_value(yaml, "module"), Some("demo"));
+    assert_eq!(frontmatter_value(yaml, "version"), Some("3"));
+    assert_eq!(frontmatter_value(yaml, "missing"), None);
+}
+
+#[test]
+fn test_frontmatter_block_has_items() {
+    assert!(frontmatter_block_has_items(
+        "accepts:\n  - one\n",
+        "accepts"
+    ));
+    assert!(frontmatter_block_has_items("accepts: yes\n", "accepts"));
+    assert!(!frontmatter_block_has_items("accepts:\n", "accepts"));
+    assert!(!frontmatter_block_has_items("accepts: []\n", "accepts"));
+    assert!(!frontmatter_block_has_items(
+        "files:\n  - a.rs\n",
+        "accepts"
+    ));
+}
+
+// ── lint: ignore list (the human override) ───────────────────────────────────
+
+#[test]
+fn test_parse_ignore_list_splits_dedupes_and_validates() {
+    let parsed = parse_ignore_list(&[
+        "missing_file,empty_section".to_string(),
+        " MISSING_FILE ".to_string(),
+    ])
+    .unwrap();
+    assert_eq!(parsed, vec!["empty_section", "missing_file"]);
+    let err = parse_ignore_list(&["nope".to_string()]).unwrap_err();
+    assert!(err.to_string().contains("unknown --ignore check 'nope'"));
+}
+
+#[test]
+fn test_apply_ignores_drops_matching_findings_and_counts_them() {
+    let tmp = lint_root();
+    let spec = healthy_spec().replace("  - src/demo.rs", "  - src/deleted.rs");
+    let (_, mut findings) = lint_structural(&spec, tmp.path(), &required());
+    let dropped = apply_ignores(&mut findings, &["missing_file".to_string()]);
+    assert_eq!(dropped, 1);
+    assert!(findings.is_empty());
+}
+
+// ── lint layer 2: prompt, parsing, and graceful degradation ──────────────────
+
+#[test]
+fn test_build_quality_prompt_grades_the_spec_not_the_code() {
+    let spec = healthy_spec();
+    let prompt = build_quality_prompt("demo", &spec);
+    assert!(prompt.contains("QUALITY OF A SPECIFICATION"));
+    assert!(prompt.contains("module `demo`"));
+    assert!(prompt.contains("Falsifiable purpose"));
+    assert!(prompt.contains("decorative_invariants"));
+    // The structural pre-pass owns those checks; the model must not duplicate them.
+    assert!(prompt.contains("Do NOT report"));
+    assert!(prompt.contains(&spec));
+}
+
+#[test]
+fn test_parse_quality_response_accepts_fenced_and_prose_wrapped_json() {
+    let raw = "Sure!\n```json\n{\"findings\": [{\"check\": \"decorative_invariants\", \
+                \"severity\": \"error\", \"section\": \"Invariants\", \
+                \"message\": \"Invariant 1 restates the API.\"}]}\n```\n";
+    let findings = parse_quality_response(raw).unwrap();
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].check, "decorative_invariants");
+    assert_eq!(findings[0].severity, Severity::Error);
+    assert_eq!(findings[0].layer, Layer::Model);
+    assert_eq!(findings[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_parse_quality_response_defaults_severity_and_normalizes_unknown_checks() {
+    let raw = r#"{"findings": [{"check": "made_up", "message": "vague purpose"}]}"#;
+    let findings = parse_quality_response(raw).unwrap();
+    assert_eq!(findings[0].check, "quality_other");
+    assert_eq!(findings[0].severity, Severity::Warning);
+}
+
+#[test]
+fn test_parse_quality_response_drops_empty_messages_and_rejects_non_json() {
+    let findings =
+        parse_quality_response(r#"{"findings": [{"check": "api_drift", "message": "  "}]}"#)
+            .unwrap();
+    assert!(findings.is_empty());
+    assert!(parse_quality_response("I could not review that.").is_err());
+    assert!(parse_quality_response("{not json}").is_err());
+}
+
+#[test]
+fn test_normalize_check_id_maps_onto_the_allowlist() {
+    assert_eq!(normalize_check_id("API Drift"), "api_drift");
+    assert_eq!(
+        normalize_check_id("purpose_not_falsifiable"),
+        "purpose_not_falsifiable"
+    );
+    assert_eq!(normalize_check_id("something else"), "quality_other");
+}
+
+fn lint_options(ai: bool, no_ai: bool) -> LintOptions {
+    LintOptions {
+        target: None,
+        json: false,
+        strict: false,
+        ai,
+        no_ai,
+        provider: None,
+        model: None,
+        ignore: Vec::new(),
+    }
+}
+
+#[test]
+fn test_model_pass_is_skipped_unless_requested() {
+    // Default: layer 2 off, so `spec lint` stays a safe offline pre-commit gate.
+    assert!(model_pass_skip_reason(&lint_options(false, false), 3)
+        .unwrap()
+        .contains("not requested"));
+    // --no-ai wins over --ai.
+    assert!(model_pass_skip_reason(&lint_options(true, true), 3)
+        .unwrap()
+        .contains("overrides"));
+    assert!(model_pass_skip_reason(&lint_options(false, true), 3).is_some());
+    // Nothing to grade.
+    assert!(model_pass_skip_reason(&lint_options(true, false), 0).is_some());
+    // Requested with specs present: it runs.
+    assert!(model_pass_skip_reason(&lint_options(true, false), 3).is_none());
+}
+
+#[test]
+fn test_ensure_provider_available_errors_when_the_selected_provider_has_no_key() {
+    let _lock = crate::test_support::env_lock();
+    let _key = crate::test_support::EnvVarGuard::set("ANTHROPIC_API_KEY", None);
+    let config = crate::config::Config::default();
+    let err = ensure_provider_available(&config, Some("anthropic")).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("no API key"), "{msg}");
+    assert!(msg.contains("ANTHROPIC_API_KEY"), "{msg}");
+    // The escape hatch is named, so the failure is actionable rather than a hang.
+    assert!(msg.contains("--ai"), "{msg}");
+}
+
+fn lint_result_fixture() -> SpecLintResult {
+    SpecLintResult {
+        name: "demo".to_string(),
+        path: "specs/demo/demo.spec.md".to_string(),
+        meta: SpecMeta {
+            name: Some("demo".to_string()),
+            version: Some("3".to_string()),
+            status: Some("active".to_string()),
+        },
+        findings: Vec::new(),
+        ignored: 0,
+        content: healthy_spec(),
+    }
+}
+
+#[test]
+fn test_grade_spec_folds_model_findings_into_the_result() {
+    let provider = crate::test_support::StubLlmProvider::ok(
+        crate::llm::ProviderKind::Ollama,
+        Some("stub"),
+        r#"{"findings": [{"check": "purpose_not_falsifiable", "severity": "warning", "message": "Purpose restates the module name."}]}"#,
+    );
+    let mut result = lint_result_fixture();
+    grade_spec(&provider, &mut result, &[]);
+    assert_eq!(result.findings.len(), 1);
+    assert_eq!(result.findings[0].layer, Layer::Model);
+    assert_eq!(result.warning_count(), 1);
+}
+
+#[test]
+fn test_grade_spec_turns_a_provider_failure_into_a_model_pass_failed_error() {
+    // A gate that could not run must never read as a pass.
+    let provider = crate::test_support::StubLlmProvider::err(
+        crate::llm::ProviderKind::Ollama,
+        Some("stub"),
+        "connection refused",
+    );
+    let mut result = lint_result_fixture();
+    grade_spec(&provider, &mut result, &[]);
+    assert_eq!(result.findings.len(), 1);
+    assert_eq!(result.findings[0].check, "model_pass_failed");
+    assert_eq!(result.findings[0].severity, Severity::Error);
+    assert!(result.findings[0].message.contains("connection refused"));
+}
+
+#[test]
+fn test_grade_spec_honors_the_ignore_list() {
+    let provider = crate::test_support::StubLlmProvider::err(
+        crate::llm::ProviderKind::Ollama,
+        Some("stub"),
+        "boom",
+    );
+    let mut result = lint_result_fixture();
+    grade_spec(&provider, &mut result, &["model_pass_failed".to_string()]);
+    assert!(result.findings.is_empty());
+    assert_eq!(result.ignored, 1);
+}
+
+// ── lint: envelope + target resolution ───────────────────────────────────────
+
+fn quiet_model_pass() -> ModelPass {
+    ModelPass {
+        requested: false,
+        ran: false,
+        skipped_reason: Some("not requested (pass --ai for the model-graded pass)".to_string()),
+        provider: None,
+        model: None,
+    }
+}
+
+#[test]
+fn test_build_envelope_shape_and_pass_verdict() {
+    let clean = lint_result_fixture();
+    let env = build_envelope(std::slice::from_ref(&clean), &quiet_model_pass(), false);
+    assert_eq!(env["schema_version"], 1);
+    assert_eq!(env["action"], "spec_lint");
+    assert_eq!(env["passed"], true);
+    assert_eq!(env["strict"], false);
+    assert_eq!(env["totals"]["linted"], 1);
+    assert_eq!(env["totals"]["errors"], 0);
+    assert_eq!(env["totals"]["ignored"], 0);
+    assert_eq!(env["model_pass"]["ran"], false);
+    assert_eq!(env["model_pass"]["provider"], serde_json::Value::Null);
+    assert_eq!(env["specs"][0]["name"], "demo");
+    assert_eq!(env["specs"][0]["version"], "3");
+    assert_eq!(env["specs"][0]["passed"], true);
+    assert_eq!(env["specs"][0]["findings"], serde_json::json!([]));
+}
+
+#[test]
+fn test_build_envelope_fails_on_errors_and_on_strict_warnings() {
+    let mut failing = lint_result_fixture();
+    failing
+        .findings
+        .push(Finding::error("missing_file", None, "gone"));
+    let env = build_envelope(std::slice::from_ref(&failing), &quiet_model_pass(), false);
+    assert_eq!(env["passed"], false);
+    assert_eq!(env["totals"]["errors"], 1);
+    assert_eq!(env["specs"][0]["findings"][0]["check"], "missing_file");
+    assert_eq!(env["specs"][0]["findings"][0]["severity"], "error");
+    assert_eq!(env["specs"][0]["findings"][0]["layer"], "structural");
+
+    let mut warned = lint_result_fixture();
+    warned.findings.push(Finding {
+        check: "quality_other".to_string(),
+        severity: Severity::Warning,
+        layer: Layer::Model,
+        section: None,
+        message: "thin".to_string(),
+    });
+    let lax = build_envelope(std::slice::from_ref(&warned), &quiet_model_pass(), false);
+    assert_eq!(lax["passed"], true);
+    let strict = build_envelope(std::slice::from_ref(&warned), &quiet_model_pass(), true);
+    assert_eq!(strict["passed"], false);
+}
+
+#[test]
+fn test_resolve_targets_by_module_name_path_and_directory() {
+    let tmp = TempDir::new().unwrap();
+    scaffold_min_project(&tmp, &["alpha", "beta"]);
+    let root = tmp.path();
+
+    let all = resolve_targets(root, None).unwrap();
+    assert_eq!(all.len(), 2);
+
+    let by_name = resolve_targets(root, Some("alpha")).unwrap();
+    assert_eq!(by_name.len(), 1);
+    assert!(by_name[0].ends_with("alpha.spec.md"));
+
+    let by_path = resolve_targets(root, Some("specs/beta/beta.spec.md")).unwrap();
+    assert_eq!(by_path.len(), 1);
+    assert!(by_path[0].ends_with("beta.spec.md"));
+
+    let by_dir = resolve_targets(root, Some("specs/beta")).unwrap();
+    assert_eq!(by_dir.len(), 1);
+
+    assert!(resolve_targets(root, Some("nope")).is_err());
+}

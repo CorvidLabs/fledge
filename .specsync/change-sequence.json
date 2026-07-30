@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 6,
-  "id": "CHG-0006-release-v1-7-2-bump-version-files-and-changelog",
+  "sequence": 7,
+  "id": "CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
   "acknowledged_collisions": []
 }

@@ -3,6 +3,16 @@ use anyhow::{bail, Context, Result};
 use super::SpecFrontmatter;
 
 pub(crate) fn parse_frontmatter(content: &str) -> Result<(SpecFrontmatter, String)> {
+    let (yaml_str, body) = split_frontmatter(content)?;
+    let fm = parse_yaml_frontmatter(&yaml_str)?;
+    Ok((fm, body))
+}
+
+/// Split a spec file into its raw YAML frontmatter block and its markdown body,
+/// without interpreting either. `parse_frontmatter` layers typed parsing on top;
+/// `lint` needs the raw block so it can inspect fields (notably `version`) that
+/// the typed parser would reject outright.
+pub(crate) fn split_frontmatter(content: &str) -> Result<(String, String)> {
     let trimmed = content.trim_start();
     if !trimmed.starts_with("---") {
         bail!("No YAML frontmatter found (must start with ---)");
@@ -13,11 +23,10 @@ pub(crate) fn parse_frontmatter(content: &str) -> Result<(SpecFrontmatter, Strin
         .find("\n---")
         .ok_or_else(|| anyhow::anyhow!("No closing --- for frontmatter"))?;
 
-    let yaml_str = &after_first[..end];
-    let body = &after_first[end + 4..];
-
-    let fm = parse_yaml_frontmatter(yaml_str)?;
-    Ok((fm, body.to_string()))
+    Ok((
+        after_first[..end].to_string(),
+        after_first[end + 4..].to_string(),
+    ))
 }
 
 pub(crate) fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
@@ -94,6 +103,33 @@ pub(crate) fn extract_sections(body: &str) -> Vec<String> {
         if let Some(section) = line.strip_prefix("## ") {
             sections.push(section.trim().to_string());
         }
+    }
+    sections
+}
+
+/// Extract every `## Section` heading paired with its body — everything up to
+/// the next `## ` heading (so `###` subsections are part of their parent's
+/// body). Order is preserved; a repeated heading yields repeated entries.
+///
+/// `extract_sections` answers "which sections exist"; this answers "and what is
+/// in them", which is what the emptiness checks in `lint` need.
+pub(crate) fn extract_section_bodies(body: &str) -> Vec<(String, String)> {
+    let mut sections: Vec<(String, String)> = Vec::new();
+    let mut current: Option<(String, Vec<&str>)> = None;
+    for line in body.lines() {
+        if let Some(heading) = line.strip_prefix("## ") {
+            if let Some((name, lines)) = current.take() {
+                sections.push((name, lines.join("\n")));
+            }
+            current = Some((heading.trim().to_string(), Vec::new()));
+            continue;
+        }
+        if let Some((_, lines)) = current.as_mut() {
+            lines.push(line);
+        }
+    }
+    if let Some((name, lines)) = current.take() {
+        sections.push((name, lines.join("\n")));
     }
     sections
 }

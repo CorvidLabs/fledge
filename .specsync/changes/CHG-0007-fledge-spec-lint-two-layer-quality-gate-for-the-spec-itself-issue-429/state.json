@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
+  "slug": "fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
+  "title": "Fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
+  "description": "fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
+  "kind": "feature",
+  "state": "draft",
+  "base_commit": "3be72407889deb952d37e70f074dd99f16f24370",
+  "created_at": 1785439702,
+  "updated_at": 1785444714,
+  "affected_specs": [
+    "spec",
+    "main"
+  ],
+  "affected_paths": [
+    "src/spec/lint.rs",
+    "src/spec/mod.rs",
+    "src/spec/parse.rs",
+    "src/spec/commands.rs",
+    "src/spec/tests.rs",
+    "src/cli.rs",
+    "src/main.rs",
+    "src/snapshots/fledge__introspect__tests__introspect_schema.snap",
+    "tests/spec.rs",
+    "specs/spec/spec.spec.md",
+    "specs/main/main.spec.md",
+    "AGENTS.md",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "fledge spec lint [target] exits 0 on a clean spec tree and non-zero with a structured list of failures otherwise; layer 1 (required sections present and non-empty, no TODO/TBD/FIXME in Purpose or Public API, integer-or-semver version, every files: entry present on disk, an acceptance signal and a rejection signal) always runs offline; layer 2 is a model-graded quality pass gated behind --ai that fails fast with a clear error when no provider can answer; --json emits the spec_lint envelope; cargo test, clippy -D warnings and fmt --check are green"
+  ],
+  "selected_artifacts": [
+    "context",
+    "requirements",
+    "plan",
+    "tasks",
+    "testing",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "yes"
+  }
+}

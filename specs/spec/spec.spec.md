@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 13
+version: 14
 status: active
 files:
   - src/spec/mod.rs
@@ -8,6 +8,7 @@ files:
   - src/spec/validation.rs
   - src/spec/commands.rs
   - src/spec/engine.rs
+  - src/spec/lint.rs
   - src/spec/tests.rs
 
 db_tables: []
@@ -18,7 +19,9 @@ depends_on: []
 
 ## Purpose
 
-Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, and `fledge spec show <name>` to inspect a single spec's structure. Also exposes public helpers (`collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`) for other modules (notably `ask`) to feed spec content into LLM prompts.
+Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, `fledge spec show <name>` to inspect a single spec's structure, and `fledge spec lint [target]` to gate the quality of the specs themselves. Also exposes public helpers (`collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`) for other modules (notably `ask`) to feed spec content into LLM prompts.
+
+`spec check` asks "does the code match the spec". `spec lint` asks "is the spec worth matching" — a thin, aspirational, or poisoned spec passes every structural check while being wrong, and the spec is the one input to an agent pipeline that nothing else validates. Lint answers that in two layers: a deterministic offline pre-pass (required sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` in Purpose or Public API, a well-formed `version`, every `files:` entry present on disk, an acceptance signal and a rejection signal), and an opt-in model-graded pass (`--ai`) that judges falsifiability, whether invariants are load-bearing, and whether the acceptance/rejection signals discriminate — using the same provider plumbing as `fledge review`.
 
 ## Public API
 
@@ -27,7 +30,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | Export | Description |
 |--------|-------------|
 | `run` | Entry point that dispatches to the appropriate spec subcommand |
-| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show |
+| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show, Lint |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 | `IndexEntry` | Compact prompt-friendly record of one spec (name, version, status, purpose, files, path) |
 | `collect_index` | Enumerate every spec as `IndexEntry`s, sorted by name |
@@ -37,14 +40,17 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `specs_for_changed_files` | Module names whose `files:` or whose spec file's parent directory intersects a given set of paths |
 | `commands` | (internal) Submodule containing spec subcommand implementations |
 | `engine` | (internal) Submodule that delegates `spec check` to the real `specsync` binary when installed |
+| `lint` | (internal) Submodule implementing `spec lint` — the two-layer spec quality gate |
 | `parse` | (internal) Submodule for frontmatter and section parsing |
 | `validation` | (internal) Submodule for spec validation logic |
 | `find_specsync` | (internal) Locate the `specsync` binary on `PATH`, or `None` if not installed |
 | `try_check_via_specsync` | (internal) Run `spec check` via `specsync` when present; `Ok(None)` to fall back to the structural check |
 | `COMPANION_FILES` | (internal) List of expected companion filenames: requirements.md, tasks.md, context.md, testing.md |
+| `DEFAULT_REQUIRED_SECTIONS` | (internal) The seven-section default set used when `.specsync/config.toml` does not override `required_sections`; shared by `check` and `lint` |
 | `SPEC_CHECK_SCHEMA` | (internal) JSON schema version for `spec check --json` output |
 | `SPEC_LIST_SCHEMA` | (internal) JSON schema version for `spec list --json` output |
 | `SPEC_SHOW_SCHEMA` | (internal) JSON schema version for `spec show --json` output |
+| `SPEC_LINT_SCHEMA` | (internal) JSON schema version for `spec lint --json` output |
 | `SpecSyncConfig` | (internal) Parsed `.specsync/config.toml` — specs_dir and required_sections |
 | `load_config` | (internal) Read and parse `.specsync/config.toml` from project root |
 | `find_project_root` | (internal) Return current working directory as the project root |
@@ -55,8 +61,10 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `module_leaf` | (internal) Last `/`-separated segment of a module name; used to derive the spec filename for nested names |
 | `to_title_case` | (internal) Convert snake_case to Title Case for spec scaffolding |
 | `parse_frontmatter` | (internal) Parse YAML frontmatter and body from a spec file string |
+| `split_frontmatter` | (internal) Split a spec file into its raw YAML block and markdown body without interpreting either |
 | `parse_yaml_frontmatter` | (internal) Parse YAML frontmatter fields into `SpecFrontmatter` |
 | `extract_sections` | (internal) Extract `## Section` headings from a spec body |
+| `extract_section_bodies` | (internal) Extract each `## Section` heading paired with its body (up to the next `## `) |
 | `extract_purpose` | (internal) Extract the first paragraph under `## Purpose` |
 | `ValidationIssue` | (internal) Individual validation issue with message and is_error flag |
 | `SpecResult` | (internal) Aggregate result of validating a single spec |
@@ -73,14 +81,51 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `show_spec` | (internal) Display detailed view of a single spec |
 | `init` | (internal) Scaffold `.specsync/` directory with config and registry |
 | `new_spec` | (internal) Create a new spec module directory with template files |
+| `STRUCTURAL_CHECKS` | (internal, `lint`) Stable ids for the layer-1 checks; part of the `--ignore` and JSON contract |
+| `MODEL_CHECKS` | (internal, `lint`) The bounded vocabulary of check ids the layer-2 pass may return |
+| `MODEL_PASS_FAILED` | (internal, `lint`) Check id emitted when layer 2 was requested but produced no verdict |
+| `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in Purpose and Public API |
+| `ACCEPTANCE_SECTION` / `REJECTION_SECTION` | (internal, `lint`) The sections that carry the success and failure signals |
+| `Severity` | (internal, `lint`) `error` \| `warning` |
+| `Layer` | (internal, `lint`) `structural` \| `model` — which layer produced a finding |
+| `Finding` | (internal, `lint`) One lint finding: check id, severity, layer, optional section, message |
+| `SpecMeta` | (internal, `lint`) Frontmatter facts (name, raw version, status) usable even when the typed parse fails |
+| `SpecLintResult` | (internal, `lint`) Per-spec lint outcome: name, path, meta, findings, ignored count, raw content |
+| `ModelPass` | (internal, `lint`) Layer-2 status: requested, ran, skipped reason, provider, model |
+| `LintOptions` | (internal, `lint`) Flags for `spec lint`: target, json, strict, ai, no_ai, provider, model, ignore |
+| `lint_structural` | (internal, `lint`) Run every layer-1 check against one spec's content, returning `(SpecMeta, Vec<Finding>)` |
+| `section_has_content` | (internal, `lint`) Does a section say anything once comments and table scaffolding are removed |
+| `strip_html_comments` | (internal, `lint`) Remove `<!-- ... -->` blocks, including multi-line and unterminated ones |
+| `strip_code_spans` | (internal, `lint`) Remove fenced code blocks and inline code spans, leaving prose, so a backticked placeholder token reads as a citation rather than a placeholder |
+| `version_is_valid` | (internal, `lint`) Accept an integer or a semver `version:` value; reject anything else |
+| `frontmatter_value` | (internal, `lint`) Raw value of a top-level frontmatter key |
+| `frontmatter_block_has_items` | (internal, `lint`) Is an optional `accepts:` / `rejects:` block present and non-empty |
+| `build_quality_prompt` | (internal, `lint`) Build the layer-2 prompt for one spec |
+| `parse_quality_response` | (internal, `lint`) Parse a model response into findings, tolerating fences and prose |
+| `normalize_check_id` | (internal, `lint`) Map a model-supplied check id onto `MODEL_CHECKS`, else `quality_other` |
+| `ensure_provider_available` | (internal, `lint`) Fail fast before the first prompt when the selected provider cannot answer |
+| `model_pass_skip_reason` | (internal, `lint`) Why layer 2 will not run, or `None` when it will |
+| `grade_spec` | (internal, `lint`) Grade one spec with a provider and fold the findings in |
+| `resolve_targets` | (internal, `lint`) Resolve the `[target]` argument to a sorted list of `.spec.md` paths |
+| `is_known_check` | (internal, `lint`) Is an id a check this build can emit |
+| `parse_ignore_list` | (internal, `lint`) Split, normalize, and validate `--ignore` values |
+| `apply_ignores` | (internal, `lint`) Drop ignored findings, returning how many were dropped |
+| `build_envelope` | (internal, `lint`) Assemble the `spec_lint` JSON envelope |
 
 ### Structs & Enums
 
 | Type | Description |
 |------|-------------|
-| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show |
+| `SpecAction` | Enum of subcommands: Check (strict, json), Init, New, List, Show, Lint |
 | `SpecFrontmatter` | Parsed YAML frontmatter from a spec file |
 | `SpecResult` | Result of validating a single spec (warnings + errors) |
+| `Finding` | (private, `lint`) `{check, severity, layer, section: Option<String>, message}` |
+| `Severity` | (private, `lint`) `Error` \| `Warning`, serialized lowercase |
+| `Layer` | (private, `lint`) `Structural` \| `Model`, serialized lowercase |
+| `SpecMeta` | (private, `lint`) `{name, version, status}`, each `Option<String>` — the raw frontmatter facts |
+| `SpecLintResult` | (private, `lint`) `{name, path, meta, findings, ignored, content}` |
+| `ModelPass` | (private, `lint`) `{requested, ran, skipped_reason, provider, model}` |
+| `LintOptions` | (private, `lint`) `{target, json, strict, ai, no_ai, provider, model, ignore}` |
 | `SpecSummary` | (private) Summary for `list`: name, version, status, path, files, section/required counts, companions, missing companions |
 | `SpecDetail` | (private) Detail for `show`: name, version, status, path, files, sections, companions, missing companions |
 | `IndexEntry` | `{name, version, status, purpose: Option<String>, files, path: PathBuf}` |
@@ -95,7 +140,19 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, new, list, or show |
+| `run` | `(SpecAction) -> Result<()>` | Dispatches to check, init, new, list, show, or lint |
+| `lint::run` | `(root: &Path, LintOptions) -> Result<()>` | Runs layer 1 (always) and layer 2 (opt-in), prints a human or JSON report, exits non-zero on failure (private) |
+| `lint_structural` | `(content: &str, root: &Path, required: &[String]) -> (SpecMeta, Vec<Finding>)` | Every layer-1 check; pure apart from the `files:` existence probe |
+| `section_has_content` | `(&str) -> bool` | False for a section that is only blank lines, comments, bare bullets, or an empty table |
+| `strip_code_spans` | `(&str) -> String` | Prose with fenced blocks and inline code spans removed; HTML comments deliberately survive |
+| `version_is_valid` | `(&str) -> bool` | True for an integer or a `MAJOR.MINOR.PATCH[-pre][+build]` string |
+| `build_quality_prompt` | `(spec_name: &str, spec_content: &str) -> String` | Layer-2 prompt; sends the `.spec.md` only, not the companions |
+| `parse_quality_response` | `(&str) -> Result<Vec<Finding>>` | Outermost `{...}` span → findings; errors rather than treating a non-answer as clean |
+| `ensure_provider_available` | `(&Config, Option<&str>) -> Result<()>` | Keyed providers trusted without a probe; a keyless Ollama gets one 3s `GET /api/tags` |
+| `model_pass_skip_reason` | `(&LintOptions, spec_count: usize) -> Option<String>` | Pure flag-only decision, made before any provider work |
+| `grade_spec` | `(&dyn LlmProvider, &mut SpecLintResult, &[String])` | Grades one spec; a failure becomes a `model_pass_failed` error finding |
+| `resolve_targets` | `(&Path, Option<&str>) -> Result<Vec<PathBuf>>` | Module name, `.spec.md` path, directory, or all specs |
+| `build_envelope` | `(&[SpecLintResult], &ModelPass, strict: bool) -> serde_json::Value` | The `spec_lint` envelope (private, pure) |
 | `check` | `(root: &Path, strict: bool, json: bool) -> Result<()>` | Validates all specs and prints a human or JSON report (private) |
 | `init` | `(root: &Path) -> Result<()>` | Scaffolds `.specsync/` with config.toml, registry.toml, .gitignore, version (private) |
 | `new_spec` | `(root: &Path, name: &str) -> Result<()>` | Creates spec directory with spec.md and companion files (private) |
@@ -124,6 +181,16 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 13. `load_module_bundle` errors only when the specific requested module is missing; missing companions are simply omitted
 14. `render_index_markdown` produces stable output (entries must be pre-sorted; `collect_index` already guarantees this)
 15. `specs_for_changed_files` and `load_module_bundle` resolve each spec via its actual on-disk path, so sub-specs that share a directory (e.g. `specs/plugin/plugin-protocol.spec.md` declaring `module: plugin-protocol`) are matched by the parent dir they actually live in. When two specs share a directory, a change under that directory matches both
+16. `spec lint` layer 1 always runs and never performs network I/O — a bare `fledge spec lint` is safe as a pre-commit hook and a CI gate
+17. `spec lint` layer 2 is opt-in: it runs only with `--ai`, and `--no-ai` always wins over `--ai`. When it is skipped, `model_pass.ran` is `false` and `model_pass.skipped_reason` names why
+18. When layer 2 is requested but the selected provider cannot answer, `spec lint` errors *before* building the first prompt (keyed providers are trusted; a keyless Ollama is probed once with a 3-second timeout). It never blocks on a per-spec connect timeout
+19. A layer-2 provider or parse failure for one spec becomes a `model_pass_failed` **error** finding on that spec, not a silent pass and not an aborted run — a gate that could not run must never read as clean
+20. `spec lint` exits non-zero when any finding is an error, or when `--strict` and any finding is a warning; exit 0 when clean. Errors go to stderr as plain text even under `--json`
+21. Every `check` id in the output comes from a closed vocabulary (`STRUCTURAL_CHECKS` ∪ `MODEL_CHECKS` ∪ `model_pass_failed`). Ids a model invents collapse to `quality_other`, and `--ignore` rejects any id outside that set rather than silently suppressing nothing
+22. `--ignore <check>` is the human override over the agent's judgment: matching findings are dropped from the verdict and counted in `ignored`
+23. `version:` is accepted as either a spec-sync integer or a semver string. A non-integer version does not cost the spec its other frontmatter checks — lint normalizes the value before the typed parse
+24. The placeholder check runs on **prose only** — fenced code blocks and inline code spans are stripped first, so a spec that documents placeholder detection (this one) does not fail its own check. HTML comments are *not* stripped: a commented-out placeholder is still a placeholder
+25. `spec lint` is read-only; it never mutates the filesystem
 
 ## Behavioral Examples
 
@@ -252,16 +319,118 @@ $ fledge spec show trust --json
 }
 ```
 
+### spec lint — a clean tree
+```
+$ fledge spec lint
+✅ spec (v14, active)
+✅ work (v15, active)
+
+  33 spec(s) linted, 0 error(s), 0 warning(s)
+  layer 1 structural: on · layer 2 model-graded: off — not requested (pass --ai for the model-graded pass)
+$ echo $?
+0
+```
+
+### spec lint — a freshly scaffolded spec is structurally complete but says nothing
+```
+$ fledge spec new auth && fledge spec lint auth
+❌ auth (v1, draft)
+    error: [missing_file] `files:` lists `src/auth.rs`, which does not exist — the spec points at code that is gone
+    error: [empty_section] (Public API) section `## Public API` has no content — only scaffolding (blank lines, comments, or empty table rows)
+    error: [empty_section] (Invariants) section `## Invariants` has no content — only scaffolding (blank lines, comments, or empty table rows)
+    error: [empty_section] (Error Cases) section `## Error Cases` has no content — only scaffolding (blank lines, comments, or empty table rows)
+    error: [no_rejection_signal] (Error Cases) no rejection signal — the spec never states what proves failure (fill `## Error Cases` or add a `rejects:` frontmatter block)
+
+  1 spec(s) linted, 5 error(s), 0 warning(s)
+error: spec lint failed: 5 error(s), 0 warning(s)
+$ echo $?
+1
+```
+
+### spec lint --json — the CI gate
+```
+$ fledge spec lint --json
+{
+  "schema_version": 1,
+  "action": "spec_lint",
+  "strict": false,
+  "model_pass": {
+    "requested": false,
+    "ran": false,
+    "skipped_reason": "not requested (pass --ai for the model-graded pass)",
+    "provider": null,
+    "model": null
+  },
+  "specs": [
+    {
+      "name": "auth",
+      "path": "specs/auth/auth.spec.md",
+      "version": "1",
+      "status": "draft",
+      "findings": [
+        {
+          "check": "no_rejection_signal",
+          "severity": "error",
+          "layer": "structural",
+          "section": "Error Cases",
+          "message": "no rejection signal — the spec never states what proves failure ..."
+        }
+      ],
+      "errors": 1,
+      "warnings": 0,
+      "ignored": 0,
+      "passed": false
+    }
+  ],
+  "totals": { "linted": 1, "errors": 1, "warnings": 0, "ignored": 0 },
+  "passed": false
+}
+```
+
+### spec lint --ai — the model-graded pass
+```
+$ fledge spec lint spec --ai
+⚠️ spec (v14, active)
+    warn: [decorative_invariants] (Invariants) Invariant 10 restates the API rather than constraining it.
+    warn: [weak_acceptance_signal] (Behavioral Examples) The examples show shapes but never a concrete input/output pair.
+
+  1 spec(s) linted, 0 error(s), 2 warning(s)
+  layer 1 structural: on · layer 2 model-graded: on (ollama)
+```
+
+### spec lint --ai without a reachable provider — fails fast, never hangs
+```
+$ fledge spec lint --ai --provider anthropic
+error: the model-graded pass needs a provider, but 'anthropic' has no API key.
+  Set ANTHROPIC_API_KEY (or run `fledge ai use <provider> <model>`), or drop --ai to run the structural checks only.
+$ echo $?
+1
+```
+
+### spec lint --ignore — the human override
+```
+$ fledge spec lint auth --ignore missing_file,empty_section
+❌ auth (v1, draft)
+    error: [no_rejection_signal] (Error Cases) no rejection signal — ...
+    · 4 finding(s) suppressed by --ignore
+```
+
 ## Error Cases
 
 | Error | When | Behavior |
 |-------|------|----------|
-| `.specsync/config.toml` not found | `spec check`, `spec list`, or `spec show` without init | Print helpful message suggesting `fledge spec init` |
+| `.specsync/config.toml` not found | `spec check`, `spec list`, `spec show`, or `spec lint` without init | Print helpful message suggesting `fledge spec init` |
 | `.specsync/` already exists | `spec init` on initialized project | Bail with message |
 | Spec directory already exists | `spec new <name>` where `specs/<name>/` exists | Bail with message |
 | Invalid YAML frontmatter | Spec file has malformed frontmatter | `check` reports as error; `list` surfaces as a parse error line; `show` bails with context |
 | No specs found | `spec check` or `spec list` with empty specs directory | Print message (or `[]` with `--json`), exit 0 |
 | Spec not found | `spec show <name>` with unknown module | Bail with suggestion to run `fledge spec list` |
+| Lint target not found | `spec lint <target>` where the target is neither a module name, a `.spec.md` path, nor a directory | Bail naming the three accepted forms and suggesting `fledge spec list` |
+| Empty directory target | `spec lint <dir>` containing no `.spec.md` files | Bail with "No `.spec.md` files found under \<dir\>" |
+| Unknown `--ignore` id | `spec lint --ignore nope` | Bail listing every known check id (exit 1); no lint runs |
+| No provider for layer 2 | `spec lint --ai` with a keyless keyed provider, or an unreachable Ollama endpoint | Bail before the first prompt, naming the env var to set and the `--ai` escape hatch (exit 1) |
+| Layer-2 provider or parse failure | `spec lint --ai` where a model errors or returns non-JSON | `model_pass_failed` error finding on that spec; other specs still graded; run exits non-zero |
+| Findings present | `spec lint` with any error (or any warning under `--strict`) | Print the report (human or `--json` envelope) on stdout, then a plain-text error on stderr; exit 1 |
 
 ## Dependencies
 
@@ -269,11 +438,16 @@ $ fledge spec show trust --json
 - `toml` — config reading/writing
 - `walkdir` — spec directory traversal
 - `console` — styled terminal output
+- `ureq` — the layer-2 provider reachability probe (`lint`)
+- `llm` / `config` (internal) — provider selection for the model-graded pass, shared with `review` and `ask`
+- `envelope` (internal) — `--json` envelope construction
+- `spinner` (internal) — progress display during the model-graded pass
 
 ## Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 14 | 2026-07-30 | Add `fledge spec lint [target]` (#429) — a quality gate for the spec itself, in two layers. Layer 1 is a deterministic offline pre-pass (required sections present and non-empty, no `TODO`/`TBD`/`FIXME` in Purpose or Public API, integer-or-semver `version`, every `files:` entry present, an acceptance signal and a rejection signal). Layer 2 is an opt-in model-graded pass (`--ai`) reusing `review`'s provider plumbing, judging falsifiable purpose, load-bearing invariants, and discriminating acceptance/rejection signals. New `src/spec/lint.rs`; new `split_frontmatter` / `extract_section_bodies` in `parse.rs`; new shared `DEFAULT_REQUIRED_SECTIONS`. `--json` emits `{schema_version: 1, action: "spec_lint", strict, model_pass, specs: [...], totals, passed}`. `--ignore <check>` is the human override; `--strict` promotes warnings to errors |
 | 13 | 2026-07-02 | Fix: the specsync-delegated `spec check --json` now includes the full `specs[]` structural inventory (`{name, version, status, file_count, section_count, required_count, errors, warnings}`), so the `--json` envelope shape is identical whether the engine is `structural` or `specsync` (previously the delegated path omitted `specs[]`, breaking the documented contract and any agent parsing it on a machine with specsync installed). specsync's aggregate verdict (`passed`, top-level `errors`/`warnings`, `stale`) is preserved. New shared `structural_results`/`spec_result_json` helpers back both engines' `specs[]` |
 | 12 | 2026-06-22 | `spec check` now delegates to the real `specsync` binary when it is on `PATH`, giving local runs the same export-coverage validation as CI (identical to `CorvidLabs/spec-sync`); falls back to the built-in structural check (with an install hint) when absent. New `engine` submodule (`src/spec/engine.rs`) holds `find_specsync` and `try_check_via_specsync`. JSON output gains an `engine` field (`"specsync"` or `"structural"`) |
 | 11 | 2026-06-03 | Document `parse_yaml_frontmatter` in the export table to satisfy strict spec-sync validation |
