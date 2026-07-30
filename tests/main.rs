@@ -1250,8 +1250,12 @@ fn create_template_non_interactive_with_all_flags() {
 
 #[test]
 fn cli_review_outside_git_repo_fails() {
+    // TempEnv: no provider key, config dir isolated, AI host pointed at a
+    // closed port — a `review` that got past the git check cannot reach a real
+    // LLM endpoint or read the developer's config (issue #447).
+    let env = TempEnv::new();
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["review"]);
+    let output = env.run_in(tmp.path(), &["review"]);
     if !output.status.success() {
         let stderr = String::from_utf8(output.stderr).unwrap();
         assert!(
@@ -1286,7 +1290,7 @@ fn cli_review_no_changes_fails() {
         .current_dir(tmp.path())
         .output()
         .unwrap();
-    let output = run_fledge_in(tmp.path(), &["review", "--base", "HEAD"]);
+    let output = TempEnv::new().run_in(tmp.path(), &["review", "--base", "HEAD"]);
     assert!(!output.status.success(), "expected failure on empty diff");
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(

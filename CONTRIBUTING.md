@@ -137,6 +137,18 @@ fledge run docs-serve
 - Test both the happy path and error cases
 - Use `tempfile` for tests that write to disk
 
+**No test may touch the network or your real `~/.config/fledge/`.** Two shared harnesses make that easy:
+
+- `src/test_support.rs` (unit tests). `MockHttpServer` is a dependency-free loopback HTTP server: register canned routes with `on("GET", "/path", MockResponse::json(200, …))`, point the code under test at `server.url()`, then assert on `server.requests()` (method, path, query, headers, body). `dead_port_url()` gives a closed port for connection-refused paths. `GithubBaseGuard` redirects the GitHub REST base (and, for publish, the git remote base) at that server for the current thread. `ConfigDirGuard`, `EnvVarGuard`, `GitIdentityGuard`, `TestRepo`, and `StubLlmProvider` cover config, env, git, and LLM isolation. Env-mutating tests must hold `env_lock()`.
+- `tests/common/mod.rs` (integration tests). `TempEnv` spawns `fledge` with a fresh `HOME`/`XDG_CONFIG_HOME`/`FLEDGE_CONFIG_DIR`, non-interactive mode, every provider API key stripped, and `OLLAMA_HOST` pointed at a closed port.
+
+```rust
+let server = MockHttpServer::start();
+server.on("GET", "/user", MockResponse::json(200, r#"{"login":"octo"}"#));
+let _base = GithubBaseGuard::api(&server.url());
+assert_eq!(get_authenticated_user("tok").unwrap(), "octo");
+```
+
 ### Style
 
 - Run `fledge run fmt-fix` before committing

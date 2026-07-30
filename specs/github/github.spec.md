@@ -1,6 +1,6 @@
 ---
 module: github
-version: 3
+version: 4
 status: active
 files:
   - src/github.rs
@@ -41,6 +41,7 @@ As of v0.17, `fledge work pr` was removed from core — PR creation now lives en
 2. Rate limit errors (403) produce a helpful message about setting a token via `fledge config set github.token`
 3. 404 errors include the resolved repo identifier when extractable from the path so users can spot a typo or private-repo issue
 4. `ensure_git_repo` uses `git rev-parse --is-inside-work-tree`; non-repo dirs bail with "Not a git repository"
+5. Every request URL is built on `api_base()` (crate-internal), which returns the `https://api.github.com` constant in release builds. Test builds may redirect it at a loopback mock server, so the request path — headers, query encoding, status mapping, JSON decoding — is covered without network access. `publish.rs` builds its GitHub URLs on the same helper
 
 ## Behavioral Examples
 
@@ -74,6 +75,7 @@ Err: Not a git repository.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4 | 2026-07-30 | Add the crate-internal `api_base()` indirection so `github_api_get` (and the `publish` helpers built on it) can be tested against a loopback mock server (#447). Release-build URLs are unchanged |
 | 3 | 2026-06-07 | Remove `ensure_claude_cli` — the AI path no longer shells out to the `claude` CLI (1.5.0 moved to direct HTTP via `corvid-ai`). Only `github_api_get` and `ensure_git_repo` remain |
 | 2 | 2026-04-25 | v0.15 tight-core: remove `detect_repo`, `parse_repo_url`, `format_relative_time`, they only existed for the deleted `checks`/`issues`/`prs` commands and now live in `fledge-plugin-github`. `parse_repo_url` retained as a `#[cfg(test)]` helper. |
 | 1 | 2026-04-21 | Add ensure_git_repo and ensure_claude_cli exports |
