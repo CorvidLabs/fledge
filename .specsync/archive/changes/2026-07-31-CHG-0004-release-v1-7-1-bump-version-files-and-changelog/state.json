@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0004-release-v1-7-1-bump-version-files-and-changelog",
+  "slug": "release-v1-7-1-bump-version-files-and-changelog",
+  "title": "Release v1.7.1: bump version files and changelog",
+  "description": "Release v1.7.1: bump version files and changelog",
+  "kind": "operations",
+  "state": "archived",
+  "canonical_applied": true,
+  "base_commit": "2919effe55c6800765c16dd473ee372970fc0e32",
+  "created_at": 1785180915,
+  "updated_at": 1785521786,
+  "affected_specs": [],
+  "affected_paths": [
+    "Cargo.toml",
+    "Cargo.lock",
+    "flake.nix",
+    "CHANGELOG.md",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Routine version/changelog bump via fledge release patch; no runtime behavior or spec contract changes",
+  "acceptance_criteria": [
+    "Cargo.toml/flake.nix report 1.7.1; CHANGELOG.md has a v1.7.1 entry; fledge lanes run verify-native passes"
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing",
+    "design",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}
