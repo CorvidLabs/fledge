@@ -7,7 +7,9 @@
 //!
 //! - **Layer 1, structural** (always runs, deterministic, offline): required
 //!   sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` placeholders in
-//!   Purpose or Public API, a well-formed `version`, every `files:` entry
+//!   Purpose or Public API (matched case-insensitively, on word boundaries, and
+//!   only in prose — a backticked citation is not a placeholder), a well-formed
+//!   `version`, every `files:` entry
 //!   present on disk, and at least one acceptance signal plus one rejection
 //!   signal.
 //! - **Layer 2, model-graded** (opt-in via `--ai`): a model judges the axes a
@@ -69,7 +71,8 @@ pub(crate) const MODEL_CHECKS: &[&str] = &[
 /// that silently did not run is worse than one that fails.
 pub(crate) const MODEL_PASS_FAILED: &str = "model_pass_failed";
 
-/// Placeholder tokens that must not appear in Purpose or Public API.
+/// Placeholder tokens that must not appear in Purpose or Public API. Matched
+/// case-insensitively and on word boundaries — see [`contains_placeholder_word`].
 pub(crate) const PLACEHOLDER_TOKENS: &[&str] = &["TODO", "TBD", "FIXME"];
 
 /// Sections whose emptiness is the acceptance / rejection signal, respectively.
@@ -270,6 +273,46 @@ fn strip_inline_code(line: &str) -> String {
         }
     }
     out
+}
+
+/// True when `token` occurs in `prose` as a whole word, ignoring ASCII case.
+///
+/// Two independent relaxations of a plain `contains`, both load-bearing:
+///
+/// - **Case-insensitive.** A spec left at `todo: describe this` is exactly as
+///   unfinished as one left at `TODO:`. Matching only the uppercase spelling let
+///   the common lowercase form through.
+/// - **Word boundaries.** Case folding alone would be far too loud: `TODO`
+///   appears inside "mastodon", `FIXME` inside "prefixmethod", `TBD` inside any
+///   number of acronyms. A boundary is any position where the adjacent character
+///   is not alphanumeric and not `_` (the `\b` rule), so `TODO:`, `(TODO)` and a
+///   line-initial `todo` all fire while a token buried in a longer word does not.
+///
+/// Callers pass prose that already went through [`strip_code_spans`], so a
+/// backticked `` `TODO` `` never reaches this function in the first place.
+pub(crate) fn contains_placeholder_word(prose: &str, token: &str) -> bool {
+    let hay: Vec<char> = prose.chars().collect();
+    let needle: Vec<char> = token.chars().collect();
+    if needle.is_empty() || needle.len() > hay.len() {
+        return false;
+    }
+    let is_word_char = |c: char| c.is_alphanumeric() || c == '_';
+    for start in 0..=(hay.len() - needle.len()) {
+        let end = start + needle.len();
+        let matches = needle
+            .iter()
+            .zip(&hay[start..end])
+            .all(|(n, h)| n.eq_ignore_ascii_case(h));
+        if !matches {
+            continue;
+        }
+        let left_free = start == 0 || !is_word_char(hay[start - 1]);
+        let right_free = end == hay.len() || !is_word_char(hay[end]);
+        if left_free && right_free {
+            return true;
+        }
+    }
+    false
 }
 
 /// Strip leading markdown markers (list bullets, ordered-list numbers, heading
@@ -544,7 +587,7 @@ pub(crate) fn lint_structural(
         // Prose only: a backticked `TODO` is a citation, not a placeholder.
         let prose = strip_code_spans(section_body);
         for token in PLACEHOLDER_TOKENS {
-            if prose.contains(token) {
+            if contains_placeholder_word(&prose, token) {
                 findings.push(Finding::error(
                     "placeholder_text",
                     Some(section),

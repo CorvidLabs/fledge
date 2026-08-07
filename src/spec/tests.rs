@@ -861,11 +861,12 @@ body
 // ── lint: shared fixtures ────────────────────────────────────────────────────
 
 use super::lint::{
-    apply_ignores, build_envelope, build_quality_prompt, ensure_provider_available,
-    frontmatter_block_has_items, frontmatter_value, grade_spec, is_known_check, lint_structural,
-    model_pass_skip_reason, normalize_check_id, parse_ignore_list, parse_quality_response,
-    resolve_targets, section_has_content, strip_code_spans, strip_html_comments, version_is_valid,
-    Finding, Layer, LintOptions, ModelPass, Severity, SpecLintResult, SpecMeta,
+    apply_ignores, build_envelope, build_quality_prompt, contains_placeholder_word,
+    ensure_provider_available, frontmatter_block_has_items, frontmatter_value, grade_spec,
+    is_known_check, lint_structural, model_pass_skip_reason, normalize_check_id, parse_ignore_list,
+    parse_quality_response, resolve_targets, section_has_content, strip_code_spans,
+    strip_html_comments, version_is_valid, Finding, Layer, LintOptions, ModelPass, Severity,
+    SpecLintResult, SpecMeta,
 };
 
 fn required() -> Vec<String> {
@@ -1006,6 +1007,39 @@ fn test_lint_reports_placeholder_tokens_in_purpose_and_public_api() {
 }
 
 #[test]
+fn test_lint_reports_lowercase_and_mixed_case_placeholder_tokens() {
+    let tmp = lint_root();
+    for placeholder in ["todo: describe this.", "Todo: describe this.", "FixMe."] {
+        let spec = healthy_spec().replace(
+            "Demo turns a parsed config into a validated execution plan, so a malformed",
+            &format!("{placeholder} It also does things, so a malformed"),
+        );
+        let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+        assert!(
+            checks_of(&findings).contains(&"placeholder_text"),
+            "{placeholder:?} should fire placeholder_text: {findings:?}"
+        );
+        assert_eq!(findings[0].section.as_deref(), Some("Purpose"));
+    }
+}
+
+#[test]
+fn test_lint_does_not_flag_placeholder_tokens_inside_longer_words() {
+    // Case-insensitive matching without word boundaries would flag ordinary
+    // prose: "mastodon" contains "todo", "prefixmethod" contains "fixme".
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed",
+        "Demo posts the mastodon feed through its prefixmethod hook, so a malformed",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert!(
+        !checks_of(&findings).contains(&"placeholder_text"),
+        "{findings:?}"
+    );
+}
+
+#[test]
 fn test_lint_accepts_integer_and_semver_versions_but_rejects_others() {
     let tmp = lint_root();
     for good in ["3", "1.2.3", "0.1.0-rc.1"] {
@@ -1117,6 +1151,48 @@ fn test_lint_does_not_flag_backticked_placeholder_tokens() {
     );
     let (_, findings) = lint_structural(&bare, tmp.path(), &required());
     assert!(checks_of(&findings).contains(&"placeholder_text"));
+}
+
+#[test]
+fn test_lint_ignores_placeholder_tokens_in_code_regardless_of_case() {
+    // Case-insensitive matching must not reach into code: a lowercase `todo`
+    // in a backticked span or a fenced block is still a citation, not a
+    // placeholder.
+    let tmp = lint_root();
+    let cited = healthy_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed",
+        "Rejects `todo`, `Tbd` and `FixMe` markers.\n\n```\ntodo: not prose\n```\n\nDemo is a plan builder, so a malformed",
+    );
+    let (_, findings) = lint_structural(&cited, tmp.path(), &required());
+    assert!(
+        !checks_of(&findings).contains(&"placeholder_text"),
+        "{findings:?}"
+    );
+}
+
+#[test]
+fn test_contains_placeholder_word_is_case_insensitive_and_word_bounded() {
+    // Case folding.
+    for prose in ["TODO: x", "todo: x", "Todo: x", "tOdO: x"] {
+        assert!(contains_placeholder_word(prose, "TODO"), "{prose:?}");
+    }
+    assert!(contains_placeholder_word("FixMe soon", "FIXME"));
+    assert!(contains_placeholder_word("size is tbd", "TBD"));
+
+    // Word boundaries: punctuation and line edges bound a word, letters/digits
+    // and `_` do not.
+    for prose in ["(TODO)", "a TODO.", "TODO", "- todo\n", "TODO-ish"] {
+        assert!(contains_placeholder_word(prose, "TODO"), "{prose:?}");
+    }
+    for prose in ["mastodon", "todos", "aTODO", "TODO_LIST", "todo9"] {
+        assert!(!contains_placeholder_word(prose, "TODO"), "{prose:?}");
+    }
+    assert!(!contains_placeholder_word("prefixmethod", "FIXME"));
+    assert!(!contains_placeholder_word("subtbdir", "TBD"));
+
+    // Absent, and needle longer than haystack.
+    assert!(!contains_placeholder_word("all done", "TODO"));
+    assert!(!contains_placeholder_word("hi", "FIXME"));
 }
 
 #[test]

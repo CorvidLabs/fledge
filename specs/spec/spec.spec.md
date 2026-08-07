@@ -21,7 +21,7 @@ depends_on: []
 
 Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, `fledge spec show <name>` to inspect a single spec's structure, and `fledge spec lint [target]` to gate the quality of the specs themselves. Also exposes public helpers (`collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`) for other modules (notably `ask`) to feed spec content into LLM prompts.
 
-`spec check` asks "does the code match the spec". `spec lint` asks "is the spec worth matching" — a thin, aspirational, or poisoned spec passes every structural check while being wrong, and the spec is the one input to an agent pipeline that nothing else validates. Lint answers that in two layers: a deterministic offline pre-pass (required sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` in Purpose or Public API, a well-formed `version`, every `files:` entry present on disk, an acceptance signal and a rejection signal), and an opt-in model-graded pass (`--ai`) that judges falsifiability, whether invariants are load-bearing, and whether the acceptance/rejection signals discriminate — using the same provider plumbing as `fledge review`.
+`spec check` asks "does the code match the spec". `spec lint` asks "is the spec worth matching" — a thin, aspirational, or poisoned spec passes every structural check while being wrong, and the spec is the one input to an agent pipeline that nothing else validates. Lint answers that in two layers: a deterministic offline pre-pass (required sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` in Purpose or Public API — case-insensitive, whole-word, prose only — a well-formed `version`, every `files:` entry present on disk, an acceptance signal and a rejection signal), and an opt-in model-graded pass (`--ai`) that judges falsifiability, whether invariants are load-bearing, and whether the acceptance/rejection signals discriminate — using the same provider plumbing as `fledge review`.
 
 ## Public API
 
@@ -84,7 +84,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `STRUCTURAL_CHECKS` | (internal, `lint`) Stable ids for the layer-1 checks; part of the `--ignore` and JSON contract |
 | `MODEL_CHECKS` | (internal, `lint`) The bounded vocabulary of check ids the layer-2 pass may return |
 | `MODEL_PASS_FAILED` | (internal, `lint`) Check id emitted when layer 2 was requested but produced no verdict |
-| `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in Purpose and Public API |
+| `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in Purpose and Public API, matched case-insensitively on word boundaries |
 | `ACCEPTANCE_SECTION` / `REJECTION_SECTION` | (internal, `lint`) The sections that carry the success and failure signals |
 | `Severity` | (internal, `lint`) `error` \| `warning` |
 | `Layer` | (internal, `lint`) `structural` \| `model` — which layer produced a finding |
@@ -97,6 +97,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `section_has_content` | (internal, `lint`) Does a section say anything once comments and table scaffolding are removed |
 | `strip_html_comments` | (internal, `lint`) Remove `<!-- ... -->` blocks, including multi-line and unterminated ones |
 | `strip_code_spans` | (internal, `lint`) Remove fenced code blocks and inline code spans, leaving prose, so a backticked placeholder token reads as a citation rather than a placeholder |
+| `contains_placeholder_word` | (internal, `lint`) Does a placeholder token occur in prose as a whole word, ignoring ASCII case — the boundary rule that keeps "mastodon" from reading as a `TODO` |
 | `version_is_valid` | (internal, `lint`) Accept an integer or a semver `version:` value; reject anything else |
 | `frontmatter_value` | (internal, `lint`) Raw value of a top-level frontmatter key |
 | `frontmatter_block_has_items` | (internal, `lint`) Is an optional `accepts:` / `rejects:` block present and non-empty |
@@ -190,7 +191,8 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 22. `--ignore <check>` is the human override over the agent's judgment: matching findings are dropped from the verdict and counted in `ignored`
 23. `version:` is accepted as either a spec-sync integer or a semver string. A non-integer version does not cost the spec its other frontmatter checks — lint normalizes the value before the typed parse
 24. The placeholder check runs on **prose only** — fenced code blocks and inline code spans are stripped first, so a spec that documents placeholder detection (this one) does not fail its own check. HTML comments are *not* stripped: a commented-out placeholder is still a placeholder
-25. `spec lint` is read-only; it never mutates the filesystem
+25. Within that prose, a placeholder token matches **case-insensitively and on word boundaries**: a lowercase `todo` or a mixed-case `FixMe` is as unfinished as `TODO`, while a token buried in a longer word ("mastodon", "prefixmethod") is not a finding. A boundary is any position whose adjacent character is neither alphanumeric nor `_`
+26. `spec lint` is read-only; it never mutates the filesystem
 
 ## Behavioral Examples
 
@@ -447,7 +449,7 @@ $ fledge spec lint auth --ignore missing_file,empty_section
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 14 | 2026-07-30 | Add `fledge spec lint [target]` (#429) — a quality gate for the spec itself, in two layers. Layer 1 is a deterministic offline pre-pass (required sections present and non-empty, no `TODO`/`TBD`/`FIXME` in Purpose or Public API, integer-or-semver `version`, every `files:` entry present, an acceptance signal and a rejection signal). Layer 2 is an opt-in model-graded pass (`--ai`) reusing `review`'s provider plumbing, judging falsifiable purpose, load-bearing invariants, and discriminating acceptance/rejection signals. New `src/spec/lint.rs`; new `split_frontmatter` / `extract_section_bodies` in `parse.rs`; new shared `DEFAULT_REQUIRED_SECTIONS`. `--json` emits `{schema_version: 1, action: "spec_lint", strict, model_pass, specs: [...], totals, passed}`. `--ignore <check>` is the human override; `--strict` promotes warnings to errors |
+| 14 | 2026-07-30 | Add `fledge spec lint [target]` (#429) — a quality gate for the spec itself, in two layers. Layer 1 is a deterministic offline pre-pass (required sections present and non-empty, no `TODO`/`TBD`/`FIXME` in Purpose or Public API — matched case-insensitively and on word boundaries, against prose with code spans stripped, via `contains_placeholder_word` — integer-or-semver `version`, every `files:` entry present, an acceptance signal and a rejection signal). Layer 2 is an opt-in model-graded pass (`--ai`) reusing `review`'s provider plumbing, judging falsifiable purpose, load-bearing invariants, and discriminating acceptance/rejection signals. New `src/spec/lint.rs`; new `split_frontmatter` / `extract_section_bodies` in `parse.rs`; new shared `DEFAULT_REQUIRED_SECTIONS`. `--json` emits `{schema_version: 1, action: "spec_lint", strict, model_pass, specs: [...], totals, passed}`. `--ignore <check>` is the human override; `--strict` promotes warnings to errors |
 | 13 | 2026-07-02 | Fix: the specsync-delegated `spec check --json` now includes the full `specs[]` structural inventory (`{name, version, status, file_count, section_count, required_count, errors, warnings}`), so the `--json` envelope shape is identical whether the engine is `structural` or `specsync` (previously the delegated path omitted `specs[]`, breaking the documented contract and any agent parsing it on a machine with specsync installed). specsync's aggregate verdict (`passed`, top-level `errors`/`warnings`, `stale`) is preserved. New shared `structural_results`/`spec_result_json` helpers back both engines' `specs[]` |
 | 12 | 2026-06-22 | `spec check` now delegates to the real `specsync` binary when it is on `PATH`, giving local runs the same export-coverage validation as CI (identical to `CorvidLabs/spec-sync`); falls back to the built-in structural check (with an install hint) when absent. New `engine` submodule (`src/spec/engine.rs`) holds `find_specsync` and `try_check_via_specsync`. JSON output gains an `engine` field (`"specsync"` or `"structural"`) |
 | 11 | 2026-06-03 | Document `parse_yaml_frontmatter` in the export table to satisfy strict spec-sync validation |
