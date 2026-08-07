@@ -527,6 +527,14 @@ pub(crate) struct GithubBaseGuard {
 
 impl GithubBaseGuard {
     /// Redirect the REST API base only (e.g. to a [`MockHttpServer`] URL).
+    ///
+    /// The remote base is snapshotted but deliberately left as-is: `api` makes
+    /// no claim about it, and `Drop` restores the snapshot either way. That is
+    /// safe because `GITHUB_REMOTE_BASE` is *only* ever written by
+    /// [`Self::api_and_remote`], whose own guard restores it on drop — so an
+    /// `api`-only test can never observe a remote override leaked from an
+    /// earlier test on the same thread. Anything that sets the remote base
+    /// outside a `GithubBaseGuard` would break that invariant.
     pub(crate) fn api(base: &str) -> Self {
         let prev_api = GITHUB_API_BASE.with(|c| c.replace(Some(base.to_string())));
         let prev_remote = GITHUB_REMOTE_BASE.with(|c| c.borrow().clone());

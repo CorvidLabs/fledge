@@ -728,14 +728,17 @@ mod tests {
         dir
     }
 
-    fn git_out(bare: &Path, args: &[&str]) -> String {
+    /// Run git against `git_dir` (the `.git` directory itself — for a bare
+    /// repo that is the repo path, for a working repo it is `<repo>/.git`) and
+    /// return trimmed stdout.
+    fn git_out(git_dir: &Path, args: &[&str]) -> String {
         // `current_dir` is pinned to the repo: other tests in this binary
         // temporarily `chdir` into (and then delete) their own tempdirs, and a
         // git child inheriting a deleted cwd fails before it reads --git-dir.
         let out = std::process::Command::new("git")
-            .current_dir(bare)
+            .current_dir(git_dir)
             .arg("--git-dir")
-            .arg(bare)
+            .arg(git_dir)
             .args(args)
             .output()
             .expect("spawn git");
@@ -746,6 +749,13 @@ mod tests {
             String::from_utf8_lossy(&out.stderr)
         );
         String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    /// Normalise path separators for comparing a path that has round-tripped
+    /// through git. Git on Windows may rewrite `\` to `/` inside a remote URL,
+    /// so only a separator-insensitive comparison is portable.
+    fn slashed(s: &str) -> String {
+        s.replace('\\', "/")
     }
 
     #[test]
@@ -777,13 +787,28 @@ mod tests {
         assert!(git_out(&bare, &["ls-tree", "--name-only", "main"]).contains("README.md"));
 
         // The token is never persisted in the repo's git config; the remote is
-        // reset to the clean URL after the push.
+        // left holding the clean URL after the push.
         let config = std::fs::read_to_string(work.path().join(".git/config")).unwrap();
         assert!(
             !config.contains("ghp_secret"),
             "token leaked into .git/config"
         );
-        assert!(config.contains(remotes.path().to_str().unwrap()));
+        // Read the remote back through git instead of substring-matching the
+        // OS path against the raw config text: `.git/config` escapes
+        // backslashes, so on Windows the file never literally contains the
+        // path we handed to git.
+        let origin = git_out(&work.path().join(".git"), &["remote", "get-url", "origin"]);
+        assert!(
+            !origin.contains("ghp_secret"),
+            "token leaked into origin URL"
+        );
+        assert_eq!(
+            slashed(&origin),
+            slashed(&format!(
+                "{}/octo/widget.git",
+                remotes.path().to_str().unwrap()
+            ))
+        );
 
         // Second publish of the same directory takes the "repo already
         // initialized, remote already set" branch and pushes an update.
