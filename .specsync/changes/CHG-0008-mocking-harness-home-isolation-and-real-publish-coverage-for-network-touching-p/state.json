@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p",
+  "slug": "mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p",
+  "title": "Mocking harness, HOME isolation and real publish coverage for network-touching paths",
+  "description": "Mocking harness, HOME isolation and real publish coverage for network-touching paths",
+  "kind": "refactor",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "47cbefdc5e4cb1c6d7e3a3075deb5d88ae576c84",
+  "created_at": 1786129700,
+  "updated_at": 1786154108,
+  "affected_specs": [
+    "publish",
+    "github",
+    "llm",
+    "doctor"
+  ],
+  "affected_paths": [
+    "src/doctor.rs",
+    "src/github.rs",
+    "src/llm.rs",
+    "src/publish.rs",
+    "src/test_support.rs",
+    "tests/common/mod.rs",
+    "tests/doctor.rs",
+    "tests/main.rs",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --check are green on Linux, macOS and Windows; no test performs real network I/O or reads the developer's real HOME or ~/.config/fledge; src/publish.rs has real coverage replacing the empty #[ignore] stub, including a push path asserted via git remote get-url rather than raw OS-path substring matching; production behavior is unchanged and release builds keep the production GitHub API and remote base constants."
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing",
+    "design",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

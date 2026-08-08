@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 6,
-  "id": "CHG-0006-release-v1-7-2-bump-version-files-and-changelog",
+  "sequence": 8,
+  "id": "CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p",
   "acknowledged_collisions": []
 }

@@ -1,6 +1,6 @@
 ---
 module: llm
-version: 7
+version: 8
 status: active
 files:
   - src/llm.rs
@@ -138,3 +138,4 @@ $ fledge review --provider claude --model claude-opus-4-8   # warns, routes to a
 | 3 | 2026-04-27 | Document `normalize_ollama_host` scheme prepend |
 | 2 | 2026-04-24 | `OllamaProvider` gains a `timeout` field; `ai.ollama.timeout_seconds` fallback |
 | 1 | 2026-04-23 | Initial spec, provider abstraction with Claude + Ollama implementations |
+| 8 | 2026-08-08 | CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p: Mocking harness, HOME isolation and real publish coverage for network-touching paths |

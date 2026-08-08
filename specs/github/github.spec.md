@@ -1,6 +1,6 @@
 ---
 module: github
-version: 4
+version: 5
 status: active
 files:
   - src/github.rs
@@ -27,6 +27,7 @@ As of v0.17, `fledge work pr` was removed from core — PR creation now lives en
 |--------|-------------|
 | `github_api_get` | Makes an authenticated GET request to the GitHub REST API |
 | `ensure_git_repo` | Verifies that the current directory is inside a git repository |
+| `api_base` | Resolves the GitHub REST base URL, redirectable in tests |
 
 ### Functions
 
@@ -34,6 +35,7 @@ As of v0.17, `fledge work pr` was removed from core — PR creation now lives en
 |----------|-----------|-------------|
 | `github_api_get` | `(path, token, query_params) -> Result<Value>` | GET request to GitHub API with optional auth |
 | `ensure_git_repo` | `() -> Result<()>` | Runs `git rev-parse --is-inside-work-tree`, bails if not a repo |
+| `api_base` | `() -> String` | GitHub REST base; production constant outside `cfg(test)`, thread-local override under test |
 
 ## Invariants
 
@@ -80,3 +82,4 @@ Err: Not a git repository.
 | 2 | 2026-04-25 | v0.15 tight-core: remove `detect_repo`, `parse_repo_url`, `format_relative_time`, they only existed for the deleted `checks`/`issues`/`prs` commands and now live in `fledge-plugin-github`. `parse_repo_url` retained as a `#[cfg(test)]` helper. |
 | 1 | 2026-04-21 | Add ensure_git_repo and ensure_claude_cli exports |
 | 1 | 2026-04-19 | Initial spec |
+| 5 | 2026-08-08 | CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p: Mocking harness, HOME isolation and real publish coverage for network-touching paths |

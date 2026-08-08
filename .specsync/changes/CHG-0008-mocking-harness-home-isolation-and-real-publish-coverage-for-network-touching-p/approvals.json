@@ -1,0 +1,26 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786147101,
+      "digest": "fbf6b3b6bc10647db9fc4f01e430e79b2726a3f7065b80986a786c20b6e77a81",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786153765,
+      "digest": "546438310dd882408b6ae5bb639c6a5e05549b9c916ac44752fc8c8601ad73c6",
+      "note": "Re-approved after recording requirement evidence and documenting api_base."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786154108,
+      "digest": "95519c80f2312a096de6e86115a8558b920937a00f9c3f7a6f98a0f5104fe58c",
+      "note": "Closing approval by the repository owner; verify-native green, 4 requirements evidenced."
+    }
+  ],
+  "reopenings": []
+}

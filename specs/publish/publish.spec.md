@@ -1,6 +1,6 @@
 ---
 module: publish
-version: 6
+version: 7
 status: active
 files:
   - src/publish.rs
@@ -126,3 +126,4 @@ set_repo_topic("CorvidLabs", "my-template", "fledge-template", token)?;
 | 3 | 2026-04-25 | v0.15 tight-core: removed the `run` / `PublishOptions` / `validate_template` / `set_repo_topics` exports. The user-facing `templates publish` command lived in `fledge-plugin-templates-remote` then. |
 | 2 | 2026-04-22 | Updated exports for plugin/lane publish support; document newly-public helpers |
 | 1 | 2026-04-19 | Initial spec |
+| 7 | 2026-08-08 | CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p: Mocking harness, HOME isolation and real publish coverage for network-touching paths |
