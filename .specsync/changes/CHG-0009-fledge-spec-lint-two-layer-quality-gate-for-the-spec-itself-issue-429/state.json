@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
-  "id": "CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
+  "id": "CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
   "slug": "fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
   "title": "Fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
   "description": "fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
   "kind": "feature",
-  "state": "draft",
+  "state": "accepted",
+  "canonical_applied": true,
   "base_commit": "3be72407889deb952d37e70f074dd99f16f24370",
   "created_at": 1785439702,
-  "updated_at": 1785444714,
+  "updated_at": 1786419436,
   "affected_specs": [
     "spec",
     "main"

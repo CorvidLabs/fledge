@@ -1,5 +1,5 @@
 ---
-change: CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
+change: CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
 artifact: tasks
 ---
 
@@ -28,7 +28,16 @@ artifact: tasks
 - [x] Update `specs/spec/spec.spec.md` to v14 and `specs/main/main.spec.md` to
       v14
 - [x] `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`
-- [ ] Human gate: approve this change definition (`specsync change approve`)
-- [ ] Maintainer decision: whether to add `spec lint` to the `pre-commit` / `ci`
-      lanes in `fledge.toml`
-- [ ] Maintainer decision: whether layer 2 should ever default to on
+- [x] Human gate: approve this change definition (`specsync change approve`)
+
+## Deferred decisions (out of scope for this change)
+
+These are open questions for the maintainer, not work items of this change. They are
+raised in the PR description and deliberately left unresolved so `spec lint` ships with
+the conservative default in each case.
+
+- Whether to add `spec lint` to the `pre-commit` / `ci` lanes in `fledge.toml`. All 33
+  specs pass, so wiring it in would be safe, but adding a gate is a maintainer call.
+  Shipped un-wired.
+- Whether layer 2 should ever default to on. Shipped opt-in via `--ai`; `--no-ai` wins
+  when both are passed, so the default can be flipped later without breaking callers.

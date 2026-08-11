@@ -1,0 +1,33 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786408039,
+      "digest": "ca78a5aed89bbc660cb73a6e3b47c47300a83401cddfbce31daba284a7b8c5e6",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786409566,
+      "digest": "5624a466f4430d2887b5562f74dc58088795e5ede3ded8ee21413357fbf52a3f",
+      "note": "Re-approved after recording requirement evidence and documenting lint exports."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786417562,
+      "digest": "9bf331fd22955a57e2445660af2b33a5e60aa5e8f5052bdf63c6ee3fd744ce8c",
+      "note": "Re-approved after separating deferred maintainer decisions from change tasks."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786419436,
+      "digest": "95cdbd55674a4d1ff8b5736a6321dcb6ddaa6101c4e21a502827aa3672e30265",
+      "note": "Closing approval by the repository owner; verify-native green, 4 requirements evidenced."
+    }
+  ],
+  "reopenings": []
+}

@@ -1,6 +1,6 @@
 ---
-id: CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
-state: draft
+id: CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
+state: accepted
 type: feature
 base_commit: 3be72407889deb952d37e70f074dd99f16f24370
 ---

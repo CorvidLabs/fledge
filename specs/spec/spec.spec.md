@@ -1,6 +1,6 @@
 ---
 module: spec
-version: 14
+version: 15
 status: active
 files:
   - src/spec/mod.rs
@@ -85,7 +85,9 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `MODEL_CHECKS` | (internal, `lint`) The bounded vocabulary of check ids the layer-2 pass may return |
 | `MODEL_PASS_FAILED` | (internal, `lint`) Check id emitted when layer 2 was requested but produced no verdict |
 | `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in Purpose and Public API, matched case-insensitively on word boundaries |
-| `ACCEPTANCE_SECTION` / `REJECTION_SECTION` | (internal, `lint`) The sections that carry the success and failure signals |
+| `ACCEPTANCE_SECTION` | (internal, `lint`) The section carrying the success signal (`Behavioral Examples`) |
+| `REJECTION_SECTION` | (internal, `lint`) The section carrying the failure signal (`Error Cases`) |
+| `error` | (internal, `lint`) `Finding::error` — constructs a structural-layer error finding |
 | `Severity` | (internal, `lint`) `error` \| `warning` |
 | `Layer` | (internal, `lint`) `structural` \| `model` — which layer produced a finding |
 | `Finding` | (internal, `lint`) One lint finding: check id, severity, layer, optional section, message |
@@ -463,3 +465,4 @@ $ fledge spec lint auth --ignore missing_file,empty_section
 | 3 | 2026-04-23 | Expose `collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`, and `IndexEntry` for consumers that need spec content in prompt-friendly form (`ask` is the first such consumer). Add `extract_purpose` helper. |
 | 2 | 2026-04-23 | Add `spec list` (alias `ls`) and `spec show`, both with `--json` support for agent/tool consumption |
 | 1 | 2026-04-19 | Initial spec for fledge spec integration |
+| 15 | 2026-08-11 | CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429: Fledge spec lint: two-layer quality gate for the spec itself (issue #429) |

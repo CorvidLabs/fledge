@@ -1,9 +1,49 @@
 ---
-change: CHG-0007-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
+change: CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429
 artifact: testing
 ---
 
 # Testing
+
+## REQ-spec-030: `fledge spec lint` two-layer quality gate
+
+- Automated: `src/spec/tests.rs` covers each layer-1 check id — `frontmatter`,
+  `version_format`, `missing_section`, `empty_section`, `placeholder_text`,
+  `missing_file`, `no_acceptance_signal`, `no_rejection_signal`.
+- Automated: `tests/spec.rs` CLI cases assert exit 0 when clean, exit 1 on an error
+  finding, and `--strict` promoting warnings to errors.
+- Automated: `--json` output is asserted to carry `action: "spec_lint"` and
+  `schema_version: 1` in the action dialect.
+- Manual: `fledge spec lint` across this repository reports 33 specs, 0 findings.
+
+## REQ-spec-031: layer 2 fails closed when a provider is unavailable
+
+- Automated: layer-2 tests use `StubLlmProvider`, so no test contacts a network LLM.
+- Automated: a provider failure surfaces as a `model_pass_failed` **error** finding
+  rather than a silent skip.
+- Code review: `ensure_provider_available` runs before the first prompt; a keyed provider
+  without a key errors naming the environment variable, and a keyless Ollama gets a single
+  short `/api/tags` probe so CI fails fast instead of hanging.
+
+## REQ-spec-032: placeholder matching is case-insensitive and word-bounded, prose only
+
+- Automated: `test_lint_reports_lowercase_and_mixed_case_placeholder_tokens` — `todo:`,
+  `Todo:` and `FixMe.` each fire `placeholder_text`; all three passed before this change.
+- Automated: `test_lint_does_not_flag_placeholder_tokens_inside_longer_words` — prose
+  containing "mastodon" and "prefixmethod" produces no finding.
+- Automated: `test_lint_ignores_placeholder_tokens_in_code_regardless_of_case` — tokens in
+  backticked spans and fenced blocks stay ignored in any case.
+- Automated: `test_contains_placeholder_word_is_case_insensitive_and_word_bounded` unit-tests
+  the helper across boundary positives and negatives.
+
+## REQ-main-010: `main` dispatches `spec lint` and propagates exit status
+
+- Automated: the introspect snapshot test covers `spec lint` appearing in
+  `fledge introspect --json`.
+- Automated: `tests/spec.rs` asserts exit 0 on a clean run and exit 1 on an error finding.
+- Code review: errors are written to stderr as plain text even under `--json`; the exit
+  code is the contract.
+
 
 ## Principle
 

@@ -1,6 +1,6 @@
 ---
 module: main
-version: 14
+version: 15
 status: active
 files:
   - src/main.rs
@@ -163,3 +163,4 @@ All modules are dependencies — main dispatches to every subcommand module. See
 | 1 | 2026-04-21 | Initial spec |
 | 13 | 2026-07-27 | CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c: Fix bare fledge exit code and restore cursor on Ctrl+C |
 | 14 | 2026-07-30 | Add `SpecSubcommand::Lint` and its `spec_action_from` arm for `fledge spec lint` (#429): positional `[target]`, plus `--ai`, `--no-ai`, `--provider`, `--model`, `--ignore`, `--strict`, `--json` |
+| 15 | 2026-08-11 | CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429: Fledge spec lint: two-layer quality gate for the spec itself (issue #429) |
