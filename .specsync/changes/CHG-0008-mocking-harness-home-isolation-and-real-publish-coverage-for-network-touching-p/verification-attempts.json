@@ -20,6 +20,26 @@
         "REQ-llm-020",
         "REQ-publish-020"
       ]
+    },
+    {
+      "timestamp": 1786471226,
+      "commit": "3e4e9d100947c47f8724304283283987362f199a",
+      "contract_digest": "546438310dd882408b6ae5bb639c6a5e05549b9c916ac44752fc8c8601ad73c6",
+      "workspace_digest": "807163d905dd2087d9c8eddd4889ebf24b5de92e40c4a80a8dc745ce7dd83a44",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-doctor-020",
+        "REQ-github-020",
+        "REQ-llm-020",
+        "REQ-publish-020"
+      ]
     }
   ]
 }
