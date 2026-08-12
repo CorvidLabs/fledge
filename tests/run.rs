@@ -296,6 +296,182 @@ deps = ["prep"]
     assert!(stdout.contains("BUILD"));
 }
 
+// `--stream` (live child output)
+// ──────────────────────────────────────────────────────────
+
+/// Default `--json` stays buffered: nothing is mirrored, the envelope holds it
+/// all. This is the backward-compatibility guard for the new flag.
+#[test]
+fn cli_run_json_buffers_by_default() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nnoisy = \"echo OUT-MARKER; echo ERR-MARKER 1>&2\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "noisy", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(parsed["stdout"].as_str().unwrap().contains("OUT-MARKER"));
+    assert!(parsed["stderr"].as_str().unwrap().contains("ERR-MARKER"));
+    assert!(
+        !stderr.contains("OUT-MARKER") && !stderr.contains("ERR-MARKER"),
+        "buffered mode must not mirror child output, got stderr: {stderr}"
+    );
+}
+
+/// `--stream --json`: child bytes are mirrored to fledge's stderr AND still
+/// captured in the envelope. Note the test harness pipes both streams, so this
+/// also pins the non-TTY behaviour — the flag forwards regardless.
+#[test]
+fn cli_run_stream_json_mirrors_and_still_captures() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nnoisy = \"echo OUT-MARKER; echo ERR-MARKER 1>&2\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "noisy", "--json", "--stream"]);
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["action"].as_str(), Some("run_task"));
+    assert!(
+        parsed["stdout"].as_str().unwrap().contains("OUT-MARKER"),
+        "envelope must still carry stdout"
+    );
+    assert!(
+        parsed["stderr"].as_str().unwrap().contains("ERR-MARKER"),
+        "envelope must still carry stderr"
+    );
+    assert!(
+        stderr.contains("OUT-MARKER"),
+        "child stdout must be mirrored to fledge stderr, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("ERR-MARKER"),
+        "child stderr must be mirrored to fledge stderr, got: {stderr}"
+    );
+}
+
+/// The whole reason mirroring targets stderr: stdout must remain one parseable
+/// JSON document even when the child itself prints JSON-looking text.
+#[test]
+fn cli_run_stream_json_stdout_stays_pure_json() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nimposter = \"echo '{\\\"action\\\":\\\"not-the-envelope\\\"}'\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "imposter", "--json", "--stream"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("stdout must be a single JSON doc: {e}\n{stdout}"));
+    assert_eq!(parsed["action"].as_str(), Some("run_task"));
+    assert!(parsed["stdout"]
+        .as_str()
+        .unwrap()
+        .contains("not-the-envelope"));
+}
+
+/// Exit code propagation is identical in both modes.
+#[test]
+fn cli_run_stream_json_failing_task_reports_exit_code() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nfail = \"echo BEFORE-FAIL; exit 3\"\n",
+    )
+    .unwrap();
+
+    let streamed = run_fledge_in(tmp.path(), &["run", "fail", "--json", "--stream"]);
+    assert!(!streamed.status.success());
+    let stdout = String::from_utf8(streamed.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["exit_code"].as_i64(), Some(3));
+    assert_eq!(parsed["success"].as_bool(), Some(false));
+    assert!(parsed["stdout"].as_str().unwrap().contains("BEFORE-FAIL"));
+
+    let buffered = run_fledge_in(tmp.path(), &["run", "fail", "--json"]);
+    assert!(!buffered.status.success());
+    let buffered_parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(buffered.stdout).unwrap()).unwrap();
+    assert_eq!(
+        buffered_parsed["exit_code"], parsed["exit_code"],
+        "exit code must not depend on the output mode"
+    );
+    assert_eq!(buffered_parsed["stdout"], parsed["stdout"]);
+}
+
+/// `--stream` without `--json` is accepted and behaves exactly like the
+/// existing human-readable run (which already inherits the terminal).
+#[test]
+fn cli_run_stream_without_json_is_accepted() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nhello = \"echo hello-streaming\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "hello", "--stream"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("hello-streaming"));
+    assert!(
+        stdout.contains("Running task: hello"),
+        "fledge's own task summary must remain, got: {stdout}"
+    );
+}
+
+/// A streamed failing task in human mode still exits non-zero.
+#[test]
+fn cli_run_stream_without_json_failing_task_exits_nonzero() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        "[tasks]\nfail = \"exit 4\"\n",
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "fail", "--stream"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("exit code 4"), "got: {stderr}");
+}
+
+/// Streaming is an output mode, so dependencies stream too.
+#[test]
+fn cli_run_stream_json_applies_to_dependencies() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+prep = "echo DEP-MARKER"
+
+[tasks.build]
+cmd = "echo BUILD-MARKER"
+deps = ["prep"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "build", "--json", "--stream"]);
+    assert!(output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("DEP-MARKER"),
+        "dependency output must stream too, got: {stderr}"
+    );
+    assert!(stderr.contains("BUILD-MARKER"));
+}
+
 #[test]
 fn cli_run_failing_task_exits_nonzero() {
     let tmp = TempDir::new().unwrap();

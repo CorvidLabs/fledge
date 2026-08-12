@@ -174,6 +174,14 @@ fledge run [task] [OPTIONS]
 - `-l, --list` - List available tasks
 - `--lang <LANG>` - Override detected project language (swift, python, rust, node, go, ruby, java-gradle, java-maven)
 - `--json` - JSON output (works with `--list` and when running a task)
+- `--stream` - Forward the task's output live instead of buffering it
+
+**Streaming (`--stream`)** — for long-running or interactive tasks. Without `--json`, fledge already hands the task your terminal, so output is live and prompts work; `--stream` is accepted there and changes nothing. With `--json` the task's output is normally buffered until it exits (and its stdin is closed). Adding `--stream` mirrors the task's stdout and stderr to fledge's **stderr** as they arrive and lets the task read stdin, while fledge's **stdout** stays exactly one JSON envelope — so `fledge run migrate --json --stream | jq .success` still works and you watch progress on the way. Output is forwarded verbatim whether or not you're on a terminal (piped runs and CI logs stream too). Each stream is forwarded in order; the exact interleaving *between* stdout and stderr is best-effort, since they arrive on separate pipes.
+
+```bash
+fledge run migrate --json --stream    # watch progress, still get the envelope
+fledge run deploy --stream            # interactive task: prompts reach your terminal
+```
 
 **Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 

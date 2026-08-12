@@ -159,6 +159,8 @@ fn run_target(opts: &WatchOptions) {
             list: false,
             lang: None,
             json: false,
+            // Watch runs in human mode, which already inherits stdio.
+            stream: false,
             args: Vec::new(),
         })
     };

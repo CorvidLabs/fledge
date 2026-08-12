@@ -1843,6 +1843,14 @@ expression: output
           "global": false
         },
         {
+          "name": "stream",
+          "long": "stream",
+          "help": "Forward the task's stdout/stderr live instead of buffering. Only changes `--json` runs (the human-readable mode already streams): child output is mirrored to fledge's stderr as it arrives, stdout stays a single JSON document, and the child inherits stdin so it can prompt. For long-running or interactive tasks",
+          "required": false,
+          "takes_value": false,
+          "global": false
+        },
+        {
           "name": "args",
           "help": "Arguments passed through to the task's command, after a `--` separator. Example: `fledge run test -- --release` or `fledge run set-version -- 1.2.3`. They are appended to the command (or fill `$1`, `$@` if it references them) and never spliced into the command string",
           "required": false,

@@ -197,6 +197,13 @@ pub enum Commands {
         /// Output results as JSON
         #[arg(long)]
         json: bool,
+        /// Forward the task's stdout/stderr live instead of buffering. Only
+        /// changes `--json` runs (the human-readable mode already streams):
+        /// child output is mirrored to fledge's stderr as it arrives, stdout
+        /// stays a single JSON document, and the child inherits stdin so it
+        /// can prompt. For long-running or interactive tasks.
+        #[arg(long)]
+        stream: bool,
         /// Arguments passed through to the task's command, after a `--`
         /// separator. Example: `fledge run test -- --release` or
         /// `fledge run set-version -- 1.2.3`. They are appended to the

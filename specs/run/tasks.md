@@ -17,9 +17,16 @@ spec: run.spec.md
 - [x] Wire RunAction subcommand into main.rs
 - [x] Add unit tests for detect_project_type, task parsing, circular dependency detection
 - [x] Register spec and verify with cargo test, clippy, fmt, spec-check
+- [x] Add `--stream` flag to the run subcommand and `RunOptions` (#507)
+- [x] Implement `pump` (tee: forward a chunk, capture it) and `run_streaming` (two piped streams, two threads, inherited stdin)
+- [x] Wire `--stream` into the `--json` execution path, mirroring to stderr so the envelope stays pure
+- [x] Propagate `--stream` to dependency tasks
+- [x] Unit-test `pump` (capture/mirror equality, partial lines, empty input, multi-buffer payloads) and `run_streaming` (stream separation, exit code, parity with buffered capture)
+- [x] Integration-test mirroring, buffered default, envelope purity, exit-code parity, deps, and `--stream` without `--json`
 
 ## Gaps
 
 - No parallel task execution
-- No task output capture or streaming
 - No task caching/skip-if-unchanged
+- `--stream --json` guarantees per-stream ordering only; cross-stream interleaving is best-effort
+- Lanes steps have no equivalent streaming mode

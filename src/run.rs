@@ -2,8 +2,9 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
+use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus, Stdio};
 
 /// Per-command JSON schema versions for `run` subcommands. See lanes.rs for
 /// rationale. (Note: this is the wire-envelope version, distinct from the
@@ -82,6 +83,10 @@ pub struct RunOptions {
     pub list: bool,
     pub lang: Option<String>,
     pub json: bool,
+    /// Forward child stdout/stderr live instead of buffering them. Only
+    /// affects `--json` runs — the human-readable path already inherits the
+    /// terminal, so output there is live either way. See `run_streaming`.
+    pub stream: bool,
     /// Pass-through arguments for the target task's command (everything after
     /// `--` on the CLI). Applied to the named task only, never its deps.
     pub args: Vec<String>,
@@ -168,6 +173,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
         &project_dir,
         &mut visited,
         opts.json,
+        opts.stream,
         &opts.args,
     )
 }
@@ -240,6 +246,98 @@ fn build_task_command(
     command
 }
 
+/// What a streamed task run produced: the same three pieces `Command::output`
+/// yields, except the bytes were also forwarded to the terminal as they
+/// arrived rather than only at exit.
+struct StreamedOutput {
+    status: ExitStatus,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+/// Copy `reader` to `sink` chunk by chunk, flushing after every chunk, while
+/// also accumulating everything read. This is the "tee" that lets `--stream`
+/// show output live *and* still fill the JSON envelope.
+///
+/// Chunks are forwarded verbatim — no colouring, prefixing or line framing —
+/// so a non-TTY destination (a pipe, a CI log) receives exactly the child's
+/// bytes.
+fn pump<R: Read, W: Write>(mut reader: R, sink: &mut W) -> io::Result<Vec<u8>> {
+    let mut captured = Vec::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => return Ok(captured),
+            Ok(n) => {
+                let chunk = &buf[..n];
+                // Write-then-flush so a long-running task's partial line
+                // (e.g. a prompt with no trailing newline) reaches the
+                // terminal immediately.
+                sink.write_all(chunk)?;
+                sink.flush()?;
+                captured.extend_from_slice(chunk);
+            }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+/// Run `command` with both output streams piped, mirroring each to fledge's
+/// **stderr** as it arrives while capturing it for the caller.
+///
+/// Mirroring deliberately targets stderr, never stdout: in `--json` mode
+/// stdout must stay a single parseable envelope, so child bytes may not be
+/// interleaved with it. The envelope still reports `stdout` and `stderr`
+/// separately and in full.
+///
+/// stdin is inherited (`spawn`'s default), so a streamed task can prompt —
+/// unlike the buffered `Command::output` path, which closes the child's stdin.
+///
+/// Ordering guarantee: each stream is forwarded in order, and chunks are
+/// written under a lock so a chunk is never split by the other stream. The
+/// *relative* interleaving of stdout and stderr is best-effort — they are two
+/// OS pipes drained by two threads, so exact cross-stream ordering cannot be
+/// reconstructed. Only the inherited-terminal path (human-readable mode)
+/// preserves true interleaving, because there the child writes to the
+/// terminal itself.
+fn run_streaming(command: &mut Command) -> io::Result<StreamedOutput> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let child_stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("child stdout pipe missing"))?;
+    let child_stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| io::Error::other("child stderr pipe missing"))?;
+
+    // `io::stderr()` (not a held `.lock()`) on purpose: each `write_all` takes
+    // the lock for the duration of that one chunk and releases it, so the two
+    // threads interleave at chunk granularity instead of one starving the
+    // other until its stream closes.
+    let out_handle = std::thread::spawn(move || pump(child_stdout, &mut io::stderr()));
+    let err_handle = std::thread::spawn(move || pump(child_stderr, &mut io::stderr()));
+
+    let status = child.wait()?;
+    let stdout = out_handle
+        .join()
+        .map_err(|_| io::Error::other("stdout forwarding thread panicked"))??;
+    let stderr = err_handle
+        .join()
+        .map_err(|_| io::Error::other("stderr forwarding thread panicked"))??;
+
+    Ok(StreamedOutput {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
 fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
     println!("{}", style("Available tasks:").bold());
     let max_name_len = tasks.keys().map(|k| k.len()).max().unwrap_or(0);
@@ -285,6 +383,7 @@ fn execute_task(
     project_dir: &Path,
     visited: &mut HashSet<String>,
     json: bool,
+    stream: bool,
     args: &[String],
 ) -> Result<()> {
     if visited.contains(name) {
@@ -300,8 +399,9 @@ fn execute_task(
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found (referenced as dependency)", name))?;
 
     // Pass-through args apply to the named task only — dependencies run clean.
+    // `stream` is an output mode, not a task input, so it does propagate.
     for dep in task.deps() {
-        execute_task(dep, tasks, project_dir, visited, json, &[])?;
+        execute_task(dep, tasks, project_dir, visited, json, stream, &[])?;
     }
 
     let cmd_str = task.cmd();
@@ -313,9 +413,19 @@ fn execute_task(
     let mut command = build_task_command(cmd_str, &work_dir, task.env(), args);
 
     if json {
-        let output = command
-            .output()
-            .with_context(|| format!("running task '{name}'"))?;
+        // Both paths produce identical envelope fields. `--stream` only
+        // changes *when* the bytes become visible (live, mirrored to stderr)
+        // and whether the child keeps stdin.
+        let (status, out_bytes, err_bytes) = if stream {
+            let streamed =
+                run_streaming(&mut command).with_context(|| format!("running task '{name}'"))?;
+            (streamed.status, streamed.stdout, streamed.stderr)
+        } else {
+            let output = command
+                .output()
+                .with_context(|| format!("running task '{name}'"))?;
+            (output.status, output.stdout, output.stderr)
+        };
 
         let mut result = crate::envelope::action(
             RUN_TASK_SCHEMA,
@@ -323,10 +433,10 @@ fn execute_task(
             serde_json::json!({
                 "task": name,
                 "command": cmd_str,
-                "exit_code": output.status.code().unwrap_or(-1),
-                "success": output.status.success(),
-                "stdout": String::from_utf8_lossy(&output.stdout),
-                "stderr": String::from_utf8_lossy(&output.stderr),
+                "exit_code": status.code().unwrap_or(-1),
+                "success": status.success(),
+                "stdout": String::from_utf8_lossy(&out_bytes),
+                "stderr": String::from_utf8_lossy(&err_bytes),
             }),
         );
         // Only surface `args` when present, so arg-less runs keep their exact
@@ -336,11 +446,14 @@ fn execute_task(
         }
         println!("{}", serde_json::to_string_pretty(&result)?);
 
-        if !output.status.success() {
-            let code = output.status.code().unwrap_or(1);
+        if !status.success() {
+            let code = status.code().unwrap_or(1);
             bail!("Task '{}' failed with exit code {}", name, code);
         }
     } else {
+        // Human-readable mode inherits fledge's stdio, so child output is
+        // already live and interleaved exactly as the child wrote it —
+        // `--stream` asks for a guarantee this path always had.
         println!(
             "{} {}",
             style("▶️").cyan().bold(),
@@ -707,6 +820,87 @@ mod tests {
     }
 
     #[test]
+    fn pump_captures_and_mirrors_the_same_bytes() {
+        let mut sink: Vec<u8> = Vec::new();
+        let captured = pump(std::io::Cursor::new(b"progress...\nmore\n"), &mut sink).unwrap();
+        assert_eq!(captured, b"progress...\nmore\n");
+        assert_eq!(sink, captured, "mirror must be byte-identical to capture");
+    }
+
+    #[test]
+    fn pump_forwards_partial_lines_verbatim() {
+        // A prompt with no trailing newline must still reach the sink — this
+        // is what makes an interactive streamed task usable.
+        let mut sink: Vec<u8> = Vec::new();
+        let captured = pump(std::io::Cursor::new(b"Continue? [y/N] "), &mut sink).unwrap();
+        assert_eq!(sink, b"Continue? [y/N] ");
+        assert_eq!(captured, b"Continue? [y/N] ");
+    }
+
+    #[test]
+    fn pump_handles_empty_input() {
+        let mut sink: Vec<u8> = Vec::new();
+        let captured = pump(std::io::Cursor::new(b""), &mut sink).unwrap();
+        assert!(captured.is_empty());
+        assert!(sink.is_empty());
+    }
+
+    #[test]
+    fn pump_handles_payloads_larger_than_the_buffer() {
+        let big: Vec<u8> = std::iter::repeat_n(b'x', 8192 * 3 + 17).collect();
+        let mut sink: Vec<u8> = Vec::new();
+        let captured = pump(std::io::Cursor::new(big.clone()), &mut sink).unwrap();
+        assert_eq!(captured, big);
+        assert_eq!(sink, big);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_captures_both_streams_separately() {
+        let env = BTreeMap::new();
+        let mut cmd = build_task_command(
+            "printf 'out1\\nout2\\n'; printf 'err1\\n' 1>&2",
+            &std::env::temp_dir(),
+            &env,
+            &[],
+        );
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert!(streamed.status.success());
+        // Per-stream ordering is guaranteed; cross-stream interleaving is not,
+        // so only per-stream content is asserted.
+        assert_eq!(String::from_utf8_lossy(&streamed.stdout), "out1\nout2\n");
+        assert_eq!(String::from_utf8_lossy(&streamed.stderr), "err1\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_propagates_exit_code() {
+        let env = BTreeMap::new();
+        let mut cmd = build_task_command("echo before; exit 7", &std::env::temp_dir(), &env, &[]);
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert!(!streamed.status.success());
+        assert_eq!(streamed.status.code(), Some(7));
+        // Output produced before the failure is still captured.
+        assert_eq!(String::from_utf8_lossy(&streamed.stdout), "before\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_matches_buffered_capture() {
+        // The envelope must not depend on which execution path produced it.
+        let env = BTreeMap::new();
+        let script = "printf 'a\\nb\\n'; printf 'z\\n' 1>&2";
+        let buffered = build_task_command(script, &std::env::temp_dir(), &env, &[])
+            .output()
+            .unwrap();
+        let mut cmd = build_task_command(script, &std::env::temp_dir(), &env, &[]);
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert_eq!(streamed.stdout, buffered.stdout);
+        assert_eq!(streamed.stderr, buffered.stderr);
+        assert_eq!(streamed.status.code(), buffered.status.code());
+    }
+
+    #[test]
     fn parse_short_tasks() {
         let toml_str = r#"
 [tasks]
@@ -773,7 +967,15 @@ deps = ["a"]
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         let project_dir = std::env::temp_dir();
         let mut visited = HashSet::new();
-        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false, &[]);
+        let result = execute_task(
+            "a",
+            &config.tasks,
+            &project_dir,
+            &mut visited,
+            false,
+            false,
+            &[],
+        );
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
