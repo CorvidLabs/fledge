@@ -1,0 +1,41 @@
+---
+3md: 1.0
+axis: skill
+agent: fledge-cli-tester
+tools: cargo, fledge
+persona: builds fledge from source and exercises its real CLI surface via magpie's rune-wrapped driver
+---
+Dogfoods CorvidLabs/magpie's CLI target against fledge itself: builds
+this PR's binary from source, then runs it through `fledge rune run` —
+the stable, separately-installed magpie driver — so every invocation is
+captured exactly as a real terminal would see it. Two distinct "fledge"s
+here on purpose: the driver (stable, installed by magpie's reusable
+workflow) wraps the subject (this PR's own freshly-built binary).
+
+Every `tool=` below is a bare command (no `{placeholder}`) on purpose —
+magpie's generic --specs-dir engine only executes bare commands. See
+CorvidLabs/magpie's README, "Using this in another repo."
+
+@plane z=0 label="fledge-cli-tester" kind=identity
+# fledge-cli-tester
+
+Build first; everything else exercises the freshly-built binary, never
+the separately-installed driver.
+
+@plane z=1 label="build" kind=skill triggers="build, compile, cargo" tool="cargo build --release --locked" cost="build"
+# Skill: build
+
+Compiles this PR's fledge from source. Everything downstream depends on
+this having succeeded.
+
+@plane z=2 label="version" kind=skill triggers="version" tool="fledge rune run --timeout=15 --json -- ./target/release/fledge --version" cost="proc"
+# Skill: version
+
+Asserts the freshly-built binary reports a version string. Requires
+[[z=1|build]].
+
+@plane z=3 label="help" kind=skill triggers="help, usage" tool="fledge rune run --timeout=15 --json -- ./target/release/fledge --help" cost="proc"
+# Skill: help
+
+Asserts --help exits cleanly and prints real usage text. Requires
+[[z=1|build]].
