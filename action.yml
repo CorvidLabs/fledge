@@ -1,0 +1,125 @@
+name: 'Setup Fledge'
+description: 'Install the fledge CLI and put it on PATH.'
+branding:
+  icon: 'feather'
+  color: 'purple'
+
+inputs:
+  version:
+    description: >-
+      Release tag to install, such as v1.7.2, or "latest". Pin it in CI: a
+      concrete tag downloads the release asset directly and makes no API call,
+      while "latest" has to ask the API which tag that is.
+    required: false
+    default: 'latest'
+  token:
+    description: >-
+      Token used only when resolving "latest". Without one that lookup is
+      unauthenticated and rate-limited per IP, which is shared between runners
+      — the failure mode is an intermittent "could not determine latest
+      version" that looks like a broken build.
+    required: false
+    default: ${{ github.token }}
+  install-dir:
+    description: 'Directory to install into. Added to PATH.'
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'The release tag that was installed.'
+    value: ${{ steps.install.outputs.version }}
+  path:
+    description: 'Full path to the installed binary.'
+    value: ${{ steps.install.outputs.path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_INSTALL_DIR: ${{ inputs.install-dir }}
+      run: |
+        set -euo pipefail
+
+        repo="CorvidLabs/fledge"
+        install_dir="${INPUT_INSTALL_DIR:-$HOME/.local/bin}"
+
+        case "$RUNNER_OS" in
+          Linux) os="linux" ;;
+          macOS) os="macos" ;;
+          *)
+            echo "::error::fledge publishes no binary for $RUNNER_OS via this action (Linux and macOS only). See https://github.com/${repo}/releases for the full asset list." >&2
+            exit 1
+            ;;
+        esac
+
+        case "$RUNNER_ARCH" in
+          X64) arch="x86_64" ;;
+          ARM64) arch="aarch64" ;;
+          *)
+            echo "::error::fledge publishes no binary for $RUNNER_ARCH (x86_64 and aarch64 only)." >&2
+            exit 1
+            ;;
+        esac
+
+        version="$INPUT_VERSION"
+        if [ "$version" = "latest" ]; then
+          # Authenticated when a token is available, because the anonymous
+          # limit is per IP and runners share them.
+          auth=()
+          if [ -n "${INPUT_TOKEN:-}" ]; then
+            auth=(-H "Authorization: Bearer ${INPUT_TOKEN}")
+          fi
+          version="$(curl -fsSL --retry 3 --retry-all-errors "${auth[@]}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${repo}/releases/latest" \
+            | grep -m1 '"tag_name"' | cut -d'"' -f4 || true)"
+          if [ -z "$version" ]; then
+            echo "::error::Could not resolve the latest fledge release. Pin \`version\` to a tag instead." >&2
+            exit 1
+          fi
+        fi
+
+        asset="fledge-${os}-${arch}"
+        base="https://github.com/${repo}/releases/download/${version}"
+
+        mkdir -p "$install_dir"
+        tmp="$(mktemp -d)"
+
+        if ! curl -fsSL --retry 3 --retry-all-errors "${base}/${asset}" -o "${tmp}/fledge"; then
+          echo "::error::Failed to download ${asset} for ${version}. Check that the tag exists and publishes this asset: ${base}/${asset}" >&2
+          exit 1
+        fi
+
+        # Every release ships a .sha256 beside the binary; a corrupted download
+        # should fail here rather than at the first fledge invocation.
+        if curl -fsSL --retry 3 --retry-all-errors "${base}/${asset}.sha256" -o "${tmp}/fledge.sha256"; then
+          expected="$(cut -d' ' -f1 < "${tmp}/fledge.sha256")"
+          if command -v sha256sum >/dev/null 2>&1; then
+            actual="$(sha256sum "${tmp}/fledge" | cut -d' ' -f1)"
+          else
+            actual="$(shasum -a 256 "${tmp}/fledge" | cut -d' ' -f1)"
+          fi
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::Checksum mismatch for ${asset}: expected ${expected}, got ${actual}." >&2
+            exit 1
+          fi
+        else
+          echo "::warning::No checksum published for ${asset}; skipping verification. This release predates checksum sidecars."
+        fi
+
+        install -m 0755 "${tmp}/fledge" "${install_dir}/fledge"
+        rm -rf "$tmp"
+
+        echo "$install_dir" >> "$GITHUB_PATH"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+        echo "path=${install_dir}/fledge" >> "$GITHUB_OUTPUT"
+        echo "Installed fledge ${version} to ${install_dir}/fledge"
+
+    - shell: bash
+      run: fledge --version

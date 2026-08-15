@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0008-add-root-level-action-yml-github-action-for-installing-fledge-in-ci",
+  "slug": "add-root-level-action-yml-github-action-for-installing-fledge-in-ci",
+  "title": "Add root-level action.yml GitHub Action for installing fledge in CI",
+  "description": "Add root-level action.yml GitHub Action for installing fledge in CI",
+  "kind": "feature",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "6eb7a3ea595c949f4bc0078c0738508d800356b3",
+  "created_at": 1786815735,
+  "updated_at": 1786817880,
+  "affected_specs": [],
+  "affected_paths": [
+    "action.yml",
+    ".github/workflows/test-action.yml",
+    "README.md",
+    "CONTRIBUTING.md",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "No canonical spec module governs this: .specsync/config.toml scans only source_dirs [src, templates], and the closest existing specs (specs/release for the fledge release command internals, specs/github for fledge's own GitHub API helper module) do not cover the repo's own CI/distribution surface. Only action.yml, a new workflow file, README.md, and CONTRIBUTING.md change; no src/ or templates/ files.",
+  "acceptance_criteria": [
+    "uses: CorvidLabs/fledge@v1 with version: v1.7.2 installs fledge on Linux and macOS runners and makes zero GitHub API calls; version: latest resolves via an authenticated API call; a corrupted download fails the checksum-verification step; Windows runners fail with a readable error instead of a 404 mid-download; the new exercising workflow passes on ubuntu-latest and macos-latest for both a pinned tag and latest; fledge lanes run check passes."
+  ],
+  "selected_artifacts": [
+    "context",
+    "requirements",
+    "plan",
+    "tasks",
+    "testing",
+    "docs",
+    "design"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1786816279,
+      "digest": "f0652c769312ce8a726bb093368dfb12813885d2e6ec4e0a5b72767a83fc164a",
+      "note": null
+    },
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1786817209,
+      "digest": "81d6b1c401a7ef49d768e85aae57caf9905f1e5f8784d7b879866b99bc1c8444",
+      "note": "Re-approval: only tasks.md checkboxes changed to reflect completed implementation work; scope, requirements, and risk answers unchanged from the originally-approved definition."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1786817880,
+      "digest": "ec2f5be6cd7c274875cd4d19ff9ef9723da327aeb5ad50b5f254732e921311c0",
+      "note": "Closing approval granted by repository owner via agent-mediated review; verify-native lane green, real end-to-end verification against v1.7.2 and latest performed."
+    }
+  ],
+  "reopenings": []
+}

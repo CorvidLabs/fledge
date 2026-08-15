@@ -1,0 +1,85 @@
+name: Test Action
+
+# Exercises action.yml itself (the root-level composite "Setup Fledge" action),
+# not the fledge binary's own test suite (that's ci.yml). Runs on every push
+# so a break here is caught immediately — this action exists specifically
+# because a silent break in the curl-based install workaround cost
+# CorvidLabs/rune several CI runs. See AGENTS.md and action.yml.
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-action-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  install:
+    name: install (${{ matrix.os }}, ${{ matrix.version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        version: [v1.7.2, latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: setup
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Verify outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ steps.setup.outputs.version }}" ]; then
+            echo "::error::outputs.version is empty" >&2
+            exit 1
+          fi
+          if [ -z "${{ steps.setup.outputs.path }}" ]; then
+            echo "::error::outputs.path is empty" >&2
+            exit 1
+          fi
+
+          # A pinned version must round-trip unchanged; "latest" must resolve
+          # to a real vX.Y.Z tag rather than passing the literal through.
+          if [ "${{ matrix.version }}" != "latest" ] && [ "${{ steps.setup.outputs.version }}" != "${{ matrix.version }}" ]; then
+            echo "::error::pinned version ${{ matrix.version }} but outputs.version was ${{ steps.setup.outputs.version }}" >&2
+            exit 1
+          fi
+
+          "${{ steps.setup.outputs.path }}" --version
+          command -v fledge
+
+  windows-unsupported:
+    name: windows fails with a readable message
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: setup
+        uses: ./
+        continue-on-error: true
+        with:
+          version: v1.7.2
+
+      - name: Confirm it failed for the right reason
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.setup.outcome }}" != "failure" ]; then
+            echo "::error::expected the action to fail on windows-latest, but it succeeded. If Windows support was added, update this job and README.md." >&2
+            exit 1
+          fi
+          echo "Confirmed: the action fails cleanly on Windows, as expected."
