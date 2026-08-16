@@ -1,6 +1,6 @@
 ---
 module: run
-version: 7
+version: 8
 status: active
 files:
   - src/run.rs
@@ -177,3 +177,4 @@ Available tasks:
 | 3 | 2026-04-26 | Tier-D 1.0 envelope: all three `--json` paths now emit `{schema_version: 1, action, ...}`. `run --init --json` previously emitted prose ("✅ Created fledge.toml"), now `{action: "run_init", file, project_type, files_created}`, a real fix not just a wrapping. `run --list --json` adds `action: "run_list"` (was bare `{auto_detected, tasks}`). `run <task> --json` adds `action: "run_task"` (was bare `{task, command, ...}`). Three new integration tests guard each shape |
 | 2 | 2026-04-23 | Add `--json` flag (list + execute), `--lang` override, `detect_node_runner` |
 | 1 | 2026-04-19 | Initial spec |
+| 8 | 2026-08-12 | CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks: Opt-in --stream mode forwarding live child output for fledge run tasks |
