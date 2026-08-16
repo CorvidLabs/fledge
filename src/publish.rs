@@ -1,3 +1,8 @@
+// The push URL for `owner/repo`. Both GitHub endpoints (the REST base and the
+// git remote base) live in `crate::github`, so publish, remote-template fetch,
+// and the test harness all agree on a single source of truth.
+use crate::github::remote_url;
+
 use anyhow::{bail, Context, Result};
 use console::style;
 use serde_json::json;
@@ -13,27 +18,6 @@ fn publish_agent() -> ureq::Agent {
         .timeout_global(Some(PUBLISH_TIMEOUT))
         .build()
         .into()
-}
-
-/// Base URL for the `https://github.com/<owner>/<repo>.git` push remote.
-const GITHUB_REMOTE_BASE: &str = "https://github.com";
-
-/// The git remote base every publish pushes to. A constant in release builds;
-/// test builds may redirect it at a directory of local bare repos
-/// (`test_support::GithubBaseGuard`) so the push path runs without a network.
-fn remote_base() -> String {
-    #[cfg(test)]
-    {
-        if let Some(base) = crate::test_support::github_remote_base_override() {
-            return base;
-        }
-    }
-    GITHUB_REMOTE_BASE.to_string()
-}
-
-/// The push URL for `owner/repo`.
-fn remote_url(owner: &str, repo: &str) -> String {
-    format!("{}/{}/{}.git", remote_base(), owner, repo)
 }
 
 pub fn get_authenticated_user(token: &str) -> Result<String> {

@@ -208,11 +208,11 @@ impl TestRepo {
 
 // ── HTTP mocking harness ──────────────────────────────────────────────────
 //
-// Every network path in fledge (LLM completions, the GitHub REST API, remote
-// template fetch) speaks plain HTTP through `ureq`, which is blocking. A
-// blocking, dependency-free loopback server is therefore a better fit than an
-// async mock crate: no tokio/wiremock in the dependency tree, and the
-// production code under test runs unmodified on the calling thread.
+// fledge's *HTTP* traffic — LLM completions and the GitHub REST API — goes
+// through `ureq`, which is blocking. A blocking, dependency-free loopback
+// server is therefore a better fit than an async mock crate: no
+// tokio/wiremock in the dependency tree, and the production code under test
+// runs unmodified on the calling thread.
 //
 // Usage:
 //
@@ -226,6 +226,15 @@ impl TestRepo {
 //
 // The server binds `127.0.0.1:0` (loopback only — never the real network) and
 // shuts down when the `MockHttpServer` drops.
+//
+// What this server does *not* cover: fledge's git traffic. Remote template
+// fetch (`remote::clone_repo`) and publish (`publish::push`) shell out to
+// `git`, so no in-process HTTP mock can intercept them no matter where the
+// REST base points. Those paths are isolated a different way — by redirecting
+// the git remote base at a local directory of bare repos, either with
+// `GithubBaseGuard::api_and_remote` in-process or with
+// `github::REMOTE_BASE_ENV` for a spawned binary. `git clone <local-dir>` is a
+// real clone of a real repo with no network involved.
 
 /// A canned HTTP response served by [`MockHttpServer`].
 #[derive(Clone)]
@@ -495,15 +504,22 @@ pub(crate) fn dead_port_url() -> String {
     format!("http://{}", addr)
 }
 
-// ── GitHub endpoint redirection (test builds only) ────────────────────────
+// ── GitHub endpoint redirection (in-process, test builds only) ────────────
 //
-// `github.rs` and `publish.rs` hardcode `https://api.github.com` and
-// `https://github.com`. These thread-local overrides let a test point those
-// two bases at a `MockHttpServer` / a local bare repo, so the *real*
-// production call paths (including the shared `run_publish` orchestration)
-// run end to end without touching the network. They are `#[cfg(test)]`-only:
-// the release build keeps plain constants. Thread-local (not a global) so
-// tests running in parallel cannot see each other's redirection.
+// `github::api_base()` and `github::remote_base()` resolve to
+// `https://api.github.com` / `https://github.com`. These thread-local
+// overrides let a unit test point those two bases at a `MockHttpServer` / a
+// local bare repo, so the *real* production call paths (including the shared
+// `run_publish` orchestration) run end to end without touching the network.
+// They are `#[cfg(test)]`-only: the release build keeps plain constants.
+// Thread-local (not a global) so tests running in parallel cannot see each
+// other's redirection.
+//
+// These only work *in process*. An integration test spawns the compiled
+// binary, which has its own address space and no access to this thread-local
+// — it reads the `github::API_BASE_ENV` / `github::REMOTE_BASE_ENV`
+// environment variables instead (debug builds only, loopback values only).
+// `tests/common/mod.rs::TempEnv` sets both.
 
 thread_local! {
     static GITHUB_API_BASE: RefCell<Option<String>> = const { RefCell::new(None) };

@@ -2,7 +2,7 @@
 
 ## Unit Tests
 
-All of these run against `test_support::MockHttpServer` (a loopback HTTP server) with the REST base redirected via `test_support::GithubBaseGuard`, and against local bare git repositories for the push path. No test contacts GitHub, and none reads the developer's git or fledge config.
+All of these run against `test_support::MockHttpServer` (a loopback HTTP server) with the REST base redirected via `test_support::GithubBaseGuard`, and against local bare git repositories for the push path — `git push` is a subprocess, so an HTTP mock cannot cover it and a local remote is what makes it offline-testable. No test contacts GitHub, and none reads the developer's git or fledge config.
 
 | Test | What it verifies |
 |------|-----------------|

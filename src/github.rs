@@ -10,10 +10,25 @@ const GITHUB_API_TIMEOUT: Duration = Duration::from_secs(30);
 /// Base URL of the GitHub REST API.
 const GITHUB_API_BASE: &str = "https://api.github.com";
 
-/// The REST base URL every GitHub call is built on. A constant in release
-/// builds; in test builds it may be redirected at a loopback mock server
-/// (`test_support::GithubBaseGuard`) so the real request paths can be
-/// exercised without touching the network.
+/// Base URL of the `github.com/<owner>/<repo>.git` git endpoint — the clone
+/// source for remote templates and the push target for every publish.
+const GITHUB_REMOTE_BASE: &str = "https://github.com";
+
+/// Test-only environment variable redirecting [`api_base`]. See
+/// [`test_endpoint_override`] for the two gates that keep it out of a user's
+/// way (debug builds only, loopback values only).
+pub(crate) const API_BASE_ENV: &str = "FLEDGE_TEST_GITHUB_API_BASE";
+
+/// Test-only environment variable redirecting [`remote_base`]. Same gates as
+/// [`API_BASE_ENV`], plus it additionally accepts an existing local directory
+/// (a tree of `<owner>/<repo>.git` bare repos standing in for github.com).
+pub(crate) const REMOTE_BASE_ENV: &str = "FLEDGE_TEST_GITHUB_REMOTE_BASE";
+
+/// The REST base URL every GitHub call is built on. `https://api.github.com`
+/// unless a test has redirected it: in-process unit tests use the thread-local
+/// `test_support::GithubBaseGuard`, and integration tests — which drive a
+/// *spawned* `fledge` binary, where a thread-local cannot reach — use the
+/// [`API_BASE_ENV`] environment variable.
 pub(crate) fn api_base() -> String {
     #[cfg(test)]
     {
@@ -21,7 +36,105 @@ pub(crate) fn api_base() -> String {
             return base;
         }
     }
-    GITHUB_API_BASE.to_string()
+    test_endpoint_override(API_BASE_ENV, false).unwrap_or_else(|| GITHUB_API_BASE.to_string())
+}
+
+/// The git remote base — `https://github.com` unless redirected the same two
+/// ways [`api_base`] can be. Shared by `publish` (push target) and `remote`
+/// (remote-template clone source) so both honour a single override.
+pub(crate) fn remote_base() -> String {
+    #[cfg(test)]
+    {
+        if let Some(base) = crate::test_support::github_remote_base_override() {
+            return base;
+        }
+    }
+    test_endpoint_override(REMOTE_BASE_ENV, true).unwrap_or_else(|| GITHUB_REMOTE_BASE.to_string())
+}
+
+/// The git URL for `owner/repo`: what `templates init <owner>/<repo>` clones
+/// and what a publish pushes to.
+pub(crate) fn remote_url(owner: &str, repo: &str) -> String {
+    format!("{}/{}/{}.git", remote_base(), owner, repo)
+}
+
+/// Read a test-only endpoint override from the environment.
+///
+/// Integration tests spawn the real binary, so the `#[cfg(test)]` thread-local
+/// overrides used by unit tests cannot reach them; without a runtime hook a
+/// `TempEnv`-wrapped `templates search` would issue a real request to
+/// api.github.com. Two independent gates keep that hook from being a
+/// production attack surface:
+///
+/// 1. **Debug builds only.** Every binary users actually run (`cargo install`,
+///    the release workflow, Homebrew, Nix) is compiled with `--release`, where
+///    this function is the `None`-returning stub below and the constants above
+///    are the only bases that exist.
+/// 2. **Loopback-only values.** Even in a debug build the value must name
+///    `127.0.0.1`, `[::1]` or `localhost` over plain `http` (userinfo such as
+///    `http://127.0.0.1@evil.example/` is rejected — the host is what follows
+///    the `@`), or, for the git remote base, an existing local directory.
+///    Anything else is ignored with a warning on stderr. So even an
+///    attacker-controlled environment cannot point an
+///    `Authorization: Bearer <token>` request at a host off the machine.
+#[cfg(debug_assertions)]
+fn test_endpoint_override(var: &str, allow_local_dir: bool) -> Option<String> {
+    let raw = std::env::var(var).ok()?;
+    let value = raw.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if is_loopback_http_url(value) || (allow_local_dir && is_existing_local_dir(value)) {
+        return Some(value.trim_end_matches('/').to_string());
+    }
+    eprintln!(
+        "warning: ignoring {}: test endpoint overrides accept only a loopback http:// URL{}",
+        var,
+        if allow_local_dir {
+            " or an existing local directory"
+        } else {
+            ""
+        }
+    );
+    None
+}
+
+/// Release-build stub: the override does not exist in a shipped binary.
+#[cfg(not(debug_assertions))]
+fn test_endpoint_override(_var: &str, _allow_local_dir: bool) -> Option<String> {
+    None
+}
+
+/// `true` for `http://` URLs whose *host* is loopback. Deliberately strict:
+/// no `https`, no userinfo, no non-loopback host.
+#[cfg(debug_assertions)]
+fn is_loopback_http_url(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("http://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    // `http://127.0.0.1@evil.example/` connects to *evil.example*: everything
+    // before the `@` is userinfo, not the destination host.
+    if authority.is_empty() || authority.contains('@') {
+        return false;
+    }
+    let host = match authority.strip_prefix('[') {
+        // Bracketed IPv6 literal: `[::1]:8080`.
+        Some(after) => match after.split_once(']') {
+            Some((host, _port)) => host,
+            None => return false,
+        },
+        None => authority.split(':').next().unwrap_or(""),
+    };
+    matches!(host, "127.0.0.1" | "localhost" | "::1")
+}
+
+/// `true` for an absolute path that exists as a directory — a local stand-in
+/// for github.com holding `<owner>/<repo>.git` bare repos.
+#[cfg(debug_assertions)]
+fn is_existing_local_dir(value: &str) -> bool {
+    let path = std::path::Path::new(value);
+    path.is_absolute() && path.is_dir()
 }
 
 fn github_api_agent() -> ureq::Agent {
@@ -286,13 +399,101 @@ mod tests {
         assert!(github_status_error_message(200, "/x").is_none());
     }
 
+    // ── the runtime (environment) endpoint override ────────────────────────
+    //
+    // The thread-local `GithubBaseGuard` cannot reach a spawned `fledge`
+    // binary, so integration tests redirect the two GitHub endpoints with
+    // environment variables instead. These tests pin down exactly how much
+    // that hook is allowed to do — and that a release build ignores it.
+
+    use crate::test_support::{
+        dead_port_url, env_lock, EnvVarGuard, GithubBaseGuard, MockHttpServer, MockResponse,
+    };
+
+    #[test]
+    fn endpoint_env_override_is_ignored_unless_set() {
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, None);
+        let _remote = EnvVarGuard::set(REMOTE_BASE_ENV, None);
+
+        assert_eq!(api_base(), GITHUB_API_BASE);
+        assert_eq!(remote_base(), GITHUB_REMOTE_BASE);
+        assert_eq!(
+            remote_url("CorvidLabs", "fledge"),
+            "https://github.com/CorvidLabs/fledge.git"
+        );
+    }
+
+    #[test]
+    fn endpoint_env_override_redirects_only_in_debug_builds() {
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, Some("http://127.0.0.1:9"));
+
+        if cfg!(debug_assertions) {
+            assert_eq!(api_base(), "http://127.0.0.1:9");
+        } else {
+            // Shipped binaries are release builds: the hook is compiled out
+            // and the production constant is the only base that exists.
+            assert_eq!(api_base(), GITHUB_API_BASE);
+        }
+    }
+
+    #[test]
+    fn endpoint_env_override_rejects_non_loopback_values() {
+        let _lock = env_lock();
+        // An override that could send `Authorization: Bearer <token>` off the
+        // machine is refused even in a debug build — including the userinfo
+        // trick, where the real host is what follows the `@`.
+        for hostile in [
+            "https://evil.example",
+            "http://evil.example",
+            "http://127.0.0.1@evil.example",
+            "http://localhost@evil.example/api",
+            "http://127.0.0.1.evil.example",
+            "//127.0.0.1",
+        ] {
+            let _api = EnvVarGuard::set(API_BASE_ENV, Some(hostile));
+            assert_eq!(
+                api_base(),
+                GITHUB_API_BASE,
+                "{hostile} must not redirect the API base"
+            );
+        }
+    }
+
+    #[test]
+    fn remote_env_override_accepts_loopback_and_local_dirs() {
+        let _lock = env_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let dir_path = dir.path().to_str().unwrap().to_string();
+
+        for (value, expected) in [
+            ("http://127.0.0.1:9", Some("http://127.0.0.1:9".to_string())),
+            ("http://[::1]:9", Some("http://[::1]:9".to_string())),
+            (dir_path.as_str(), Some(dir_path.clone())),
+            // A relative path or a path that does not exist is not a mock.
+            ("some/relative/dir", None),
+            ("https://evil.example", None),
+        ] {
+            let _remote = EnvVarGuard::set(REMOTE_BASE_ENV, Some(value));
+            let expected = expected.unwrap_or_else(|| GITHUB_REMOTE_BASE.to_string()) + "/o/r.git";
+            if cfg!(debug_assertions) {
+                assert_eq!(remote_url("o", "r"), expected, "value: {value}");
+            } else {
+                assert_eq!(
+                    remote_url("o", "r"),
+                    "https://github.com/o/r.git",
+                    "release builds ignore {value}"
+                );
+            }
+        }
+    }
+
     // ── github_api_get against a loopback mock server ──────────────────────
     //
     // These drive the real request path (agent, headers, status mapping, JSON
     // decoding) with the API base redirected at a `MockHttpServer`, so nothing
     // leaves the machine. See `test_support::MockHttpServer`.
-
-    use crate::test_support::{dead_port_url, GithubBaseGuard, MockHttpServer, MockResponse};
 
     #[test]
     fn api_get_parses_body_and_sends_headers() {

@@ -60,6 +60,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 7. `@ref` suffix in remote refs pins to a specific git tag, branch, or commit
 8. Pinned refs are cached separately at `{cache_dir}/{owner}/{repo}@{ref}`
 9. Pinned refs are not updated on subsequent access (they're immutable)
+10. The clone URL is built by `github::remote_url(owner, repo)`, not formatted inline, so remote-template fetch and publish share one definition of the git endpoint. In every shipped build that is `https://github.com/{owner}/{repo}.git`; a test may redirect it at a directory of local bare repos, which is the only way to cover this path offline — `git clone` is a subprocess and no HTTP mock can stand in for it
 
 ## Behavioral Examples
 
@@ -103,6 +104,7 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 | Crate/Module | What is used |
 |-------------|-------------|
 | `dirs` | `cache_dir()` for platform cache path |
+| `github` | `remote_url()` for the clone URL |
 | `anyhow` | Error handling |
 
 ### Consumed By
