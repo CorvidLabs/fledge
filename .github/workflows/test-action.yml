@@ -1,0 +1,143 @@
+name: Test Action
+
+# Exercises action.yml itself (the root-level composite "Setup Fledge" action),
+# not the fledge binary's own test suite (that's ci.yml). This action exists
+# because a silent break in the curl-based install workaround cost
+# CorvidLabs/rune several CI runs, so it is covered on every PR and on main.
+# See AGENTS.md and action.yml.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-action-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  install:
+    name: install (${{ matrix.os }}, ${{ matrix.version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        version: [v1.7.2, latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: setup
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+
+      - name: Verify outputs
+        shell: bash
+        env:
+          REQUESTED: ${{ matrix.version }}
+          GOT_VERSION: ${{ steps.setup.outputs.version }}
+          GOT_PATH: ${{ steps.setup.outputs.path }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GOT_VERSION" ]; then
+            echo "::error::outputs.version is empty" >&2
+            exit 1
+          fi
+          if [ -z "$GOT_PATH" ]; then
+            echo "::error::outputs.path is empty" >&2
+            exit 1
+          fi
+
+          # A pinned version must round-trip unchanged; "latest" must resolve
+          # to a real vX.Y.Z tag rather than passing the literal through.
+          if [ "$REQUESTED" != "latest" ] && [ "$GOT_VERSION" != "$REQUESTED" ]; then
+            echo "::error::pinned version ${REQUESTED} but outputs.version was ${GOT_VERSION}" >&2
+            exit 1
+          fi
+
+          "$GOT_PATH" --version
+          command -v fledge
+
+  refuses-unsafe-install:
+    name: refuses unsafe and unverifiable installs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      # curl normalizes dot segments before sending, so an unvalidated `..`
+      # here would pull the binary from a different repo entirely — and the
+      # action installs it 0755 and runs it.
+      - id: traversal
+        uses: ./
+        continue-on-error: true
+        with:
+          version: ../../../octocat/Hello-World/releases/download/v1
+
+      # v0.5.0 really does publish fledge-linux-x86_64 with no .sha256 beside
+      # it, which makes it a live fixture for the missing-sidecar path: the
+      # install has to fail rather than quietly degrade to unverified.
+      - id: unverifiable
+        uses: ./
+        continue-on-error: true
+        with:
+          version: v0.5.0
+
+      - name: Confirm both were refused
+        shell: bash
+        env:
+          TRAVERSAL: ${{ steps.traversal.outcome }}
+          UNVERIFIABLE: ${{ steps.unverifiable.outcome }}
+        run: |
+          set -euo pipefail
+          failed=0
+
+          if [ "$TRAVERSAL" != "failure" ]; then
+            echo "::error::a version containing '..' was accepted; the version validation in action.yml has regressed" >&2
+            failed=1
+          fi
+          if [ "$UNVERIFIABLE" != "failure" ]; then
+            echo "::error::v0.5.0 publishes no .sha256 sidecar but installed anyway; checksum verification is no longer mandatory" >&2
+            failed=1
+          fi
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Confirmed: traversal version rejected, unverifiable release refused."
+
+  windows-unsupported:
+    name: windows is refused with a readable message
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      # fledge does publish fledge-windows-x86_64.exe; this action just doesn't
+      # install it yet. The message the action prints has to say that, not
+      # imply the binary is missing.
+      - id: setup
+        uses: ./
+        continue-on-error: true
+        with:
+          version: v1.7.2
+
+      - name: Confirm it failed for the right reason
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.setup.outcome }}
+        run: |
+          set -euo pipefail
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "::error::expected the action to fail on windows-latest, but it succeeded. If Windows support was added, update this job and README.md." >&2
+            exit 1
+          fi
+          echo "Confirmed: the action refuses Windows cleanly, as expected."
