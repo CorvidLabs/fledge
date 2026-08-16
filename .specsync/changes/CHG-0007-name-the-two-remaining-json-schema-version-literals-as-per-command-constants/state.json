@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "slug": "name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "title": "Name the two remaining --json schema_version literals as per-command constants",
+  "description": "Name the two remaining --json schema_version literals as per-command constants",
+  "kind": "refactor",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "df9ea9c5fd2b6d553a4334afecfbd04cbe23281b",
+  "created_at": 1785888531,
+  "updated_at": 1786125818,
+  "affected_specs": [],
+  "affected_paths": [
+    "src/envelope.rs",
+    "src/lanes/mod.rs",
+    "src/lanes/validate.rs",
+    "src/plugin/mod.rs",
+    "src/plugin/validate.rs",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Introduces named per-command schema constants and envelope tests only; emitted JSON bytes are unchanged, so no canonical spec contract moves.",
+  "acceptance_criteria": [
+    "cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --check are green; fledge plugins validate --json and fledge lanes validate --json emit byte-identical output to before the change; PLUGINS_VALIDATE_SCHEMA and LANES_VALIDATE_SCHEMA are defined beside the existing per-command constants and used at their call sites; envelope tests cover resource byte-identity and versioned struct flattening."
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing",
+    "design",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

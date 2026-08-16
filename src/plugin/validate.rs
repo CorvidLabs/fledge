@@ -166,7 +166,13 @@ pub(crate) fn print_plugin_report(
         // schema_version (matches plugins list/audit/search shape).
         // The full report is flattened so existing fields (path,
         // plugin_name, errors, warnings) sit at the same level.
-        let value = crate::envelope::versioned(1, serde_json::to_value(report)?);
+        // The version comes from the named per-command constant rather than a
+        // literal so a future shape change bumps it in the same place as every
+        // other `plugins` envelope.
+        let value = crate::envelope::versioned(
+            super::PLUGINS_VALIDATE_SCHEMA,
+            serde_json::to_value(report)?,
+        );
         println!("{}", serde_json::to_string_pretty(&value)?);
     } else if report.errors.is_empty() && report.warnings.is_empty() {
         let name = if report.plugin_name.is_empty() {
