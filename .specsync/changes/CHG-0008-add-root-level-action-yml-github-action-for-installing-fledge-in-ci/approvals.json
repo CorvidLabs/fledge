@@ -20,7 +20,104 @@
       "timestamp": 1786817880,
       "digest": "ec2f5be6cd7c274875cd4d19ff9ef9723da327aeb5ad50b5f254732e921311c0",
       "note": "Closing approval granted by repository owner via agent-mediated review; verify-native lane green, real end-to-end verification against v1.7.2 and latest performed."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1786922144,
+      "digest": "65d6d9bccba114e9e15d5da5ad19fa5959dd5e8fa63f51bad86c0b3fb43b1794",
+      "note": "Evidence refreshed after the PR #511 review response. CHG-0008's definition is byte-identical to what was originally accepted; the amended requirements live in CHG-0009, since specsync freezes the definition of an applied change. verify-native lane green against the current tree."
     }
   ],
-  "reopenings": []
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0008-add-root-level-action-yml-github-action-for-installing-fledge-in-ci",
+      "actor": "0xLeif",
+      "reason": "PR #511 review response (CHG-0009) amended action.yml, .github/workflows/test-action.yml and README.md after CHG-0008 was accepted, and creating CHG-0009 bumped .specsync/change-sequence.json, which CHG-0008 also lists as a delivery input. CHG-0008's definition is unchanged and stays frozen; this reopen only refreshes its verification evidence against the current tree.",
+      "timestamp": 1786921833,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "0xLeif",
+        "timestamp": 1786817880,
+        "digest": "ec2f5be6cd7c274875cd4d19ff9ef9723da327aeb5ad50b5f254732e921311c0",
+        "note": "Closing approval granted by repository owner via agent-mediated review; verify-native lane green, real end-to-end verification against v1.7.2 and latest performed."
+      },
+      "prior_verification": {
+        "timestamp": 1786817238,
+        "commit": "6eb7a3ea595c949f4bc0078c0738508d800356b3",
+        "contract_digest": "81d6b1c401a7ef49d768e85aae57caf9905f1e5f8784d7b879866b99bc1c8444",
+        "workspace_digest": "dc0b6c7f33d78a8c862c97a87e9fa74dcd7697323c0d007fef4c66bb3a532102",
+        "acceptance_input_digest": "32c7dddda1effbe78b0258768b9dea3ebce4fba92dcbe256af1cdd45f6719fe7",
+        "acceptance_manifest": {
+          "schema_version": 1,
+          "entries": [
+            {
+              "path": ".github/workflows/test-action.yml",
+              "kind": "file",
+              "mode": 33188,
+              "payload_digest": "252a0a9d38bb6ccd9aea072ddea6694f377e022285683930638a45d7eb71f11d",
+              "entry_digest": "e09a496b47d5c9bb5de81d5e57b7e528d722121910ba1edb9999e2d77d88d7bd",
+              "owners": [
+                "@exact:delivery"
+              ]
+            },
+            {
+              "path": ".specsync/change-sequence.json",
+              "kind": "file",
+              "mode": 33188,
+              "payload_digest": "7011d0028ec3b0acea0cb9b2f7b91b7abe4382986b4b2bf22f4307b4accbdce6",
+              "entry_digest": "78e4bd79b42a8aa8798ce1047416397125190f82146ed75ce1d20a316b8512de",
+              "owners": [
+                "@exact:delivery"
+              ]
+            },
+            {
+              "path": "CONTRIBUTING.md",
+              "kind": "file",
+              "mode": 33188,
+              "payload_digest": "1c456009ea1d97960722bd763e9a2f7d43360ea561f0498d3cdcc627752a4b11",
+              "entry_digest": "18c9720aa0cd159e91318e72534c3d26999a24b47e942437f5f71ebf54b0bdb4",
+              "owners": [
+                "@exact:delivery"
+              ]
+            },
+            {
+              "path": "README.md",
+              "kind": "file",
+              "mode": 33188,
+              "payload_digest": "289ab300914df33a650a5bcea39fa117ec6faa195ddbc21898aa76f6febb18e8",
+              "entry_digest": "32e5314496d86fc7895ae5b3cd036bea6f9be2a62df28e49f63007ceb1fb6b11",
+              "owners": [
+                "@exact:delivery"
+              ]
+            },
+            {
+              "path": "action.yml",
+              "kind": "file",
+              "mode": 33188,
+              "payload_digest": "4d02a6581c053618af546163be6f382529717af1bc8021551fde2ba1e2789224",
+              "entry_digest": "ab41aee2dce9827ca24b764d0755fc319b98ec6f1cd30f418e42441ec39c4731",
+              "owners": [
+                "@exact:delivery"
+              ]
+            }
+          ]
+        },
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": []
+      },
+      "stale_acceptance_input_digest": "32c7dddda1effbe78b0258768b9dea3ebce4fba92dcbe256af1cdd45f6719fe7",
+      "current_acceptance_input_digest": "3c9258d80c731e9b7381238fd82458164bba50b77180afe366a72e4f6c2ff2d2"
+    }
+  ]
 }

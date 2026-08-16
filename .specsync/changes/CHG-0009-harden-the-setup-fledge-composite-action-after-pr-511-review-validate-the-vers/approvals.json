@@ -1,0 +1,19 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1786921529,
+      "digest": "3164717310eb979344b205f92b6244df36ce362d679f5f700bba1129971f43d5",
+      "note": "Definition approval for the PR #511 review response. Scope is the three files CHG-0008 delivered (action.yml, test-action.yml, README.md); REQ-harden-action-3/4/5 explicitly replace or amend CHG-0008's REQ-setup-action-5/6/4, whose definition is frozen by acceptance. public_contract answered 'no' in the spec-contract sense only - see context.md."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "0xLeif",
+      "timestamp": 1786921732,
+      "digest": "3b4af7b4a11434984df9e758e6f2a8b0f083cf2b0dd4d78b651228cdd5784722",
+      "note": "Closing approval for the PR #511 review response, granted by repository owner via agent-mediated review. verify-native lane green; every branch of the install script re-verified locally against the real CorvidLabs/fledge releases (pinned, latest anonymous/authenticated/bad-token, traversal version, install-dir with .. and with a newline, sidecar-less v0.5.0, checksum mismatch, malformed sidecar, Windows, unsupported arch), shellcheck clean, temp-dir cleanup confirmed on failure paths."
+    }
+  ],
+  "reopenings": []
+}

@@ -9,7 +9,8 @@ inputs:
     description: >-
       Release tag to install, such as v1.7.2, or "latest". Pin it in CI: a
       concrete tag downloads the release asset directly and makes no API call,
-      while "latest" has to ask the API which tag that is.
+      while "latest" has to ask the API which tag that is. Anything other than
+      a release tag or "latest" is rejected — the value reaches a download URL.
     required: false
     default: 'latest'
   token:
@@ -46,13 +47,45 @@ runs:
         set -euo pipefail
 
         repo="CorvidLabs/fledge"
+
+        valid_version() {
+          printf '%s' "$1" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'
+        }
+
+        # `version` ends up in a download URL, and curl resolves dot segments
+        # before sending, so a `..` in it escapes the repo namespace entirely —
+        # and whatever binary lands is then installed 0755 and executed. A
+        # consumer keying this off a branch name or PR title in a
+        # pull_request_target workflow is the ordinary way untrusted data gets
+        # here, so validate at the boundary instead of trusting every caller.
+        version="$INPUT_VERSION"
+        if [ "$version" != "latest" ] && ! valid_version "$version"; then
+          echo "::error::Invalid version '${version}'. Expected a release tag such as v1.7.2, or 'latest'." >&2
+          exit 1
+        fi
+
+        # Same class of problem, lower severity: a `..` segment writes the
+        # binary outside the intended tree, and a newline injects extra lines
+        # into $GITHUB_PATH / $GITHUB_OUTPUT.
         install_dir="${INPUT_INSTALL_DIR:-$HOME/.local/bin}"
+        case "$install_dir" in
+          *$'\n'* | *$'\r'*)
+            echo "::error::install-dir must not contain line breaks." >&2
+            exit 1
+            ;;
+        esac
+        case "/${install_dir}/" in
+          */../*)
+            echo "::error::install-dir must not contain '..' path segments: ${install_dir}" >&2
+            exit 1
+            ;;
+        esac
 
         case "$RUNNER_OS" in
           Linux) os="linux" ;;
           macOS) os="macos" ;;
           *)
-            echo "::error::fledge publishes no binary for $RUNNER_OS via this action (Linux and macOS only). See https://github.com/${repo}/releases for the full asset list." >&2
+            echo "::error::This action does not support ${RUNNER_OS} yet — it installs on Linux and macOS runners only. fledge itself does publish binaries for other platforms (fledge-windows-x86_64.exe among them); download one directly from https://github.com/${repo}/releases if you need it." >&2
             exit 1
             ;;
         esac
@@ -66,21 +99,50 @@ runs:
             ;;
         esac
 
-        version="$INPUT_VERSION"
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+
         if [ "$version" = "latest" ]; then
           # Authenticated when a token is available, because the anonymous
-          # limit is per IP and runners share them.
-          auth=()
+          # limit is per IP and runners share them. The token goes in through a
+          # stdin config file rather than argv so it never reaches the process
+          # table.
+          conf=(
+            "silent"
+            "show-error"
+            "location"
+            "fail"
+            "retry = 3"
+            'header = "Accept: application/vnd.github+json"'
+            'header = "X-GitHub-Api-Version: 2022-11-28"'
+          )
           if [ -n "${INPUT_TOKEN:-}" ]; then
-            auth=(-H "Authorization: Bearer ${INPUT_TOKEN}")
+            conf+=("header = \"Authorization: Bearer ${INPUT_TOKEN}\"")
           fi
-          version="$(curl -fsSL --retry 3 --retry-all-errors "${auth[@]}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${repo}/releases/latest" \
-            | grep -m1 '"tag_name"' | cut -d'"' -f4 || true)"
-          if [ -z "$version" ]; then
-            echo "::error::Could not resolve the latest fledge release. Pin \`version\` to a tag instead." >&2
+
+          set +e
+          status="$(printf '%s\n' "${conf[@]}" | curl --config - -w '%{http_code}' \
+            -o "${tmp}/latest.json" \
+            "https://api.github.com/repos/${repo}/releases/latest")"
+          rc=$?
+          set -e
+
+          # Rate-limiting is the failure this action exists to remove, so name
+          # it rather than collapsing every cause into one opaque message.
+          if [ "$rc" -ne 0 ] || [ "$status" != "200" ]; then
+            case "$status" in
+              401 | 403) detail="the token was rejected or its rate limit is exhausted (HTTP ${status})" ;;
+              429) detail="rate-limited (HTTP 429)" ;;
+              000) detail="the request never completed — network or DNS failure (curl exit ${rc})" ;;
+              *) detail="HTTP ${status}, curl exit ${rc}" ;;
+            esac
+            echo "::error::Could not resolve the latest fledge release: ${detail}. Pin \`version\` to a release tag instead — a pinned tag makes no API call at all." >&2
+            exit 1
+          fi
+
+          version="$(jq -r '.tag_name // empty' < "${tmp}/latest.json")"
+          if [ -z "$version" ] || ! valid_version "$version"; then
+            echo "::error::The API returned no usable tag_name for the latest release (got '${version}'). Pin \`version\` to a release tag instead." >&2
             exit 1
           fi
         fi
@@ -88,38 +150,56 @@ runs:
         asset="fledge-${os}-${arch}"
         base="https://github.com/${repo}/releases/download/${version}"
 
-        mkdir -p "$install_dir"
-        tmp="$(mktemp -d)"
-
         if ! curl -fsSL --retry 3 --retry-all-errors "${base}/${asset}" -o "${tmp}/fledge"; then
           echo "::error::Failed to download ${asset} for ${version}. Check that the tag exists and publishes this asset: ${base}/${asset}" >&2
           exit 1
         fi
 
-        # Every release ships a .sha256 beside the binary; a corrupted download
-        # should fail here rather than at the first fledge invocation.
-        if curl -fsSL --retry 3 --retry-all-errors "${base}/${asset}.sha256" -o "${tmp}/fledge.sha256"; then
-          expected="$(cut -d' ' -f1 < "${tmp}/fledge.sha256")"
-          if command -v sha256sum >/dev/null 2>&1; then
-            actual="$(sha256sum "${tmp}/fledge" | cut -d' ' -f1)"
+        # Verification is mandatory. Skipping it on a failed sidecar fetch
+        # would let anyone able to fail one request downgrade the install to an
+        # unverified one, and whoever can tamper with the binary can also block
+        # its sidecar. `--retry 3` without `--retry-all-errors` retries the
+        # transient statuses but not 404, so a genuinely absent sidecar fails
+        # fast instead of burning the backoff.
+        set +e
+        sum_status="$(curl -fsSL --retry 3 -w '%{http_code}' \
+          -o "${tmp}/fledge.sha256" "${base}/${asset}.sha256")"
+        sum_rc=$?
+        set -e
+
+        if [ "$sum_rc" -ne 0 ] || [ "$sum_status" != "200" ]; then
+          if [ "$sum_status" = "404" ]; then
+            detail="no sidecar is published there — releases before v0.9.1 predate them"
           else
-            actual="$(shasum -a 256 "${tmp}/fledge" | cut -d' ' -f1)"
+            detail="HTTP ${sum_status}, curl exit ${sum_rc}"
           fi
-          if [ "$expected" != "$actual" ]; then
-            echo "::error::Checksum mismatch for ${asset}: expected ${expected}, got ${actual}." >&2
-            exit 1
-          fi
-        else
-          echo "::warning::No checksum published for ${asset}; skipping verification. This release predates checksum sidecars."
+          echo "::error::Could not fetch the checksum for ${asset} at ${version} (${detail}): ${base}/${asset}.sha256. Refusing to install an unverified binary." >&2
+          exit 1
         fi
 
+        expected="$(cut -d' ' -f1 < "${tmp}/fledge.sha256")"
+        if ! printf '%s' "$expected" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+          echo "::error::Malformed checksum sidecar for ${asset} at ${version}; expected a sha256 digest." >&2
+          exit 1
+        fi
+
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "${tmp}/fledge" | cut -d' ' -f1)"
+        else
+          actual="$(shasum -a 256 "${tmp}/fledge" | cut -d' ' -f1)"
+        fi
+        if [ "$expected" != "$actual" ]; then
+          echo "::error::Checksum mismatch for ${asset} at ${version}: expected ${expected}, got ${actual}." >&2
+          exit 1
+        fi
+
+        mkdir -p "$install_dir"
         install -m 0755 "${tmp}/fledge" "${install_dir}/fledge"
-        rm -rf "$tmp"
 
         echo "$install_dir" >> "$GITHUB_PATH"
         echo "version=${version}" >> "$GITHUB_OUTPUT"
         echo "path=${install_dir}/fledge" >> "$GITHUB_OUTPUT"
-        echo "Installed fledge ${version} to ${install_dir}/fledge"
+        echo "Installed fledge ${version} to ${install_dir}/fledge (sha256 verified)"
 
     - shell: bash
       run: fledge --version

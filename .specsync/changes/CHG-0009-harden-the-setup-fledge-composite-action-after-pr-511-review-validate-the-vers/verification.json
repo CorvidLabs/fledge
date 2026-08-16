@@ -1,9 +1,9 @@
 {
-  "timestamp": 1786922137,
+  "timestamp": 1786921694,
   "commit": "a868dba40fe1d42dba62dd21bd8358aed1a57eb7",
-  "contract_digest": "81d6b1c401a7ef49d768e85aae57caf9905f1e5f8784d7b879866b99bc1c8444",
+  "contract_digest": "3164717310eb979344b205f92b6244df36ce362d679f5f700bba1129971f43d5",
   "workspace_digest": "49e8f338b9c2e32fc09c3918f0275fbe5a6b647feca65685cf9178526b28d83d",
-  "acceptance_input_digest": "3c9258d80c731e9b7381238fd82458164bba50b77180afe366a72e4f6c2ff2d2",
+  "acceptance_input_digest": "efb988265b4d08e86e9fbd220c3cc68e2a16ad69cc05363f70b7181ac5490e57",
   "acceptance_manifest": {
     "schema_version": 1,
     "entries": [
@@ -21,18 +21,8 @@
         "path": ".specsync/change-sequence.json",
         "kind": "file",
         "mode": 33188,
-        "payload_digest": "7011d0028ec3b0acea0cb9b2f7b91b7abe4382986b4b2bf22f4307b4accbdce6",
-        "entry_digest": "78e4bd79b42a8aa8798ce1047416397125190f82146ed75ce1d20a316b8512de",
-        "owners": [
-          "@exact:delivery"
-        ]
-      },
-      {
-        "path": "CONTRIBUTING.md",
-        "kind": "file",
-        "mode": 33188,
-        "payload_digest": "1c456009ea1d97960722bd763e9a2f7d43360ea561f0498d3cdcc627752a4b11",
-        "entry_digest": "18c9720aa0cd159e91318e72534c3d26999a24b47e942437f5f71ebf54b0bdb4",
+        "payload_digest": "2d11b740e2b3e12382b68849a5551ae2221dc84d81058ed4a81057a8749ae422",
+        "entry_digest": "f8c917c45ccf74f83c1c7eeeaf8929991d514d18ae5a4394c007cd5107dcce4c",
         "owners": [
           "@exact:delivery"
         ]

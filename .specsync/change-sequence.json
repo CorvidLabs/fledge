@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 8,
-  "id": "CHG-0008-add-root-level-action-yml-github-action-for-installing-fledge-in-ci",
+  "sequence": 9,
+  "id": "CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers",
   "acknowledged_collisions": []
 }
