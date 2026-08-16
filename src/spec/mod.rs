@@ -124,6 +124,35 @@ pub(crate) fn specs_dir_from_config(root: &Path) -> Result<PathBuf> {
     Ok(root.join(config.specs_dir.as_deref().unwrap_or("specs")))
 }
 
+/// The section set a project considers required: its `required_sections`
+/// override when it has one, otherwise [`DEFAULT_REQUIRED_SECTIONS`].
+///
+/// The single place this fallback is decided. `check`, `list`, and `lint` all
+/// route through it so they cannot silently disagree about what "structurally
+/// complete" means — the disagreement this function was extracted to prevent.
+pub(crate) fn required_sections_of(config: &SpecSyncConfig) -> Vec<String> {
+    if config.required_sections.is_empty() {
+        DEFAULT_REQUIRED_SECTIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect()
+    } else {
+        config.required_sections.clone()
+    }
+}
+
+/// [`required_sections_of`] for a project root, falling back to the defaults
+/// when the config is missing or unreadable.
+pub(crate) fn required_sections(root: &Path) -> Vec<String> {
+    match load_config(root) {
+        Ok(config) => required_sections_of(&config),
+        Err(_) => DEFAULT_REQUIRED_SECTIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+    }
+}
+
 // ── File helpers ─────────────────────────────────────────────────────────────
 
 pub(crate) fn find_spec_files(specs_dir: &Path) -> Vec<PathBuf> {

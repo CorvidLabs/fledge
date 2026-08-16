@@ -863,10 +863,11 @@ body
 use super::lint::{
     apply_ignores, build_envelope, build_quality_prompt, contains_placeholder_word,
     ensure_provider_available, frontmatter_block_has_items, frontmatter_value, grade_spec,
-    is_known_check, lint_structural, model_pass_skip_reason, normalize_check_id, parse_ignore_list,
-    parse_quality_response, resolve_targets, section_has_content, strip_code_spans,
-    strip_html_comments, version_is_valid, Finding, Layer, LintOptions, ModelPass, Severity,
-    SpecLintResult, SpecMeta,
+    initial_model_pass, is_known_check, lint_structural, model_pass_skip_reason,
+    normalize_check_id, parse_ignore_list, parse_quality_response, resolve_signal_section,
+    resolve_targets, section_has_content, strip_code_spans, strip_html_comments, version_is_valid,
+    Finding, Layer, LintOptions, ModelPass, Severity, SpecLintResult, SpecMeta,
+    ACCEPTANCE_SECTIONS, REJECTION_SECTIONS,
 };
 
 fn required() -> Vec<String> {
@@ -1128,6 +1129,200 @@ fn test_lint_check_ids_are_a_closed_vocabulary() {
     assert!(!is_known_check("not_a_check"));
 }
 
+// ── lint layer 1: configurable `required_sections` ───────────────────────────
+
+/// The reviewer's scenario: a project that renames every default section via
+/// `.specsync/config.toml`'s `required_sections`.
+fn custom_required() -> Vec<String> {
+    [
+        "Overview", "API", "Rules", "Examples", "Failures", "Deps", "History",
+    ]
+    .iter()
+    .map(|s| (*s).to_string())
+    .collect()
+}
+
+/// [`healthy_spec`] rewritten under [`custom_required`]'s section names.
+fn custom_spec() -> String {
+    let mut spec = healthy_spec();
+    for (default, custom) in [
+        ("## Purpose", "## Overview"),
+        ("## Public API", "## API"),
+        ("## Invariants", "## Rules"),
+        ("## Behavioral Examples", "## Examples"),
+        ("## Error Cases", "## Failures"),
+        ("## Dependencies", "## Deps"),
+        ("## Change Log", "## History"),
+    ] {
+        spec = spec.replace(default, custom);
+    }
+    spec
+}
+
+#[test]
+fn test_lint_placeholder_check_honors_custom_required_sections() {
+    // Regression: the check scanned a hardcoded "Purpose"/"Public API" pair, so
+    // a project that renamed them got zero placeholder findings — the gate was
+    // silently inert exactly where it was configured to matter.
+    let tmp = lint_root();
+    let spec = custom_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed",
+        "TODO: fill this in later. It builds a plan, so a malformed",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &custom_required());
+    let placeholders: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.check == "placeholder_text")
+        .collect();
+    assert_eq!(placeholders.len(), 1, "{findings:?}");
+    assert_eq!(placeholders[0].section.as_deref(), Some("Overview"));
+}
+
+#[test]
+fn test_lint_placeholder_check_covers_every_required_section() {
+    // Widening from the hardcoded pair to the configured set also closes the
+    // hole under the *default* config: a placeholder in Invariants used to pass.
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "1. `run` never mutates the config it was given.",
+        "1. FIXME: work out what run actually guarantees.",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    let placeholders: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.check == "placeholder_text")
+        .collect();
+    assert_eq!(placeholders.len(), 1, "{findings:?}");
+    assert_eq!(placeholders[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_lint_resolves_signal_sections_through_recognized_synonyms() {
+    // Regression: `no_acceptance_signal` / `no_rejection_signal` looked only for
+    // the literal "Behavioral Examples" / "Error Cases", so a project whose
+    // Examples and Failures sections were full still failed both checks — a
+    // permanent red nothing in the project could clear.
+    let tmp = lint_root();
+    let (_, findings) = lint_structural(&custom_spec(), tmp.path(), &custom_required());
+    assert!(findings.is_empty(), "{findings:?}");
+
+    assert_eq!(
+        resolve_signal_section(&custom_required(), ACCEPTANCE_SECTIONS),
+        Some("Examples")
+    );
+    assert_eq!(
+        resolve_signal_section(&custom_required(), REJECTION_SECTIONS),
+        Some("Failures")
+    );
+    // Table order is preference order: the canonical name wins over a synonym.
+    let both = vec!["Examples".to_string(), "Behavioral Examples".to_string()];
+    assert_eq!(
+        resolve_signal_section(&both, ACCEPTANCE_SECTIONS),
+        Some("Behavioral Examples")
+    );
+    // Matching ignores ASCII case.
+    let shouty = vec!["ERROR CASES".to_string()];
+    assert_eq!(
+        resolve_signal_section(&shouty, REJECTION_SECTIONS),
+        Some("ERROR CASES")
+    );
+}
+
+#[test]
+fn test_lint_reports_missing_signal_against_the_configured_section_name() {
+    // The finding must name the project's own heading, not the default one.
+    let tmp = lint_root();
+    let spec = custom_spec()
+        .replace(
+            "Given a config with one task, when `run` is called, then the task executes once.",
+            "<!-- pending -->",
+        )
+        .replace(
+            "| UnknownTask | the named task is absent | exits 1 and names the task |",
+            "| | | |",
+        );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &custom_required());
+    let acceptance = findings
+        .iter()
+        .find(|f| f.check == "no_acceptance_signal")
+        .expect("acceptance finding");
+    assert_eq!(acceptance.severity, Severity::Error);
+    assert_eq!(acceptance.section.as_deref(), Some("Examples"));
+    assert!(acceptance.message.contains("## Examples"), "{acceptance:?}");
+
+    let rejection = findings
+        .iter()
+        .find(|f| f.check == "no_rejection_signal")
+        .expect("rejection finding");
+    assert_eq!(rejection.severity, Severity::Error);
+    assert_eq!(rejection.section.as_deref(), Some("Failures"));
+    assert!(rejection.message.contains("## Failures"), "{rejection:?}");
+}
+
+#[test]
+fn test_lint_degrades_to_a_warning_when_no_section_carries_a_signal() {
+    // A project whose `required_sections` genuinely has no acceptance/rejection
+    // analogue must not be handed an unsatisfiable error. The check stays
+    // visible as a warning that names the escape hatch.
+    let tmp = lint_root();
+    let required = vec!["Overview".to_string(), "Notes".to_string()];
+    let spec = custom_spec().replace("## Rules", "## Notes");
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required);
+
+    for (check, key) in [
+        ("no_acceptance_signal", "accepts:"),
+        ("no_rejection_signal", "rejects:"),
+    ] {
+        let finding = findings
+            .iter()
+            .find(|f| f.check == check)
+            .unwrap_or_else(|| panic!("{check} missing from {findings:?}"));
+        assert_eq!(finding.severity, Severity::Warning, "{finding:?}");
+        // No section is named, because none was identified.
+        assert_eq!(finding.section, None, "{finding:?}");
+        assert!(finding.message.contains(key), "{finding:?}");
+        assert!(
+            finding.message.contains("required_sections"),
+            "the diagnostic must say why it could not resolve: {finding:?}"
+        );
+    }
+}
+
+#[test]
+fn test_lint_frontmatter_blocks_clear_the_unresolvable_signal_warning() {
+    // The degraded warning is satisfiable: `accepts:`/`rejects:` work regardless
+    // of how a project names its sections.
+    let tmp = lint_root();
+    let required = vec!["Overview".to_string(), "Notes".to_string()];
+    let spec = custom_spec()
+        .replace("## Rules", "## Notes")
+        .replace(
+            "files:\n  - src/demo.rs",
+            "files:\n  - src/demo.rs\naccepts:\n  - a valid config produces a plan\nrejects:\n  - an unknown task name exits 1",
+        );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required);
+    let checks = checks_of(&findings);
+    assert!(!checks.contains(&"no_acceptance_signal"), "{findings:?}");
+    assert!(!checks.contains(&"no_rejection_signal"), "{findings:?}");
+}
+
+#[test]
+fn test_required_sections_falls_back_to_the_defaults() {
+    // One shared helper decides the fallback, so `check`, `list`, and `lint`
+    // cannot drift on what "structurally complete" means.
+    let empty = SpecSyncConfig {
+        specs_dir: None,
+        required_sections: Vec::new(),
+    };
+    assert_eq!(super::required_sections_of(&empty), required());
+
+    let overridden = SpecSyncConfig {
+        specs_dir: None,
+        required_sections: custom_required(),
+    };
+    assert_eq!(super::required_sections_of(&overridden), custom_required());
+}
+
 // ── lint layer 1: helpers ────────────────────────────────────────────────────
 
 #[test]
@@ -1376,6 +1571,47 @@ fn test_model_pass_is_skipped_unless_requested() {
     assert!(model_pass_skip_reason(&lint_options(true, false), 0).is_some());
     // Requested with specs present: it runs.
     assert!(model_pass_skip_reason(&lint_options(true, false), 3).is_none());
+}
+
+#[test]
+fn test_model_pass_reports_ai_as_requested_even_when_no_ai_overrides_it() {
+    // Regression: `requested` was `ai && !no_ai`, so `--ai --no-ai` emitted
+    // `requested: false` alongside `skipped_reason: "--no-ai overrides --ai"` —
+    // a self-contradictory object in which a caller auditing `requested` alone
+    // could not tell "never asked" from "asked, then overridden".
+    let overridden = initial_model_pass(&lint_options(true, true), 3);
+    assert!(overridden.requested, "--ai was explicitly passed");
+    assert!(!overridden.ran, "--no-ai wins, so the pass never happened");
+    assert!(overridden
+        .skipped_reason
+        .as_deref()
+        .unwrap()
+        .contains("--no-ai overrides --ai"));
+
+    // Never asked: `requested` is the discriminator between the two states.
+    let untouched = initial_model_pass(&lint_options(false, false), 3);
+    assert!(!untouched.requested);
+    assert!(!untouched.ran);
+
+    // Plain --no-ai is also "not requested".
+    assert!(!initial_model_pass(&lint_options(false, true), 3).requested);
+    // Asked for, nothing blocking it: still just a request until `ran` is set.
+    let granted = initial_model_pass(&lint_options(true, false), 3);
+    assert!(granted.requested);
+    assert!(granted.skipped_reason.is_none());
+}
+
+#[test]
+fn test_envelope_reports_the_overridden_request_faithfully() {
+    let model_pass = initial_model_pass(&lint_options(true, true), 1);
+    let envelope = build_envelope(&[lint_result_fixture()], &model_pass, false);
+    let reported = &envelope["model_pass"];
+    assert_eq!(reported["requested"], serde_json::json!(true));
+    assert_eq!(reported["ran"], serde_json::json!(false));
+    assert_eq!(
+        reported["skipped_reason"],
+        serde_json::json!("--no-ai overrides --ai")
+    );
 }
 
 #[test]

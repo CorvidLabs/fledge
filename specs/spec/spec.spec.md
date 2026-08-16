@@ -21,7 +21,7 @@ depends_on: []
 
 Integrates spec-sync validation into fledge as native subcommands. Provides `fledge spec check` to validate specs against source code, `fledge spec init` to scaffold a `.specsync/` configuration directory, `fledge spec new <name>` to create a new spec module with companion files, `fledge spec list` to enumerate all specs, `fledge spec show <name>` to inspect a single spec's structure, and `fledge spec lint [target]` to gate the quality of the specs themselves. Also exposes public helpers (`collect_index`, `render_index_markdown`, `load_module_bundle`, `all_module_names`) for other modules (notably `ask`) to feed spec content into LLM prompts.
 
-`spec check` asks "does the code match the spec". `spec lint` asks "is the spec worth matching" — a thin, aspirational, or poisoned spec passes every structural check while being wrong, and the spec is the one input to an agent pipeline that nothing else validates. Lint answers that in two layers: a deterministic offline pre-pass (required sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` in Purpose or Public API — case-insensitive, whole-word, prose only — a well-formed `version`, every `files:` entry present on disk, an acceptance signal and a rejection signal), and an opt-in model-graded pass (`--ai`) that judges falsifiability, whether invariants are load-bearing, and whether the acceptance/rejection signals discriminate — using the same provider plumbing as `fledge review`.
+`spec check` asks "does the code match the spec". `spec lint` asks "is the spec worth matching" — a thin, aspirational, or poisoned spec passes every structural check while being wrong, and the spec is the one input to an agent pipeline that nothing else validates. Lint answers that in two layers: a deterministic offline pre-pass (required sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` in any required section — case-insensitive, whole-word, prose only — a well-formed `version`, every `files:` entry present on disk, an acceptance signal and a rejection signal), and an opt-in model-graded pass (`--ai`) that judges falsifiability, whether invariants are load-bearing, and whether the acceptance/rejection signals discriminate — using the same provider plumbing as `fledge review`.
 
 ## Public API
 
@@ -84,10 +84,14 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `STRUCTURAL_CHECKS` | (internal, `lint`) Stable ids for the layer-1 checks; part of the `--ignore` and JSON contract |
 | `MODEL_CHECKS` | (internal, `lint`) The bounded vocabulary of check ids the layer-2 pass may return |
 | `MODEL_PASS_FAILED` | (internal, `lint`) Check id emitted when layer 2 was requested but produced no verdict |
-| `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in Purpose and Public API, matched case-insensitively on word boundaries |
-| `ACCEPTANCE_SECTION` | (internal, `lint`) The section carrying the success signal (`Behavioral Examples`) |
-| `REJECTION_SECTION` | (internal, `lint`) The section carrying the failure signal (`Error Cases`) |
+| `PLACEHOLDER_TOKENS` | (internal, `lint`) `TODO` / `TBD` / `FIXME` — rejected in every configured required section, matched case-insensitively on word boundaries |
+| `ACCEPTANCE_SECTIONS` | (internal, `lint`) Section names recognized as carrying the success signal, canonical (`Behavioral Examples`) first |
+| `REJECTION_SECTIONS` | (internal, `lint`) Section names recognized as carrying the failure signal, canonical (`Error Cases`) first |
+| `resolve_signal_section` | (internal, `lint`) Which of a project's configured `required_sections` carries a signal role, matched case-insensitively against the tables above; `None` when the project names no analogue |
 | `error` | (internal, `lint`) `Finding::error` — constructs a structural-layer error finding |
+| `warning` | (internal, `lint`) `Finding::warning` — constructs a structural-layer warning finding |
+| `required_sections_of` | (internal) A project's `required_sections`, or `DEFAULT_REQUIRED_SECTIONS` when it sets none. The single place the fallback is decided, so `check`, `list`, and `lint` cannot disagree |
+| `required_sections` | (internal) `required_sections_of` for a project root, defaulting when the config is missing or unreadable |
 | `Severity` | (internal, `lint`) `error` \| `warning` |
 | `Layer` | (internal, `lint`) `structural` \| `model` — which layer produced a finding |
 | `Finding` | (internal, `lint`) One lint finding: check id, severity, layer, optional section, message |
@@ -108,6 +112,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 | `normalize_check_id` | (internal, `lint`) Map a model-supplied check id onto `MODEL_CHECKS`, else `quality_other` |
 | `ensure_provider_available` | (internal, `lint`) Fail fast before the first prompt when the selected provider cannot answer |
 | `model_pass_skip_reason` | (internal, `lint`) Why layer 2 will not run, or `None` when it will |
+| `initial_model_pass` | (internal, `lint`) The layer-2 report before the pass is attempted: `requested` is `--ai` alone, `ran` is `false`, `skipped_reason` is `model_pass_skip_reason` |
 | `grade_spec` | (internal, `lint`) Grade one spec with a provider and fold the findings in |
 | `resolve_targets` | (internal, `lint`) Resolve the `[target]` argument to a sorted list of `.spec.md` paths |
 | `is_known_check` | (internal, `lint`) Is an id a check this build can emit |
@@ -185,7 +190,7 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 14. `render_index_markdown` produces stable output (entries must be pre-sorted; `collect_index` already guarantees this)
 15. `specs_for_changed_files` and `load_module_bundle` resolve each spec via its actual on-disk path, so sub-specs that share a directory (e.g. `specs/plugin/plugin-protocol.spec.md` declaring `module: plugin-protocol`) are matched by the parent dir they actually live in. When two specs share a directory, a change under that directory matches both
 16. `spec lint` layer 1 always runs and never performs network I/O — a bare `fledge spec lint` is safe as a pre-commit hook and a CI gate
-17. `spec lint` layer 2 is opt-in: it runs only with `--ai`, and `--no-ai` always wins over `--ai`. When it is skipped, `model_pass.ran` is `false` and `model_pass.skipped_reason` names why
+17. `spec lint` layer 2 is opt-in: it runs only with `--ai`, and `--no-ai` always wins over `--ai`. When it is skipped, `model_pass.ran` is `false` and `model_pass.skipped_reason` names why. `model_pass.requested` reports what the caller *asked for* — `--ai` alone — so `--ai --no-ai` is `requested: true, ran: false` with `skipped_reason: "--no-ai overrides --ai"`, and a caller can tell "never asked" from "asked, then overridden"
 18. When layer 2 is requested but the selected provider cannot answer, `spec lint` errors *before* building the first prompt (keyed providers are trusted; a keyless Ollama is probed once with a 3-second timeout). It never blocks on a per-spec connect timeout
 19. A layer-2 provider or parse failure for one spec becomes a `model_pass_failed` **error** finding on that spec, not a silent pass and not an aborted run — a gate that could not run must never read as clean
 20. `spec lint` exits non-zero when any finding is an error, or when `--strict` and any finding is a warning; exit 0 when clean. Errors go to stderr as plain text even under `--json`
@@ -194,7 +199,10 @@ Integrates spec-sync validation into fledge as native subcommands. Provides `fle
 23. `version:` is accepted as either a spec-sync integer or a semver string. A non-integer version does not cost the spec its other frontmatter checks — lint normalizes the value before the typed parse
 24. The placeholder check runs on **prose only** — fenced code blocks and inline code spans are stripped first, so a spec that documents placeholder detection (this one) does not fail its own check. HTML comments are *not* stripped: a commented-out placeholder is still a placeholder
 25. Within that prose, a placeholder token matches **case-insensitively and on word boundaries**: a lowercase `todo` or a mixed-case `FixMe` is as unfinished as `TODO`, while a token buried in a longer word ("mastodon", "prefixmethod") is not a finding. A boundary is any position whose adjacent character is neither alphanumeric nor `_`
-26. `spec lint` is read-only; it never mutates the filesystem
+26. **Every layer-1 section check honors the project's configured `required_sections`**, not a hardcoded list. The placeholder check scans *all* of them (a bare `TODO` is an unfinished spec wherever it sits), and `missing_section` / `empty_section` iterate the same set. `required_sections_of` is the single place the "config, else `DEFAULT_REQUIRED_SECTIONS`" fallback is decided, so `check`, `list`, and `lint` cannot silently disagree about what "structurally complete" means
+27. The acceptance and rejection signals resolve to a configured section by **name**, matched case-insensitively against `ACCEPTANCE_SECTIONS` / `REJECTION_SECTIONS` (table order is preference order, canonical first). Matching by name rather than by position is deliberate: a positional map would confidently attribute the role to whichever section sat at a given index and report the failure against the wrong heading, whereas a name match is either right or absent
+28. When a project's `required_sections` names **no** acceptance/rejection analogue, the check degrades to a **warning** rather than an error, and its message names the `accepts:` / `rejects:` frontmatter escape hatch and the section names lint recognizes. The old behavior — falling back to the hardcoded `Behavioral Examples` / `Error Cases` — made the check permanently unsatisfiable for such a project, telling it to fill a section its own config never asked for. A warning keeps the gap visible while leaving it clearable
+29. `spec lint` is read-only; it never mutates the filesystem
 
 ## Behavioral Examples
 

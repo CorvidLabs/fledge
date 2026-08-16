@@ -7,8 +7,7 @@ use walkdir::WalkDir;
 
 use super::{
     classify_companions, engine, find_spec_files, load_config, module_leaf, parse, to_title_case,
-    validate_module_name, validation, DEFAULT_REQUIRED_SECTIONS, SPEC_CHECK_SCHEMA,
-    SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
+    validate_module_name, validation, SPEC_CHECK_SCHEMA, SPEC_LIST_SCHEMA, SPEC_SHOW_SCHEMA,
 };
 
 #[derive(Debug, Serialize)]
@@ -50,14 +49,7 @@ pub(super) fn structural_results(root: &Path) -> Vec<validation::SpecResult> {
     if !specs_dir.exists() {
         return Vec::new();
     }
-    let required_sections = if config.required_sections.is_empty() {
-        DEFAULT_REQUIRED_SECTIONS
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect()
-    } else {
-        config.required_sections.clone()
-    };
+    let required_sections = super::required_sections_of(&config);
 
     let mut results: Vec<validation::SpecResult> = Vec::new();
     for entry in WalkDir::new(&specs_dir).into_iter().filter_map(|e| e.ok()) {
@@ -320,11 +312,7 @@ pub(crate) fn build_summary(
 pub(crate) fn list_specs(root: &Path, json: bool) -> Result<()> {
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
-    let required_count = if config.required_sections.is_empty() {
-        7
-    } else {
-        config.required_sections.len()
-    };
+    let required_count = super::required_sections_of(&config).len();
 
     if !specs_dir.exists() {
         if json {

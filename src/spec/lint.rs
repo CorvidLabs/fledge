@@ -29,10 +29,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use super::{
-    find_spec_files, load_config, parse, specs_dir_from_config, DEFAULT_REQUIRED_SECTIONS,
-    SPEC_LINT_SCHEMA,
-};
+use super::{find_spec_files, parse, required_sections, specs_dir_from_config, SPEC_LINT_SCHEMA};
 use crate::config::Config;
 use crate::llm::{self, ProviderKind, ProviderOverride};
 
@@ -75,9 +72,37 @@ pub(crate) const MODEL_PASS_FAILED: &str = "model_pass_failed";
 /// case-insensitively and on word boundaries — see [`contains_placeholder_word`].
 pub(crate) const PLACEHOLDER_TOKENS: &[&str] = &["TODO", "TBD", "FIXME"];
 
-/// Sections whose emptiness is the acceptance / rejection signal, respectively.
-pub(crate) const ACCEPTANCE_SECTION: &str = "Behavioral Examples";
-pub(crate) const REJECTION_SECTION: &str = "Error Cases";
+/// Section names lint recognizes as carrying the **acceptance** signal ("what
+/// proves this works"), most-canonical first.
+///
+/// `required_sections` is configurable, so the acceptance signal does not always
+/// live in a section called "Behavioral Examples". There is no way to know from
+/// a name alone which of an arbitrary custom list carries that role, so lint
+/// matches against this documented synonym table (case-insensitively) rather
+/// than guessing positionally: a positional map would silently attribute the
+/// role to whichever section happened to sit at index 3, and report the failure
+/// against the wrong heading. Matching by name is either right or absent, never
+/// confidently wrong. See [`resolve_signal_section`] for what "absent" does.
+pub(crate) const ACCEPTANCE_SECTIONS: &[&str] = &[
+    "Behavioral Examples",
+    "Behavioural Examples",
+    "Examples",
+    "Acceptance",
+    "Acceptance Criteria",
+    "Scenarios",
+];
+
+/// Section names lint recognizes as carrying the **rejection** signal ("what
+/// proves this failed"), most-canonical first. Same rationale as
+/// [`ACCEPTANCE_SECTIONS`].
+pub(crate) const REJECTION_SECTIONS: &[&str] = &[
+    "Error Cases",
+    "Errors",
+    "Error Handling",
+    "Failures",
+    "Failure Modes",
+    "Rejections",
+];
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,6 +137,16 @@ impl Finding {
         Finding {
             check: check.to_string(),
             severity: Severity::Error,
+            layer: Layer::Structural,
+            section: section.map(str::to_string),
+            message: message.into(),
+        }
+    }
+
+    pub(crate) fn warning(check: &str, section: Option<&str>, message: impl Into<String>) -> Self {
+        Finding {
+            check: check.to_string(),
+            severity: Severity::Warning,
             layer: Layer::Structural,
             section: section.map(str::to_string),
             message: message.into(),
@@ -160,6 +195,10 @@ impl SpecLintResult {
 /// means it did run.
 #[derive(Debug, Clone)]
 pub(crate) struct ModelPass {
+    /// Did the caller ask for layer 2 (`--ai`)? Independent of whether it was
+    /// granted — `--ai --no-ai` is `requested: true`, `ran: false`, with
+    /// `skipped_reason` naming the override. The three fields answer three
+    /// different questions and must not be collapsed.
     pub(crate) requested: bool,
     pub(crate) ran: bool,
     pub(crate) skipped_reason: Option<String>,
@@ -487,6 +526,28 @@ fn normalize_version_for_parse(yaml: &str) -> String {
         .join("\n")
 }
 
+/// Which of a project's configured `required_sections` carries a signal role,
+/// matched case-insensitively against a synonym table (`ACCEPTANCE_SECTIONS` /
+/// `REJECTION_SECTIONS`).
+///
+/// Returns `None` when the project's section set names no analogue — a real
+/// possibility, since `required_sections` is free-form. `None` is not a failure:
+/// see [`lint_structural`], which degrades the check to a warning rather than
+/// leaving it permanently unsatisfiable.
+pub(crate) fn resolve_signal_section<'a>(
+    required_sections: &'a [String],
+    candidates: &[&str],
+) -> Option<&'a str> {
+    // Table order is preference order, so a project listing both "Examples" and
+    // "Behavioral Examples" resolves to the canonical one.
+    candidates.iter().find_map(|candidate| {
+        required_sections
+            .iter()
+            .find(|section| section.eq_ignore_ascii_case(candidate))
+            .map(String::as_str)
+    })
+}
+
 /// Run every layer-1 check against one spec's raw content.
 ///
 /// Pure apart from the `files:` existence probe, which is why `root` is passed
@@ -580,7 +641,11 @@ pub(crate) fn lint_structural(
         }
     }
 
-    for section in ["Purpose", "Public API"] {
+    // Placeholders are scanned across *every* configured required section, not a
+    // hardcoded pair. A bare `TODO` is an unfinished spec wherever it sits, and
+    // hardcoding "Purpose"/"Public API" made the check silently inert for any
+    // project that renamed them.
+    for section in required_sections {
         let Some((_, section_body)) = find_section(section) else {
             continue;
         };
@@ -597,33 +662,135 @@ pub(crate) fn lint_structural(
         }
     }
 
-    let has_acceptance = find_section(ACCEPTANCE_SECTION)
-        .is_some_and(|(_, b)| section_has_content(b))
-        || frontmatter_block_has_items(&yaml, "accepts");
-    if !has_acceptance {
-        findings.push(Finding::error(
-            "no_acceptance_signal",
-            Some(ACCEPTANCE_SECTION),
-            format!(
-                "no acceptance signal — the spec never states what proves success (fill `## {ACCEPTANCE_SECTION}` or add an `accepts:` frontmatter block)"
-            ),
-        ));
-    }
-
-    let has_rejection = find_section(REJECTION_SECTION)
-        .is_some_and(|(_, b)| section_has_content(b))
-        || frontmatter_block_has_items(&yaml, "rejects");
-    if !has_rejection {
-        findings.push(Finding::error(
-            "no_rejection_signal",
-            Some(REJECTION_SECTION),
-            format!(
-                "no rejection signal — the spec never states what proves failure (fill `## {REJECTION_SECTION}` or add a `rejects:` frontmatter block)"
-            ),
-        ));
-    }
+    findings.extend(signal_finding(
+        &yaml,
+        required_sections,
+        &sections,
+        SignalRole::Acceptance,
+    ));
+    findings.extend(signal_finding(
+        &yaml,
+        required_sections,
+        &sections,
+        SignalRole::Rejection,
+    ));
 
     (meta, findings)
+}
+
+/// The two signal roles a spec must carry, and the vocabulary each one owns.
+#[derive(Debug, Clone, Copy)]
+enum SignalRole {
+    Acceptance,
+    Rejection,
+}
+
+impl SignalRole {
+    fn check(self) -> &'static str {
+        match self {
+            SignalRole::Acceptance => "no_acceptance_signal",
+            SignalRole::Rejection => "no_rejection_signal",
+        }
+    }
+
+    /// The `accepts:` / `rejects:` frontmatter key that satisfies this role
+    /// regardless of how the project names its sections.
+    fn frontmatter_key(self) -> &'static str {
+        match self {
+            SignalRole::Acceptance => "accepts",
+            SignalRole::Rejection => "rejects",
+        }
+    }
+
+    fn candidates(self) -> &'static [&'static str] {
+        match self {
+            SignalRole::Acceptance => ACCEPTANCE_SECTIONS,
+            SignalRole::Rejection => REJECTION_SECTIONS,
+        }
+    }
+
+    fn canonical(self) -> &'static str {
+        self.candidates()[0]
+    }
+
+    /// "success" / "failure" — what the missing signal was supposed to prove.
+    fn proves(self) -> &'static str {
+        match self {
+            SignalRole::Acceptance => "success",
+            SignalRole::Rejection => "failure",
+        }
+    }
+
+    fn noun(self) -> &'static str {
+        match self {
+            SignalRole::Acceptance => "acceptance",
+            SignalRole::Rejection => "rejection",
+        }
+    }
+}
+
+/// Evaluate one signal role against a spec, honoring the project's configured
+/// `required_sections`.
+///
+/// Three outcomes:
+///
+/// 1. **The role resolves to a configured section** (the default set, or a
+///    custom set using a recognized synonym) and that section has content, or
+///    the frontmatter carries the `accepts:`/`rejects:` block — no finding.
+/// 2. **The role resolves but nothing supplies the signal** — an **error**, as
+///    before. The spec has the section and left it empty.
+/// 3. **The role resolves to nothing**, because the project's `required_sections`
+///    names no analogue. Falling through to the old hardcoded name here is what
+///    made the check permanently unsatisfiable for such projects: they would be
+///    told to fill a `## Behavioral Examples` section their own config does not
+///    ask for. Instead the frontmatter block alone decides, and its absence is a
+///    **warning** that names the escape hatch. The check stays visible and
+///    satisfiable (add `accepts:`, or silence it with `--ignore`) rather than
+///    becoming a permanent red.
+fn signal_finding(
+    yaml: &str,
+    required_sections: &[String],
+    sections: &[(String, String)],
+    role: SignalRole,
+) -> Option<Finding> {
+    let key = role.frontmatter_key();
+    let from_frontmatter = frontmatter_block_has_items(yaml, key);
+    let Some(section) = resolve_signal_section(required_sections, role.candidates()) else {
+        if from_frontmatter {
+            return None;
+        }
+        return Some(Finding::warning(
+            role.check(),
+            None,
+            format!(
+                "no {} signal, and this project's `required_sections` names no section lint recognizes as carrying one (it looks for {}). Add a `{key}:` frontmatter block, or rename the section that holds it to `{}`",
+                role.noun(),
+                role.candidates()
+                    .iter()
+                    .map(|c| format!("`{c}`"))
+                    .collect::<Vec<_>>()
+                    .join(" / "),
+                role.canonical(),
+            ),
+        ));
+    };
+
+    let from_section = sections
+        .iter()
+        .find(|(heading, _)| heading == section)
+        .is_some_and(|(_, b)| section_has_content(b));
+    if from_section || from_frontmatter {
+        return None;
+    }
+    Some(Finding::error(
+        role.check(),
+        Some(section),
+        format!(
+            "no {} signal — the spec never states what proves {} (fill `## {section}` or add a `{key}:` frontmatter block)",
+            role.noun(),
+            role.proves(),
+        ),
+    ))
 }
 
 // ── Layer 2: model-graded quality pass ───────────────────────────────────────
@@ -815,8 +982,20 @@ pub(crate) fn resolve_targets(root: &Path, target: Option<&str>) -> Result<Vec<P
         return Ok(paths);
     }
 
-    // Module name: resolve through the index so nested specs and specs sharing
-    // a directory resolve to their real on-disk path.
+    // Module name. The conventional layout puts module `foo` at
+    // `<specs>/foo/foo.spec.md`, so try that directly first — the common case
+    // then costs one `stat` instead of parsing the frontmatter of every spec in
+    // the repo.
+    let specs_dir = specs_dir_from_config(root)?;
+    let direct = specs_dir
+        .join(target)
+        .join(format!("{}.spec.md", super::module_leaf(target)));
+    if direct.is_file() {
+        return Ok(vec![direct]);
+    }
+
+    // Off-convention layouts (nested specs, several specs sharing a directory)
+    // only resolve through the index, which knows each spec's declared `module`.
     if let Some(entry) = super::collect_index(root)?
         .into_iter()
         .find(|e| e.name == target)
@@ -829,16 +1008,6 @@ pub(crate) fn resolve_targets(root: &Path, target: Option<&str>) -> Result<Vec<P
         target,
         style("fledge spec list").cyan()
     )
-}
-
-fn required_sections(root: &Path) -> Vec<String> {
-    match load_config(root) {
-        Ok(config) if !config.required_sections.is_empty() => config.required_sections,
-        _ => DEFAULT_REQUIRED_SECTIONS
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect(),
-    }
 }
 
 /// Is `id` a check this build can emit? `--ignore` is validated against this so
@@ -1049,13 +1218,7 @@ pub(crate) fn run(root: &Path, options: LintOptions) -> Result<()> {
         });
     }
 
-    let mut model_pass = ModelPass {
-        requested: options.ai && !options.no_ai,
-        ran: false,
-        skipped_reason: model_pass_skip_reason(&options, results.len()),
-        provider: None,
-        model: None,
-    };
+    let mut model_pass = initial_model_pass(&options, results.len());
 
     if model_pass.skipped_reason.is_none() {
         run_model_pass(&mut results, &options, &ignore, &mut model_pass)?;
@@ -1096,6 +1259,26 @@ pub(crate) fn run(root: &Path, options: LintOptions) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// The layer-2 report as it stands *before* the pass is attempted. Pure, so the
+/// flag-to-report mapping is unit-testable without a provider.
+///
+/// `requested` reports what the caller asked for, not what was granted: it is
+/// `--ai` alone. Folding `--no-ai` into it made `--ai --no-ai`
+/// self-contradictory — `requested: false` sitting in the same object as
+/// `skipped_reason: "--no-ai overrides --ai"` — and erased the distinction
+/// between "never asked" and "asked, then overridden". The three fields answer
+/// three different questions: `requested` what was asked, `ran` what happened,
+/// `skipped_reason` why not.
+pub(crate) fn initial_model_pass(options: &LintOptions, spec_count: usize) -> ModelPass {
+    ModelPass {
+        requested: options.ai,
+        ran: false,
+        skipped_reason: model_pass_skip_reason(options, spec_count),
+        provider: None,
+        model: None,
+    }
 }
 
 /// Why layer 2 will not run, or `None` when it will. Pure — the decision is
