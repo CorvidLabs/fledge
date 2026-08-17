@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 7,
-  "id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "sequence": 10,
+  "id": "CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks",
   "acknowledged_collisions": []
 }

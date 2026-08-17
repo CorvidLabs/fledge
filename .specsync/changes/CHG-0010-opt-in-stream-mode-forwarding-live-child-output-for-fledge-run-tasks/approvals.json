@@ -1,0 +1,65 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786571374,
+      "digest": "256b68344897bc91a780a8ef7eb16cd748de1128294b607d1c40510d97233ee1",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786571577,
+      "digest": "5df64b9aa1572b17868031448982ab062c0ad63439561fa7d8b783cb4ddfcf49",
+      "note": "Closing approval by the repository owner; verify-native green, 3 requirements evidenced."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786987153,
+      "digest": "52ea8992b1ef93f985344401595fbece671d6d180795559bce797b0959111b53",
+      "note": "Re-accepted after PR #509 review fixes; verify-native green."
+    }
+  ],
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks",
+      "actor": "user:0xGaspar",
+      "reason": "Review fixes for PR #509 changed src/run.rs and the run spec; re-verifying.",
+      "timestamp": 1786987139,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "user:0xGaspar",
+        "timestamp": 1786571577,
+        "digest": "5df64b9aa1572b17868031448982ab062c0ad63439561fa7d8b783cb4ddfcf49",
+        "note": "Closing approval by the repository owner; verify-native green, 3 requirements evidenced."
+      },
+      "prior_verification": {
+        "timestamp": 1786571434,
+        "commit": "8ce6fc4e94d25bcc78d37cb029daa46e338993af",
+        "contract_digest": "256b68344897bc91a780a8ef7eb16cd748de1128294b607d1c40510d97233ee1",
+        "workspace_digest": "1fb21b09913708f96f556211239097aed6c860fac2ee4d75b878850daeeb361a",
+        "acceptance_input_digest": "a984a95b443a15e9724eeef184c5c9a00abe9a01c63faba4981ad2763bbaa447",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": [
+          "REQ-run-020",
+          "REQ-run-021",
+          "REQ-run-022"
+        ]
+      },
+      "stale_acceptance_input_digest": "a984a95b443a15e9724eeef184c5c9a00abe9a01c63faba4981ad2763bbaa447",
+      "current_acceptance_input_digest": "9ce191647605e5fef9d15244dfa19227fb2e0bf50b8edf756cd956f3b72fa9ec"
+    }
+  ]
+}

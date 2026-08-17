@@ -95,6 +95,7 @@ fn run() -> Result<()> {
             list,
             lang,
             json,
+            stream,
             args,
         }) => {
             run::run(run::RunOptions {
@@ -103,6 +104,7 @@ fn run() -> Result<()> {
                 list,
                 lang,
                 json,
+                stream,
                 args,
             })?;
         }
