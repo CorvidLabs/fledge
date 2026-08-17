@@ -176,12 +176,16 @@ fledge run [task] [OPTIONS]
 - `--json` - JSON output (works with `--list` and when running a task)
 - `--stream` - Forward the task's output live instead of buffering it
 
-**Streaming (`--stream`)** — for long-running or interactive tasks. Without `--json`, fledge already hands the task your terminal, so output is live and prompts work; `--stream` is accepted there and changes nothing. With `--json` the task's output is normally buffered until it exits (and its stdin is closed). Adding `--stream` mirrors the task's stdout and stderr to fledge's **stderr** as they arrive and lets the task read stdin, while fledge's **stdout** stays exactly one JSON envelope — so `fledge run migrate --json --stream | jq .success` still works and you watch progress on the way. Output is forwarded verbatim whether or not you're on a terminal (piped runs and CI logs stream too). Each stream is forwarded in order; the exact interleaving *between* stdout and stderr is best-effort, since they arrive on separate pipes.
+**Streaming (`--stream`)** — for long-running or interactive tasks. Without `--json`, fledge already hands the task your terminal, so output is live and prompts work; `--stream` is accepted there and changes nothing. With `--json` the task's output is normally buffered until it exits (and its stdin is closed). Adding `--stream` mirrors the task's stdout and stderr to fledge's **stderr** as they arrive and lets the task read stdin, while fledge's **stdout** still carries nothing but fledge's own envelopes — so `fledge run migrate --json --stream | jq .success` still works and you watch progress on the way. Output is forwarded verbatim whether or not you're on a terminal (piped runs and CI logs stream too). Each stream is forwarded in order; the exact interleaving *between* stdout and stderr is best-effort, since they arrive on separate pipes.
+
+If mirroring itself fails (fledge's stderr is a closed pipe, a full disk), the live echo stops with a warning but the run is unaffected: the envelope is still printed with the task's real exit code and complete `stdout`/`stderr`.
 
 ```bash
 fledge run migrate --json --stream    # watch progress, still get the envelope
 fledge run deploy --stream            # interactive task: prompts reach your terminal
 ```
+
+**One envelope per executed task.** `fledge run --json` prints one `run_task` envelope per task it runs, so a task with `deps` produces several concatenated JSON objects on stdout — long-standing behaviour that `--stream` does not change. Tools that read JSON as a stream (`jq`, Go's `json.Decoder`, `serde_json::StreamDeserializer`) handle this as-is; a single-document parser such as Python's `json.loads` does not. Run the dependency-free task, or split the stream, if you need exactly one object.
 
 **Zero-config mode** (no `fledge.toml`): Fledge detects your project type from marker files and provides default tasks automatically. For Node.js projects, it also detects your package manager (npm, bun, yarn, pnpm) from lockfiles.
 

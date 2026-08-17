@@ -68,12 +68,14 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 10. Pass-through is safe by construction: on POSIX the args become real shell positional parameters (`sh -c '<cmd> "$@"' fledge <args…>`), never interpolated into the command string. `"$@"` is auto-appended unless the command already references a positional (`$1`..`$9`, `$@`, `$*`, or their `${…}` forms), in which case the args fill those positionals without being doubled. With no pass-through args the invocation is identical to before the feature. On Windows (`cmd /C`) there is no `$@`; args are appended as argv (best-effort)
 11. `run <task> --json` includes an `args` array in the envelope only when pass-through args were supplied; arg-less runs keep their prior envelope shape
 12. Human-readable runs (no `--json`) inherit fledge's stdio: child output is already live and interleaved exactly as the child wrote it. `--json` runs buffer by default, capturing both streams for the envelope, and that default is unchanged by `--stream`'s existence
-13. `--stream` is opt-in and never changes the envelope's field set. With `--stream --json` the child's bytes are mirrored **to fledge's stderr** as they arrive while still being captured, so stdout remains a single parseable JSON document even when the task itself prints JSON. `--stream` without `--json` is accepted and is a no-op — that path already streams
+13. `--stream` is opt-in and never changes the envelope's field set. With `--stream --json` the child's bytes are mirrored **to fledge's stderr** as they arrive while still being captured, never to stdout — so stdout carries nothing but fledge's own envelopes even when the task itself prints JSON. `--stream` without `--json` is accepted and is a no-op — that path already streams
 14. `--stream` honours the flag unconditionally; it does not probe for a TTY. Piped/CI runs get the same live forwarding, byte-for-byte (no colouring, prefixing, or line framing), so the behaviour is deterministic and testable
 15. Under `--stream` the child inherits stdin, so a streamed task can prompt. The buffered `--json` path closes the child's stdin (`Command::output` semantics) and is therefore unusable for interactive commands
 16. Ordering under `--stream --json` is guaranteed **per stream**: each of stdout and stderr is forwarded in order, and a chunk is never split by the other stream. The relative interleaving *between* the two is best-effort — they are separate OS pipes drained by separate threads. True cross-stream interleaving is only available on the inherited-terminal (human-readable) path
 17. Exit-code handling is identical in both modes: the child's status is reported as `exit_code`/`success` in the envelope and a non-zero status still aborts with `Task '<name>' failed with exit code <n>`
 18. `--stream` is an output mode, not a task input, so unlike pass-through args it propagates to dependency tasks
+19. Failing to *mirror* never destroys the *result*: if a write to fledge's stderr fails mid-run (closed pipe, full disk), live forwarding for that stream stops, a one-line warning is attempted, and the run still completes — the envelope is printed with the child's true `exit_code`/`success` and its complete `stdout`/`stderr`. A failure to *read* the child's pipe is different and remains a hard error, because the capture would be incomplete
+20. `--json` prints one `run_task` envelope per executed task, so a task with `deps` emits several concatenated JSON objects on stdout (one per dependency, then one for the task). This predates `--stream` and is unchanged by it: the output is a JSON *stream*, not a single document
 
 ## Behavioral Examples
 
@@ -127,11 +129,18 @@ $ fledge run migrate --json
 {"schema_version": 1, "action": "run_task", "task": "migrate", ..., "stdout": "step 1/50…", "stderr": ""}
 
 # Same task with --stream: progress is mirrored to stderr as it happens,
-# stdout is still exactly one envelope
+# stdout still carries only fledge's own envelope
 $ fledge run migrate --json --stream 2>progress.log | jq .success
 step 1/50           # ← appears live on stderr while the task runs
 step 2/50
 true
+
+# One envelope per executed task — a task with deps emits several,
+# concatenated (pre-existing --json behaviour, unchanged by --stream).
+# Read it as a JSON stream, not a single document.
+$ fledge run build --json --stream | jq -c '{task, success}'
+{"task":"prep","success":true}
+{"task":"build","success":true}
 
 # Interactive task — the prompt reaches the terminal and the child keeps stdin
 $ fledge run deploy --json --stream
@@ -160,7 +169,8 @@ Available tasks:
 | Task failed | Non-zero exit code | Error with exit code (same message and code in buffered and `--stream` modes) |
 | Already exists | `--init` when fledge.toml exists | Error |
 | Spawn failed under `--stream` | Shell cannot be spawned, or a pipe is missing | Error contextualised as `running task '<name>'`, identical to the buffered path |
-| Forwarding thread panicked | Internal failure while mirroring a stream | Error `stdout/stderr forwarding thread panicked` — the run is reported as failed rather than emitting a truncated envelope |
+| Forwarding thread panicked | Internal failure while mirroring a stream | Error `stdout/stderr forwarding thread panicked` — the run is reported as failed rather than emitting a truncated envelope. Both forwarding threads are joined before the error escapes, so neither is left detached and still writing (the same holds when waiting on the child itself fails: the child is killed so the pumps reach EOF, then both are joined) |
+| Mirror write failed under `--stream` | fledge's own stderr stops accepting writes (closed pipe, full disk) | Not an error. Live forwarding stops, a `warning: live output for task '<name>' stopped (...)` line is attempted, and the envelope is still emitted with the real exit code and full capture |
 
 ## Dependencies
 

@@ -52,7 +52,7 @@ The implementation SHALL meet this contract: `--stream` is opt-in. Without it, `
 
 ### REQ-run-010
 
-The implementation SHALL meet this contract: with `--stream --json`, fledge's stdout contains exactly one parseable JSON envelope, even when the task itself writes JSON-shaped output
+The implementation SHALL meet this contract: with `--stream --json`, fledge's stdout carries only fledge's own `run_task` envelopes — one per executed task, so a task with dependencies emits several concatenated objects — and no child bytes, even when the task itself writes JSON-shaped output
 
 ### REQ-run-011
 
@@ -84,7 +84,9 @@ The implementation SHALL meet this contract: `--stream` without `--json` is acce
 
 **Rejected when:**
 
-- `--stream --json` writes child output to stdout, or stdout stops being a single JSON document
+- `--stream --json` writes child output to stdout, or stdout carries anything but fledge's own `run_task` envelopes
+- A failure to mirror (fledge's stderr stops accepting writes) aborts the run or suppresses the envelope instead of degrading to capture-only
+- A forwarding thread is left un-joined when its sibling fails
 - `--stream --json` leaves `stdout`/`stderr` empty or truncated in the envelope
 - The buffered default starts streaming, or the envelope gains/loses fields
 - Forwarding is skipped because the destination is not a TTY
@@ -118,7 +120,8 @@ Acceptance Criteria
 - The envelope's `stdout` and `stderr` fields are populated identically to the buffered path.
 - The envelope field set and `schema_version` are unchanged.
 - For the same failing task, the streamed and buffered envelopes are equal, including `exit_code`.
-- Child bytes are mirrored to stderr, never to stdout, so stdout remains a single JSON document.
+- Child bytes are mirrored to stderr, never to stdout, so stdout carries only fledge's own `run_task` envelopes (one per executed task — a task with `deps` emits several, as `--json` always has).
+- A mirror-write failure degrades to capture-only with a warning; the envelope is still emitted with the real exit code and complete output.
 
 ### REQ-run-022
 
