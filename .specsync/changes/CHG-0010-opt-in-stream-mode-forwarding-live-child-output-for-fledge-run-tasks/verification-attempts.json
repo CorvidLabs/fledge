@@ -19,6 +19,25 @@
         "REQ-run-021",
         "REQ-run-022"
       ]
+    },
+    {
+      "timestamp": 1786987153,
+      "commit": "640dd2d796daff38ce416f22754c5d802cb8186c",
+      "contract_digest": "256b68344897bc91a780a8ef7eb16cd748de1128294b607d1c40510d97233ee1",
+      "workspace_digest": "dd28689feab0eacfbaf522576b10ad1c99f0053fcaae8f292490333853a81b90",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-run-020",
+        "REQ-run-021",
+        "REQ-run-022"
+      ]
     }
   ]
 }
