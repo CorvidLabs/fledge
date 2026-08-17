@@ -9,7 +9,7 @@
   "canonical_applied": true,
   "base_commit": "df9ea9c5fd2b6d553a4334afecfbd04cbe23281b",
   "created_at": 1785888531,
-  "updated_at": 1786125818,
+  "updated_at": 1786974675,
   "affected_specs": [],
   "affected_paths": [
     "src/envelope.rs",

@@ -432,4 +432,299 @@ ignore = ["template.toml"]
     let _status = output.status;
 }
 
+// MARK: - spec lint
+// ──────────────────────────────────────────────────────────
+
+#[test]
+fn cli_spec_lint_succeeds_in_project() {
+    // fledge's own specs must clear the structural gate.
+    let output = run_fledge(&["spec", "lint"]);
+    assert!(
+        output.status.success(),
+        "spec lint failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cli_spec_lint_json_envelope() {
+    let output = run_fledge(&["spec", "lint", "--json"]);
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["schema_version"].as_u64(), Some(1));
+    assert_eq!(parsed["action"].as_str(), Some("spec_lint"));
+    assert_eq!(parsed["passed"].as_bool(), Some(true));
+    // Layer 2 is opt-in, so a plain CI invocation never touches a provider.
+    assert_eq!(parsed["model_pass"]["requested"].as_bool(), Some(false));
+    assert_eq!(parsed["model_pass"]["ran"].as_bool(), Some(false));
+    assert!(parsed["model_pass"]["skipped_reason"].is_string());
+    let specs = parsed["specs"].as_array().expect("specs array");
+    assert!(!specs.is_empty());
+    for field in ["name", "path", "version", "status", "findings", "passed"] {
+        assert!(specs[0].get(field).is_some(), "missing field {field}");
+    }
+    assert!(parsed["totals"]["linted"].as_u64().unwrap() > 0);
+}
+
+#[test]
+fn cli_spec_lint_single_module() {
+    let output = run_fledge(&["spec", "lint", "spec", "--json"]);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(parsed["totals"]["linted"].as_u64(), Some(1));
+    assert_eq!(parsed["specs"][0]["name"].as_str(), Some("spec"));
+}
+
+#[test]
+fn cli_spec_lint_rejects_a_freshly_scaffolded_spec() {
+    // The point of the command: `spec new` output is structurally complete but
+    // says nothing, and `spec check` passes it. Lint must not.
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+    run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+
+    let output = run_fledge_in(tmp.path(), &["spec", "lint", "--json"]);
+    assert!(!output.status.success(), "scaffolded spec should fail lint");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(parsed["passed"].as_bool(), Some(false));
+    let checks: Vec<String> = parsed["specs"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["check"].as_str().unwrap().to_string())
+        .collect();
+    assert!(checks.contains(&"empty_section".to_string()), "{checks:?}");
+    assert!(checks.contains(&"missing_file".to_string()), "{checks:?}");
+    assert!(
+        checks.contains(&"no_rejection_signal".to_string()),
+        "{checks:?}"
+    );
+    // Errors go to stderr as plain text even under --json.
+    assert!(String::from_utf8_lossy(&output.stderr).contains("spec lint failed"));
+}
+
+#[test]
+fn cli_spec_lint_ignore_suppresses_a_check() {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    run_fledge_in(tmp.path(), &["spec", "init"]);
+    run_fledge_in(tmp.path(), &["spec", "new", "auth"]);
+
+    let output = run_fledge_in(
+        tmp.path(),
+        &["spec", "lint", "--ignore", "missing_file", "--json"],
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    let checks: Vec<String> = parsed["specs"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["check"].as_str().unwrap().to_string())
+        .collect();
+    assert!(!checks.contains(&"missing_file".to_string()), "{checks:?}");
+    assert!(parsed["totals"]["ignored"].as_u64().unwrap() > 0);
+}
+
+/// A project whose `.specsync/config.toml` renames every default section.
+/// Returns the tempdir with `.specsync/config.toml`, `src/demo.rs`, and
+/// `specs/demo/demo.spec.md` written from `body`.
+fn custom_sections_project(required: &str, body: &str) -> TempDir {
+    let tmp = TempDir::new().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(tmp.path())
+        .output()
+        .unwrap();
+    fs::create_dir_all(tmp.path().join(".specsync")).unwrap();
+    fs::write(
+        tmp.path().join(".specsync/config.toml"),
+        format!("specs_dir = \"specs\"\nrequired_sections = {required}\n"),
+    )
+    .unwrap();
+    fs::create_dir_all(tmp.path().join("src")).unwrap();
+    fs::write(tmp.path().join("src/demo.rs"), "// demo\n").unwrap();
+    fs::create_dir_all(tmp.path().join("specs/demo")).unwrap();
+    fs::write(tmp.path().join("specs/demo/demo.spec.md"), body).unwrap();
+    tmp
+}
+
+const CUSTOM_REQUIRED: &str =
+    r#"["Overview", "API", "Rules", "Examples", "Failures", "Deps", "History"]"#;
+
+/// A complete spec under `CUSTOM_REQUIRED`'s headings.
+fn custom_sections_spec(overview: &str) -> String {
+    format!(
+        r#"---
+module: demo
+version: 3
+status: active
+files:
+  - src/demo.rs
+---
+
+# Demo
+
+## Overview
+
+{overview}
+
+## API
+
+| Export | Description |
+|--------|-------------|
+| `run` | Executes the validated plan |
+
+## Rules
+
+1. `run` never mutates the config it was given.
+
+## Examples
+
+Given a config with one task, when `run` is called, then the task executes once.
+
+## Failures
+
+| Error | When | Behavior |
+|-------|------|----------|
+| UnknownTask | the named task is absent | exits 1 and names the task |
+
+## Deps
+
+- serde
+
+## History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3 | 2026-01-01 | Initial spec |
+"#
+    )
+}
+
+#[test]
+fn cli_spec_lint_honors_custom_required_sections() {
+    // End-to-end for the two halves of the same bug. A project that renamed its
+    // sections used to get the worst of both: placeholders in `## Overview` were
+    // never seen (the check scanned a hardcoded "Purpose"), while full
+    // `## Examples` / `## Failures` sections still failed the signal checks
+    // (which scanned a hardcoded "Behavioral Examples" / "Error Cases").
+
+    // Half one — a healthy custom-section spec passes cleanly.
+    let healthy = custom_sections_project(
+        CUSTOM_REQUIRED,
+        &custom_sections_spec(
+            "Demo turns a parsed config into a validated execution plan, so a\nmalformed config fails before any task runs.",
+        ),
+    );
+    let output = run_fledge_in(healthy.path(), &["spec", "lint", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(
+        parsed["passed"].as_bool(),
+        Some(true),
+        "custom sections should pass: {parsed}"
+    );
+    assert_eq!(parsed["totals"]["errors"].as_u64(), Some(0));
+    assert_eq!(parsed["totals"]["warnings"].as_u64(), Some(0));
+
+    // Half two — a placeholder in the renamed Purpose section is caught.
+    let placeholder = custom_sections_project(
+        CUSTOM_REQUIRED,
+        &custom_sections_spec("TODO: fill this in later."),
+    );
+    let output = run_fledge_in(placeholder.path(), &["spec", "lint", "--json"]);
+    assert!(!output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    let findings = parsed["specs"][0]["findings"].as_array().unwrap();
+    let placeholder_finding = findings
+        .iter()
+        .find(|f| f["check"] == "placeholder_text")
+        .unwrap_or_else(|| panic!("no placeholder_text finding in {parsed}"));
+    assert_eq!(placeholder_finding["section"].as_str(), Some("Overview"));
+}
+
+#[test]
+fn cli_spec_lint_warns_instead_of_failing_when_no_section_carries_a_signal() {
+    // A `required_sections` with no acceptance/rejection analogue at all. The
+    // checks degrade to warnings naming the `accepts:`/`rejects:` escape hatch
+    // rather than becoming a red nothing in the project can clear.
+    let spec = r#"---
+module: demo
+version: 3
+status: active
+files:
+  - src/demo.rs
+---
+
+# Demo
+
+## Overview
+
+Demo turns a parsed config into a validated execution plan.
+
+## Notes
+
+Nothing here names an acceptance or rejection signal.
+"#;
+    let tmp = custom_sections_project(r#"["Overview", "Notes"]"#, spec);
+    let output = run_fledge_in(tmp.path(), &["spec", "lint", "--json"]);
+    assert!(
+        output.status.success(),
+        "unresolvable signals must not fail the gate: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(parsed["passed"].as_bool(), Some(true));
+    assert_eq!(parsed["totals"]["errors"].as_u64(), Some(0));
+    assert_eq!(parsed["totals"]["warnings"].as_u64(), Some(2));
+    for finding in parsed["specs"][0]["findings"].as_array().unwrap() {
+        assert_eq!(finding["severity"].as_str(), Some("warning"), "{finding}");
+        assert!(finding["message"]
+            .as_str()
+            .unwrap()
+            .contains("required_sections"));
+    }
+}
+
+#[test]
+fn cli_spec_lint_reports_an_overridden_ai_request_faithfully() {
+    // `--no-ai` wins, but the JSON must still show that `--ai` was asked for:
+    // `requested` is what the caller wanted, `ran` is what happened.
+    let output = run_fledge(&["spec", "lint", "--ai", "--no-ai", "--json"]);
+    assert!(output.status.success());
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    let model_pass = &parsed["model_pass"];
+    assert_eq!(model_pass["requested"].as_bool(), Some(true));
+    assert_eq!(model_pass["ran"].as_bool(), Some(false));
+    assert_eq!(
+        model_pass["skipped_reason"].as_str(),
+        Some("--no-ai overrides --ai")
+    );
+    // No provider was ever built, so the run stayed offline.
+    assert!(model_pass["provider"].is_null());
+}
+
+#[test]
+fn cli_spec_lint_rejects_unknown_ignore_id() {
+    let output = run_fledge(&["spec", "lint", "--ignore", "not_a_check"]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("unknown --ignore check"));
+}
+
 // ──────────────────────────────────────────────────────────

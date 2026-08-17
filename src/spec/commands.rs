@@ -49,19 +49,7 @@ pub(super) fn structural_results(root: &Path) -> Vec<validation::SpecResult> {
     if !specs_dir.exists() {
         return Vec::new();
     }
-    let required_sections = if config.required_sections.is_empty() {
-        vec![
-            "Purpose".to_string(),
-            "Public API".to_string(),
-            "Invariants".to_string(),
-            "Behavioral Examples".to_string(),
-            "Error Cases".to_string(),
-            "Dependencies".to_string(),
-            "Change Log".to_string(),
-        ]
-    } else {
-        config.required_sections.clone()
-    };
+    let required_sections = super::required_sections_of(&config);
 
     let mut results: Vec<validation::SpecResult> = Vec::new();
     for entry in WalkDir::new(&specs_dir).into_iter().filter_map(|e| e.ok()) {
@@ -324,11 +312,7 @@ pub(crate) fn build_summary(
 pub(crate) fn list_specs(root: &Path, json: bool) -> Result<()> {
     let config = load_config(root)?;
     let specs_dir = root.join(config.specs_dir.as_deref().unwrap_or("specs"));
-    let required_count = if config.required_sections.is_empty() {
-        7
-    } else {
-        config.required_sections.len()
-    };
+    let required_count = super::required_sections_of(&config).len();
 
     if !specs_dir.exists() {
         if json {

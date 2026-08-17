@@ -6,6 +6,7 @@ use walkdir::WalkDir;
 
 pub(crate) mod commands;
 pub(crate) mod engine;
+pub(crate) mod lint;
 pub(crate) mod parse;
 #[cfg(test)]
 mod tests;
@@ -16,11 +17,25 @@ pub(crate) mod validation;
 pub(crate) const COMPANION_FILES: &[&str] =
     &["requirements.md", "tasks.md", "context.md", "testing.md"];
 
+/// The spec-sync v5 required section set, used when `.specsync/config.toml`
+/// does not override `required_sections`. Shared by `check` and `lint` so both
+/// layers agree on what "structurally complete" means.
+pub(crate) const DEFAULT_REQUIRED_SECTIONS: &[&str] = &[
+    "Purpose",
+    "Public API",
+    "Invariants",
+    "Behavioral Examples",
+    "Error Cases",
+    "Dependencies",
+    "Change Log",
+];
+
 /// Per-command JSON schema versions for `spec` subcommands. See lanes.rs for
 /// rationale.
 pub(crate) const SPEC_CHECK_SCHEMA: u32 = 1;
 pub(crate) const SPEC_LIST_SCHEMA: u32 = 1;
 pub(crate) const SPEC_SHOW_SCHEMA: u32 = 1;
+pub(crate) const SPEC_LINT_SCHEMA: u32 = 1;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,11 +71,31 @@ pub struct IndexEntry {
 
 #[derive(Debug)]
 pub enum SpecAction {
-    Check { strict: bool, json: bool },
+    Check {
+        strict: bool,
+        json: bool,
+    },
     Init,
-    New { name: String },
-    List { json: bool },
-    Show { name: String, json: bool },
+    New {
+        name: String,
+    },
+    List {
+        json: bool,
+    },
+    Show {
+        name: String,
+        json: bool,
+    },
+    Lint {
+        target: Option<String>,
+        json: bool,
+        strict: bool,
+        ai: bool,
+        no_ai: bool,
+        provider: Option<String>,
+        model: Option<String>,
+        ignore: Vec<String>,
+    },
 }
 
 // ── Config / root helpers ────────────────────────────────────────────────────
@@ -87,6 +122,35 @@ pub(crate) fn find_project_root() -> PathBuf {
 pub(crate) fn specs_dir_from_config(root: &Path) -> Result<PathBuf> {
     let config = load_config(root)?;
     Ok(root.join(config.specs_dir.as_deref().unwrap_or("specs")))
+}
+
+/// The section set a project considers required: its `required_sections`
+/// override when it has one, otherwise [`DEFAULT_REQUIRED_SECTIONS`].
+///
+/// The single place this fallback is decided. `check`, `list`, and `lint` all
+/// route through it so they cannot silently disagree about what "structurally
+/// complete" means — the disagreement this function was extracted to prevent.
+pub(crate) fn required_sections_of(config: &SpecSyncConfig) -> Vec<String> {
+    if config.required_sections.is_empty() {
+        DEFAULT_REQUIRED_SECTIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect()
+    } else {
+        config.required_sections.clone()
+    }
+}
+
+/// [`required_sections_of`] for a project root, falling back to the defaults
+/// when the config is missing or unreadable.
+pub(crate) fn required_sections(root: &Path) -> Vec<String> {
+    match load_config(root) {
+        Ok(config) => required_sections_of(&config),
+        Err(_) => DEFAULT_REQUIRED_SECTIONS
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+    }
 }
 
 // ── File helpers ─────────────────────────────────────────────────────────────
@@ -170,6 +234,28 @@ pub fn run(action: SpecAction) -> Result<()> {
         SpecAction::New { name } => commands::new_spec(&root, &name),
         SpecAction::List { json } => commands::list_specs(&root, json),
         SpecAction::Show { name, json } => commands::show_spec(&root, &name, json),
+        SpecAction::Lint {
+            target,
+            json,
+            strict,
+            ai,
+            no_ai,
+            provider,
+            model,
+            ignore,
+        } => lint::run(
+            &root,
+            lint::LintOptions {
+                target,
+                json,
+                strict,
+                ai,
+                no_ai,
+                provider,
+                model,
+                ignore,
+            },
+        ),
     }
 }
 
