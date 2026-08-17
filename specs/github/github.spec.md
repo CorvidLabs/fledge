@@ -28,7 +28,10 @@ As of v0.17, `fledge work pr` was removed from core — PR creation now lives en
 | `github_api_get` | Makes an authenticated GET request to the GitHub REST API |
 | `ensure_git_repo` | Verifies that the current directory is inside a git repository |
 | `api_base` | Resolves the GitHub REST base URL, redirectable in tests |
-| `remote_base` / `remote_url` | Resolve the `github.com/<owner>/<repo>.git` git endpoint, redirectable in tests |
+| `remote_base` | Resolves the git remote base URL, redirectable in tests |
+| `remote_url` | Composes the `<owner>/<repo>.git` clone/push URL from `remote_base` |
+| `API_BASE_ENV` | Name of the debug-only env var that redirects the REST base to loopback |
+| `REMOTE_BASE_ENV` | Name of the debug-only env var that redirects the git remote base |
 
 ### Functions
 

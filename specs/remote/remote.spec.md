@@ -1,6 +1,6 @@
 ---
 module: remote
-version: 3
+version: 4
 status: active
 files:
   - src/remote.rs
@@ -120,3 +120,4 @@ Fetches templates from GitHub repositories. Clones repos to a local cache direct
 |---------|------|---------|
 | 3 | 2026-04-19 | Add version pinning with `@ref` syntax |
 | 1 | 2026-04-18 | Initial spec |
+| 4 | 2026-08-17 | CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper: Route remote template cloning through the shared GitHub remote-base helper |

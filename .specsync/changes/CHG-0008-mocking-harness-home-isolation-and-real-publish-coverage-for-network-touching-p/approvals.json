@@ -27,6 +27,27 @@
       "timestamp": 1786471226,
       "digest": "b743f42ef79dcfa2bd4de72803972ee68cf0ee558b136304071a8cce1402a078",
       "note": "Re-accepted after re-verification against main following the #503 merge."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786920579,
+      "digest": "2ae90e656a0b67fec7fb302be0ae8eccd56d1ca715df373ca0598e45f9415e42",
+      "note": "Re-approved after widening delivery paths for the isolation fixes."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786927791,
+      "digest": "546438310dd882408b6ae5bb639c6a5e05549b9c916ac44752fc8c8601ad73c6",
+      "note": "Re-approved at the original definition."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786927899,
+      "digest": "1d8eb709a5eff375ec72635185cc72f1c32427264037b65cee5f9fa6cd470a76",
+      "note": "Re-accepted after review fixes; verify-native green with 4 requirements."
     }
   ],
   "reopenings": [
@@ -68,6 +89,45 @@
       },
       "stale_acceptance_input_digest": "52e08bcc8ee02b4bc933e98367a23b13e6bef86f8f72bac35e1188d881877447",
       "current_acceptance_input_digest": "9e2e8da1fcbb5efb1f2b0126d73af08edc20906bbf8bae9057c1e5ac7686d848"
+    },
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p",
+      "actor": "user:0xGaspar",
+      "reason": "Review fixes for PR #504 added src/remote.rs and tests/isolation.rs and changed the isolation design; re-verifying with the widened delivery scope.",
+      "timestamp": 1786920271,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "user:0xGaspar",
+        "timestamp": 1786471226,
+        "digest": "b743f42ef79dcfa2bd4de72803972ee68cf0ee558b136304071a8cce1402a078",
+        "note": "Re-accepted after re-verification against main following the #503 merge."
+      },
+      "prior_verification": {
+        "timestamp": 1786471226,
+        "commit": "3e4e9d100947c47f8724304283283987362f199a",
+        "contract_digest": "546438310dd882408b6ae5bb639c6a5e05549b9c916ac44752fc8c8601ad73c6",
+        "workspace_digest": "807163d905dd2087d9c8eddd4889ebf24b5de92e40c4a80a8dc745ce7dd83a44",
+        "acceptance_input_digest": "9e2e8da1fcbb5efb1f2b0126d73af08edc20906bbf8bae9057c1e5ac7686d848",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": [
+          "REQ-doctor-020",
+          "REQ-github-020",
+          "REQ-llm-020",
+          "REQ-publish-020"
+        ]
+      },
+      "stale_acceptance_input_digest": "9e2e8da1fcbb5efb1f2b0126d73af08edc20906bbf8bae9057c1e5ac7686d848",
+      "current_acceptance_input_digest": "660823c4866c245c9338f3274f7ae9d596064f5e7c293720b24cf5349de0a317"
     }
   ]
 }

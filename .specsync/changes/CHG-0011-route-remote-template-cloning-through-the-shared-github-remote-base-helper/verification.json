@@ -1,0 +1,18 @@
+{
+  "timestamp": 1786968328,
+  "commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+  "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+  "workspace_digest": "ca11163572591d74ebabdedeccf7de5edd45402d799d148976122e3d8b938993",
+  "acceptance_input_digest": "26dac6c5bf861a0790786c9844b3a5852021adeb299026c1c4f3720333a98ecf",
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": [
+    "REQ-remote-010"
+  ]
+}
