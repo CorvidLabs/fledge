@@ -137,6 +137,29 @@ fledge run docs-serve
 - Test both the happy path and error cases
 - Use `tempfile` for tests that write to disk
 
+**No test may touch the network or your real `~/.config/fledge/`.** Two shared harnesses make that easy:
+
+- `src/test_support.rs` (unit tests). `MockHttpServer` is a dependency-free loopback HTTP server: register canned routes with `on("GET", "/path", MockResponse::json(200, …))`, point the code under test at `server.url()`, then assert on `server.requests()` (method, path, query, headers, body). `dead_port_url()` gives a closed port for connection-refused paths. `GithubBaseGuard` redirects the GitHub REST base (and, for publish, the git remote base) at that server for the current thread. `ConfigDirGuard`, `EnvVarGuard`, `GitIdentityGuard`, `TestRepo`, and `StubLlmProvider` cover config, env, git, and LLM isolation. Env-mutating tests must hold `env_lock()`.
+- `tests/common/mod.rs` (integration tests). `TempEnv` spawns `fledge` with a fresh `HOME`/`XDG_CONFIG_HOME`/`XDG_CACHE_HOME`/`FLEDGE_CONFIG_DIR`, non-interactive mode, every provider API key and GitHub token stripped, a pinned git identity, and `OLLAMA_HOST` plus both GitHub endpoints pointed at closed loopback ports. `MockHttp` is a cut-down loopback server for the cases that need a real reply.
+
+```rust
+let server = MockHttpServer::start();
+server.on("GET", "/user", MockResponse::json(200, r#"{"login":"octo"}"#));
+let _base = GithubBaseGuard::api(&server.url());
+assert_eq!(get_authenticated_user("tok").unwrap(), "octo");
+```
+
+**Redirecting endpoints in a *spawned* binary.** `GithubBaseGuard` is a `#[cfg(test)]` thread-local, so it cannot reach the `fledge` process an integration test spawns. Two environment variables cover that gap, and `TempEnv` sets both:
+
+| Variable | Redirects | Accepted values |
+|---|---|---|
+| `FLEDGE_TEST_GITHUB_API_BASE` | `github::api_base()` — every REST call | loopback `http://` URL |
+| `FLEDGE_TEST_GITHUB_REMOTE_BASE` | `github::remote_base()` — remote-template `git clone`, publish `git push` | loopback `http://` URL, or an existing absolute local directory of `<owner>/<repo>.git` bare repos |
+
+They are **test hooks, not configuration**: read only in debug builds (compiled out of every released binary) and only when the value is loopback or a local directory, so no environment can redirect an `Authorization: Bearer <token>` request off the machine. Anything else is ignored with a warning. Use `TempEnv::with_github_api_base` / `with_github_remote_base` rather than setting them by hand, and guard tests that depend on them with `github_redirection_supported()` so `cargo test --release` skips instead of reaching github.com.
+
+Git traffic (`git clone`, `git push`) is a subprocess and can never be intercepted by an HTTP mock — isolate it by pointing the *remote base* at local bare repos, as `tests/isolation.rs` and the `publish` unit tests do.
+
 ### Style
 
 - Run `fledge run fmt-fix` before committing

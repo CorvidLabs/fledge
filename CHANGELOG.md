@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 
+- test infra: add a dependency-free loopback HTTP mocking harness (`MockHttpServer`) plus `TempEnv`/`GithubBaseGuard`/`GitIdentityGuard` isolation, and back the GitHub publish flow, `github_api_get`, the Ollama provider, and the doctor probe with real offline coverage (#447)
+- test infra: extend that isolation to spawned binaries — the GitHub REST base and the `github.com/<owner>/<repo>.git` git base are now resolved through `github::api_base()`/`github::remote_url()` and redirectable at loopback via debug-build-only `FLEDGE_TEST_GITHUB_*` variables, so integration tests (including the remote-template `git clone` path) cannot reach github.com. Release builds are unchanged: the hook is compiled out and non-loopback values are refused (#447)
 - scope Atlas coverage to shipped product code by excluding build/test-only support files (#495)
 - pin the spec-sync CI binary to 4.7.1 after 4.8.0 introduced false missing-export failures
 

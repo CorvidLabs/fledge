@@ -678,4 +678,38 @@ mod tests {
         assert!(json.contains("\"fledge config\""));
         assert!(json.contains("\"ok\""));
     }
+
+    // ── probe_ollama_host (loopback mock, never the real network) ─────────
+
+    #[test]
+    fn probe_ollama_host_true_when_tags_endpoint_answers() {
+        let server = crate::test_support::MockHttpServer::start();
+        server.on(
+            "GET",
+            "/api/tags",
+            crate::test_support::MockResponse::json(200, r#"{"models":[]}"#),
+        );
+
+        // Trailing slash must not produce `//api/tags`.
+        assert!(probe_ollama_host(&server.url()));
+        assert!(probe_ollama_host(&format!("{}/", server.url())));
+        assert_eq!(server.requests().len(), 2);
+        assert_eq!(
+            server.requests()[0].header("user-agent"),
+            Some("fledge-cli")
+        );
+    }
+
+    #[test]
+    fn probe_ollama_host_false_when_unreachable_or_erroring() {
+        assert!(!probe_ollama_host(&crate::test_support::dead_port_url()));
+
+        let server = crate::test_support::MockHttpServer::start();
+        server.on(
+            "GET",
+            "/api/tags",
+            crate::test_support::MockResponse::empty(500),
+        );
+        assert!(!probe_ollama_host(&server.url()));
+    }
 }

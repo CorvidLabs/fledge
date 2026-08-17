@@ -1,0 +1,19 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786932941,
+      "digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786968328,
+      "digest": "031600ed1dd258c09db618b8d69230c87c2721b25fceb7244a3b94a629373839",
+      "note": "Closing approval by the repository owner."
+    }
+  ],
+  "reopenings": []
+}
