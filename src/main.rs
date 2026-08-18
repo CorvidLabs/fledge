@@ -9,6 +9,7 @@ mod cli;
 mod config;
 mod config_cmds;
 mod create_template;
+mod deps;
 mod doctor;
 mod envelope;
 mod github;

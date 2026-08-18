@@ -77,6 +77,78 @@ steps = ["step1", "step2"]
     assert!(stdout.contains("STEP2"));
 }
 
+const DIAMOND_TOML: &str = r#"[tasks]
+d = "echo d"
+
+[tasks.b]
+cmd = "echo b"
+deps = ["d"]
+
+[tasks.c]
+cmd = "echo c"
+deps = ["d"]
+
+[tasks.a]
+cmd = "echo a"
+deps = ["b", "c"]
+
+[lanes.build]
+description = "diamond deps, no cycle"
+steps = [{ task = "a" }]
+"#;
+
+#[test]
+fn cli_lane_run_diamond_deps_succeeds() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), DIAMOND_TOML).unwrap();
+    let output = run_fledge_in(tmp.path(), &["lanes", "run", "build"]);
+    assert!(
+        output.status.success(),
+        "diamond DAG must run: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cli_lane_validate_diamond_deps_succeeds() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), DIAMOND_TOML).unwrap();
+    let output = run_fledge_in(tmp.path(), &["lanes", "validate"]);
+    assert!(
+        output.status.success(),
+        "diamond DAG must validate: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn cli_lane_run_real_cycle_fails() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks.a]
+cmd = "echo a"
+deps = ["b"]
+
+[tasks.b]
+cmd = "echo b"
+deps = ["a"]
+
+[lanes.build]
+description = "real cycle"
+steps = [{ task = "a" }]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["lanes", "run", "build"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.to_ascii_lowercase().contains("circular"),
+        "expected a real cycle to fail, got: {stderr}"
+    );
+}
+
 #[test]
 fn cli_lane_unknown_lane_fails() {
     let tmp = TempDir::new().unwrap();

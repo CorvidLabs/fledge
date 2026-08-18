@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 25
+version: 26
 status: active
 files:
   - src/lanes/mod.rs
@@ -163,7 +163,7 @@ steps = [
 6. `fail_fast` defaults to `true` — when a step (sequential or parallel-group) reports failure, the lane stops before running the next step. With `fail_fast = false`, the lane runs every step regardless and reports the full failure list at the end
 7. `--init` appends language-aware default lanes to an existing `fledge.toml`
 8. `--dry-run` prints the execution plan without running anything
-9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself
+9. Task dependencies (deps) are resolved within each step — a task's deps run before the task itself. Cycle detection uses the shared two-set DFS in `src/deps.rs` (`in_progress` vs `completed`): a diamond DAG (two tasks sharing one dep) is valid and the shared dep runs once; a genuine cycle fails with the ordered walk (e.g. `a → b → a`). `lanes run` and `lanes validate` share this helper so they cannot drift apart
 10. Each step prints its elapsed time on completion; the lane summary includes total elapsed time
 11. `--from <step>` skips all steps before the target (by 1-based index or step name). Stateless — no run history is persisted. Skipped steps show in both human-readable and JSON output
 12. `when` conditions are evaluated against environment variables before each step executes. Steps with unmet conditions are silently skipped (shown as skipped in output). Evaluation is AND-logic for comma-separated conditions
@@ -300,7 +300,8 @@ $ fledge lanes run ci --json --dry-run
 | Validate undefined task | Lane step references task not in `[tasks]` | Validation error |
 | Validate empty steps | Lane has zero steps | Validation error |
 | Validate empty parallel | Parallel group has no items | Validation error |
-| Validate circular deps | Task deps form a cycle | Validation error |
+| Validate circular deps | Task deps form a cycle | Validation error listing the ordered cycle walk |
+| Validate diamond deps | Two tasks share one dep (DAG) | Valid — not reported as a cycle |
 
 ## Compatibility Policy
 
@@ -334,6 +335,7 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 26 | 2026-08-17 | Fix diamond DAGs being reported as circular deps in `lanes run` and `lanes validate` (#508). Both now use the shared two-set DFS in `src/deps.rs`; cycle errors report the ordered walk. Genuine cycles still fail |
 | 25 | 2026-06-11 | `lanes init` follow-up hint now points at `fledge lanes list` — it previously printed `fledge lane`, which is the subcommand alias without an action and exits with a usage error |
 | 24 | 2026-05-04 | Follow-up polish: (a) New `retry_delay` step option (seconds, default 1) — overrides the inter-attempt sleep, supports immediate retry with `retry_delay = 0`. (b) Windows process tree reaping via Job Object + `TerminateJobObject` — mirrors the Unix `process_group` + `killpg` fix from v23 so timeout no longer leaks grandchildren on Windows either. (c) `evaluate_when` now exposes a closure-injected `evaluate_when_with` so tests can supply a `HashMap` instead of mutating process-global env vars (edition-2024 prep) |
 | 23 | 2026-05-04 | Follow-up review fixes: (a) Process group kill on Unix — `timeout` now reaps the entire process tree via `killpg(SIGKILL)`, no more orphaned grandchildren from `sh -c "a && b"`. (b) Skipped step JSON entries normalized to include `success: null, duration_ms: null, error: null` so the per-step shape is consistent across completed and skipped rows; `LANES_RUN_SCHEMA` and `LANES_DRY_RUN_SCHEMA` reverted to 1 (additive only). (c) `--from <name>` on a parallel step now emits a specific error pointing at index targeting instead of the generic "no match" |

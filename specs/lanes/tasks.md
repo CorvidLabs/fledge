@@ -16,3 +16,4 @@ spec: lanes.spec.md
 - [x] Add lane import from remote repos
 - [x] Wire up CLI subcommand in main.rs
 - [x] Run verification suite
+- [x] Fix diamond DAGs falsely reported as circular in execute + validate (#508)

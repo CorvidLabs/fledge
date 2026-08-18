@@ -377,35 +377,20 @@ pub(crate) fn execute_task_with_deps(
             bail!("step timed out");
         }
     }
-    let mut visited = HashSet::new();
-    execute_task_recursive(name, tasks, project_dir, &mut visited, quiet, deadline)
-}
-
-fn execute_task_recursive(
-    name: &str,
-    tasks: &BTreeMap<String, TaskDef>,
-    project_dir: &Path,
-    visited: &mut HashSet<String>,
-    quiet: bool,
-    deadline: Option<Instant>,
-) -> Result<()> {
-    if !visited.insert(name.to_string()) {
-        bail!(
-            "Circular dependency detected: task '{}' depends on itself (chain: {})",
-            name,
-            visited.iter().cloned().collect::<Vec<_>>().join(" → ")
-        );
-    }
-
-    let task = tasks
-        .get(name)
-        .ok_or_else(|| anyhow::anyhow!("Task '{}' not found", name))?;
-
-    for dep in task.deps() {
-        execute_task_recursive(dep, tasks, project_dir, visited, quiet, deadline)?;
-    }
-
-    execute_single_task(name, task, project_dir, quiet, deadline)
+    let mut in_progress = Vec::new();
+    let mut completed = HashSet::new();
+    crate::deps::walk_task_graph(
+        name,
+        &|n| tasks.get(n).map(TaskDef::deps),
+        &mut in_progress,
+        &mut completed,
+        &mut |n| {
+            let task = tasks
+                .get(n)
+                .ok_or_else(|| anyhow::anyhow!("Task '{n}' not found"))?;
+            execute_single_task(n, task, project_dir, quiet, deadline)
+        },
+    )
 }
 
 fn execute_single_task(
