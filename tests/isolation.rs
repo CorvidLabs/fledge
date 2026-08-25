@@ -14,7 +14,13 @@
 mod common;
 use common::*;
 
+// Only the local-bare-repo clone test (and its helpers) need these, and that
+// test is `cfg(not(windows))` because `dirs::cache_dir()` is not
+// env-redirectable on Windows. Gate the imports to match, or Windows builds
+// fail on unused-import warnings under `-D warnings`.
+#[cfg(not(windows))]
 use std::path::Path;
+#[cfg(not(windows))]
 use std::process::Command;
 
 /// A GitHub `/search/repositories` payload for a fictional template repo.
