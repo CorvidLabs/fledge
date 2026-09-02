@@ -21,7 +21,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: CorvidLabs Trust gate
         id: trust
-        uses: CorvidLabs/trust@887c7d74828cc0c7e2f620bdd0325ac8ca9250d1 # v1.1.2
+        uses: CorvidLabs/trust@e0272543ad5c88ec75cea1e606cc2efa552af25b # v1.2.0-rc.4
 
       - name: Check managed agent rules
         run: |
