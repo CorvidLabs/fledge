@@ -11,6 +11,7 @@ spec: run.spec.md
 - [x] Implement task execution with shell dispatch
 - [x] Implement task dependency resolution with execution ordering
 - [x] Implement circular dependency detection
+- [x] Fix diamond DAGs falsely reported as circular (#508); share two-set DFS via `src/deps.rs`
 - [x] Implement --init to scaffold a starter fledge.toml from detected project type
 - [x] Implement --list to display available tasks
 - [x] Implement auto-detection fallback when no fledge.toml exists

@@ -21,7 +21,7 @@ The implementation SHALL meet this contract: Task dependencies run in topologica
 
 ### REQ-run-003
 
-The implementation SHALL meet this contract: Circular dependencies produce an error listing the cycle
+The implementation SHALL meet this contract: Circular dependencies produce an error listing the ordered cycle walk (e.g. `a → b → a`). A diamond DAG (two tasks sharing one dep) is not a cycle
 
 ### REQ-run-004
 
@@ -38,6 +38,10 @@ The implementation SHALL meet this contract: Unknown task names produce an error
 ### REQ-run-007
 
 The implementation SHALL meet this contract: Tasks support environment variables and working directory overrides
+
+### REQ-run-008
+
+Task dependency walks SHALL use a shared two-set DFS (`in_progress` vs `completed`) so a completed node on another branch is skipped rather than treated as a back edge. Circular dependencies SHALL produce an error listing the ordered cycle walk. A diamond DAG (two tasks sharing one dep) is not a cycle.
 
 ## Constraints
 

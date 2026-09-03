@@ -15,6 +15,7 @@ Lanes extend the task runner into composable pipelines. While `fledge run` execu
 
 ## Design Decisions
 
+- Task-dep cycle detection is the shared two-set DFS in `src/deps.rs` (same helper as `fledge run`) so `lanes run`, `lanes validate`, and dry-run cannot disagree on diamonds vs cycles
 - Lanes share the same `fledge.toml` as tasks — no separate config file needed
 - Parallel groups use threads rather than async — simpler for spawning external processes
 - Community lanes use GitHub topics (`fledge-lanes`) following the same convention as templates

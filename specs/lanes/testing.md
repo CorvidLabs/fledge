@@ -8,6 +8,7 @@ spec: lanes.spec.md
 
 - Lane definition parsing (sequential, parallel, inline steps)
 - Task reference validation (unknown task detection)
+- Diamond task graphs (two tasks sharing one dep) validate and execute; genuine cycles fail with an ordered walk
 - Step type deserialization
 - fail_fast flag defaults to true
 
