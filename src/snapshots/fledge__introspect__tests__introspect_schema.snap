@@ -1937,6 +1937,92 @@ expression: output
           "subcommands": []
         },
         {
+          "name": "lint",
+          "about": "Lint the quality of the specs themselves (structural + optional model-graded)",
+          "aliases": [],
+          "args": [
+            {
+              "name": "target",
+              "help": "Module name, `.spec.md` path, or directory (default: every spec)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "TARGET",
+              "global": false
+            },
+            {
+              "name": "ai",
+              "long": "ai",
+              "help": "Run the model-graded quality pass (layer 2) in addition to the structural checks",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "no_ai",
+              "long": "no-ai",
+              "help": "Never run the model-graded pass (wins over --ai)",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "provider",
+              "long": "provider",
+              "help": "Provider override for the model-graded pass",
+              "required": false,
+              "takes_value": true,
+              "value_name": "PROVIDER",
+              "global": false
+            },
+            {
+              "name": "model",
+              "long": "model",
+              "help": "Model override for the model-graded pass",
+              "required": false,
+              "takes_value": true,
+              "value_name": "MODEL",
+              "global": false
+            },
+            {
+              "name": "ignore",
+              "long": "ignore",
+              "help": "Suppress findings by check id (repeatable, comma-separated)",
+              "required": false,
+              "takes_value": true,
+              "value_name": "CHECK",
+              "global": false
+            },
+            {
+              "name": "strict",
+              "long": "strict",
+              "help": "Treat warnings as errors",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "json",
+              "long": "json",
+              "help": "Output as JSON",
+              "required": false,
+              "takes_value": false,
+              "global": false
+            },
+            {
+              "name": "non_interactive",
+              "long": "non-interactive",
+              "aliases": [
+                "ni"
+              ],
+              "help": "Run without prompts: treat every interactive confirmation as --yes, and bail with a clear error on prompts that have no default. Also settable via the FLEDGE_NON_INTERACTIVE env var",
+              "required": false,
+              "takes_value": false,
+              "global": true
+            }
+          ],
+          "subcommands": []
+        },
+        {
           "name": "list",
           "about": "List all specs in the project",
           "aliases": [],

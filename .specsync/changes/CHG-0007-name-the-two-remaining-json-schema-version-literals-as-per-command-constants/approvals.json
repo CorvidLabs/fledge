@@ -13,7 +13,49 @@
       "timestamp": 1786125818,
       "digest": "67d5ecaa7a5b5a030b3b4d087cf3ba23f3f36ddc4dd29e41f1fc513503de5380",
       "note": "Closing approval by the repository owner; verify-native lane green and emitted JSON byte-identical."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786974675,
+      "digest": "63dbb8e8f522f3ee7db540f42966e70209e78af22e7cc70551c7d7be936d3e52",
+      "note": "Re-accepted after PR #505 review fixes; verify-native green."
     }
   ],
-  "reopenings": []
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+      "actor": "user:0xGaspar",
+      "reason": "Review fixes for PR #505 changed delivery inputs on this branch; re-verifying.",
+      "timestamp": 1786974661,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "user:0xGaspar",
+        "timestamp": 1786125818,
+        "digest": "67d5ecaa7a5b5a030b3b4d087cf3ba23f3f36ddc4dd29e41f1fc513503de5380",
+        "note": "Closing approval by the repository owner; verify-native lane green and emitted JSON byte-identical."
+      },
+      "prior_verification": {
+        "timestamp": 1786124115,
+        "commit": "6ab184dad598ec73d5eecccbab1ae63956fe8066",
+        "contract_digest": "17ce2f9d47ad0f00e5ff67e72987fdd25955c520316458dd597b41e99424a0c1",
+        "workspace_digest": "931cfba502280636c6c88f86045b9f9daa8a9b46018da96d74426082ff80af0e",
+        "acceptance_input_digest": "117c1169e9953490654b25c3d6ed5d49043740bf076f57662e7d6bc01334c0cc",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": []
+      },
+      "stale_acceptance_input_digest": "117c1169e9953490654b25c3d6ed5d49043740bf076f57662e7d6bc01334c0cc",
+      "current_acceptance_input_digest": "c03ac6848cf8af087a71c27b290757cb286ab7bc228a6f37679a156d169d7d2f"
+    }
+  ]
 }

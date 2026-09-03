@@ -29,3 +29,12 @@ Interactive dialoguer-based prompts SHALL not leave the terminal cursor hidden a
 Acceptance Criteria
 - `fledge plugins search --interactive` followed by Ctrl+C exits 130 and the shell cursor remains visible.
 
+### REQ-main-010
+
+`main` SHALL dispatch the `spec lint` subcommand and propagate its exit status.
+
+Acceptance Criteria
+- `fledge spec lint` is reachable from the CLI and appears in `fledge introspect --json`.
+- A clean run exits 0; a run with any error finding exits 1.
+- Errors are written to stderr as plain text even when `--json` is active.
+
