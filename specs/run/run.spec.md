@@ -1,6 +1,6 @@
 ---
 module: run
-version: 6
+version: 8
 status: active
 files:
   - src/run.rs
@@ -31,7 +31,18 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 
 | Type | Description |
 |------|-------------|
-| `RunOptions` | Options: `task`, `init`, `list`, `lang`, `json`, `args` |
+| `RunOptions` | Options: `task`, `init`, `list`, `lang`, `json`, `stream`, `args` |
+
+### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--init` | Create a starter `fledge.toml` |
+| `-l, --list` | List available tasks |
+| `--lang <LANG>` | Override the detected project type |
+| `--json` | Emit a structured envelope (task list, task run, or init) |
+| `--stream` | Forward the task's stdout/stderr live instead of buffering them. Opt-in; only changes `--json` runs |
+| `-- <ARGS…>` | Pass-through arguments for the named task's command |
 
 ### Functions
 
@@ -56,6 +67,15 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 9. Arguments after a `--` separator are passed through to the target task's command. They apply to the named task only — dependencies always run without them
 10. Pass-through is safe by construction: on POSIX the args become real shell positional parameters (`sh -c '<cmd> "$@"' fledge <args…>`), never interpolated into the command string. `"$@"` is auto-appended unless the command already references a positional (`$1`..`$9`, `$@`, `$*`, or their `${…}` forms), in which case the args fill those positionals without being doubled. With no pass-through args the invocation is identical to before the feature. On Windows (`cmd /C`) there is no `$@`; args are appended as argv (best-effort)
 11. `run <task> --json` includes an `args` array in the envelope only when pass-through args were supplied; arg-less runs keep their prior envelope shape
+12. Human-readable runs (no `--json`) inherit fledge's stdio: child output is already live and interleaved exactly as the child wrote it. `--json` runs buffer by default, capturing both streams for the envelope, and that default is unchanged by `--stream`'s existence
+13. `--stream` is opt-in and never changes the envelope's field set. With `--stream --json` the child's bytes are mirrored **to fledge's stderr** as they arrive while still being captured, never to stdout — so stdout carries nothing but fledge's own envelopes even when the task itself prints JSON. `--stream` without `--json` is accepted and is a no-op — that path already streams
+14. `--stream` honours the flag unconditionally; it does not probe for a TTY. Piped/CI runs get the same live forwarding, byte-for-byte (no colouring, prefixing, or line framing), so the behaviour is deterministic and testable
+15. Under `--stream` the child inherits stdin, so a streamed task can prompt. The buffered `--json` path closes the child's stdin (`Command::output` semantics) and is therefore unusable for interactive commands
+16. Ordering under `--stream --json` is guaranteed **per stream**: each of stdout and stderr is forwarded in order, and a chunk is never split by the other stream. The relative interleaving *between* the two is best-effort — they are separate OS pipes drained by separate threads. True cross-stream interleaving is only available on the inherited-terminal (human-readable) path
+17. Exit-code handling is identical in both modes: the child's status is reported as `exit_code`/`success` in the envelope and a non-zero status still aborts with `Task '<name>' failed with exit code <n>`
+18. `--stream` is an output mode, not a task input, so unlike pass-through args it propagates to dependency tasks
+19. Failing to *mirror* never destroys the *result*: if a write to fledge's stderr fails mid-run (closed pipe, full disk), live forwarding for that stream stops, a one-line warning is attempted, and the run still completes — the envelope is printed with the child's true `exit_code`/`success` and its complete `stdout`/`stderr`. A failure to *read* the child's pipe is different and remains a hard error, because the capture would be incomplete
+20. `--json` prints one `run_task` envelope per executed task, so a task with `deps` emits several concatenated JSON objects on stdout (one per dependency, then one for the task). This predates `--stream` and is unchanged by it: the output is a JSON *stream*, not a single document
 
 ## Behavioral Examples
 
@@ -104,6 +124,33 @@ $ fledge run set-version -- 1.2.3
 $ fledge run test --json -- --release
 {"schema_version": 1, "action": "run_task", "task": "test", "command": "cargo test", "exit_code": 0, "success": true, "stdout": "...", "stderr": "...", "args": ["--release"]}
 
+# Long-running task under --json: buffered by default, nothing visible until exit
+$ fledge run migrate --json
+{"schema_version": 1, "action": "run_task", "task": "migrate", ..., "stdout": "step 1/50…", "stderr": ""}
+
+# Same task with --stream: progress is mirrored to stderr as it happens,
+# stdout still carries only fledge's own envelope
+$ fledge run migrate --json --stream 2>progress.log | jq .success
+step 1/50           # ← appears live on stderr while the task runs
+step 2/50
+true
+
+# One envelope per executed task — a task with deps emits several,
+# concatenated (pre-existing --json behaviour, unchanged by --stream).
+# Read it as a JSON stream, not a single document.
+$ fledge run build --json --stream | jq -c '{task, success}'
+{"task":"prep","success":true}
+{"task":"build","success":true}
+
+# Interactive task — the prompt reaches the terminal and the child keeps stdin
+$ fledge run deploy --json --stream
+Deploy to production? [y/N]
+
+# --stream without --json is accepted and changes nothing (that path
+# already inherits the terminal)
+$ fledge run dev --stream
+▶️ Running task: dev
+
 # Override project type
 $ fledge run --lang node
 Available tasks:
@@ -119,8 +166,11 @@ Available tasks:
 | No tasks defined | Empty `[tasks]` section | Error with guidance |
 | Unknown task | Task name not found | List available tasks |
 | Circular dependency | Task A depends on B depends on A | Error with cycle info |
-| Task failed | Non-zero exit code | Error with exit code |
+| Task failed | Non-zero exit code | Error with exit code (same message and code in buffered and `--stream` modes) |
 | Already exists | `--init` when fledge.toml exists | Error |
+| Spawn failed under `--stream` | Shell cannot be spawned, or a pipe is missing | Error contextualised as `running task '<name>'`, identical to the buffered path |
+| Forwarding thread panicked | Internal failure while mirroring a stream | Error `stdout/stderr forwarding thread panicked` — the run is reported as failed rather than emitting a truncated envelope. Both forwarding threads are joined before the error escapes, so neither is left detached and still writing (the same holds when waiting on the child itself fails: the child is killed so the pumps reach EOF, then both are joined) |
+| Mirror write failed under `--stream` | fledge's own stderr stops accepting writes (closed pipe, full disk) | Not an error. Live forwarding stops, a `warning: live output for task '<name>' stopped (...)` line is attempted, and the envelope is still emitted with the real exit code and full capture |
 
 ## Dependencies
 
@@ -130,9 +180,11 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 7 | 2026-08-12 | Add opt-in `--stream` to `fledge run` (#507). Human-readable runs already inherited the terminal, so the real gap was `--json`, which used `Command::output` — invisible until exit and with the child's stdin closed. `--stream --json` now tees both pipes: bytes are mirrored to fledge's **stderr** live (keeping stdout a single parseable envelope) while still being captured in full, and the child inherits stdin so it can prompt. Default buffered behaviour and every envelope field are unchanged; `--stream` without `--json` is an accepted no-op. Forwarding is unconditional (no TTY probe) and verbatim. Ordering is per-stream only; cross-stream interleaving is best-effort. New `pump`/`run_streaming` helpers with unit tests plus integration tests for mirroring, envelope purity, exit codes, deps, and the buffered default |
 | 6 | 2026-06-11 | Fix `run --init` generic template emitting an unclosed quote in the commented `# lint = "echo 'add your linter'"` example (uncommenting it made fledge.toml unparseable). Pass-through examples now use flags valid when appended to `cargo test` (`--release`) instead of `--nocapture`, which cargo only accepts after its own `--` separator |
 | 5 | 2026-06-07 | Add task argument pass-through: `fledge run <task> -- <args…>` forwards args to the target task's command (named task only, not deps). POSIX uses real positional params (`"$@"`, auto-appended unless the command references `$1`/`$@`/…), so values are never interpolated into the command string — no injection surface. `--json` gains an `args` array when args are supplied. Additive and backward-compatible: arg-less runs are byte-identical to before. New `references_positional`/`build_task_command` helpers with unit + injection-safety tests |
 | 4 | 2026-04-26 | Doc sync, behavioral examples updated to show the post-tier-D envelope shapes for `run --json`, `run <task> --json`, and `run --init --json`. No code change |
 | 3 | 2026-04-26 | Tier-D 1.0 envelope: all three `--json` paths now emit `{schema_version: 1, action, ...}`. `run --init --json` previously emitted prose ("✅ Created fledge.toml"), now `{action: "run_init", file, project_type, files_created}`, a real fix not just a wrapping. `run --list --json` adds `action: "run_list"` (was bare `{auto_detected, tasks}`). `run <task> --json` adds `action: "run_task"` (was bare `{task, command, ...}`). Three new integration tests guard each shape |
 | 2 | 2026-04-23 | Add `--json` flag (list + execute), `--lang` override, `detect_node_runner` |
 | 1 | 2026-04-19 | Initial spec |
+| 8 | 2026-08-12 | CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks: Opt-in --stream mode forwarding live child output for fledge run tasks |

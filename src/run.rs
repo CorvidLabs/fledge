@@ -2,8 +2,9 @@ use anyhow::{bail, Context, Result};
 use console::style;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
+use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus, Stdio};
 
 /// Per-command JSON schema versions for `run` subcommands. See lanes.rs for
 /// rationale. (Note: this is the wire-envelope version, distinct from the
@@ -82,6 +83,10 @@ pub struct RunOptions {
     pub list: bool,
     pub lang: Option<String>,
     pub json: bool,
+    /// Forward child stdout/stderr live instead of buffering them. Only
+    /// affects `--json` runs — the human-readable path already inherits the
+    /// terminal, so output there is live either way. See `run_streaming`.
+    pub stream: bool,
     /// Pass-through arguments for the target task's command (everything after
     /// `--` on the CLI). Applied to the named task only, never its deps.
     pub args: Vec<String>,
@@ -168,6 +173,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
         &project_dir,
         &mut visited,
         opts.json,
+        opts.stream,
         &opts.args,
     )
 }
@@ -240,6 +246,190 @@ fn build_task_command(
     command
 }
 
+/// What a streamed task run produced: the same three pieces `Command::output`
+/// yields, except the bytes were also forwarded to the terminal as they
+/// arrived rather than only at exit.
+struct StreamedOutput {
+    status: ExitStatus,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    /// The first mirror-write failure seen while forwarding, if any. Purely
+    /// advisory: the run itself succeeded or failed on the child's own terms,
+    /// and `stdout`/`stderr` above are complete regardless.
+    mirror_error: Option<io::Error>,
+}
+
+/// What one stream's `pump` produced: everything read from the child, plus the
+/// first failure (if any) encountered while *mirroring* it.
+#[derive(Debug)]
+struct PumpOutcome {
+    captured: Vec<u8>,
+    /// `Some` once a write to the mirror sink failed. Mirroring stops there;
+    /// capture continues to EOF.
+    mirror_error: Option<io::Error>,
+}
+
+/// Copy `reader` to `sink` chunk by chunk, flushing after every chunk, while
+/// also accumulating everything read. This is the "tee" that lets `--stream`
+/// show output live *and* still fill the JSON envelope.
+///
+/// Chunks are forwarded verbatim — no colouring, prefixing or line framing —
+/// so a non-TTY destination (a pipe, a CI log) receives exactly the child's
+/// bytes.
+///
+/// The two failure modes are deliberately *not* symmetric:
+///
+/// - A **read** failure on the child's pipe is a real error (`Err`): the
+///   capture is now incomplete, so the envelope would lie about the task's
+///   output.
+/// - A **mirror-write** failure (fledge's own stderr is a closed pipe, a full
+///   disk, ...) is recorded and mirroring stops, but capture continues to EOF
+///   and the call still returns `Ok`. Failing to *echo* output must never
+///   destroy the *result* — the child's real exit status and full output are
+///   still owed to the caller.
+fn pump<R: Read, W: Write>(mut reader: R, sink: &mut W) -> io::Result<PumpOutcome> {
+    let mut captured = Vec::new();
+    let mut mirror_error: Option<io::Error> = None;
+    let mut buf = [0u8; 8192];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => {
+                return Ok(PumpOutcome {
+                    captured,
+                    mirror_error,
+                })
+            }
+            Ok(n) => {
+                let chunk = &buf[..n];
+                captured.extend_from_slice(chunk);
+                if mirror_error.is_none() {
+                    // Write-then-flush so a long-running task's partial line
+                    // (e.g. a prompt with no trailing newline) reaches the
+                    // terminal immediately.
+                    if let Err(e) = sink.write_all(chunk).and_then(|()| sink.flush()) {
+                        mirror_error = Some(e);
+                    }
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+/// A forwarding thread's handle: it yields whatever `pump` returned.
+type PumpHandle = std::thread::JoinHandle<io::Result<PumpOutcome>>;
+
+/// Join **both** forwarding threads, then propagate the first failure.
+///
+/// Order matters: joining lazily (`out.join()??` before `err.join()`) would
+/// short-circuit on a stdout failure and drop the stderr handle un-joined.
+/// Dropping a `JoinHandle` detaches the thread rather than stopping it, so it
+/// would keep draining the child's pipe and writing to `io::stderr()` while
+/// the CLI unwinds toward exit. Both joins happen unconditionally, and only
+/// afterwards does an error escape.
+fn join_pumps(
+    out_handle: PumpHandle,
+    err_handle: PumpHandle,
+) -> io::Result<(PumpOutcome, PumpOutcome)> {
+    fn collect(
+        joined: std::thread::Result<io::Result<PumpOutcome>>,
+        which: &str,
+    ) -> io::Result<PumpOutcome> {
+        joined.unwrap_or_else(|_| {
+            Err(io::Error::other(format!(
+                "{which} forwarding thread panicked"
+            )))
+        })
+    }
+
+    let out = collect(out_handle.join(), "stdout");
+    let err = collect(err_handle.join(), "stderr");
+    Ok((out?, err?))
+}
+
+/// Run `command` with both output streams piped, mirroring each to fledge's
+/// **stderr** as it arrives while capturing it for the caller.
+///
+/// Mirroring deliberately targets stderr, never stdout: in `--json` mode
+/// stdout must stay a single parseable envelope, so child bytes may not be
+/// interleaved with it. The envelope still reports `stdout` and `stderr`
+/// separately and in full.
+///
+/// stdin is inherited (`spawn`'s default), so a streamed task can prompt —
+/// unlike the buffered `Command::output` path, which closes the child's stdin.
+///
+/// Ordering guarantee: each stream is forwarded in order, and chunks are
+/// written under a lock so a chunk is never split by the other stream. The
+/// *relative* interleaving of stdout and stderr is best-effort — they are two
+/// OS pipes drained by two threads, so exact cross-stream ordering cannot be
+/// reconstructed. Only the inherited-terminal path (human-readable mode)
+/// preserves true interleaving, because there the child writes to the
+/// terminal itself.
+///
+/// A failure to mirror (fledge's stderr is a closed pipe, a full disk, ...)
+/// does not fail the run: it is reported in `StreamedOutput::mirror_error`
+/// while the status and the full capture are still returned.
+fn run_streaming(command: &mut Command) -> io::Result<StreamedOutput> {
+    // `io::stderr()` (not a held `.lock()`) on purpose: each `write_all` takes
+    // the lock for the duration of that one chunk and releases it, so the two
+    // threads interleave at chunk granularity instead of one starving the
+    // other until its stream closes.
+    stream_child(command, io::stderr)
+}
+
+/// The body of [`run_streaming`], generic over where the mirrored bytes go so
+/// tests can point it at a sink that fails.
+///
+/// `make_sink` is called once per stream — each forwarding thread owns its own
+/// handle (for the real thing, two `io::Stderr` handles onto the same
+/// per-write-locked stream).
+fn stream_child<W: Write + Send + 'static>(
+    command: &mut Command,
+    mut make_sink: impl FnMut() -> W,
+) -> io::Result<StreamedOutput> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let child_stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("child stdout pipe missing"))?;
+    let child_stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| io::Error::other("child stderr pipe missing"))?;
+
+    let mut out_sink = make_sink();
+    let mut err_sink = make_sink();
+    let out_handle = std::thread::spawn(move || pump(child_stdout, &mut out_sink));
+    let err_handle = std::thread::spawn(move || pump(child_stderr, &mut err_sink));
+
+    let status = match child.wait() {
+        Ok(status) => status,
+        Err(e) => {
+            // Same rule as `join_pumps`: never leave a forwarding thread
+            // detached and still writing. Killing the child closes its pipes,
+            // so both pumps reach EOF and the joins below terminate.
+            let _ = child.kill();
+            let _ = join_pumps(out_handle, err_handle);
+            return Err(e);
+        }
+    };
+    let (out, err) = join_pumps(out_handle, err_handle)?;
+
+    Ok(StreamedOutput {
+        status,
+        stdout: out.captured,
+        stderr: err.captured,
+        // Report at most one; the cause is almost always shared (the same
+        // broken stderr), and one warning line is enough.
+        mirror_error: out.mirror_error.or(err.mirror_error),
+    })
+}
+
 fn list_tasks(tasks: &BTreeMap<String, TaskDef>) -> Result<()> {
     println!("{}", style("Available tasks:").bold());
     let max_name_len = tasks.keys().map(|k| k.len()).max().unwrap_or(0);
@@ -285,6 +475,7 @@ fn execute_task(
     project_dir: &Path,
     visited: &mut HashSet<String>,
     json: bool,
+    stream: bool,
     args: &[String],
 ) -> Result<()> {
     if visited.contains(name) {
@@ -300,8 +491,9 @@ fn execute_task(
         .ok_or_else(|| anyhow::anyhow!("Task '{}' not found (referenced as dependency)", name))?;
 
     // Pass-through args apply to the named task only — dependencies run clean.
+    // `stream` is an output mode, not a task input, so it does propagate.
     for dep in task.deps() {
-        execute_task(dep, tasks, project_dir, visited, json, &[])?;
+        execute_task(dep, tasks, project_dir, visited, json, stream, &[])?;
     }
 
     let cmd_str = task.cmd();
@@ -313,9 +505,29 @@ fn execute_task(
     let mut command = build_task_command(cmd_str, &work_dir, task.env(), args);
 
     if json {
-        let output = command
-            .output()
-            .with_context(|| format!("running task '{name}'"))?;
+        // Both paths produce identical envelope fields. `--stream` only
+        // changes *when* the bytes become visible (live, mirrored to stderr)
+        // and whether the child keeps stdin.
+        let (status, out_bytes, err_bytes) = if stream {
+            let streamed =
+                run_streaming(&mut command).with_context(|| format!("running task '{name}'"))?;
+            if let Some(e) = &streamed.mirror_error {
+                // Best-effort: the sink that just failed is the one we would
+                // warn on, so ignore a failure to warn. The envelope below is
+                // the authoritative record either way.
+                let _ = writeln!(
+                    io::stderr(),
+                    "warning: live output for task '{name}' stopped ({e}); \
+                     the task still ran — its full output is in the JSON envelope"
+                );
+            }
+            (streamed.status, streamed.stdout, streamed.stderr)
+        } else {
+            let output = command
+                .output()
+                .with_context(|| format!("running task '{name}'"))?;
+            (output.status, output.stdout, output.stderr)
+        };
 
         let mut result = crate::envelope::action(
             RUN_TASK_SCHEMA,
@@ -323,10 +535,10 @@ fn execute_task(
             serde_json::json!({
                 "task": name,
                 "command": cmd_str,
-                "exit_code": output.status.code().unwrap_or(-1),
-                "success": output.status.success(),
-                "stdout": String::from_utf8_lossy(&output.stdout),
-                "stderr": String::from_utf8_lossy(&output.stderr),
+                "exit_code": status.code().unwrap_or(-1),
+                "success": status.success(),
+                "stdout": String::from_utf8_lossy(&out_bytes),
+                "stderr": String::from_utf8_lossy(&err_bytes),
             }),
         );
         // Only surface `args` when present, so arg-less runs keep their exact
@@ -336,11 +548,14 @@ fn execute_task(
         }
         println!("{}", serde_json::to_string_pretty(&result)?);
 
-        if !output.status.success() {
-            let code = output.status.code().unwrap_or(1);
+        if !status.success() {
+            let code = status.code().unwrap_or(1);
             bail!("Task '{}' failed with exit code {}", name, code);
         }
     } else {
+        // Human-readable mode inherits fledge's stdio, so child output is
+        // already live and interleaved exactly as the child wrote it —
+        // `--stream` asks for a guarantee this path always had.
         println!(
             "{} {}",
             style("▶️").cyan().bold(),
@@ -706,6 +921,215 @@ mod tests {
         );
     }
 
+    /// A sink that accepts `budget` bytes and then refuses everything — a
+    /// downstream consumer that exited, or a disk that filled up.
+    struct FailAfter {
+        budget: usize,
+        written: Vec<u8>,
+    }
+
+    impl Write for FailAfter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if self.budget == 0 {
+                return Err(io::Error::new(io::ErrorKind::BrokenPipe, "sink closed"));
+            }
+            let n = buf.len().min(self.budget);
+            self.written.extend_from_slice(&buf[..n]);
+            self.budget -= n;
+            Ok(n)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A child pipe that dies mid-read — a genuine error, unlike a mirror
+    /// failure.
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::new(io::ErrorKind::UnexpectedEof, "pipe died"))
+        }
+    }
+
+    #[test]
+    fn pump_captures_and_mirrors_the_same_bytes() {
+        let mut sink: Vec<u8> = Vec::new();
+        let out = pump(std::io::Cursor::new(b"progress...\nmore\n"), &mut sink).unwrap();
+        assert_eq!(out.captured, b"progress...\nmore\n");
+        assert_eq!(
+            sink, out.captured,
+            "mirror must be byte-identical to capture"
+        );
+        assert!(out.mirror_error.is_none());
+    }
+
+    #[test]
+    fn pump_forwards_partial_lines_verbatim() {
+        // A prompt with no trailing newline must still reach the sink — this
+        // is what makes an interactive streamed task usable.
+        let mut sink: Vec<u8> = Vec::new();
+        let out = pump(std::io::Cursor::new(b"Continue? [y/N] "), &mut sink).unwrap();
+        assert_eq!(sink, b"Continue? [y/N] ");
+        assert_eq!(out.captured, b"Continue? [y/N] ");
+    }
+
+    #[test]
+    fn pump_handles_empty_input() {
+        let mut sink: Vec<u8> = Vec::new();
+        let out = pump(std::io::Cursor::new(b""), &mut sink).unwrap();
+        assert!(out.captured.is_empty());
+        assert!(sink.is_empty());
+        assert!(out.mirror_error.is_none());
+    }
+
+    #[test]
+    fn pump_handles_payloads_larger_than_the_buffer() {
+        let big: Vec<u8> = std::iter::repeat_n(b'x', 8192 * 3 + 17).collect();
+        let mut sink: Vec<u8> = Vec::new();
+        let out = pump(std::io::Cursor::new(big.clone()), &mut sink).unwrap();
+        assert_eq!(out.captured, big);
+        assert_eq!(sink, big);
+    }
+
+    /// Regression: a write failure on the *mirror* must not discard the
+    /// capture. Losing the echo may not lose the result.
+    #[test]
+    fn pump_keeps_capturing_after_the_mirror_stops_accepting_writes() {
+        let payload: Vec<u8> = std::iter::repeat_n(b'y', 8192 * 2 + 5).collect();
+        let mut sink = FailAfter {
+            budget: 100,
+            written: Vec::new(),
+        };
+        let out = pump(std::io::Cursor::new(payload.clone()), &mut sink).unwrap();
+        assert_eq!(
+            out.captured, payload,
+            "capture must be complete even though mirroring broke"
+        );
+        assert_eq!(
+            out.mirror_error.map(|e| e.kind()),
+            Some(io::ErrorKind::BrokenPipe),
+            "the mirror failure must be reported, not swallowed"
+        );
+        assert_eq!(
+            sink.written.len(),
+            100,
+            "mirroring must stop at the first failure rather than retry per chunk"
+        );
+    }
+
+    /// The other half of the asymmetry: a failure to *read* the child's pipe
+    /// is still a real error, because the capture would be incomplete.
+    #[test]
+    fn pump_propagates_read_failures() {
+        let mut sink: Vec<u8> = Vec::new();
+        let err = pump(FailingReader, &mut sink).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    /// Regression: a broken mirror must still yield the child's true exit
+    /// status and full output, so `execute_task` can build the envelope.
+    #[cfg(unix)]
+    #[test]
+    fn stream_child_survives_a_broken_mirror_and_reports_the_real_status() {
+        let env = BTreeMap::new();
+        let mut cmd = build_task_command(
+            "echo before; echo oops 1>&2; exit 7",
+            &std::env::temp_dir(),
+            &env,
+            &[],
+        );
+        let streamed = stream_child(&mut cmd, || FailAfter {
+            budget: 0,
+            written: Vec::new(),
+        })
+        .expect("a mirror failure must not fail the run");
+        assert_eq!(streamed.status.code(), Some(7));
+        assert_eq!(String::from_utf8_lossy(&streamed.stdout), "before\n");
+        assert_eq!(String::from_utf8_lossy(&streamed.stderr), "oops\n");
+        assert!(
+            streamed.mirror_error.is_some(),
+            "the caller must be able to warn about the lost live output"
+        );
+    }
+
+    /// Regression: a failing stdout pump must not leave the stderr forwarding
+    /// thread detached and still writing while the CLI unwinds.
+    #[test]
+    fn join_pumps_joins_both_threads_before_propagating_an_error() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let finished = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&finished);
+
+        let out_handle: PumpHandle =
+            std::thread::spawn(|| Err(io::Error::new(io::ErrorKind::BrokenPipe, "stdout died")));
+        let err_handle: PumpHandle = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            flag.store(true, Ordering::SeqCst);
+            Ok(PumpOutcome {
+                captured: Vec::new(),
+                mirror_error: None,
+            })
+        });
+
+        let err = join_pumps(out_handle, err_handle).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::BrokenPipe);
+        assert!(
+            finished.load(Ordering::SeqCst),
+            "the stderr thread must have been joined, not detached"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_captures_both_streams_separately() {
+        let env = BTreeMap::new();
+        let mut cmd = build_task_command(
+            "printf 'out1\\nout2\\n'; printf 'err1\\n' 1>&2",
+            &std::env::temp_dir(),
+            &env,
+            &[],
+        );
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert!(streamed.status.success());
+        // Per-stream ordering is guaranteed; cross-stream interleaving is not,
+        // so only per-stream content is asserted.
+        assert_eq!(String::from_utf8_lossy(&streamed.stdout), "out1\nout2\n");
+        assert_eq!(String::from_utf8_lossy(&streamed.stderr), "err1\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_propagates_exit_code() {
+        let env = BTreeMap::new();
+        let mut cmd = build_task_command("echo before; exit 7", &std::env::temp_dir(), &env, &[]);
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert!(!streamed.status.success());
+        assert_eq!(streamed.status.code(), Some(7));
+        // Output produced before the failure is still captured.
+        assert_eq!(String::from_utf8_lossy(&streamed.stdout), "before\n");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn run_streaming_matches_buffered_capture() {
+        // The envelope must not depend on which execution path produced it.
+        let env = BTreeMap::new();
+        let script = "printf 'a\\nb\\n'; printf 'z\\n' 1>&2";
+        let buffered = build_task_command(script, &std::env::temp_dir(), &env, &[])
+            .output()
+            .unwrap();
+        let mut cmd = build_task_command(script, &std::env::temp_dir(), &env, &[]);
+        let streamed = run_streaming(&mut cmd).unwrap();
+        assert_eq!(streamed.stdout, buffered.stdout);
+        assert_eq!(streamed.stderr, buffered.stderr);
+        assert_eq!(streamed.status.code(), buffered.status.code());
+    }
+
     #[test]
     fn parse_short_tasks() {
         let toml_str = r#"
@@ -773,7 +1197,15 @@ deps = ["a"]
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         let project_dir = std::env::temp_dir();
         let mut visited = HashSet::new();
-        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false, &[]);
+        let result = execute_task(
+            "a",
+            &config.tasks,
+            &project_dir,
+            &mut visited,
+            false,
+            false,
+            &[],
+        );
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
