@@ -71,7 +71,11 @@ fn clone_repo(
 ) -> Result<()> {
     std::fs::create_dir_all(target.parent().unwrap_or(target))?;
 
-    let url = format!("https://github.com/{}/{}.git", owner, repo);
+    // `https://github.com/<owner>/<repo>.git` in every shipped build. Built
+    // through `github::remote_url` so a test can redirect the clone at a local
+    // bare repo (see `github::REMOTE_BASE_ENV`) — `git clone` is a subprocess
+    // and cannot be intercepted by an HTTP mock.
+    let url = crate::github::remote_url(owner, repo);
 
     let mut args = vec!["clone", "--depth", "1"];
     if let Some(r) = git_ref {

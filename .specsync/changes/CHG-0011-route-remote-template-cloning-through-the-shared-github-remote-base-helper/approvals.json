@@ -1,0 +1,63 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786932941,
+      "digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786968328,
+      "digest": "031600ed1dd258c09db618b8d69230c87c2721b25fceb7244a3b94a629373839",
+      "note": "Closing approval by the repository owner."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1787687018,
+      "digest": "00b425e3179bd7daa1b49fa6a0c74c99681ad771ab531fe9c23c64c6f69dfb8c",
+      "note": "Re-accepted after the Windows unused-import fix."
+    }
+  ],
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper",
+      "actor": "user:0xGaspar",
+      "reason": "Windows build fix: gate the tests/isolation.rs imports to match their cfg(not(windows)) users.",
+      "timestamp": 1787686995,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "user:0xGaspar",
+        "timestamp": 1786968328,
+        "digest": "031600ed1dd258c09db618b8d69230c87c2721b25fceb7244a3b94a629373839",
+        "note": "Closing approval by the repository owner."
+      },
+      "prior_verification": {
+        "timestamp": 1786968328,
+        "commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+        "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+        "workspace_digest": "ca11163572591d74ebabdedeccf7de5edd45402d799d148976122e3d8b938993",
+        "acceptance_input_digest": "26dac6c5bf861a0790786c9844b3a5852021adeb299026c1c4f3720333a98ecf",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": [
+          "REQ-remote-010"
+        ]
+      },
+      "stale_acceptance_input_digest": "26dac6c5bf861a0790786c9844b3a5852021adeb299026c1c4f3720333a98ecf",
+      "current_acceptance_input_digest": "32265a1e51038d20c2dc988d595d298670659b6442ee739e7fc1f7ea96edf898"
+    }
+  ]
+}

@@ -52,3 +52,14 @@ The implementation SHALL meet this contract: No regression: `fledge ask --json` 
 - OpenAI-compatible endpoints beyond Ollama — would be a third provider, deliberately deferred until someone wants it
 - Automatic model discovery (live-listing installed Ollama models) — see `fledge ai models` in the next PR
 - Telemetry (token counts, cost) — not instrumenting until we know what users want tracked
+
+### REQ-llm-020
+
+The `llm` module's Ollama provider SHALL be exercisable against a loopback endpoint so
+its request shape and error mapping are covered without contacting a real host.
+
+Acceptance Criteria
+- The request body carries `model`, `prompt` and `stream: false`.
+- A configured API key is sent as a Bearer header; absent a key, no auth header is sent.
+- HTTP status errors, undecodable bodies and connection refusal each map to a distinct, non-panicking error.
+

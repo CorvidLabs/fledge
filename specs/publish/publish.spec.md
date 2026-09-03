@@ -1,6 +1,6 @@
 ---
 module: publish
-version: 5
+version: 7
 status: active
 files:
   - src/publish.rs
@@ -54,7 +54,8 @@ Shared GitHub-publishing helpers used by `templates publish`, `lanes publish`, a
 3. `push_directory` uses an in-memory `http.extraheader` env-injection trick to avoid embedding the token in the persisted git remote; the remote is reset to a clean URL after the push. The commit subject is caller-supplied (`commit_message`) so each command records its own — a template, plugin, and lane publish no longer all commit "Publish fledge template". On push failure git's stderr is surfaced through `crate::utils::redact_secrets` so the injected token never leaks
 4. `set_repo_topic` is additive — it merges the new topic into the existing topic set rather than replacing the whole list
 5. Caller modules (`templates publish`, `lanes publish`, `plugins publish`) are responsible for the artifact-specific concerns: validating template/lane/plugin manifests, deriving the repo name/description, and supplying the `--json` envelope's artifact and hint fields via `PublishRequest`
-6. `run_publish` is the single source of the check-or-create / confirm / topic / push / envelope flow. It emits no non-JSON text to stdout when `req.json` is set (the envelope is the only stdout), and it assembles the envelope via `crate::envelope::action` so the shared `schema_version`/`action`/`cancelled`/`repo`/`topic` keys stay byte-identical across the three commands regardless of insertion order
+6. Every endpoint is resolved through a single indirection — `crate::github::api_base()` for the REST calls and `crate::github::remote_url()` for the `https://github.com/<owner>/<repo>.git` push URL. Both live in `github` so publish and remote-template fetch cannot drift apart. In release builds both return the production constants; in test builds they may be redirected at a loopback mock server and a directory of local bare repos, so the whole publish flow (including `run_publish`) is exercised end to end without network access
+7. `run_publish` is the single source of the check-or-create / confirm / topic / push / envelope flow. It emits no non-JSON text to stdout when `req.json` is set (the envelope is the only stdout), and it assembles the envelope via `crate::envelope::action` so the shared `schema_version`/`action`/`cancelled`/`repo`/`topic` keys stay byte-identical across the three commands regardless of insertion order
 
 ## Behavioral Examples
 
@@ -119,8 +120,10 @@ set_repo_topic("CorvidLabs", "my-template", "fledge-template", token)?;
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6 | 2026-07-30 | Test seam for offline coverage (#447): the hardcoded `https://api.github.com` / `https://github.com` strings are resolved through `crate::github::api_base()` and a new private `remote_base()`, which test builds redirect at a loopback mock server and local bare repos. No release-build behavior change. The module's tautological unit tests (and the empty `#[ignore] publish_live` stub) are replaced by real coverage of every helper and of `run_publish`. |
 | 5 | 2026-07-03 | Deduplicated the triplicated publish orchestration (#443): added `publish_preflight`, `resolve_owner`, `PublishRequest`, and `run_publish`; the three publish commands now share one check/confirm/create/topic/push/envelope flow. `push_directory` gained `commit_message` (fixes plugin/lane commits mislabeled "Publish fledge template") and a `json` flag (suppresses the "Force-pushing…" line so `--json` stdout is a single envelope). |
 | 4 | 2026-04-25 | `templates publish` re-absorbed into core (`main.rs::publish_template`); `fledge-plugin-templates-remote` was duplicating these helpers in shell and is dropped from `DEFAULT_PLUGINS`. Module remains a library of helpers consumed by `templates publish`, `lanes publish`, and `plugins publish`. |
 | 3 | 2026-04-25 | v0.15 tight-core: removed the `run` / `PublishOptions` / `validate_template` / `set_repo_topics` exports. The user-facing `templates publish` command lived in `fledge-plugin-templates-remote` then. |
 | 2 | 2026-04-22 | Updated exports for plugin/lane publish support; document newly-public helpers |
 | 1 | 2026-04-19 | Initial spec |
+| 7 | 2026-08-08 | CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p: Mocking harness, HOME isolation and real publish coverage for network-touching paths |

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper",
+  "slug": "route-remote-template-cloning-through-the-shared-github-remote-base-helper",
+  "title": "Route remote template cloning through the shared GitHub remote-base helper",
+  "description": "Route remote template cloning through the shared GitHub remote-base helper",
+  "kind": "refactor",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+  "created_at": 1786929376,
+  "updated_at": 1787687018,
+  "affected_specs": [
+    "remote"
+  ],
+  "affected_paths": [
+    "src/remote.rs",
+    "tests/isolation.rs",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "clone_repo composes its git URL via github::remote_url rather than an inline https://github.com literal; templates init <owner>/<repo> clones and renders from a local bare repository with no network access; reverting the one-line remote.rs change makes that test fail by attempting a real clone; outside cfg(debug_assertions) the override is absent and the production constant is used; cargo test, cargo clippy --all-targets -- -D warnings and cargo fmt --check are green."
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

@@ -1,3 +1,8 @@
+// The push URL for `owner/repo`. Both GitHub endpoints (the REST base and the
+// git remote base) live in `crate::github`, so publish, remote-template fetch,
+// and the test harness all agree on a single source of truth.
+use crate::github::remote_url;
+
 use anyhow::{bail, Context, Result};
 use console::style;
 use serde_json::json;
@@ -18,7 +23,7 @@ fn publish_agent() -> ureq::Agent {
 pub fn get_authenticated_user(token: &str) -> Result<String> {
     let agent = publish_agent();
     let text = agent
-        .get("https://api.github.com/user")
+        .get(&format!("{}/user", crate::github::api_base()))
         .header("Authorization", &format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "fledge-cli")
@@ -38,7 +43,7 @@ pub fn get_authenticated_user(token: &str) -> Result<String> {
 }
 
 pub fn check_repo_exists(owner: &str, repo: &str, token: &str) -> Result<bool> {
-    let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+    let url = format!("{}/repos/{}/{}", crate::github::api_base(), owner, repo);
     let agent = publish_agent();
     let result = agent
         .get(&url)
@@ -61,9 +66,10 @@ pub fn create_github_repo(
     org: Option<&str>,
     token: &str,
 ) -> Result<()> {
+    let base = crate::github::api_base();
     let url = match org {
-        Some(o) => format!("https://api.github.com/orgs/{}/repos", o),
-        None => "https://api.github.com/user/repos".to_string(),
+        Some(o) => format!("{}/orgs/{}/repos", base, o),
+        None => format!("{}/user/repos", base),
     };
 
     let body = json!({
@@ -97,7 +103,12 @@ pub fn create_github_repo(
 }
 
 pub fn set_repo_topic(owner: &str, repo: &str, topic: &str, token: &str) -> Result<()> {
-    let url = format!("https://api.github.com/repos/{}/{}/topics", owner, repo);
+    let url = format!(
+        "{}/repos/{}/{}/topics",
+        crate::github::api_base(),
+        owner,
+        repo
+    );
 
     let agent = publish_agent();
     let text = agent
@@ -159,7 +170,7 @@ pub fn push_directory(
         run_git(path, &["checkout", "-b", "main"])?;
     }
 
-    let remote_url = format!("https://github.com/{}/{}.git", owner, repo);
+    let remote_url = remote_url(owner, repo);
 
     let has_remote = std::process::Command::new("git")
         .args(["remote", "get-url", "origin"])
@@ -241,7 +252,7 @@ pub fn push_directory(
 
     if needs_init {
         // Clean up git remote URL to not embed token
-        let clean_url = format!("https://github.com/{}/{}.git", owner, repo);
+        let clean_url = remote_url.clone();
         let _ = run_git(path, &["remote", "set-url", "origin", &clean_url]);
     }
 
@@ -476,65 +487,481 @@ pub fn run_publish(req: PublishRequest<'_>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::test_support::{
+        dead_port_url, env_lock, GitIdentityGuard, GithubBaseGuard, MockHttpServer, MockResponse,
+    };
+    use serde_json::json;
+
+    // Every test below drives the real HTTP / git code paths against a
+    // loopback `MockHttpServer` and local bare repositories: no request ever
+    // leaves the machine, and no test reads the developer's git or fledge
+    // config. See `test_support::MockHttpServer` for the harness.
+
+    // ── GET /user ─────────────────────────────────────────────────────────
 
     #[test]
-    fn topics_include_fledge_template() {
-        let mut topics: Vec<String> = vec!["rust".to_string(), "cli".to_string()];
-        if !topics.iter().any(|t| t == "fledge-template") {
-            topics.push("fledge-template".to_string());
-        }
-        assert!(topics.contains(&"fledge-template".to_string()));
+    fn get_authenticated_user_returns_login_and_sends_auth() {
+        let server = MockHttpServer::start();
+        server.on(
+            "GET",
+            "/user",
+            MockResponse::json(200, r#"{"login":"octo"}"#),
+        );
+        let _base = GithubBaseGuard::api(&server.url());
 
-        // Already present — should not duplicate
-        let mut topics2: Vec<String> = vec!["fledge-template".to_string(), "rust".to_string()];
-        if !topics2.iter().any(|t| t == "fledge-template") {
-            topics2.push("fledge-template".to_string());
-        }
-        assert_eq!(
-            topics2.iter().filter(|t| *t == "fledge-template").count(),
-            1
+        assert_eq!(get_authenticated_user("ghp_secret").unwrap(), "octo");
+
+        let req = server
+            .request("GET", "/user")
+            .expect("GET /user was issued");
+        assert_eq!(req.header("authorization"), Some("Bearer ghp_secret"));
+        assert_eq!(req.header("accept"), Some("application/vnd.github+json"));
+        assert_eq!(req.header("user-agent"), Some("fledge-cli"));
+    }
+
+    #[test]
+    fn get_authenticated_user_without_login_errors() {
+        let server = MockHttpServer::start();
+        server.on("GET", "/user", MockResponse::json(200, r#"{"id":1}"#));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        let err = get_authenticated_user("t").unwrap_err().to_string();
+        assert!(
+            err.contains("Could not determine GitHub username"),
+            "unexpected error: {err}"
         );
     }
 
     #[test]
-    fn create_repo_request_body() {
-        let body = serde_json::json!({
-            "name": "my-template",
-            "description": "A cool template",
-            "private": false,
-            "auto_init": false,
-        });
+    fn get_authenticated_user_on_unreachable_host_errors() {
+        // Connection refused rather than a live endpoint — the error is the
+        // contextual "GitHub API request failed", not a panic or a hang.
+        let _base = GithubBaseGuard::api(&dead_port_url());
+        let err = get_authenticated_user("t").unwrap_err().to_string();
+        assert!(
+            err.contains("GitHub API request failed"),
+            "unexpected error: {err}"
+        );
+    }
 
+    // ── GET /repos/{owner}/{repo} ─────────────────────────────────────────
+
+    #[test]
+    fn check_repo_exists_true() {
+        let server = MockHttpServer::start();
+        server.on(
+            "GET",
+            "/repos/octo/widget",
+            MockResponse::json(200, r#"{"name":"widget"}"#),
+        );
+        let _base = GithubBaseGuard::api(&server.url());
+
+        assert!(check_repo_exists("octo", "widget", "tok").unwrap());
+        let req = server.request("GET", "/repos/octo/widget").unwrap();
+        assert_eq!(req.header("authorization"), Some("Bearer tok"));
+    }
+
+    #[test]
+    fn check_repo_exists_404() {
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget", MockResponse::empty(404));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        // A 404 is "not there yet", not a failure — the publish flow then
+        // creates the repo.
+        assert!(!check_repo_exists("octo", "widget", "tok").unwrap());
+    }
+
+    #[test]
+    fn check_repo_exists_other_error() {
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget", MockResponse::empty(500));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        let err = check_repo_exists("octo", "widget", "tok")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("GitHub API error"), "unexpected error: {err}");
+    }
+
+    // ── POST /user/repos and /orgs/{org}/repos ────────────────────────────
+
+    #[test]
+    fn create_repo_request_body() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/user/repos", MockResponse::empty(201));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        create_github_repo("my-template", "A cool template", false, None, "tok").unwrap();
+
+        let req = server.request("POST", "/user/repos").expect("POST issued");
+        let body = req.json();
         assert_eq!(body["name"], "my-template");
         assert_eq!(body["description"], "A cool template");
         assert_eq!(body["private"], false);
         assert_eq!(body["auto_init"], false);
+        assert_eq!(req.header("content-type"), Some("application/json"));
+        assert_eq!(req.header("authorization"), Some("Bearer tok"));
     }
 
     #[test]
-    fn create_repo_org_request_url() {
-        let url = match Some("CorvidLabs") {
-            Some(o) => format!("https://api.github.com/orgs/{}/repos", o),
-            None => "https://api.github.com/user/repos".to_string(),
-        };
-        assert_eq!(url, "https://api.github.com/orgs/CorvidLabs/repos");
+    fn create_repo_org_request() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/orgs/CorvidLabs/repos", MockResponse::empty(201));
+        let _base = GithubBaseGuard::api(&server.url());
 
-        let personal_url = match None::<&str> {
-            Some(o) => format!("https://api.github.com/orgs/{}/repos", o),
-            None => "https://api.github.com/user/repos".to_string(),
-        };
-        assert_eq!(personal_url, "https://api.github.com/user/repos");
+        create_github_repo("t", "d", true, Some("CorvidLabs"), "tok").unwrap();
+
+        // Org repos go to /orgs/<org>/repos, never /user/repos.
+        let req = server.request("POST", "/orgs/CorvidLabs/repos").unwrap();
+        assert_eq!(req.json()["private"], true);
+        assert!(server.request("POST", "/user/repos").is_none());
     }
 
     #[test]
-    #[ignore] // Requires GitHub token and network
-    fn publish_live() {
-        // Integration test: publish a real template
-        // Run with: cargo test publish_live -- --ignored
+    fn create_repo_422_reports_name_conflict() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/user/repos", MockResponse::empty(422));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        let err = create_github_repo("dupe", "d", false, None, "tok")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("already exists"), "unexpected error: {err}");
+        assert!(err.contains("dupe"), "should name the repo: {err}");
     }
 
-    use super::{build_publish_envelope, PublishRequest};
-    use serde_json::json;
+    #[test]
+    fn create_repo_403_reports_missing_scope() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/user/repos", MockResponse::empty(403));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        let err = create_github_repo("t", "d", false, None, "tok")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("'repo' scope"), "unexpected error: {err}");
+    }
+
+    // ── PUT /repos/{owner}/{repo}/topics ──────────────────────────────────
+
+    #[test]
+    fn set_repo_topic_additive() {
+        let server = MockHttpServer::start();
+        server.on(
+            "GET",
+            "/repos/octo/widget/topics",
+            MockResponse::json(200, r#"{"names":["rust","cli"]}"#),
+        );
+        server.on("PUT", "/repos/octo/widget/topics", MockResponse::empty(200));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        set_repo_topic("octo", "widget", "fledge-template", "tok").unwrap();
+
+        // The existing topics survive; the new one is appended.
+        let put = server.request("PUT", "/repos/octo/widget/topics").unwrap();
+        assert_eq!(
+            put.json()["names"],
+            json!(["rust", "cli", "fledge-template"])
+        );
+    }
+
+    #[test]
+    fn set_repo_topic_does_not_duplicate() {
+        let server = MockHttpServer::start();
+        server.on(
+            "GET",
+            "/repos/octo/widget/topics",
+            MockResponse::json(200, r#"{"names":["fledge-lane","rust"]}"#),
+        );
+        server.on("PUT", "/repos/octo/widget/topics", MockResponse::empty(200));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        set_repo_topic("octo", "widget", "fledge-lane", "tok").unwrap();
+
+        let put = server.request("PUT", "/repos/octo/widget/topics").unwrap();
+        assert_eq!(put.json()["names"], json!(["fledge-lane", "rust"]));
+    }
+
+    #[test]
+    fn set_repo_topic_errors_when_fetch_fails() {
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget/topics", MockResponse::empty(500));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        let err = set_repo_topic("octo", "widget", "fledge-lane", "tok")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("fetching repo topics"), "unexpected: {err}");
+    }
+
+    // ── push_directory (real git, local bare remote) ──────────────────────
+
+    /// Create `<root>/<owner>/<repo>.git` as a bare repo, so `remote_base()`
+    /// pointed at `root` yields a pushable stand-in for github.com.
+    fn init_bare_remote(root: &Path, owner: &str, repo: &str) -> PathBuf {
+        let dir = root.join(owner).join(format!("{repo}.git"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let out = std::process::Command::new("git")
+            .args(["init", "--bare"])
+            .current_dir(&dir)
+            .output()
+            .expect("spawn git init --bare");
+        assert!(out.status.success(), "git init --bare failed");
+        dir
+    }
+
+    /// Run git against `git_dir` (the `.git` directory itself — for a bare
+    /// repo that is the repo path, for a working repo it is `<repo>/.git`) and
+    /// return trimmed stdout.
+    fn git_out(git_dir: &Path, args: &[&str]) -> String {
+        // `current_dir` is pinned to the repo: other tests in this binary
+        // temporarily `chdir` into (and then delete) their own tempdirs, and a
+        // git child inheriting a deleted cwd fails before it reads --git-dir.
+        let out = std::process::Command::new("git")
+            .current_dir(git_dir)
+            .arg("--git-dir")
+            .arg(git_dir)
+            .args(args)
+            .output()
+            .expect("spawn git");
+        assert!(
+            out.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    }
+
+    /// Normalise path separators for comparing a path that has round-tripped
+    /// through git. Git on Windows may rewrite `\` to `/` inside a remote URL,
+    /// so only a separator-insensitive comparison is portable.
+    fn slashed(s: &str) -> String {
+        s.replace('\\', "/")
+    }
+
+    #[test]
+    fn push_directory_initializes_commits_and_pushes() {
+        let _env = env_lock();
+        let work = tempfile::tempdir().unwrap();
+        let remotes = tempfile::tempdir().unwrap();
+        let _git = GitIdentityGuard::new(work.path());
+        let bare = init_bare_remote(remotes.path(), "octo", "widget");
+        let _base =
+            GithubBaseGuard::api_and_remote(&dead_port_url(), remotes.path().to_str().unwrap());
+
+        std::fs::write(work.path().join("README.md"), "hello").unwrap();
+        push_directory(
+            work.path(),
+            "octo",
+            "widget",
+            "ghp_secret",
+            "Publish fledge plugin",
+            true,
+        )
+        .unwrap();
+
+        // The caller-supplied commit message is what lands on the remote.
+        assert_eq!(
+            git_out(&bare, &["log", "-1", "--pretty=%s", "main"]),
+            "Publish fledge plugin"
+        );
+        assert!(git_out(&bare, &["ls-tree", "--name-only", "main"]).contains("README.md"));
+
+        // The token is never persisted in the repo's git config; the remote is
+        // left holding the clean URL after the push.
+        let config = std::fs::read_to_string(work.path().join(".git/config")).unwrap();
+        assert!(
+            !config.contains("ghp_secret"),
+            "token leaked into .git/config"
+        );
+        // Read the remote back through git instead of substring-matching the
+        // OS path against the raw config text: `.git/config` escapes
+        // backslashes, so on Windows the file never literally contains the
+        // path we handed to git.
+        let origin = git_out(&work.path().join(".git"), &["remote", "get-url", "origin"]);
+        assert!(
+            !origin.contains("ghp_secret"),
+            "token leaked into origin URL"
+        );
+        assert_eq!(
+            slashed(&origin),
+            slashed(&format!(
+                "{}/octo/widget.git",
+                remotes.path().to_str().unwrap()
+            ))
+        );
+
+        // Second publish of the same directory takes the "repo already
+        // initialized, remote already set" branch and pushes an update.
+        std::fs::write(work.path().join("README.md"), "hello again").unwrap();
+        push_directory(
+            work.path(),
+            "octo",
+            "widget",
+            "ghp_secret",
+            "Publish fledge plugin",
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            git_out(&bare, &["rev-list", "--count", "main"]),
+            "2",
+            "second push should add a commit"
+        );
+    }
+
+    #[test]
+    fn push_directory_surfaces_git_error() {
+        let _env = env_lock();
+        let work = tempfile::tempdir().unwrap();
+        let remotes = tempfile::tempdir().unwrap();
+        let _git = GitIdentityGuard::new(work.path());
+        // No bare repo at <remotes>/octo/ghost.git — the push must fail.
+        let _base =
+            GithubBaseGuard::api_and_remote(&dead_port_url(), remotes.path().to_str().unwrap());
+
+        std::fs::write(work.path().join("a.txt"), "x").unwrap();
+        let err = push_directory(work.path(), "octo", "ghost", "tok", "Publish", true)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("Failed to push to octo/ghost"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            err.contains("git error:"),
+            "should carry git's stderr: {err}"
+        );
+    }
+
+    // ── run_publish orchestration (mock API + local remote) ───────────────
+
+    fn publish_fixture<'a>(
+        path: &'a Path,
+        extra: serde_json::Map<String, serde_json::Value>,
+    ) -> PublishRequest<'a> {
+        PublishRequest {
+            path,
+            owner: "octo",
+            repo_name: "widget",
+            description: "desc",
+            private: false,
+            org: None,
+            token: "ghp_secret",
+            yes: true,
+            json: true,
+            topic: "fledge-plugin",
+            commit_message: "Publish fledge plugin",
+            noun: "plugin",
+            schema_version: 1,
+            success_verb: "Install",
+            success_command: "fledge plugins install octo/widget",
+            extra_fields: extra,
+        }
+    }
+
+    #[test]
+    fn run_publish_creates_repo_sets_topic_and_pushes() {
+        let _env = env_lock();
+        let work = tempfile::tempdir().unwrap();
+        let remotes = tempfile::tempdir().unwrap();
+        let _git = GitIdentityGuard::new(work.path());
+        let bare = init_bare_remote(remotes.path(), "octo", "widget");
+
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget", MockResponse::empty(404));
+        server.on("POST", "/user/repos", MockResponse::empty(201));
+        server.on(
+            "GET",
+            "/repos/octo/widget/topics",
+            MockResponse::json(200, r#"{"names":[]}"#),
+        );
+        server.on("PUT", "/repos/octo/widget/topics", MockResponse::empty(200));
+        let _base =
+            GithubBaseGuard::api_and_remote(&server.url(), remotes.path().to_str().unwrap());
+
+        std::fs::write(work.path().join("plugin.toml"), "name = \"widget\"").unwrap();
+        run_publish(publish_fixture(work.path(), serde_json::Map::new())).unwrap();
+
+        // Full flow: missing repo → created, topic set, content pushed.
+        assert!(server.request("POST", "/user/repos").is_some());
+        assert_eq!(
+            server
+                .request("PUT", "/repos/octo/widget/topics")
+                .unwrap()
+                .json()["names"],
+            json!(["fledge-plugin"])
+        );
+        assert!(git_out(&bare, &["ls-tree", "--name-only", "main"]).contains("plugin.toml"));
+    }
+
+    #[test]
+    fn run_publish_skips_creation_when_repo_exists() {
+        let _env = env_lock();
+        let work = tempfile::tempdir().unwrap();
+        let remotes = tempfile::tempdir().unwrap();
+        let _git = GitIdentityGuard::new(work.path());
+        init_bare_remote(remotes.path(), "octo", "widget");
+
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget", MockResponse::empty(200));
+        server.on(
+            "GET",
+            "/repos/octo/widget/topics",
+            MockResponse::json(200, r#"{"names":["rust"]}"#),
+        );
+        server.on("PUT", "/repos/octo/widget/topics", MockResponse::empty(200));
+        let _base =
+            GithubBaseGuard::api_and_remote(&server.url(), remotes.path().to_str().unwrap());
+
+        std::fs::write(work.path().join("lane.toml"), "x = 1").unwrap();
+        run_publish(publish_fixture(work.path(), serde_json::Map::new())).unwrap();
+
+        // Existing repo: no creation call, and --json implies consent so the
+        // confirmation prompt is never reached.
+        assert!(server.request("POST", "/user/repos").is_none());
+        assert!(server.request("PUT", "/repos/octo/widget/topics").is_some());
+    }
+
+    #[test]
+    fn run_publish_stops_when_repo_check_fails() {
+        let work = tempfile::tempdir().unwrap();
+        let server = MockHttpServer::start();
+        server.on("GET", "/repos/octo/widget", MockResponse::empty(500));
+        let _base = GithubBaseGuard::api(&server.url());
+
+        // A failed existence check aborts before any repo is created or pushed.
+        assert!(run_publish(publish_fixture(work.path(), serde_json::Map::new())).is_err());
+        assert!(server.request("POST", "/user/repos").is_none());
+    }
+
+    // ── resolve_owner ─────────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_owner_prefers_org_without_calling_the_api() {
+        let server = MockHttpServer::start();
+        server.on(
+            "GET",
+            "/user",
+            MockResponse::json(200, r#"{"login":"octo"}"#),
+        );
+        let _base = GithubBaseGuard::api(&server.url());
+
+        assert_eq!(
+            resolve_owner(Some("CorvidLabs"), "tok").unwrap(),
+            "CorvidLabs"
+        );
+        assert!(
+            server.requests().is_empty(),
+            "GET /user must not be hit when --org is given"
+        );
+
+        assert_eq!(resolve_owner(None, "tok").unwrap(), "octo");
+        assert!(server.request("GET", "/user").is_some());
+    }
 
     fn sample_request<'a>(
         topic: &'a str,

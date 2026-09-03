@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1786968328,
+      "commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "ca11163572591d74ebabdedeccf7de5edd45402d799d148976122e3d8b938993",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    },
+    {
+      "timestamp": 1787687009,
+      "commit": "cfc8b675a9901e40c6c8c5ceffe31f22c70d9431",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "c68204788488e4a15f6083d443df912f3e126ec7e4643b8f05fb9da6b7c8018a",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    }
+  ]
+}

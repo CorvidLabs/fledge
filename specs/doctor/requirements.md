@@ -45,3 +45,15 @@ The implementation SHALL meet this contract: Toolchains probed: rustc, cargo, no
 - Auto-fixing issues (only suggestions)
 - Remote dependency health checks (use `fledge-plugin-deps`)
 - Per-project lockfile/build-artifact checks (removed in v0.15)
+
+### REQ-doctor-020
+
+The `doctor` module's provider reachability probe SHALL be testable against a loopback
+endpoint, and doctor's CLI tests SHALL run under an isolated environment rather than the
+developer's real configuration.
+
+Acceptance Criteria
+- `probe_ollama_host` returns true for a reachable loopback endpoint and false for a closed port.
+- Doctor CLI tests execute with `HOME`, `XDG_CONFIG_HOME` and `FLEDGE_CONFIG_DIR` pointed at tempdirs.
+- No doctor test contacts a non-loopback host.
+
