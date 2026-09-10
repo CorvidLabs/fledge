@@ -82,6 +82,18 @@ jobs:
         with:
           version: ../../../octocat/Hello-World/releases/download/v1
 
+      # A newline in version would pass a line-oriented grep allowlist (one
+      # line matches) and then forge an extra $GITHUB_OUTPUT line via
+      # `echo "version=${version}" >> ...`. Same injection class as
+      # install-dir CR/LF, so it must be refused at the boundary.
+      - id: multiline-version
+        uses: ./
+        continue-on-error: true
+        with:
+          version: |
+            v1.7.2
+            extra=injected
+
       # v0.5.0 really does publish fledge-linux-x86_64 with no .sha256 beside
       # it, which makes it a live fixture for the missing-sidecar path: the
       # install has to fail rather than quietly degrade to unverified.
@@ -91,10 +103,11 @@ jobs:
         with:
           version: v0.5.0
 
-      - name: Confirm both were refused
+      - name: Confirm unsafe and unverifiable inputs were refused
         shell: bash
         env:
           TRAVERSAL: ${{ steps.traversal.outcome }}
+          MULTILINE: ${{ steps.multiline-version.outcome }}
           UNVERIFIABLE: ${{ steps.unverifiable.outcome }}
         run: |
           set -euo pipefail
@@ -102,6 +115,10 @@ jobs:
 
           if [ "$TRAVERSAL" != "failure" ]; then
             echo "::error::a version containing '..' was accepted; the version validation in action.yml has regressed" >&2
+            failed=1
+          fi
+          if [ "$MULTILINE" != "failure" ]; then
+            echo "::error::a version containing an embedded newline was accepted; CR/LF rejection or whole-string allowlist has regressed" >&2
             failed=1
           fi
           if [ "$UNVERIFIABLE" != "failure" ]; then
@@ -112,7 +129,7 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          echo "Confirmed: traversal version rejected, unverifiable release refused."
+          echo "Confirmed: traversal version rejected, multiline version rejected, unverifiable release refused."
 
   windows-unsupported:
     name: windows is refused with a readable message

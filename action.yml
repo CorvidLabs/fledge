@@ -48,8 +48,13 @@ runs:
 
         repo="CorvidLabs/fledge"
 
+        # Whole-string match (not line-oriented grep): a newline-containing
+        # value must not pass just because one of its lines is a valid tag —
+        # `echo "version=${version}" >> $GITHUB_OUTPUT` would otherwise forge
+        # extra output lines the same way a newline in install-dir forges
+        # $GITHUB_PATH / $GITHUB_OUTPUT.
         valid_version() {
-          printf '%s' "$1" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$'
+          [[ $1 =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]
         }
 
         # `version` ends up in a download URL, and curl resolves dot segments
@@ -58,7 +63,15 @@ runs:
         # consumer keying this off a branch name or PR title in a
         # pull_request_target workflow is the ordinary way untrusted data gets
         # here, so validate at the boundary instead of trusting every caller.
+        # CR/LF are rejected the same way as install-dir: they forge extra
+        # $GITHUB_OUTPUT lines via `echo "version=${version}" >> ...`.
         version="$INPUT_VERSION"
+        case "$version" in
+          *$'\n'* | *$'\r'*)
+            echo "::error::version must not contain line breaks." >&2
+            exit 1
+            ;;
+        esac
         if [ "$version" != "latest" ] && ! valid_version "$version"; then
           echo "::error::Invalid version '${version}'. Expected a release tag such as v1.7.2, or 'latest'." >&2
           exit 1
@@ -141,6 +154,14 @@ runs:
           fi
 
           version="$(jq -r '.tag_name // empty' < "${tmp}/latest.json")"
+          # Same CR/LF + whole-string allowlist as the input path: an API
+          # response must not be able to inject $GITHUB_OUTPUT lines either.
+          case "$version" in
+            *$'\n'* | *$'\r'*)
+              echo "::error::The API returned a tag_name containing line breaks; refusing to use it. Pin \`version\` to a release tag instead." >&2
+              exit 1
+              ;;
+          esac
           if [ -z "$version" ] || ! valid_version "$version"; then
             echo "::error::The API returned no usable tag_name for the latest release (got '${version}'). Pin \`version\` to a release tag instead." >&2
             exit 1
