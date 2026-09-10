@@ -3,7 +3,7 @@ change: CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular
 module: lanes
 ---
 
-## ADDED
+## MODIFIED
 
 ### REQUIREMENT REQ-lanes-012
 
