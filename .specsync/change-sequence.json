@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 7,
-  "id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "sequence": 11,
+  "id": "CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper",
   "acknowledged_collisions": []
 }
