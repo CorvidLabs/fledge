@@ -8,7 +8,8 @@ spec: run.spec.md
 
 - `detect_project_type` correctly identifies rust, node, go, python, ruby, java-gradle, java-maven, swift, and generic projects
 - `task_defaults` returns non-empty task maps for each supported project type
-- Circular dependency detection catches direct cycles (A→B→A) and indirect cycles (A→B→C→A)
+- Circular dependency detection catches direct cycles (A→B→A) and indirect cycles (A→B→C→A) and reports the ordered cycle walk
+- Diamond DAGs (two tasks sharing one dep, e.g. A→[B,C], B→D, C→D) are not reported as cycles; the shared dep is ready once
 - Short-form task (`"cargo build"`) and full-form task (with deps, env, dir) both parse correctly
 
 ### Integration Tests

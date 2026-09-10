@@ -161,15 +161,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
         );
     }
 
-    let mut visited = HashSet::new();
-    execute_task(
-        task_name,
-        &tasks,
-        &project_dir,
-        &mut visited,
-        opts.json,
-        &opts.args,
-    )
+    execute_task(task_name, &tasks, &project_dir, opts.json, &opts.args)
 }
 
 /// Does a shell command reference a positional parameter (`$1`..`$9`, `$@`,
@@ -283,26 +275,34 @@ fn execute_task(
     name: &str,
     tasks: &BTreeMap<String, TaskDef>,
     project_dir: &Path,
-    visited: &mut HashSet<String>,
     json: bool,
     args: &[String],
 ) -> Result<()> {
-    if visited.contains(name) {
-        bail!(
-            "Circular dependency detected: task '{}' depends on itself",
-            name
-        );
-    }
-    visited.insert(name.to_string());
+    let mut in_progress = Vec::new();
+    let mut completed = HashSet::new();
+    crate::deps::walk_task_graph(
+        name,
+        &|n| tasks.get(n).map(TaskDef::deps),
+        &mut in_progress,
+        &mut completed,
+        &mut |n| {
+            // Pass-through args apply to the named task only — dependencies run clean.
+            let task_args = if n == name { args } else { &[] };
+            run_one_task(n, tasks, project_dir, json, task_args)
+        },
+    )
+}
 
+fn run_one_task(
+    name: &str,
+    tasks: &BTreeMap<String, TaskDef>,
+    project_dir: &Path,
+    json: bool,
+    args: &[String],
+) -> Result<()> {
     let task = tasks
         .get(name)
-        .ok_or_else(|| anyhow::anyhow!("Task '{}' not found (referenced as dependency)", name))?;
-
-    // Pass-through args apply to the named task only — dependencies run clean.
-    for dep in task.deps() {
-        execute_task(dep, tasks, project_dir, visited, json, &[])?;
-    }
+        .ok_or_else(|| anyhow::anyhow!("Task '{name}' not found (referenced as dependency)"))?;
 
     let cmd_str = task.cmd();
     let work_dir = match task.dir() {
@@ -772,13 +772,42 @@ deps = ["a"]
 "#;
         let config: FledgeFile = toml::from_str(toml_str).unwrap();
         let project_dir = std::env::temp_dir();
-        let mut visited = HashSet::new();
-        let result = execute_task("a", &config.tasks, &project_dir, &mut visited, false, &[]);
+        let result = execute_task("a", &config.tasks, &project_dir, false, &[]);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Circular dependency"));
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("Circular dependency detected: a → b → a"),
+            "expected ordered cycle walk, got: {err}"
+        );
+    }
+
+    #[test]
+    fn diamond_deps_are_not_circular() {
+        // a → [b, c], b → [d], c → [d] is a DAG. d is a short-form task.
+        let toml_str = r#"
+[tasks]
+d = "echo d"
+
+[tasks.b]
+cmd = "echo b"
+deps = ["d"]
+
+[tasks.c]
+cmd = "echo c"
+deps = ["d"]
+
+[tasks.a]
+cmd = "echo a"
+deps = ["b", "c"]
+"#;
+        let config: FledgeFile = toml::from_str(toml_str).unwrap();
+        let project_dir = std::env::temp_dir();
+        let result = execute_task("a", &config.tasks, &project_dir, false, &[]);
+        assert!(
+            result.is_ok(),
+            "diamond DAG must not be reported as a cycle: {:?}",
+            result.err()
+        );
     }
 
     #[test]

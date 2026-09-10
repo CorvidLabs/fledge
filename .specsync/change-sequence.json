@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 7,
-  "id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "sequence": 8,
+  "id": "CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular",
   "acknowledged_collisions": []
 }

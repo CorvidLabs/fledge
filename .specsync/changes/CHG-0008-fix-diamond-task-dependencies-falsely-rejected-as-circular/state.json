@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular",
+  "slug": "fix-diamond-task-dependencies-falsely-rejected-as-circular",
+  "title": "Fix diamond task dependencies falsely rejected as circular",
+  "description": "Fix diamond task dependencies falsely rejected as circular",
+  "kind": "bug_fix",
+  "state": "implementing",
+  "base_commit": "6eb7a3ea595c949f4bc0078c0738508d800356b3",
+  "created_at": 1787012002,
+  "updated_at": 1787012155,
+  "affected_specs": [
+    "run",
+    "lanes"
+  ],
+  "affected_paths": [
+    "src/deps.rs",
+    "src/run.rs",
+    "src/lanes/execute.rs",
+    "src/lanes/validate.rs",
+    "src/lanes/tests.rs",
+    "src/main.rs",
+    "tests/run.rs",
+    "tests/lanes.rs",
+    "specs/run",
+    "specs/lanes",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "fledge run a, fledge lanes run build, and fledge lanes validate succeed on diamond DAG a->[b,c] b->d c->d; genuine cycle a->b->a still fails; cargo test and cargo clippy --all-targets pass"
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "design"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

@@ -17,8 +17,17 @@ Acceptance Criteria
 7. Support `--init` to scaffold default lanes for the detected language
 8. List available lanes with descriptions
 9. Scaffold a lane repo via `fledge lanes create <name>` with example fledge.toml, README, and .gitignore
-10. Validate lane definitions via `fledge lanes validate [path]` — check task references, empty steps, circular deps, parallel groups
+10. Validate lane definitions via `fledge lanes validate [path]` — check task references, empty steps, circular deps (ordered walk; diamond DAGs are valid), parallel groups
 11. `publish` validates before pushing
+
+### REQ-lanes-012
+
+`fledge lanes run` and `fledge lanes validate` SHALL use the same two-set DFS as `fledge run` for task-dep cycle detection.
+
+Acceptance Criteria
+- Diamond DAG `a → [b, c]`, `b → d`, `c → d` succeeds for `lanes run` and `lanes validate`.
+- Genuine cycle `a → b → a` still fails.
+- Cycle errors from the shared helper list the ordered walk.
 
 ## Non-Functional Requirements
 

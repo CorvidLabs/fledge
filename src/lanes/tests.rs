@@ -224,6 +224,141 @@ steps = ["a", "b"]
 }
 
 #[test]
+fn execute_diamond_deps_are_not_circular() {
+    let config = parse_config(
+        r#"
+[tasks]
+d = "echo d"
+
+[tasks.b]
+cmd = "echo b"
+deps = ["d"]
+
+[tasks.c]
+cmd = "echo c"
+deps = ["d"]
+
+[tasks.a]
+cmd = "echo a"
+deps = ["b", "c"]
+
+[lanes.build]
+description = "diamond deps, no cycle"
+steps = [{ task = "a" }]
+"#,
+    );
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let result = execute_lane(
+        "build",
+        &config.lanes["build"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(
+        result.is_ok(),
+        "diamond DAG must not be reported as a cycle: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn execute_real_cycle_is_detected() {
+    let config = parse_config(
+        r#"
+[tasks.a]
+cmd = "echo a"
+deps = ["b"]
+
+[tasks.b]
+cmd = "echo b"
+deps = ["a"]
+
+[lanes.build]
+description = "real cycle"
+steps = [{ task = "a" }]
+"#,
+    );
+    let project_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let result = execute_lane(
+        "build",
+        &config.lanes["build"],
+        &config.tasks,
+        &project_dir,
+        false,
+        None,
+    );
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("Circular dependency detected: a → b → a"),
+        "expected ordered cycle walk, got: {err}"
+    );
+}
+
+#[test]
+fn validate_lanes_diamond_deps_ok() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"
+[tasks]
+d = "echo d"
+
+[tasks.b]
+cmd = "echo b"
+deps = ["d"]
+
+[tasks.c]
+cmd = "echo c"
+deps = ["d"]
+
+[tasks.a]
+cmd = "echo a"
+deps = ["b", "c"]
+
+[lanes.build]
+description = "diamond deps, no cycle"
+steps = [{ task = "a" }]
+"#,
+    )
+    .unwrap();
+
+    let result = validate_lanes(tmp.path(), false, false);
+    assert!(
+        result.is_ok(),
+        "diamond DAG must not fail lanes validate: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn validate_lanes_real_cycle_fails() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"
+[tasks.a]
+cmd = "echo a"
+deps = ["b"]
+
+[tasks.b]
+cmd = "echo b"
+deps = ["a"]
+
+[lanes.build]
+description = "real cycle"
+steps = [{ task = "a" }]
+"#,
+    )
+    .unwrap();
+
+    let result = validate_lanes(tmp.path(), false, false);
+    assert!(result.is_err(), "a real cycle must fail lanes validate");
+}
+
+#[test]
 fn parse_multiple_lanes() {
     let config = parse_config(
         r#"
