@@ -94,6 +94,17 @@ jobs:
             v1.7.2
             extra=injected
 
+      # A quote + newline in token terminates `header = "Authorization: Bearer …"`
+      # in the curl --config stream and can inject further curl directives.
+      - id: multiline-token
+        uses: ./
+        continue-on-error: true
+        with:
+          version: latest
+          token: |
+            ghp_ok"
+            url = "https://example.invalid"
+
       # v0.5.0 really does publish fledge-linux-x86_64 with no .sha256 beside
       # it, which makes it a live fixture for the missing-sidecar path: the
       # install has to fail rather than quietly degrade to unverified.
@@ -108,6 +119,7 @@ jobs:
         env:
           TRAVERSAL: ${{ steps.traversal.outcome }}
           MULTILINE: ${{ steps.multiline-version.outcome }}
+          MULTILINE_TOKEN: ${{ steps.multiline-token.outcome }}
           UNVERIFIABLE: ${{ steps.unverifiable.outcome }}
         run: |
           set -euo pipefail
@@ -121,6 +133,10 @@ jobs:
             echo "::error::a version containing an embedded newline was accepted; CR/LF rejection or whole-string allowlist has regressed" >&2
             failed=1
           fi
+          if [ "$MULTILINE_TOKEN" != "failure" ]; then
+            echo "::error::a token containing quote+newline was accepted; curl --config metachar rejection has regressed" >&2
+            failed=1
+          fi
           if [ "$UNVERIFIABLE" != "failure" ]; then
             echo "::error::v0.5.0 publishes no .sha256 sidecar but installed anyway; checksum verification is no longer mandatory" >&2
             failed=1
@@ -129,7 +145,7 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          echo "Confirmed: traversal version rejected, multiline version rejected, unverifiable release refused."
+          echo "Confirmed: traversal version rejected, multiline version rejected, malicious token refused, unverifiable release refused."
 
   windows-unsupported:
     name: windows is refused with a readable message
