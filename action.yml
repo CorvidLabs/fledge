@@ -57,6 +57,15 @@ runs:
           [[ $1 =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]
         }
 
+        # GitHub tokens are opaque. When non-empty they are interpolated into a
+        # curl --config line (`header = "Authorization: Bearer …"`). A quote
+        # plus CR/LF can terminate that string and inject further curl
+        # directives (another URL, upload-file, …) — same threat model as the
+        # version/$GITHUB_OUTPUT boundary. Allow only a safe charset.
+        valid_token() {
+          [[ $1 =~ ^[A-Za-z0-9._-]+$ ]]
+        }
+
         # `version` ends up in a download URL, and curl resolves dot segments
         # before sending, so a `..` in it escapes the repo namespace entirely —
         # and whatever binary lands is then installed 0755 and executed. A
@@ -75,6 +84,24 @@ runs:
         if [ "$version" != "latest" ] && ! valid_version "$version"; then
           echo "::error::Invalid version '${version}'. Expected a release tag such as v1.7.2, or 'latest'." >&2
           exit 1
+        fi
+
+        # Token is optional (pinned tags make no API call). When present it
+        # must be safe to embed in curl --config syntax — reject CR/LF and
+        # metacharacters before any network use.
+        if [ -n "${INPUT_TOKEN:-}" ]; then
+          case "$INPUT_TOKEN" in
+            *$'
+'* | *$'
+'*)
+              echo "::error::token must not contain line breaks." >&2
+              exit 1
+              ;;
+          esac
+          if ! valid_token "$INPUT_TOKEN"; then
+            echo "::error::token contains characters that cannot be safely passed through curl --config (allowed: letters, digits, . _ -)." >&2
+            exit 1
+          fi
         fi
 
         # Same class of problem, lower severity: a `..` segment writes the
@@ -129,6 +156,7 @@ runs:
             'header = "Accept: application/vnd.github+json"'
             'header = "X-GitHub-Api-Version: 2022-11-28"'
           )
+          # INPUT_TOKEN already passed valid_token / CR/LF checks above.
           if [ -n "${INPUT_TOKEN:-}" ]; then
             conf+=("header = \"Authorization: Bearer ${INPUT_TOKEN}\"")
           fi
