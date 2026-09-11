@@ -91,9 +91,7 @@ runs:
         # metacharacters before any network use.
         if [ -n "${INPUT_TOKEN:-}" ]; then
           case "$INPUT_TOKEN" in
-            *$'
-'* | *$'
-'*)
+            *$'\n'* | *$'\r'*)
               echo "::error::token must not contain line breaks." >&2
               exit 1
               ;;
