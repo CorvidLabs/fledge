@@ -57,15 +57,6 @@ runs:
           [[ $1 =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]
         }
 
-        # GitHub tokens are opaque. When non-empty they are interpolated into a
-        # curl --config line (`header = "Authorization: Bearer …"`). A quote
-        # plus CR/LF can terminate that string and inject further curl
-        # directives (another URL, upload-file, …) — same threat model as the
-        # version/$GITHUB_OUTPUT boundary. Allow only a safe charset.
-        valid_token() {
-          [[ $1 =~ ^[A-Za-z0-9._-]+$ ]]
-        }
-
         # `version` ends up in a download URL, and curl resolves dot segments
         # before sending, so a `..` in it escapes the repo namespace entirely —
         # and whatever binary lands is then installed 0755 and executed. A
@@ -84,22 +75,6 @@ runs:
         if [ "$version" != "latest" ] && ! valid_version "$version"; then
           echo "::error::Invalid version '${version}'. Expected a release tag such as v1.7.2, or 'latest'." >&2
           exit 1
-        fi
-
-        # Token is optional (pinned tags make no API call). When present it
-        # must pass CR/LF + charset checks before any network use — reject CR/LF and
-        # metacharacters before any network use.
-        if [ -n "${INPUT_TOKEN:-}" ]; then
-          case "$INPUT_TOKEN" in
-            *$'\n'* | *$'\r'*)
-              echo "::error::token must not contain line breaks." >&2
-              exit 1
-              ;;
-          esac
-          if ! valid_token "$INPUT_TOKEN"; then
-            echo "::error::token contains characters outside the allowed charset (letters, digits, . _ -)." >&2
-            exit 1
-          fi
         fi
 
         # Same class of problem, lower severity: a `..` segment writes the
@@ -140,11 +115,33 @@ runs:
         tmp="$(mktemp -d)"
         trap 'rm -rf "$tmp"' EXIT
 
+        # Token is only used for the "latest" API lookup. It must not be spliced
+        # into curl --config text: a quote + CR/LF can terminate the header
+        # value and inject further curl directives (same threat model as
+        # version → $GITHUB_OUTPUT). Reject CR/LF and config metacharacters,
+        # then pass auth via --oauth2-bearer so the value is never reparsed as
+        # config syntax.
+        if [ -n "${INPUT_TOKEN:-}" ]; then
+          case "$INPUT_TOKEN" in
+            *$'\n'* | *$'\r'*)
+              echo "::error::token must not contain line breaks." >&2
+              exit 1
+              ;;
+            *[\"\#]*)
+              echo "::error::token must not contain curl-config metacharacters (quote or #)." >&2
+              exit 1
+              ;;
+          esac
+          if [[ ! $INPUT_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]]; then
+            echo "::error::token contains characters outside the GitHub-token allowlist." >&2
+            exit 1
+          fi
+        fi
+
         if [ "$version" = "latest" ]; then
           # Authenticated when a token is available, because the anonymous
-          # limit is per IP and runners share them. The token goes in through a
-          # stdin config file rather than argv so it never reaches the process
-          # table.
+          # limit is per IP and runners share them. Use --oauth2-bearer after
+          # the boundary checks above so the token never appears in --config.
           conf=(
             "silent"
             "show-error"
@@ -154,12 +151,9 @@ runs:
             'header = "Accept: application/vnd.github+json"'
             'header = "X-GitHub-Api-Version: 2022-11-28"'
           )
-          # INPUT_TOKEN already passed valid_token / CR/LF checks above.
+
           set +e
           if [ -n "${INPUT_TOKEN:-}" ]; then
-            # Token already passed CR/LF + charset checks. Prefer argv bearer
-            # over embedding in --config text so a future allowlist slip cannot
-            # reintroduce curl-config injection.
             status="$(printf '%s\n' "${conf[@]}" | curl --config - --oauth2-bearer "$INPUT_TOKEN" -w '%{http_code}' \
               -o "${tmp}/latest.json" \
               "https://api.github.com/repos/${repo}/releases/latest")"
