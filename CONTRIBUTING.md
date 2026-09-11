@@ -179,6 +179,22 @@ fledge release patch               # or minor / major / 1.2.3
 
 For the JSON contract (e.g. for scripting), `fledge release --dry-run --json` and `fledge release --json` emit `{schema_version: 1, action: "release", ...}`.
 
+### Moving the `v1` tag
+
+`action.yml` at the repo root is the "Setup Fledge" GitHub Action; `uses:
+CorvidLabs/fledge@v1` is what consumers actually write, so the moving major
+tag needs to point at the release commit after every release:
+
+```bash
+git tag -f v1 v<version>
+git push origin v1 --force
+```
+
+`fledge release` does not do this for you — it is a separate, manual step
+(or wire it into a post-release workflow, matching `post-release-formula.yml`'s
+pattern, if this becomes tedious). Skipping it leaves `@v1` pinned to a stale
+commit; consumers who instead pinned a full tag like `@v1.7.2` are unaffected.
+
 ## Code of Conduct
 
 Be respectful and constructive. We're building tools, not arguments. Harassment, discrimination, and unconstructive behavior aren't tolerated.
