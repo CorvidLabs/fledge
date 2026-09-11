@@ -1,0 +1,80 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786408039,
+      "digest": "ca78a5aed89bbc660cb73a6e3b47c47300a83401cddfbce31daba284a7b8c5e6",
+      "note": "Definition approved by the repository owner."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786409566,
+      "digest": "5624a466f4430d2887b5562f74dc58088795e5ede3ded8ee21413357fbf52a3f",
+      "note": "Re-approved after recording requirement evidence and documenting lint exports."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786417562,
+      "digest": "9bf331fd22955a57e2445660af2b33a5e60aa5e8f5052bdf63c6ee3fd744ce8c",
+      "note": "Re-approved after separating deferred maintainer decisions from change tasks."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786419436,
+      "digest": "95cdbd55674a4d1ff8b5736a6321dcb6ddaa6101c4e21a502827aa3672e30265",
+      "note": "Closing approval by the repository owner; verify-native green, 4 requirements evidenced."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786974689,
+      "digest": "3844a775f29a6077e197a721edef25f7ba1d6050987999b6c3980a305e544cf2",
+      "note": "Re-accepted after PR #505 review fixes; verify-native green."
+    }
+  ],
+  "reopenings": [
+    {
+      "schema_version": 1,
+      "change_id": "CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
+      "actor": "user:0xGaspar",
+      "reason": "Review fixes for PR #505 changed delivery inputs on this branch; re-verifying.",
+      "timestamp": 1786974675,
+      "from_state": "accepted",
+      "to_state": "verifying",
+      "superseded_approval": {
+        "gate": "acceptance",
+        "actor": "user:0xGaspar",
+        "timestamp": 1786419436,
+        "digest": "95cdbd55674a4d1ff8b5736a6321dcb6ddaa6101c4e21a502827aa3672e30265",
+        "note": "Closing approval by the repository owner; verify-native green, 4 requirements evidenced."
+      },
+      "prior_verification": {
+        "timestamp": 1786417585,
+        "commit": "657899e01679dbe844c471486bb25b46cd263c51",
+        "contract_digest": "9bf331fd22955a57e2445660af2b33a5e60aa5e8f5052bdf63c6ee3fd744ce8c",
+        "workspace_digest": "b0df3a8d9f0674d9079eeb8be367b2286013131569abd7c34b222c88522436cf",
+        "acceptance_input_digest": "66a77200b3357e1658b0222842550df605d05888a16c63edaaea6b7a45be1232",
+        "passed": true,
+        "commands": [
+          {
+            "command": "fledge lanes run verify-native",
+            "success": true,
+            "exit_code": 0
+          }
+        ],
+        "requirement_ids": [
+          "REQ-main-010",
+          "REQ-spec-030",
+          "REQ-spec-031",
+          "REQ-spec-032"
+        ]
+      },
+      "stale_acceptance_input_digest": "66a77200b3357e1658b0222842550df605d05888a16c63edaaea6b7a45be1232",
+      "current_acceptance_input_digest": "0619816cafa53861656912368d777c7148ea701f884ef2751804a862f01bc53d"
+    }
+  ]
+}

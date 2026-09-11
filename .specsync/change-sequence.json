@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 7,
-  "id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
+  "sequence": 9,
+  "id": "CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
   "acknowledged_collisions": []
 }
