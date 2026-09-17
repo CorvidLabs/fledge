@@ -781,7 +781,12 @@ fn build_plugin_entry(
         InstallSource::Git { git_ref, .. } => git_ref.clone(),
         InstallSource::LocalPath { .. } => None,
     };
-    let granted_caps = if manifest.plugin.protocol.is_some() {
+    // Capabilities are recorded for a protocol plugin, and for any plugin that
+    // declares a lifecycle hook. `run_lifecycle_hook` requires `exec` to be on
+    // the registry entry, so leaving it off a hooked plugin makes its hooks dead
+    // on arrival: the user is prompted to grant `exec` at install, the grant is
+    // then dropped, and the hook is skipped for ever after with nothing said.
+    let granted_caps = if manifest.plugin.protocol.is_some() || manifest.hooks.has_any() {
         Some(manifest.capabilities.clone())
     } else {
         None
