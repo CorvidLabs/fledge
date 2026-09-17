@@ -1,0 +1,21 @@
+{
+  "timestamp": 1786927810,
+  "commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+  "contract_digest": "546438310dd882408b6ae5bb639c6a5e05549b9c916ac44752fc8c8601ad73c6",
+  "workspace_digest": "bf75b692dc3824102e9057191e70b3b998abaee0253fc2e03294c4bde0c1e3b8",
+  "acceptance_input_digest": "75fe3a8a2ebd8fd8d2ed1c72f0500fc93028d87bdc15ee3519ee7fb0a8853c31",
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": [
+    "REQ-doctor-020",
+    "REQ-github-020",
+    "REQ-llm-020",
+    "REQ-publish-020"
+  ]
+}

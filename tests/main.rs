@@ -151,8 +151,19 @@ fn cli_validate_builtin_templates() {
 
 #[test]
 fn cli_plugin_list_empty() {
-    let output = run_fledge(&["plugin", "list"]);
+    // `TempEnv` is what makes the registry actually empty. On a bare
+    // `run_fledge` the plugin dir resolves from the real `dirs::config_dir()`,
+    // so this read the developer's own `plugins.toml` and — asserting nothing
+    // but the exit status — gave no coverage of the empty case it names.
+    let output = TempEnv::new().run(&["plugin", "list", "--json"]);
     assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        parsed["plugins"].as_array().map(Vec::len),
+        Some(0),
+        "isolated registry should list no plugins: {stdout}"
+    );
 }
 
 // ──────────────────────────────────────────────────────────
@@ -227,14 +238,18 @@ fn e2e_rust_project_lifecycle() {
     let output = run_fledge_in(&project, &["lane", "run", "ci", "--dry-run"]);
     assert!(output.status.success());
 
-    // Step 7: Doctor check
-    let output = run_fledge_in(&project, &["doctor"]);
+    // Step 7: Doctor check. `doctor` reads the fledge config and probes the
+    // configured AI host, so it runs under `TempEnv` — otherwise a developer
+    // or runner with a real provider configured turns this into a live
+    // network probe.
+    let env = TempEnv::new();
+    let output = env.run_in(&project, &["doctor"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("fledge") || stdout.contains("Git"));
 
     // Step 9: Doctor JSON
-    let output = run_fledge_in(&project, &["doctor", "--json"]);
+    let output = env.run_in(&project, &["doctor", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -272,8 +287,8 @@ fn e2e_tsbun_project_lifecycle() {
     assert!(fledge_toml.contains("[tasks]"));
     assert!(fledge_toml.contains("bun"));
 
-    // Step 3: Doctor
-    let output = run_fledge_in(&project, &["doctor"]);
+    // Step 3: Doctor (isolated — see `e2e_rust_project_lifecycle`)
+    let output = TempEnv::new().run_in(&project, &["doctor"]);
     assert!(output.status.success());
 }
 
@@ -573,7 +588,7 @@ fn cli_config_set_and_get_roundtrip() {
 
 #[test]
 fn cli_config_unset_unknown_key_fails() {
-    let output = run_fledge(&["config", "unset", "nonexistent.key"]);
+    let output = TempEnv::new().run(&["config", "unset", "nonexistent.key"]);
     assert!(!output.status.success());
 }
 
@@ -650,7 +665,7 @@ fn cli_config_init_default() {
 
 #[test]
 fn cli_plugin_remove_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "remove", "no-such-plugin"]);
+    let output = TempEnv::new().run(&["plugin", "remove", "no-such-plugin"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -663,13 +678,13 @@ fn cli_plugin_remove_nonexistent_fails() {
 
 #[test]
 fn cli_plugin_run_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "run", "no-such-command"]);
+    let output = TempEnv::new().run(&["plugin", "run", "no-such-command"]);
     assert!(!output.status.success());
 }
 
 #[test]
 fn cli_plugin_list_json() {
-    let output = run_fledge(&["plugin", "list", "--json"]);
+    let output = TempEnv::new().run(&["plugin", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -691,7 +706,7 @@ fn cli_plugin_update_no_plugins() {
 
 #[test]
 fn cli_plugin_update_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "update", "nonexistent"]);
+    let output = TempEnv::new().run(&["plugin", "update", "nonexistent"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("not installed"));
@@ -736,7 +751,7 @@ fn cli_plugin_remove_json_error_path_returns_nonzero() {
     // Errors still go to stderr (anyhow); --json should not turn an
     // error into a success exit code. This guards against silent
     // misclassification by agents that only check exit codes.
-    let output = run_fledge(&["plugin", "remove", "definitely-not-installed", "--json"]);
+    let output = TempEnv::new().run(&["plugin", "remove", "definitely-not-installed", "--json"]);
     assert!(
         !output.status.success(),
         "remove of nonexistent plugin must exit nonzero even with --json"
@@ -834,7 +849,7 @@ fn cli_lanes_init_json_error_path_returns_nonzero() {
 
 #[test]
 fn cli_templates_list_json_emits_envelope() {
-    let output = run_fledge(&["templates", "list", "--json"]);
+    let output = TempEnv::new().run(&["templates", "list", "--json"]);
     assert!(
         output.status.success(),
         "templates list --json failed: {}",
@@ -1134,8 +1149,8 @@ steps = [{ parallel = ["check", "build"] }, "test"]
     assert_eq!(parsed["schema_version"].as_u64(), Some(1));
     assert!(parsed["lanes"].as_array().unwrap().len() >= 3);
 
-    // 10. Doctor in this dir
-    let output = run_fledge_in(tmp.path(), &["doctor"]);
+    // 10. Doctor in this dir (isolated — it reads config and probes the AI host)
+    let output = TempEnv::new().run_in(tmp.path(), &["doctor"]);
     assert!(output.status.success());
 }
 
@@ -1250,8 +1265,12 @@ fn create_template_non_interactive_with_all_flags() {
 
 #[test]
 fn cli_review_outside_git_repo_fails() {
+    // TempEnv: no provider key, config dir isolated, AI host pointed at a
+    // closed port — a `review` that got past the git check cannot reach a real
+    // LLM endpoint or read the developer's config (issue #447).
+    let env = TempEnv::new();
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["review"]);
+    let output = env.run_in(tmp.path(), &["review"]);
     if !output.status.success() {
         let stderr = String::from_utf8(output.stderr).unwrap();
         assert!(
@@ -1286,7 +1305,7 @@ fn cli_review_no_changes_fails() {
         .current_dir(tmp.path())
         .output()
         .unwrap();
-    let output = run_fledge_in(tmp.path(), &["review", "--base", "HEAD"]);
+    let output = TempEnv::new().run_in(tmp.path(), &["review", "--base", "HEAD"]);
     assert!(!output.status.success(), "expected failure on empty diff");
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -1395,7 +1414,10 @@ fn cli_ai_help_lists_subcommands() {
 
 #[test]
 fn cli_ai_status_json_shape() {
-    let output = run_fledge(&["ai", "status", "--json"]);
+    // `ai::status` resolves the provider from the loaded config, so a bare
+    // `run_fledge` reports whatever the runner's real `~/.config/fledge/` and
+    // provider keys say. `TempEnv` pins it to the isolated, key-free config.
+    let output = TempEnv::new().run(&["ai", "status", "--json"]);
     assert!(
         output.status.success(),
         "ai status should succeed, got: {}",
@@ -1469,7 +1491,8 @@ fn cli_non_interactive_accepted_on_subcommand() {
 
 #[test]
 fn cli_non_interactive_alias_ni_accepted() {
-    let output = run_fledge(&["--ni", "doctor", "--json"]);
+    // `doctor` again: isolated so the parser check can't become a live probe.
+    let output = TempEnv::new().run(&["--ni", "doctor", "--json"]);
     assert!(
         output.status.success(),
         "--ni was rejected: {}",
