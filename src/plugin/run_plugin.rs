@@ -197,7 +197,6 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
             .current_dir(plugin_dir)
             .env("FLEDGE_PLUGIN_DIR", plugin_dir)
             .env("FLEDGE_REPO_ROOT", hook_repo_root())
-            .env("FLEDGE_REPO_ROOT", hook_repo_root())
             .status()
             .with_context(|| format!("running {event} hook"))?
     };

@@ -112,7 +112,7 @@ impl InstallSource {
         }
     }
 
-    fn registry_source(&self) -> String {
+    pub(super) fn registry_source(&self) -> String {
         match self {
             Self::LocalPath { canonical, .. } => canonical.to_string_lossy().to_string(),
             Self::Git {
@@ -771,7 +771,7 @@ fn print_requested_capabilities(
 
 /// Assemble the registry entry recorded for a freshly-installed plugin. The
 /// install timestamp is captured here.
-fn build_plugin_entry(
+pub(super) fn build_plugin_entry(
     repo_name: &str,
     install_source: &InstallSource,
     manifest: &PluginManifest,
