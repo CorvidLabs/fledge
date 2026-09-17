@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Features
+
+- Lifecycle hooks are told which repository they fired for, via `FLEDGE_REPO_ROOT`. A hook runs with its working directory set to the plugin's own source directory, so until now a `post_work_start` or `pre_push` hook had no way to inspect the project it was reacting to. The variable is always set: the repository root, the working directory outside a repository, or `.` if even that cannot be read.
+
 ## [v1.7.2] - 2026-07-27
 
 ### Fixes

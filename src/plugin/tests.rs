@@ -1088,6 +1088,41 @@ fn run_hook_handles_quoted_args_with_spaces() {
 }
 
 #[test]
+#[cfg(unix)]
+fn a_hook_is_told_which_repository_it_fired_for() {
+    use std::os::unix::fs::PermissionsExt;
+    // A hook runs with its cwd set to the plugin's own directory, so without
+    // this variable it cannot tell which project invoked it, and a hook that
+    // wants to look at the repository has nothing to look at.
+    let tmp = tempfile::TempDir::new().unwrap();
+    let out = tmp.path().join("seen");
+    let script = tmp.path().join("where.sh");
+    std::fs::write(
+        &script,
+        format!(
+            "#!/bin/sh\nprintf '%s' \"$FLEDGE_REPO_ROOT\" > {}\n",
+            out.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    run_hook(tmp.path(), &script.display().to_string(), "test").unwrap();
+
+    let seen = std::fs::read_to_string(&out).unwrap();
+    assert!(!seen.is_empty(), "FLEDGE_REPO_ROOT must always be set");
+    assert!(
+        std::path::Path::new(&seen).is_dir(),
+        "FLEDGE_REPO_ROOT must be a directory a hook can enter, got {seen:?}"
+    );
+    assert_ne!(
+        std::fs::canonicalize(&seen).unwrap(),
+        std::fs::canonicalize(tmp.path()).unwrap(),
+        "it names the repository, not the plugin directory the hook runs in"
+    );
+}
+
+#[test]
 fn run_hook_rejects_mismatched_quotes() {
     let tmp = tempfile::TempDir::new().unwrap();
     let result = run_hook(tmp.path(), "echo 'unclosed", "test");

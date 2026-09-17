@@ -134,6 +134,36 @@ pub(super) fn resolve_plugin_source_dir(bin_path: &Path) -> Option<PathBuf> {
     resolved.parent()?.parent().map(|p| p.to_path_buf())
 }
 
+/// The repository a lifecycle hook is firing for.
+///
+/// A hook runs with its working directory set to the plugin's own directory, so
+/// it has no way to tell which repository invoked it. fledge still holds that
+/// answer at this point: its own process is in the user's repository. Resolve it
+/// once here and hand it to the hook as `FLEDGE_REPO_ROOT`, or a hook cannot
+/// even ask whether the project it fired for has a given file in it.
+///
+/// Falls back to the working directory outside a repository, and to `.` when
+/// even that cannot be read, so the variable is always set to something a hook
+/// can `cd` into rather than sometimes being absent.
+fn hook_repo_root() -> std::ffi::OsString {
+    if let Ok(out) = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+    {
+        if out.status.success() {
+            if let Ok(text) = String::from_utf8(out.stdout) {
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    return std::ffi::OsString::from(trimmed);
+                }
+            }
+        }
+    }
+    std::env::current_dir()
+        .map(std::path::PathBuf::into_os_string)
+        .unwrap_or_else(|_| std::ffi::OsString::from("."))
+}
+
 pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()> {
     // Progress to stderr — hooks run during `--json` commands (e.g. work start),
     // where stdout must stay a clean JSON envelope.
@@ -166,6 +196,8 @@ pub(super) fn run_hook(plugin_dir: &Path, hook: &str, event: &str) -> Result<()>
             .args(&parts[1..])
             .current_dir(plugin_dir)
             .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+            .env("FLEDGE_REPO_ROOT", hook_repo_root())
+            .env("FLEDGE_REPO_ROOT", hook_repo_root())
             .status()
             .with_context(|| format!("running {event} hook"))?
     };
@@ -190,6 +222,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                     .args(["/c", &hook_path.to_string_lossy()])
                     .current_dir(plugin_dir)
                     .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                    .env("FLEDGE_REPO_ROOT", hook_repo_root())
                     .status()
                     .context("running hook via cmd /c");
             }
@@ -197,6 +230,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                 return Command::new(hook_path)
                     .current_dir(plugin_dir)
                     .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                    .env("FLEDGE_REPO_ROOT", hook_repo_root())
                     .status()
                     .context("running hook exe");
             }
@@ -207,6 +241,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                         .arg(hook_path)
                         .current_dir(plugin_dir)
                         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                        .env("FLEDGE_REPO_ROOT", hook_repo_root())
                         .status()
                     {
                         return Ok(status);
@@ -219,6 +254,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
                         .arg(hook_path)
                         .current_dir(plugin_dir)
                         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+                        .env("FLEDGE_REPO_ROOT", hook_repo_root())
                         .status()
                         .context("running hook via git-bash");
                 }
@@ -234,6 +270,7 @@ fn run_hook_file(hook_path: &Path, plugin_dir: &Path) -> Result<std::process::Ex
     Command::new(hook_path)
         .current_dir(plugin_dir)
         .env("FLEDGE_PLUGIN_DIR", plugin_dir)
+        .env("FLEDGE_REPO_ROOT", hook_repo_root())
         .status()
         .context("running hook")
 }
