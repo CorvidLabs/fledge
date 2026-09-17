@@ -15,7 +15,7 @@ spec: doctor.spec.md
 
 ### Integration Tests
 
-Every `doctor` invocation in the suite runs inside `common::TempEnv`: isolated `HOME`/`FLEDGE_CONFIG_DIR`, provider API keys stripped, and `OLLAMA_HOST` pointed at a closed loopback port — so the AI probe can never reach a real endpoint and the developer's config is never read or written (issue #447). That includes the `doctor` steps of the end-to-end lifecycle tests in `tests/main.rs`, which would otherwise probe whatever provider host the machine running the suite has configured.
+Every `doctor` invocation in the suite runs inside `common::TempEnv`: isolated `HOME`/`FLEDGE_CONFIG_DIR`, provider API keys stripped, and `OLLAMA_HOST` pointed at a closed loopback port — so the AI probe can never reach a real endpoint and the developer's config is never read or written (issue #447). That includes the `doctor` steps of the end-to-end lifecycle tests in `tests/main.rs` and the two `doctor` edge-case tests in `tests/spec.rs`, which would otherwise probe whatever provider host the machine running the suite has configured. `cli_doctor_reports_unreachable_ai_host_without_failing` asserts the active-provider check's `detail` names the loopback port, which is the only part of the report that identifies the endpoint actually probed.
 
 - `fledge doctor` runs without panic in a valid project (`tests/doctor.rs`)
 - `fledge doctor --json` outputs valid JSON with all four sections

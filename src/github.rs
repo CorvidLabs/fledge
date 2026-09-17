@@ -341,16 +341,30 @@ mod tests {
 
     // ── URL building + error classification (no network) ───────────────────
 
+    // `build_api_url` resolves its base through `api_base()`, which reads the
+    // process-global `API_BASE_ENV`. That makes these two *env readers*: they
+    // must hold `env_lock` and pin the variable off, or a concurrent
+    // `endpoint_env_override_redirects_only_in_debug_builds` — which sets it
+    // to a dead loopback port — is observed here instead. Asserting against
+    // `GITHUB_API_BASE` rather than a second copy of the literal keeps the
+    // expectation tied to the production constant.
+
     #[test]
     fn build_api_url_without_query() {
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, None);
+
         assert_eq!(
             build_api_url("/repos/CorvidLabs/fledge", &[]),
-            "https://api.github.com/repos/CorvidLabs/fledge"
+            format!("{GITHUB_API_BASE}/repos/CorvidLabs/fledge")
         );
     }
 
     #[test]
     fn build_api_url_encodes_and_joins_query() {
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, None);
+
         let url = build_api_url(
             "/search/repositories",
             &[("q", "topic:fledge-plugin lang:rust"), ("per_page", "5")],
@@ -359,7 +373,7 @@ mod tests {
         assert_eq!(
             url,
             format!(
-                "https://api.github.com/search/repositories?q={}&per_page=5",
+                "{GITHUB_API_BASE}/search/repositories?q={}&per_page=5",
                 crate::search::urlencod("topic:fledge-plugin lang:rust")
             )
         );

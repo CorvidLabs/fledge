@@ -151,8 +151,19 @@ fn cli_validate_builtin_templates() {
 
 #[test]
 fn cli_plugin_list_empty() {
-    let output = run_fledge(&["plugin", "list"]);
+    // `TempEnv` is what makes the registry actually empty. On a bare
+    // `run_fledge` the plugin dir resolves from the real `dirs::config_dir()`,
+    // so this read the developer's own `plugins.toml` and — asserting nothing
+    // but the exit status — gave no coverage of the empty case it names.
+    let output = TempEnv::new().run(&["plugin", "list", "--json"]);
     assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        parsed["plugins"].as_array().map(Vec::len),
+        Some(0),
+        "isolated registry should list no plugins: {stdout}"
+    );
 }
 
 // ──────────────────────────────────────────────────────────
@@ -577,7 +588,7 @@ fn cli_config_set_and_get_roundtrip() {
 
 #[test]
 fn cli_config_unset_unknown_key_fails() {
-    let output = run_fledge(&["config", "unset", "nonexistent.key"]);
+    let output = TempEnv::new().run(&["config", "unset", "nonexistent.key"]);
     assert!(!output.status.success());
 }
 
@@ -654,7 +665,7 @@ fn cli_config_init_default() {
 
 #[test]
 fn cli_plugin_remove_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "remove", "no-such-plugin"]);
+    let output = TempEnv::new().run(&["plugin", "remove", "no-such-plugin"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -667,13 +678,13 @@ fn cli_plugin_remove_nonexistent_fails() {
 
 #[test]
 fn cli_plugin_run_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "run", "no-such-command"]);
+    let output = TempEnv::new().run(&["plugin", "run", "no-such-command"]);
     assert!(!output.status.success());
 }
 
 #[test]
 fn cli_plugin_list_json() {
-    let output = run_fledge(&["plugin", "list", "--json"]);
+    let output = TempEnv::new().run(&["plugin", "list", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -695,7 +706,7 @@ fn cli_plugin_update_no_plugins() {
 
 #[test]
 fn cli_plugin_update_nonexistent_fails() {
-    let output = run_fledge(&["plugin", "update", "nonexistent"]);
+    let output = TempEnv::new().run(&["plugin", "update", "nonexistent"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(stderr.contains("not installed"));
@@ -740,7 +751,7 @@ fn cli_plugin_remove_json_error_path_returns_nonzero() {
     // Errors still go to stderr (anyhow); --json should not turn an
     // error into a success exit code. This guards against silent
     // misclassification by agents that only check exit codes.
-    let output = run_fledge(&["plugin", "remove", "definitely-not-installed", "--json"]);
+    let output = TempEnv::new().run(&["plugin", "remove", "definitely-not-installed", "--json"]);
     assert!(
         !output.status.success(),
         "remove of nonexistent plugin must exit nonzero even with --json"
@@ -838,7 +849,7 @@ fn cli_lanes_init_json_error_path_returns_nonzero() {
 
 #[test]
 fn cli_templates_list_json_emits_envelope() {
-    let output = run_fledge(&["templates", "list", "--json"]);
+    let output = TempEnv::new().run(&["templates", "list", "--json"]);
     assert!(
         output.status.success(),
         "templates list --json failed: {}",
@@ -1403,7 +1414,10 @@ fn cli_ai_help_lists_subcommands() {
 
 #[test]
 fn cli_ai_status_json_shape() {
-    let output = run_fledge(&["ai", "status", "--json"]);
+    // `ai::status` resolves the provider from the loaded config, so a bare
+    // `run_fledge` reports whatever the runner's real `~/.config/fledge/` and
+    // provider keys say. `TempEnv` pins it to the isolated, key-free config.
+    let output = TempEnv::new().run(&["ai", "status", "--json"]);
     assert!(
         output.status.success(),
         "ai status should succeed, got: {}",

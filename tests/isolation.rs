@@ -8,8 +8,11 @@
 //! The `FLEDGE_TEST_GITHUB_*` redirection is a debug-build-only hook (see
 //! `github::test_endpoint_override`). Tests that depend on it skip themselves
 //! under `cargo test --release` rather than fall through to the real
-//! github.com; `endpoint_override_is_absent_from_release_builds` is what covers
-//! that direction.
+//! github.com. The other direction of that contract — that a release build
+//! ignores the variable and keeps the production constant — is covered by
+//! `github::tests::endpoint_env_override_redirects_only_in_debug_builds`,
+//! which can observe the real `api_base()`. An assertion here could only
+//! restate `github_redirection_supported()`'s own definition.
 
 mod common;
 use common::*;
@@ -82,21 +85,22 @@ fn default_temp_env_points_github_at_a_dead_port() {
         "search should fail against a dead port, got: {}",
         String::from_utf8_lossy(&output.stdout)
     );
+    // Two halves, because neither alone rules out a real request. The base the
+    // child was handed is loopback, and the failure is a refused connection —
+    // nothing answered. A bare `contains("failed")`, which this used to accept,
+    // is also satisfied by a genuine api.github.com failure, the exact outcome
+    // this test exists to exclude. ureq does not put the address in the message,
+    // so the address has to be asserted at the source instead.
+    assert!(
+        env.github_api_base().starts_with("http://127.0.0.1:"),
+        "default GitHub base must be loopback, got: {}",
+        env.github_api_base()
+    );
     let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
     assert!(
-        stderr.contains("127.0.0.1") || stderr.contains("failed") || stderr.contains("parsing"),
-        "expected a local connection failure, got: {stderr}"
+        stderr.contains("connection refused") || stderr.contains("127.0.0.1"),
+        "expected a refused local connection, got: {stderr}"
     );
-}
-
-#[test]
-fn endpoint_override_is_absent_from_release_builds() {
-    // The other direction of the same contract: the hook exists only in debug
-    // builds, so a release binary keeps the production endpoints no matter
-    // what the environment says. `github_redirection_supported()` is the
-    // single place that knowledge lives; the unit tests in `src/github.rs`
-    // assert the constant fallback itself.
-    assert_eq!(github_redirection_supported(), cfg!(debug_assertions));
 }
 
 // Rejection of a non-loopback override (`https://evil.example`, the
@@ -104,6 +108,57 @@ fn endpoint_override_is_absent_from_release_builds() {
 // tests in `src/github.rs`, not here: a rejected value falls back to the real
 // endpoint by construction, so the only way to observe it through a spawned
 // binary would be to let a request reach api.github.com.
+
+// ──────────────────────────────────────────────────────────
+// The shared mock itself
+// ──────────────────────────────────────────────────────────
+
+/// `MockHttp` must read a request body, not just the headers.
+///
+/// The handler ends with `shutdown(Both)`. A client still writing a body into a
+/// socket the server has fully shut down gets EPIPE/ECONNRESET instead of the
+/// response — the same hazard the header-draining comment names. The body here
+/// is far larger than any socket buffer, so the write cannot complete unless
+/// the server actually drains it: without the drain this fails every time
+/// rather than intermittently.
+///
+/// Every current caller is a GET, but `MockHttp` is shared integration-test
+/// infrastructure and `src/test_support.rs::handle_connection` already does
+/// this correctly; the next POST user should not have to debug it.
+#[test]
+fn mock_http_serves_a_request_with_a_large_body() {
+    use std::io::{Read, Write};
+
+    let server = MockHttp::start(r#"{"ok":true}"#);
+    let body = "x".repeat(1024 * 1024);
+
+    let mut stream = std::net::TcpStream::connect(server.url().trim_start_matches("http://"))
+        .expect("connect to mock");
+    stream
+        .write_all(
+            format!(
+                "POST /thing HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .as_bytes(),
+        )
+        .expect("write request head");
+    stream.write_all(body.as_bytes()).expect("write body");
+    stream.flush().expect("flush body");
+
+    let mut response = String::new();
+    stream.read_to_string(&mut response).expect("read response");
+
+    assert!(
+        response.starts_with("HTTP/1.1 200 OK"),
+        "expected a 200 after a large body, got: {response}"
+    );
+    assert!(
+        response.contains(r#"{"ok":true}"#),
+        "body missing: {response}"
+    );
+    assert_eq!(server.requests(), vec!["POST /thing".to_string()]);
+}
 
 // ──────────────────────────────────────────────────────────
 // Remote template fetch: a real `git clone`, from a local bare repo

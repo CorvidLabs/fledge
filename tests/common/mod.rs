@@ -140,6 +140,14 @@ impl TempEnv {
         self.config.path()
     }
 
+    /// The GitHub REST base handed to the child — a closed loopback port
+    /// unless [`TempEnv::with_github_api_base`] replaced it. Exposed so a test
+    /// can assert *where* the child was pointed rather than infer it from an
+    /// error string.
+    pub fn github_api_base(&self) -> &str {
+        &self.github_api_base
+    }
+
     /// A `fledge` command pre-loaded with the isolated environment. Use when a
     /// test needs to add its own args, env, or working directory.
     pub fn command(&self) -> Command {
@@ -281,7 +289,7 @@ fn serve_one(
     body: &str,
     requests: &std::sync::Arc<std::sync::Mutex<Vec<String>>>,
 ) {
-    use std::io::{BufRead, BufReader, Write};
+    use std::io::{BufRead, BufReader, Read, Write};
 
     let Ok(peek) = stream.try_clone() else { return };
     let mut reader = BufReader::new(peek);
@@ -290,14 +298,34 @@ fn serve_one(
     if reader.read_line(&mut request_line).is_err() || request_line.trim().is_empty() {
         return; // shutdown probe or dead socket
     }
-    // Drain headers so the client isn't writing into a closed socket.
+    // Drain headers so the client isn't writing into a closed socket, keeping
+    // `content-length` so the body can be drained too.
+    let mut content_length = 0usize;
     loop {
         let mut line = String::new();
         match reader.read_line(&mut line) {
             Ok(0) => break,
             Ok(_) if line.trim_end_matches(['\r', '\n']).is_empty() => break,
-            Ok(_) => {}
+            Ok(_) => {
+                let trimmed = line.trim_end_matches(['\r', '\n']);
+                if let Some((k, v)) = trimmed.split_once(':') {
+                    if k.trim().eq_ignore_ascii_case("content-length") {
+                        content_length = v.trim().parse().unwrap_or(0);
+                    }
+                }
+            }
             Err(_) => return,
+        }
+    }
+    // The body needs draining for the same reason the headers do: this handler
+    // ends with `shutdown(Both)`, and a client still writing a POST body into a
+    // fully shut-down socket sees EPIPE/ECONNRESET instead of the 200. Only GET
+    // callers exist today, but this is shared integration-test infrastructure,
+    // and `src/test_support.rs::handle_connection` already reads the body.
+    if content_length > 0 {
+        let mut body = vec![0u8; content_length];
+        if reader.read_exact(&mut body).is_err() {
+            return;
         }
     }
 
@@ -320,7 +348,23 @@ fn serve_one(
 }
 
 /// A loopback address with nothing listening on it.
+///
+/// Candidates come from below the ephemeral range the kernel draws
+/// `bind("127.0.0.1:0")` from, so a concurrently-starting [`MockHttp`] cannot
+/// be handed this port; binding an ephemeral port and dropping it raced
+/// exactly that way. Each is confirmed unreachable by a real connect attempt,
+/// with the old approach kept as the last resort. Mirrors
+/// `src/test_support.rs::closed_loopback_port` — integration tests are a
+/// separate crate and cannot reach it.
 fn closed_loopback_addr() -> std::net::SocketAddr {
+    for port in [9u16, 1, 4, 6] {
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+        if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(200))
+            .is_err()
+        {
+            return addr;
+        }
+    }
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind throwaway port");
     let addr = listener.local_addr().expect("throwaway local_addr");
     drop(listener);

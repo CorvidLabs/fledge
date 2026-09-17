@@ -23,7 +23,7 @@ Tests that mutate env serialize on a static Mutex to avoid parallel-test races.
 In `tests/integration.rs`:
 
 - `cli_ai_help_lists_subcommands` — `status`, `models`, `use` all appear in `fledge ai --help`
-- `cli_ai_status_json_shape` — `fledge ai status --json` parses, contains `provider` + `provider_source`
+- `cli_ai_status_json_shape` — `fledge ai status --json` parses, contains `provider` + `provider_source`. Runs under `common::TempEnv`: `ai::status` resolves the provider from the loaded config, so an unisolated run reports the developer's real config and keys
 - `cli_ai_use_rejects_unknown_provider_at_parse_time` — clap `value_parser` rejects `ai use gpt`
 - `cli_ai_models_rejects_unknown_provider_at_parse_time` — clap rejects `ai models --provider gemini`
 - `cli_ai_use_non_interactive_without_provider_fails` — `--non-interactive ai use` with no args errors with a clear hint

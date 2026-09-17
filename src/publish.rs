@@ -929,9 +929,16 @@ mod tests {
     #[test]
     fn run_publish_stops_when_repo_check_fails() {
         let work = tempfile::tempdir().unwrap();
+        // The remote base is pinned at an empty tempdir, like the five sibling
+        // `run_publish` tests. The early return on a failed existence check is
+        // what keeps `push_directory` unreached today; if that ever regresses,
+        // an unpinned remote base would make this a live `git push` to
+        // github.com carrying the fixture token. One line removes that.
+        let remotes = tempfile::tempdir().unwrap();
         let server = MockHttpServer::start();
         server.on("GET", "/repos/octo/widget", MockResponse::empty(500));
-        let _base = GithubBaseGuard::api(&server.url());
+        let _base =
+            GithubBaseGuard::api_and_remote(&server.url(), remotes.path().to_str().unwrap());
 
         // A failed existence check aborts before any repo is created or pushed.
         assert!(run_publish(publish_fixture(work.path(), serde_json::Map::new())).is_err());

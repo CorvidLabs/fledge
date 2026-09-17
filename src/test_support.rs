@@ -183,10 +183,23 @@ impl TestRepo {
     /// Run a git command in the repo, returning its `Output`. Panics only if
     /// `git` can't be spawned; the exit status is left for the caller to
     /// inspect (setup steps like `symbolic-ref` may legitimately be checked).
+    ///
+    /// The global and system gitconfig are neutered for the child, the same
+    /// isolation [`GitIdentityGuard`] gives the rest of the git helpers here.
+    /// Without it a developer with `commit.gpgsign = true` gets signing
+    /// failures, and one with a global `core.hooksPath` runs their own hooks
+    /// under test. These are set on the child `Command` rather than the
+    /// process, so — unlike `GitIdentityGuard` — no [`env_lock`] is needed and
+    /// parallel tests cannot see each other's settings.
     pub(crate) fn git(&self, args: &[&str]) -> std::process::Output {
         std::process::Command::new("git")
             .args(args)
             .current_dir(self.dir.path())
+            .env(
+                "GIT_CONFIG_GLOBAL",
+                self.dir.path().join("absent-gitconfig"),
+            )
+            .env("GIT_CONFIG_NOSYSTEM", "1")
             .output()
             .expect("spawn git")
     }
@@ -313,6 +326,9 @@ pub(crate) struct MockHttpServer {
     state: Arc<Mutex<MockState>>,
     shutdown: Arc<AtomicBool>,
     handle: Option<std::thread::JoinHandle<()>>,
+    /// Handles for the per-connection threads, so `Drop` can join them instead
+    /// of leaving them running detached after the test has finished.
+    connections: Arc<Mutex<Vec<std::thread::JoinHandle<()>>>>,
 }
 
 impl MockHttpServer {
@@ -327,8 +343,12 @@ impl MockHttpServer {
         }));
         let shutdown = Arc::new(AtomicBool::new(false));
 
+        let connections: Arc<Mutex<Vec<std::thread::JoinHandle<()>>>> =
+            Arc::new(Mutex::new(Vec::new()));
+
         let thread_state = Arc::clone(&state);
         let thread_shutdown = Arc::clone(&shutdown);
+        let thread_connections = Arc::clone(&connections);
         let handle = std::thread::spawn(move || {
             for stream in listener.incoming() {
                 if thread_shutdown.load(Ordering::SeqCst) {
@@ -337,10 +357,22 @@ impl MockHttpServer {
                 match stream {
                     // One thread per connection: `ureq` may hold a pooled
                     // connection open while opening another, so serving
-                    // sequentially could deadlock a multi-request test.
+                    // sequentially could deadlock a multi-request test. The
+                    // integration-test `MockHttp` can serve sequentially
+                    // precisely because it has no such client.
                     Ok(s) => {
+                        // A handler must not be able to block forever on a
+                        // client that half-writes a request: `Drop` joins these
+                        // threads, so an unbounded read would hang the test run
+                        // rather than merely leak a thread.
+                        let _ = s.set_read_timeout(Some(std::time::Duration::from_secs(10)));
+                        let _ = s.set_write_timeout(Some(std::time::Duration::from_secs(10)));
                         let conn_state = Arc::clone(&thread_state);
-                        std::thread::spawn(move || handle_connection(s, conn_state));
+                        let conn = std::thread::spawn(move || handle_connection(s, conn_state));
+                        thread_connections
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .push(conn);
                     }
                     Err(_) => break,
                 }
@@ -352,6 +384,7 @@ impl MockHttpServer {
             state,
             shutdown,
             handle: Some(handle),
+            connections,
         }
     }
 
@@ -403,6 +436,14 @@ impl Drop for MockHttpServer {
         // Wake the blocking `accept` so the loop observes the shutdown flag.
         let _ = TcpStream::connect(self.addr);
         if let Some(h) = self.handle.take() {
+            let _ = h.join();
+        }
+        // The accept loop has stopped, so no thread can be added now. Join the
+        // per-connection handlers rather than leaving them detached: each is
+        // bounded by the read/write timeouts set when it was accepted.
+        let handles: Vec<_> =
+            std::mem::take(&mut *self.connections.lock().unwrap_or_else(|e| e.into_inner()));
+        for h in handles {
             let _ = h.join();
         }
     }
@@ -497,11 +538,37 @@ fn handle_connection(stream: TcpStream, state: Arc<Mutex<MockState>>) {
 
 /// A loopback port with nothing listening on it — for exercising
 /// connection-refused paths without waiting on a real network timeout.
+///
+/// Candidates are taken from *below* the ephemeral range, which is the range
+/// the kernel draws `bind("127.0.0.1:0")` from (32768+ on Linux, 49152+ on
+/// macOS and Windows). A `MockHttpServer` starting concurrently therefore
+/// cannot be handed the port this vouched for. Binding an ephemeral port and
+/// dropping it — the previous approach — had exactly that race: the port was
+/// free when checked and could be taken microseconds later, which matters
+/// because callers assert that connecting *fails*.
+///
+/// Each candidate is confirmed unreachable by a real connect attempt rather
+/// than assumed, and the ephemeral bind-then-drop stays as the last resort.
 pub(crate) fn dead_port_url() -> String {
+    format!("http://127.0.0.1:{}", closed_loopback_port())
+}
+
+/// See [`dead_port_url`]. Shared with the `TempEnv` integration helper, which
+/// keeps its own copy because integration tests are a separate crate.
+fn closed_loopback_port() -> u16 {
+    // Low, and none of them in use on a normal machine: 9 is discard, 1/4/6
+    // are unassigned-in-practice. All are far below every ephemeral range.
+    for port in [9u16, 1, 4, 6] {
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        if TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(200)).is_err() {
+            return port;
+        }
+    }
+    // Only reached if something is listening on all four. Racy, as before.
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind throwaway port");
-    let addr = listener.local_addr().expect("throwaway local_addr");
+    let port = listener.local_addr().expect("throwaway local_addr").port();
     drop(listener);
-    format!("http://{}", addr)
+    port
 }
 
 // ── GitHub endpoint redirection (in-process, test builds only) ────────────

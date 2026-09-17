@@ -36,20 +36,47 @@ fn cli_doctor_json_valid() {
 #[test]
 fn cli_doctor_reports_unreachable_ai_host_without_failing() {
     // The AI section is diagnostic: an unreachable provider is reported, not
-    // an exit-code failure. This also proves the probe hit the dead loopback
-    // port from `TempEnv` rather than a real endpoint.
+    // an exit-code failure.
+    //
+    // The detail string is asserted, not just the section name, because that
+    // is the only part that names the host actually probed. With every
+    // provider key stripped, `TempEnv` leaves ollama as the resolved provider
+    // and points `OLLAMA_HOST` at a closed loopback port, so a passing
+    // assertion here is evidence the probe stayed on this machine. Asserting
+    // only that a section called "AI" exists holds no matter which endpoint
+    // was contacted, which is what this test used to do.
     let env = TempEnv::new();
     let output = env.run(&["doctor", "--json"]);
     assert!(output.status.success());
     let parsed: serde_json::Value =
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
-    let names: Vec<&str> = parsed["sections"]
+
+    let ai = parsed["sections"]
         .as_array()
-        .unwrap()
+        .expect("sections array")
         .iter()
-        .filter_map(|s| s["name"].as_str())
-        .collect();
-    assert!(names.contains(&"AI"), "sections: {names:?}");
+        .find(|s| s["name"] == "AI")
+        .unwrap_or_else(|| panic!("no AI section in {parsed}"));
+
+    let provider = ai["checks"]
+        .as_array()
+        .expect("checks array")
+        .iter()
+        .find(|c| {
+            c["name"]
+                .as_str()
+                .is_some_and(|n| n.starts_with("Active provider:"))
+        })
+        .unwrap_or_else(|| panic!("no active-provider check in {ai}"));
+
+    // Diagnostic, not fatal: the check is not ok, yet the command succeeded.
+    assert_ne!(provider["status"], "ok", "provider check: {provider}");
+
+    let detail = provider["detail"].as_str().unwrap_or_default();
+    assert!(
+        detail.contains("127.0.0.1"),
+        "the probe must have targeted TempEnv's dead loopback port, got: {detail}"
+    );
 }
 
 #[test]

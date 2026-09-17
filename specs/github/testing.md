@@ -42,7 +42,13 @@ The runtime (environment) override exists for integration tests, which drive a s
 `tests/isolation.rs` drives the spawned binary, which is the only way to cover the environment override end to end:
 
 - `github_api_base_override_routes_a_spawned_command_to_the_mock` — `templates search --json` under `TempEnv::with_github_api_base` returns the loopback mock's payload, and the mock records the `GET /search/repositories?…` it served
-- `default_temp_env_points_github_at_a_dead_port` — with no explicit base, a `TempEnv`-wrapped search fails against a closed local port instead of reaching api.github.com
-- `endpoint_override_is_absent_from_release_builds` — the debug-only gate is what `github_redirection_supported()` reports, so release runs skip rather than fall through to the network
+- `default_temp_env_points_github_at_a_dead_port` — with no explicit base, a `TempEnv`-wrapped search fails against a closed local port instead of reaching api.github.com. Asserted in two halves: the base handed to the child is loopback, and the failure is a refused connection. A bare "the command failed" would also be satisfied by a genuine api.github.com failure
+- `mock_http_serves_a_request_with_a_large_body` — the shared `MockHttp` drains a request body, not just the headers, so a POST larger than a socket buffer completes instead of hitting EPIPE against a shut-down socket
+
+The release-build direction of the override — that a release binary keeps the
+production constant whatever the environment says — is covered by the unit test
+`endpoint_env_override_redirects_only_in_debug_builds`, which can observe the
+real `api_base()`. An integration assertion could only restate
+`github_redirection_supported()`'s own definition.
 
 A live call to `api.github.com` is a manual check only — no CI test may touch the network.
