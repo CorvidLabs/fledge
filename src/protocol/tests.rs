@@ -330,6 +330,11 @@ fn response_serializes_correctly() {
 
 #[test]
 fn exec_sandbox_blocks_path_escape() {
+    // `handle_exec` resolves its sandbox root from the *process* working
+    // directory, which is global to the test binary. Hold the same lock the
+    // cwd-relocating tests take, or this can run while the cwd points into a
+    // tempdir another test has already dropped.
+    let _cwd = crate::test_support::cwd_lock();
     let tmp = tempfile::tempdir().unwrap();
     let result = handle_exec("echo hi", Some("../../.."), None, tmp.path()).unwrap();
     let code = result["code"].as_i64().unwrap();
@@ -338,6 +343,11 @@ fn exec_sandbox_blocks_path_escape() {
 
 #[test]
 fn exec_runs_simple_command() {
+    // `handle_exec` resolves its sandbox root from the *process* working
+    // directory, which is global to the test binary. Hold the same lock the
+    // cwd-relocating tests take, or this can run while the cwd points into a
+    // tempdir another test has already dropped.
+    let _cwd = crate::test_support::cwd_lock();
     let tmp = tempfile::tempdir().unwrap();
     let result = handle_exec("echo hello", None, None, tmp.path()).unwrap();
     assert_eq!(result["code"].as_i64().unwrap(), 0);
@@ -361,6 +371,12 @@ fn compile_test_plugin(src: &str, tmp: &std::path::Path) -> std::path::PathBuf {
     let bin_path = tmp.join(bin_name);
     let output = std::process::Command::new("rustc")
         .args([src_path.to_str().unwrap(), "-o", bin_path.to_str().unwrap()])
+        // Pin the child's cwd. Inheriting the process-global one makes this
+        // compile fail ("Current directory is invalid") whenever a concurrent
+        // test is inside `test_support::with_cwd` on a tempdir that has since
+        // been dropped. Both paths here are absolute, so the choice of
+        // directory only has to be one that exists.
+        .current_dir(tmp)
         .output()
         .expect("rustc must be available to run plugin tests");
     assert!(
@@ -694,6 +710,11 @@ fn main() {
 
 #[test]
 fn run_protocol_plugin_exec_timeout_returns_code_124() {
+    // `handle_exec` resolves its sandbox root from the *process* working
+    // directory, which is global to the test binary. Hold the same lock the
+    // cwd-relocating tests take, or this can run while the cwd points into a
+    // tempdir another test has already dropped.
+    let _cwd = crate::test_support::cwd_lock();
     let tmp = tempfile::tempdir().unwrap();
     let bin = compile_test_plugin(
         r#"

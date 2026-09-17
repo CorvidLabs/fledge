@@ -17,3 +17,4 @@ spec: lanes.spec.md
 - [x] Wire up CLI subcommand in main.rs
 - [x] Run verification suite
 - [x] Fix diamond DAGs falsely reported as circular in execute + validate (#508)
+- [x] Bound the shared walker's recursion depth so a deep chain errors instead of aborting the process (follow-up to #513)

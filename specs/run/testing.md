@@ -37,3 +37,5 @@ spec: run.spec.md
 
 - No test asserts cross-stream interleaving or relies on wall-clock timing. Streaming visibility is asserted by *presence* of child bytes on fledge's stderr after exit, which distinguishes the two modes without racing them
 - The integration harness pipes stdout and stderr, so every streaming test also exercises the non-TTY path
+- The depth-bound tests are exact at the boundary (`MAX_TASK_DEPTH` passes, `+1` fails) rather than approximate, so an off-by-one cannot pass. The 20,000-deep case aborts the test binary outright without the bound, which is the point: it verifies an uncatchable crash became an ordinary error
+- CLI depth tests assert `status.code().is_some()` as well as the message — on Unix that is `None` for a signal death, and a stack overflow also writes to stderr, so the message alone would not distinguish the two

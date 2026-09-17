@@ -121,6 +121,45 @@ fn cli_lane_validate_diamond_deps_succeeds() {
     );
 }
 
+/// The lane executor and the lane validator each walk the task graph, so both
+/// reached the recursive walker. Neither may abort on a deep chain.
+#[test]
+fn cli_lane_run_deep_chain_fails_cleanly() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), deep_chain_toml(1_200)).unwrap();
+    let output = run_fledge_in(tmp.path(), &["lanes", "run", "build"]);
+    assert!(!output.status.success());
+    assert!(
+        output.status.code().is_some(),
+        "must exit normally, not abort on a signal (stack overflow)"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("deeper than"),
+        "expected the depth bound to be reported, got: {stderr}"
+    );
+}
+
+#[test]
+fn cli_lane_validate_deep_chain_fails_cleanly() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), deep_chain_toml(1_200)).unwrap();
+    let output = run_fledge_in(tmp.path(), &["lanes", "validate"]);
+    assert!(
+        output.status.code().is_some(),
+        "must exit normally, not abort on a signal (stack overflow)"
+    );
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("deeper than"),
+        "expected the depth bound to be reported, got: {combined}"
+    );
+}
+
 #[test]
 fn cli_lane_run_real_cycle_fails() {
     let tmp = TempDir::new().unwrap();

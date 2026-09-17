@@ -28,6 +28,8 @@ spec: run.spec.md
 - [x] Join both forwarding threads before propagating either one's failure, so neither is left detached and writing (#509 review)
 - [x] Ignore `SIGPIPE` while mirroring so a stderr consumer that stops reading degrades to capture-only instead of killing fledge at exit 141 with no envelope (#509 review)
 - [x] Select shell syntax per platform in the streaming integration tests (`;` for `sh -c`, `&` for `cmd /C`) so Windows CI exercises them too (#509 review)
+- [x] Bound `walk_task_graph` recursion at `MAX_TASK_DEPTH` so a deep chain errors instead of aborting the process, and land the 20,000-deep regression test #513's plan claimed (follow-up to #513)
+- [x] Serialize `plugin::tests::a_hook_is_told_which_repository_it_fired_for` on `test_support::cwd_lock` — it read the process-global cwd unguarded and raced the tests that relocate it
 
 ## Gaps
 
@@ -36,3 +38,4 @@ spec: run.spec.md
 - `--stream --json` guarantees per-stream ordering only; cross-stream interleaving is best-effort
 - Lanes steps have no equivalent streaming mode
 - `--json` emits one envelope per executed task, so a task with `deps` produces a JSON *stream* rather than a single document. Pre-existing, documented rather than changed — collapsing it into one envelope would be a breaking change to the `run_task` contract and belongs in its own change
+- `lanes validate` restarts the walk from every task name and `in_progress` uses a linear `position()` scan, so validation is roughly quadratic in chain length (~2s for a 1,200-task chain). Bounded by `MAX_TASK_DEPTH` in practice, but worth revisiting if that bound is ever raised

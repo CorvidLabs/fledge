@@ -20,3 +20,4 @@ spec: lanes.spec.md
 - Parallel steps run concurrently
 - Missing task reference fails before execution
 - `fledge lanes init` adds default lanes to fledge.toml
+- `fledge lanes run <lane>` and `fledge lanes validate` on a 1,200-task dependency chain report the depth bound and exit with a status code — not a signal death from a stack overflow

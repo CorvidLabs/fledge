@@ -6,6 +6,25 @@
 use std::path::Path;
 use std::process::Command;
 
+/// A `fledge.toml` whose tasks form a single chain `t0 → t1 → … → t{len-1}`,
+/// plus a `build` lane running the head.
+///
+/// This is the shape that aborted the process with a stack overflow before
+/// `deps::MAX_TASK_DEPTH` bounded the walk. `len` must exceed that bound for a
+/// test to reach the guard.
+pub fn deep_chain_toml(len: usize) -> String {
+    let mut out = String::new();
+    for i in 0..len {
+        out.push_str(&format!("[tasks.t{i}]\ncmd = \"echo t{i}\"\n"));
+        if i + 1 < len {
+            out.push_str(&format!("deps = [\"t{}\"]\n", i + 1));
+        }
+        out.push('\n');
+    }
+    out.push_str("[lanes.build]\ndescription = \"deep chain\"\nsteps = [{ task = \"t0\" }]\n");
+    out
+}
+
 pub fn cargo_bin() -> String {
     env!("CARGO_BIN_EXE_fledge").to_string()
 }
