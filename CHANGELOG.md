@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
+- A plugin that declares a lifecycle hook now keeps the capabilities it was granted. Capabilities were recorded only for protocol plugins, so a plain command plugin's hooks were dead on arrival: `exec` was prompted for at install, the grant discarded, and every hook skipped silently thereafter.
 - Lifecycle hooks are told which repository they fired for, via `FLEDGE_REPO_ROOT`. A hook runs with its working directory set to the plugin's own source directory, so until now a `post_work_start` or `pre_push` hook had no way to inspect the project it was reacting to. The variable is always set: the repository root, the working directory outside a repository, or `.` if even that cannot be read.
 
 ## [v1.7.2] - 2026-07-27

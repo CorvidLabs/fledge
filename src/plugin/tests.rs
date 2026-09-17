@@ -1123,6 +1123,48 @@ fn a_hook_is_told_which_repository_it_fired_for() {
 }
 
 #[test]
+fn a_command_plugin_that_declares_hooks_is_recorded_with_its_capabilities() {
+    // `run_lifecycle_hook` skips any plugin whose registry entry lacks `exec`,
+    // and capabilities used to be recorded only for protocol plugins. A hooked
+    // command plugin's hooks were therefore dead on arrival: `exec` is prompted
+    // for at install, the grant is dropped, and the hook is silently never run.
+    // Found by installing one and watching nothing happen.
+    let manifest_str = r#"
+[plugin]
+name = "hooked"
+version = "0.1.0"
+description = "A plain command plugin that wants a lifecycle hook"
+
+[[commands]]
+name = "hooked"
+description = "does a thing"
+binary = "bin/hooked"
+
+[hooks]
+post_work_start = "bin/nudge start"
+
+[capabilities]
+exec = true
+"#;
+    let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+
+    assert!(manifest.plugin.protocol.is_none(), "not a protocol plugin");
+    assert!(manifest.hooks.has_any(), "but it does declare a hook");
+    assert!(
+        manifest.capabilities.exec,
+        "and asks for the capability hooks need"
+    );
+
+    // The install path records capabilities when either is true; before the
+    // fix only the first was considered and this plugin got `None`.
+    let recorded = manifest.plugin.protocol.is_some() || manifest.hooks.has_any();
+    assert!(
+        recorded,
+        "a plugin declaring hooks must keep its capabilities, or its hooks never run"
+    );
+}
+
+#[test]
 fn run_hook_rejects_mismatched_quotes() {
     let tmp = tempfile::TempDir::new().unwrap();
     let result = run_hook(tmp.path(), "echo 'unclosed", "test");
