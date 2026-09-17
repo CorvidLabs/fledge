@@ -18,7 +18,10 @@ inputs:
       Token used only when resolving "latest". Without one that lookup is
       unauthenticated and rate-limited per IP, which is shared between runners
       — the failure mode is an intermittent "could not determine latest
-      version" that looks like a broken build.
+      version" that looks like a broken build. It must be shaped like a GitHub
+      token (`A-Za-z0-9._=-` and nothing else); anything else is rejected on
+      every code path, not just the one that spends it — the value reaches a
+      curl configuration line.
     required: false
     default: ${{ github.token }}
   install-dir:
@@ -115,33 +118,56 @@ runs:
         tmp="$(mktemp -d)"
         trap 'rm -rf "$tmp"' EXIT
 
-        # Token is only used for the "latest" API lookup. It must not be spliced
-        # into curl --config text: a quote + CR/LF can terminate the header
-        # value and inject further curl directives (same threat model as
-        # version → $GITHUB_OUTPUT). Reject CR/LF and config metacharacters,
-        # then pass auth via --oauth2-bearer so the value is never reparsed as
-        # config syntax.
+        # Same boundary treatment as `version`, for the same reason. `token` is
+        # only read on the "latest" path, where it used to be spliced into a
+        # curl --config line as `header = "Authorization: Bearer ${token}"`. A
+        # config value is terminated by its closing quote and a config
+        # directive is terminated by a newline, so a token carrying a quote
+        # followed by a line break ends the header and everything after it is
+        # parsed as further curl directives — another `url`, an `output`, an
+        # `upload-file`. That is the version → $GITHUB_OUTPUT injection in a
+        # different syntax, and it ends in arbitrary fetches or in the token
+        # leaving the runner.
+        #
+        # So: reject at the boundary rather than escaping, with one whole-string
+        # allowlist — the same shape of check `version` already gets, not a
+        # second mechanism. Every real GitHub credential — ghp_/ghs_/
+        # github_pat_ and the installation JWTs — is drawn from this set, and
+        # the set contains no quote, no `#`, no whitespace and no line break,
+        # which is every character curl config syntax gives meaning to. That is
+        # what lets the header keep going in through the stdin config instead
+        # of argv, which REQ-harden-action-6 requires.
+        #
+        # This runs before the `latest` branch, not inside it: a boundary that
+        # only guards the path that happens to use the value today is one
+        # refactor away from being no boundary at all. `refuses-unsafe-install`
+        # pins that by handing a malicious token to a *pinned* version, which
+        # never reaches the API call.
         if [ -n "${INPUT_TOKEN:-}" ]; then
           case "$INPUT_TOKEN" in
             *$'\n'* | *$'\r'*)
               echo "::error::token must not contain line breaks." >&2
               exit 1
               ;;
-            *[\"\#]*)
-              echo "::error::token must not contain curl-config metacharacters (quote or #)." >&2
-              exit 1
-              ;;
           esac
           if [[ ! $INPUT_TOKEN =~ ^[A-Za-z0-9._=-]+$ ]]; then
-            echo "::error::token contains characters outside the GitHub-token allowlist." >&2
+            echo "::error::token must match ^[A-Za-z0-9._=-]+$ — the shape every GitHub token has. Quotes, '#', spaces and line breaks are curl-config syntax and are refused rather than escaped." >&2
             exit 1
           fi
         fi
 
         if [ "$version" = "latest" ]; then
           # Authenticated when a token is available, because the anonymous
-          # limit is per IP and runners share them. Use --oauth2-bearer after
-          # the boundary checks above so the token never appears in --config.
+          # limit is per IP and runners share them. The token still goes in
+          # through the stdin config rather than argv, so it never reaches the
+          # process table — on a persistent runner /proc/<pid>/cmdline is
+          # world-readable where /proc/<pid>/environ is not, which is why
+          # --oauth2-bearer would be a downgrade here and not an upgrade.
+          # Splicing it into this line is safe because of the boundary check
+          # above and only because of it: the allowlist admits no quote, so the
+          # value cannot close this one, and no CR/LF, so it cannot start a
+          # second directive. Loosen that check and this line becomes an
+          # injection point again.
           conf=(
             "silent"
             "show-error"
@@ -151,17 +177,14 @@ runs:
             'header = "Accept: application/vnd.github+json"'
             'header = "X-GitHub-Api-Version: 2022-11-28"'
           )
+          if [ -n "${INPUT_TOKEN:-}" ]; then
+            conf+=("header = \"Authorization: Bearer ${INPUT_TOKEN}\"")
+          fi
 
           set +e
-          if [ -n "${INPUT_TOKEN:-}" ]; then
-            status="$(printf '%s\n' "${conf[@]}" | curl --config - --oauth2-bearer "$INPUT_TOKEN" -w '%{http_code}' \
-              -o "${tmp}/latest.json" \
-              "https://api.github.com/repos/${repo}/releases/latest")"
-          else
-            status="$(printf '%s\n' "${conf[@]}" | curl --config - -w '%{http_code}' \
-              -o "${tmp}/latest.json" \
-              "https://api.github.com/repos/${repo}/releases/latest")"
-          fi
+          status="$(printf '%s\n' "${conf[@]}" | curl --config - -w '%{http_code}' \
+            -o "${tmp}/latest.json" \
+            "https://api.github.com/repos/${repo}/releases/latest")"
           rc=$?
           set -e
 

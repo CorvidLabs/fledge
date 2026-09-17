@@ -94,13 +94,40 @@ jobs:
             v1.7.2
             extra=injected
 
-      # A quote + newline in token terminates `header = "Authorization: Bearer …"`
-      # in the curl --config stream and can inject further curl directives.
+      # A quote + newline in token used to terminate the
+      # `header = "Authorization: Bearer …"` value in the curl --config stream,
+      # after which the rest of the token was parsed as further curl
+      # directives. This is the reviewer's scenario, on the path that actually
+      # uses the token.
+      #
+      # On its own it is a weak assertion, and it is kept honest about that:
+      # before the boundary check existed this step ALSO ended in `failure`,
+      # because the directive the token injected pointed curl at a host that
+      # does not resolve. A step that fails for the attacker's reason and a
+      # step that fails because the input was refused are indistinguishable
+      # from `outcome` alone. The case below is the one that tells them apart.
       - id: multiline-token
         uses: ./
         continue-on-error: true
         with:
           version: latest
+          token: |
+            ghp_ok"
+            url = "https://example.invalid"
+
+      # The discriminating regression: the same malicious token against a
+      # *pinned* version, which never makes the API call the token is for.
+      # If `token` is validated at the input boundary this is refused like any
+      # other bad input. If it is only validated where it happens to be used,
+      # the unused value sails past and the action installs successfully — so
+      # this step's outcome flips from `failure` to `success` the moment the
+      # boundary moves back inside the `latest` branch, which is exactly the
+      # regression that shipped the vulnerability the first time.
+      - id: pinned-bad-token
+        uses: ./
+        continue-on-error: true
+        with:
+          version: v1.7.2
           token: |
             ghp_ok"
             url = "https://example.invalid"
@@ -120,6 +147,9 @@ jobs:
           TRAVERSAL: ${{ steps.traversal.outcome }}
           MULTILINE: ${{ steps.multiline-version.outcome }}
           MULTILINE_TOKEN: ${{ steps.multiline-token.outcome }}
+          PINNED_BAD_TOKEN: ${{ steps.pinned-bad-token.outcome }}
+          PINNED_BAD_TOKEN_VERSION: ${{ steps.pinned-bad-token.outputs.version }}
+          PINNED_BAD_TOKEN_PATH: ${{ steps.pinned-bad-token.outputs.path }}
           UNVERIFIABLE: ${{ steps.unverifiable.outcome }}
         run: |
           set -euo pipefail
@@ -134,7 +164,18 @@ jobs:
             failed=1
           fi
           if [ "$MULTILINE_TOKEN" != "failure" ]; then
-            echo "::error::a token containing quote+newline was accepted; curl --config metachar rejection has regressed" >&2
+            echo "::error::a token containing quote+newline was accepted on the latest path; the token boundary check has regressed" >&2
+            failed=1
+          fi
+          # Outcome and outputs are asserted separately: a refusal at the
+          # boundary produces neither, while a token that slipped through
+          # produces a complete, successful install.
+          if [ "$PINNED_BAD_TOKEN" != "failure" ]; then
+            echo "::error::a malicious token was accepted alongside a pinned version. token is no longer validated at the input boundary — only on the code path that consumes it — so an unused token reaches curl --config unchecked. See the token block in action.yml." >&2
+            failed=1
+          fi
+          if [ -n "$PINNED_BAD_TOKEN_VERSION" ] || [ -n "$PINNED_BAD_TOKEN_PATH" ]; then
+            echo "::error::the refused-token step still produced outputs (version='${PINNED_BAD_TOKEN_VERSION}' path='${PINNED_BAD_TOKEN_PATH}'); it installed before refusing" >&2
             failed=1
           fi
           if [ "$UNVERIFIABLE" != "failure" ]; then
@@ -145,7 +186,7 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
-          echo "Confirmed: traversal version rejected, multiline version rejected, malicious token refused, unverifiable release refused."
+          echo "Confirmed: traversal version rejected, multiline version rejected, malicious token refused on both the latest and the pinned path, unverifiable release refused."
 
   windows-unsupported:
     name: windows is refused with a readable message
