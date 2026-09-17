@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "sequence": 8,
-  "id": "CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular",
+  "sequence": 9,
+  "id": "CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers",
   "acknowledged_collisions": []
 }
