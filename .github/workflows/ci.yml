@@ -149,7 +149,7 @@ jobs:
       # retired one, a malformed id, an undeclared family and a stranded
       # criterion. It never fails on unfinished intent prose.
       - name: Install hi
-        run: cargo install human-intent --version 0.4.0 --locked
+        run: cargo install human-intent --version 0.5.0 --locked
       - name: Check intent
         run: hi check
 
