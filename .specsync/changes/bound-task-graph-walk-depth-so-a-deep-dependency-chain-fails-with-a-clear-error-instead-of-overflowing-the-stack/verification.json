@@ -1,8 +1,194 @@
 {
-  "timestamp": 1789687400,
-  "commit": "b6065ef0a1081ee442edd90349fa6a1ae4dffc45",
+  "timestamp": 1789687491,
+  "commit": "a31026048f4e8926fe277cc46bf9175f00c0374a",
   "contract_digest": "22beba6b721063a54f1016c5415fcded080958ea1cc5648886d23b16a62379e4",
   "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+  "acceptance_input_digest": "deae65d39151315b9cf8b0c1508337b85f27476801a528191ae68b5dd13c43c0",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": "specs/lanes",
+        "kind": "non_file",
+        "mode": 0,
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "entry_digest": "0ee1892fefdb96b04970005c2267acbd3fab754f4e4210a2387153c332327a50",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "specs/lanes/context.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "a968be85828625fffe441f5ffcc3b84e22b3c6828617a6476f5336235e8942b5",
+        "entry_digest": "1a89a5db0b82e23d45652b306a9d1d0e8a69aec9916ba2a8136c0a826b3e94b4",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "specs/lanes/lanes.spec.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "9040d7a1ca6ae02187ee5f8d44adb96a0c71da05cf681bc304970b0f9407629f",
+        "entry_digest": "8b637d4671f5d395027e62e194f1ce9476b4d6bdccd0b2fa854627bc7d6e65c3",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "specs/lanes/requirements.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "ecc5838db0c4bc88a5d60332499a8d93650629cec83bae06ca66470db2e90590",
+        "entry_digest": "3f1641504c70dc554ec5b3b8b06e9e51aecd9d54ec33a09b8c82887de8c1e3bf",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "specs/lanes/tasks.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "104f4cefafb83c35c5c6a2d39ebbf5e0a1cb2a5d561dedbb897cdfe9f03afeb9",
+        "entry_digest": "fd6384a89a916f0e36ab66b8e578d2d27698c579d226dfe65f5bd9d98343469c",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "specs/lanes/testing.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "46309002d8786c1e9fd8f8f3632f07c1db322a0558e2323e5dd348711bcc39c8",
+        "entry_digest": "abf9bc1e4431d84372dd9a161eb2a19a565af4ed704463c61472a00b961c76f4",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "specs/run",
+        "kind": "non_file",
+        "mode": 0,
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "entry_digest": "9ca2c4e57eeee9a33a3e0be380e7f70807a90c5e75d103fda8e7be466f0e360c",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "specs/run/context.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "8f3ed41fb48f66d98bc41ed019719b47e9d4ca99dd5b827ff837d314b9998927",
+        "entry_digest": "a92bf0fd52eb3e583fad420e71abd20f24c9c50645b4a4b4ddfb1b2a9182771c",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "specs/run/requirements.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "1a417e5d392a8c707d60c216c1d215e3bf1895a4a9ac893a208a9ca73e5f3693",
+        "entry_digest": "d2cdd72dbfb74ccf461f703e22b3df1d8a071fb1a8b39ecfae5178b832b0e692",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "specs/run/run.spec.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "7ca38fe7617ff7349c7d203765a4dfd52624bd2b620164cfbbfd22be1cd55e35",
+        "entry_digest": "132c5d43651f5ea76548b007e428b82b7184d3c7e7fd4d920dbac287922c630d",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "specs/run/tasks.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "b826c52864d72bb37d8e8da86e5fa12b75c9b3e117b055ad88d5d90efb8a1762",
+        "entry_digest": "a08b1d4d090a732f3237c33f7d6d63c978905de5da75de7e70fd1a8d18b91dfb",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "specs/run/testing.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "b7023a6cec41ee7809798e392b03dd23da94059e67f8dc58d8cf8ecb67fffcfa",
+        "entry_digest": "592dacef4502949b2fa51dbc5fc2d2f9c619ddb5b38a966594e1706896f02acb",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "src/deps.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "1932f24e7baae4bf92e5ca503870f48bdcbfb7afb1f26b8ca51d6118144ecd6b",
+        "entry_digest": "4d980b8cbe5539f952f34e519ca2ca0c7af57a7a5070a787941c3cbcfd4bcc39",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "src/lanes/execute.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "d8458943855e4a12645f2bdee4d19c3eea0a8ad55778014d52bc178c6533462e",
+        "entry_digest": "35b9a3ceb9ac1568daf43472e764ce9a13a8b5bd5dd5c93094fbd82ec666971b",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "src/lanes/validate.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "9f6792c4e95d3cfdca66bf66f05abfe2c56b49112a8c7c4e7d92a3adc1ca8ea2",
+        "entry_digest": "86baf9f47d1b15a074458c6d2910aeb9e8aa85b5fba50fa3482433e5c4cceda4",
+        "owners": [
+          "lanes"
+        ]
+      },
+      {
+        "path": "src/run.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "349df2fff87a5b604121571191ace4b7ac28133cfbd4186280add470e8b8f8d2",
+        "entry_digest": "09842b979046616341d6ded17129e4cc54a03f056adf0a8e7e3421c50d9511fe",
+        "owners": [
+          "run"
+        ]
+      },
+      {
+        "path": "tests/lanes.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "e9f7debb8a87849793d12b9836be570078e2382f7220dac972f567957c8405e7",
+        "entry_digest": "da764e6822ef61b58ba4a1e10151d414e6206d06cffc746ef4d2f832fdd6231d",
+        "owners": [
+          "@exact:test"
+        ]
+      },
+      {
+        "path": "tests/run.rs",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "c34f79091f68745c3d56bfbbc087644ee02a0da514c086177230f568352d30fb",
+        "entry_digest": "2dafd04a79991548f13d81f3067a44b1cd66b12fc91bad3d5c164947937a85bc",
+        "owners": [
+          "@exact:test"
+        ]
+      }
+    ]
+  },
   "passed": true,
   "commands": [
     {
