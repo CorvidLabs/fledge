@@ -8,11 +8,10 @@ use tempfile::TempDir;
 // MARK: - templates init / list
 #[test]
 fn cli_list_shows_templates() {
-    let bin = cargo_bin();
-    let output = Command::new(&bin)
-        .args(["templates", "list"])
-        .output()
-        .unwrap();
+    // Under `TempEnv` only the built-in templates can appear: `templates.paths`
+    // comes from config, which is an empty tempdir here rather than the
+    // developer's real one.
+    let output = TempEnv::new().run(&["templates", "list"]);
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(output.status.success(), "templates list failed: {stdout}");

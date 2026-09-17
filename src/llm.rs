@@ -816,6 +816,131 @@ mod tests {
         assert_eq!(p.generate_url(), "https://cloud.example.com/api/generate");
     }
 
+    // ── OllamaProvider::invoke against a loopback mock server ─────────────
+    //
+    // `OllamaProvider` already takes its host as a field, so pointing it at a
+    // `MockHttpServer` exercises the real HTTP path — request shape, auth
+    // header, response decoding, and every error branch — with no daemon
+    // running and nothing leaving the machine.
+
+    use crate::test_support::{dead_port_url, MockHttpServer, MockResponse};
+
+    fn provider_at(host: &str, api_key: Option<&str>) -> OllamaProvider {
+        OllamaProvider {
+            host: host.to_string(),
+            api_key: api_key.map(str::to_string),
+            model: "llama3.3".into(),
+            timeout: Duration::from_secs(5),
+        }
+    }
+
+    #[test]
+    fn ollama_invoke_sends_prompt_and_trims_response() {
+        let server = MockHttpServer::start();
+        server.on(
+            "POST",
+            "/api/generate",
+            MockResponse::json(200, r#"{"response":"  hello from the model \n"}"#),
+        );
+
+        let out = provider_at(&server.url(), None).invoke("why is the sky blue?");
+        assert_eq!(out.unwrap(), "hello from the model");
+
+        let req = server.request("POST", "/api/generate").unwrap();
+        let body = req.json();
+        assert_eq!(body["model"], "llama3.3");
+        assert_eq!(body["prompt"], "why is the sky blue?");
+        assert_eq!(body["stream"], false);
+        assert_eq!(req.header("content-type"), Some("application/json"));
+        assert_eq!(req.header("user-agent"), Some("fledge-cli"));
+        // No key configured — no Authorization header at all.
+        assert!(req.header("authorization").is_none());
+    }
+
+    #[test]
+    fn ollama_invoke_sends_bearer_token_when_keyed() {
+        let server = MockHttpServer::start();
+        server.on(
+            "POST",
+            "/api/generate",
+            MockResponse::json(200, r#"{"response":"ok"}"#),
+        );
+
+        provider_at(&server.url(), Some("sk-cloud"))
+            .invoke("hi")
+            .unwrap();
+        assert_eq!(
+            server
+                .request("POST", "/api/generate")
+                .unwrap()
+                .header("authorization"),
+            Some("Bearer sk-cloud")
+        );
+    }
+
+    #[test]
+    fn ollama_invoke_reports_http_status_errors() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/api/generate", MockResponse::empty(500));
+
+        let err = provider_at(&server.url(), None)
+            .invoke("hi")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("Ollama endpoint returned HTTP 500"),
+            "unexpected error: {err}"
+        );
+        assert!(err.contains("Check the model name"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn ollama_invoke_reports_undecodable_body() {
+        let server = MockHttpServer::start();
+        server.on("POST", "/api/generate", MockResponse::text(200, "not json"));
+
+        let err = provider_at(&server.url(), None)
+            .invoke("hi")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("decoding response from"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn ollama_invoke_unreachable_host_hints_at_the_daemon() {
+        let _g = test_lock();
+        clear_env();
+        let host = dead_port_url();
+        let err = provider_at(&host, None).invoke("hi").unwrap_err();
+        let chain = format!("{err:#}");
+        assert!(
+            chain.contains("is the Ollama server running?"),
+            "unexpected error: {chain}"
+        );
+        assert!(chain.contains(&host), "should name the URL: {chain}");
+    }
+
+    #[test]
+    fn ollama_invoke_error_explains_ollama_host_env_override() {
+        let _g = test_lock();
+        clear_env();
+        // Issue #378: when OLLAMA_HOST is set, the failure says so — otherwise
+        // "connection refused to a host I never configured" is baffling.
+        let server = MockHttpServer::start();
+        server.on("POST", "/api/generate", MockResponse::empty(502));
+        std::env::set_var("OLLAMA_HOST", "http://from-env.invalid");
+
+        let err = provider_at(&server.url(), None)
+            .invoke("hi")
+            .unwrap_err()
+            .to_string();
+        clear_env();
+        assert!(
+            err.contains("OLLAMA_HOST env var = http://from-env.invalid"),
+            "unexpected error: {err}"
+        );
+    }
+
     #[test]
     fn describe_includes_model_when_set() {
         let p = OllamaProvider {
