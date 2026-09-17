@@ -1,5 +1,5 @@
 ---
-change: CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular
+change: fix-diamond-task-dependencies-falsely-rejected-as-circular
 artifact: tasks
 ---
 

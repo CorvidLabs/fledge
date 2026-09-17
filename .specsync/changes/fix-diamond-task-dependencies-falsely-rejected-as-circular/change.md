@@ -1,8 +1,8 @@
 ---
-id: CHG-0008-fix-diamond-task-dependencies-falsely-rejected-as-circular
-state: implementing
+id: fix-diamond-task-dependencies-falsely-rejected-as-circular
+state: draft
 type: bug_fix
-base_commit: 6eb7a3ea595c949f4bc0078c0738508d800356b3
+base_commit: 83d7561b8571d17270016e3f933e1733475d1d83
 ---
 
 # Fix diamond task dependencies falsely rejected as circular
