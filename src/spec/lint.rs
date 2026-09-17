@@ -12,11 +12,6 @@
 //!   placeholder), a well-formed `version`, every `files:` entry
 //!   present on disk, and at least one acceptance signal plus one rejection
 //!   signal.
-//!
-//! Section boundaries are fence-aware throughout: a `## ` line inside a
-//! ```` ``` ```` or `~~~` block is an example of markdown, not a section, so a
-//! spec may document the spec format without fabricating sections it does not
-//! have. See [`parse::FenceTracker`].
 //! - **Layer 2, model-graded** (opt-in via `--ai`): a model judges the axes a
 //!   regex cannot — is the "why" falsifiable, are the invariants real
 //!   constraints or decoration, do the acceptance/rejection signals actually
@@ -26,6 +21,11 @@
 //! hook and a CI gate by default (no network, no spend, no hang). When it *is*
 //! requested, provider availability is checked before any prompt is built, so a
 //! misconfigured provider fails fast with a clear error instead of hanging.
+//!
+//! Section boundaries are fence-aware throughout: a `## ` line inside a fenced
+//! block is an example of markdown, not a section, so a spec may document the
+//! spec format without fabricating sections it does not have. See
+//! [`parse::FenceTracker`].
 
 use anyhow::{bail, Context, Result};
 use console::style;
