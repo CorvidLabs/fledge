@@ -1403,7 +1403,11 @@ fn cli_ai_help_lists_subcommands() {
 
 #[test]
 fn cli_ai_status_json_shape() {
-    let output = run_fledge(&["ai", "status", "--json"]);
+    // `ai::status` resolves the provider from the real loaded config, so this
+    // read the developer's `~/.config/fledge/config.toml` without isolation.
+    // No network, but the same class as the doctor tests.
+    let env = TempEnv::new();
+    let output = env.run(&["ai", "status", "--json"]);
     assert!(
         output.status.success(),
         "ai status should succeed, got: {}",

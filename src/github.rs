@@ -343,14 +343,26 @@ mod tests {
 
     #[test]
     fn build_api_url_without_query() {
+        // `build_api_url` reaches the base through `api_base()`, which reads
+        // the process-global `API_BASE_ENV`. `endpoint_env_override_*` below
+        // mutates that variable under `env_lock`, so a reader that skips the
+        // lock can observe the loopback base mid-assertion. Assert against the
+        // constant rather than a second copy of the literal.
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, None);
+
         assert_eq!(
             build_api_url("/repos/CorvidLabs/fledge", &[]),
-            "https://api.github.com/repos/CorvidLabs/fledge"
+            format!("{GITHUB_API_BASE}/repos/CorvidLabs/fledge")
         );
     }
 
     #[test]
     fn build_api_url_encodes_and_joins_query() {
+        // Same env-reader hazard as `build_api_url_without_query` above.
+        let _lock = env_lock();
+        let _api = EnvVarGuard::set(API_BASE_ENV, None);
+
         let url = build_api_url(
             "/search/repositories",
             &[("q", "topic:fledge-plugin lang:rust"), ("per_page", "5")],
@@ -359,7 +371,7 @@ mod tests {
         assert_eq!(
             url,
             format!(
-                "https://api.github.com/search/repositories?q={}&per_page=5",
+                "{GITHUB_API_BASE}/search/repositories?q={}&per_page=5",
                 crate::search::urlencod("topic:fledge-plugin lang:rust")
             )
         );
