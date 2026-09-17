@@ -1,0 +1,20 @@
+{
+  "timestamp": 1789657704,
+  "commit": "dff0202ffcb524f5d6b1b58a7f2bb4ccdc01fbb2",
+  "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+  "workspace_digest": "3b0fab63df2bd1425be36626f8397be9f2d7f6209f7e44b744be716dea660470",
+  "passed": true,
+  "commands": [
+    {
+      "command": "specsync check --spec main --spec spec --strict",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": [
+    "REQ-main-010",
+    "REQ-spec-030",
+    "REQ-spec-031",
+    "REQ-spec-032"
+  ]
+}

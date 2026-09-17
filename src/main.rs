@@ -96,6 +96,7 @@ fn run() -> Result<()> {
             list,
             lang,
             json,
+            stream,
             args,
         }) => {
             run::run(run::RunOptions {
@@ -104,6 +105,7 @@ fn run() -> Result<()> {
                 list,
                 lang,
                 json,
+                stream,
                 args,
             })?;
         }
@@ -281,6 +283,25 @@ fn spec_action_from(action: SpecSubcommand) -> spec::SpecAction {
     match action {
         SpecSubcommand::Check { strict, json } => spec::SpecAction::Check { strict, json },
         SpecSubcommand::Init => spec::SpecAction::Init,
+        SpecSubcommand::Lint {
+            target,
+            ai,
+            no_ai,
+            provider,
+            model,
+            ignore,
+            strict,
+            json,
+        } => spec::SpecAction::Lint {
+            target,
+            json,
+            strict,
+            ai,
+            no_ai,
+            provider,
+            model,
+            ignore,
+        },
         SpecSubcommand::List { json } => spec::SpecAction::List { json },
         SpecSubcommand::New { name } => spec::SpecAction::New { name },
         SpecSubcommand::Show { name, json } => spec::SpecAction::Show { name, json },

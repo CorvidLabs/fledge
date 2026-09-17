@@ -5,7 +5,7 @@ artifact: testing
 
 # Testing
 
-## REQ-run-008: two-set DFS; diamond is not a cycle; ordered cycle walk
+## REQ-run-014: two-set DFS; diamond is not a cycle; ordered cycle walk
 
 - Automated: `src/deps.rs::tests::diamond_is_not_a_cycle_and_shared_dep_runs_once`
 - Automated: `src/deps.rs::tests::two_cycle_reports_ordered_path`
