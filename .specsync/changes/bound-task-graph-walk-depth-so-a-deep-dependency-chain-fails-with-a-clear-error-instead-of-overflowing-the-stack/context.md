@@ -58,3 +58,18 @@ leaf deps — is unaffected, and `depth_is_nesting_not_total_nodes` pins that.
 - Leaving `lanes validate` iterative and bounding only the other two callers: the three
   call sites were deliberately unified by #513, and splitting them again is the drift
   that fix existed to prevent.
+
+## Dead ends worth knowing
+
+**Do not pre-write a new requirement into `specs/<module>/requirements.md` when the
+change also declares it in `deltas/<module>.md` as `## ADDED`.** `change approve` rejects
+it with `cannot add existing block <REQ-ID> with different content; use ## MODIFIED for
+requirements already present in the living tree` — and the block text can be
+*byte-identical*, so the message reads like a formatting problem when it is not. The
+delta is the single source for a new requirement; `change check` materializes it into the
+living tree on approval. Relabelling to `## MODIFIED` clears the error but misdescribes
+an addition as an edit in the archived evidence, which is worse than the error.
+
+**A change declaring `affected_specs` needs a `deltas/<module>.md` per module**, or
+`change approve` fails with `semantic delta modules must exactly match affected specs`.
+The interview does not scaffold these, so they are easy to miss until approval.

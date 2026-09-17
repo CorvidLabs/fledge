@@ -1,6 +1,6 @@
 ---
 module: run
-version: 10
+version: 11
 status: active
 files:
   - src/run.rs
@@ -191,7 +191,6 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 10 | 2026-09-17 | Bound the task-graph walk depth (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting). #513 replaced three explicit heap-stack DFS loops with the shared recursive walker, so a long dependency chain overflowed the thread stack and aborted the process (exit 134) instead of erroring — a regression in kind that #513's test plan claimed to cover but never landed. Deep chains now fail with `Dependency chain deeper than 1000 tasks`; the bound is on nesting, not task count, so a wide shallow graph is unaffected. Regression tests at the bound, one past it, at 20,000 deep, and for a wide shallow graph, plus CLI coverage for `run`, `lanes run` and `lanes validate` |
 | 9 | 2026-08-17 | Fix diamond DAGs (`a → [b, c]`, `b → d`, `c → d`) being reported as circular deps. Cycle detection now uses a shared two-set DFS (`src/deps.rs`) so a completed shared dep is skipped, not treated as a back edge. Cycle errors report the ordered walk, not a `HashSet` iteration. Genuine cycles still fail |
 | 7 | 2026-08-12 | Add opt-in `--stream` to `fledge run` (#507). Human-readable runs already inherited the terminal, so the real gap was `--json`, which used `Command::output` — invisible until exit and with the child's stdin closed. `--stream --json` now tees both pipes: bytes are mirrored to fledge's **stderr** live (keeping stdout a single parseable envelope) while still being captured in full, and the child inherits stdin so it can prompt. Default buffered behaviour and every envelope field are unchanged; `--stream` without `--json` is an accepted no-op. Forwarding is unconditional (no TTY probe) and verbatim. Ordering is per-stream only; cross-stream interleaving is best-effort. New `pump`/`run_streaming` helpers with unit tests plus integration tests for mirroring, envelope purity, exit codes, deps, and the buffered default |
 | 6 | 2026-06-11 | Fix `run --init` generic template emitting an unclosed quote in the commented `# lint = "echo 'add your linter'"` example (uncommenting it made fledge.toml unparseable). Pass-through examples now use flags valid when appended to `cargo test` (`--release`) instead of `--nocapture`, which cargo only accepts after its own `--` separator |
@@ -201,3 +200,4 @@ Available tasks:
 | 2 | 2026-04-23 | Add `--json` flag (list + execute), `--lang` override, `detect_node_runner` |
 | 1 | 2026-04-19 | Initial spec |
 | 8 | 2026-08-12 | CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks: Opt-in --stream mode forwarding live child output for fledge run tasks |
+| 11 | 2026-09-17 | bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack: Bound the task-graph walk depth (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting). #513 replaced three explicit heap-stack DFS loops with the shared recursive walker, so a long dependency chain overflowed the thread stack and aborted the process (exit 134) instead of erroring — a regression in kind that #513's test plan claimed to cover but never landed. Deep chains now fail with `Dependency chain deeper than 1000 tasks`; the bound is on nesting, not task count, so a wide shallow graph is unaffected. Regression tests at the bound, one past it, at 20,000 deep, and for a wide shallow graph, plus CLI coverage for `run`, `lanes run` and `lanes validate` |
