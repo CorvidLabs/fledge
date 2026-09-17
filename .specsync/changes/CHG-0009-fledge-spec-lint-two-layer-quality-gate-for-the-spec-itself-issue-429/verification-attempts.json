@@ -40,6 +40,26 @@
         "REQ-spec-031",
         "REQ-spec-032"
       ]
+    },
+    {
+      "timestamp": 1789652275,
+      "commit": "27682cdee3d681a08517623b4be1b976cc330dbd",
+      "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "workspace_digest": "2f667dc6254388fd37afd672b4693f20d25ba7b849476f27748fb707324993bd",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec main --spec spec",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
     }
   ]
 }

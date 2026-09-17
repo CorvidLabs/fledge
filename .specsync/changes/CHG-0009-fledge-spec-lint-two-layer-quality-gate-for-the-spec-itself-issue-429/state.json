@@ -5,11 +5,11 @@
   "title": "Fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
   "description": "fledge spec lint: two-layer quality gate for the spec itself (issue #429)",
   "kind": "feature",
-  "state": "accepted",
+  "state": "verifying",
   "canonical_applied": true,
   "base_commit": "3be72407889deb952d37e70f074dd99f16f24370",
   "created_at": 1785439702,
-  "updated_at": 1786974689,
+  "updated_at": 1789652277,
   "affected_specs": [
     "spec",
     "main"
