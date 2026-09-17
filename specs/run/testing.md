@@ -30,6 +30,7 @@ spec: run.spec.md
 - `fledge run <task> --json --stream` and the buffered run report the same `exit_code`, `success`, and captured stdout for a failing task
 - `fledge run <task> --stream` (no `--json`) succeeds, shows child output, and keeps the `Running task:` summary; a failing one exits non-zero with the exit-code message
 - Dependencies stream too when `--stream` is active
+- A streamed `--json` run whose stderr reader closes the pipe early (a real pipe, not an in-memory sink) still exits 0 and prints the complete envelope — the `SIGPIPE` case an in-process failing sink cannot reproduce (unix only)
 
 ### Determinism Notes
 

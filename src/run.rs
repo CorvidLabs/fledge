@@ -259,6 +259,78 @@ struct StreamedOutput {
     mirror_error: Option<io::Error>,
 }
 
+/// Ignore `SIGPIPE` for as long as the guard lives, restoring the previous
+/// disposition on drop.
+///
+/// `main` restores the *default* `SIGPIPE` disposition on purpose, so fledge
+/// dies quietly when its own stdout is closed early (`fledge introspect --json
+/// | head`), like any Unix filter. Mirroring must not share that fate: its
+/// sink is fledge's *stderr*, what goes there is an echo, and losing the echo
+/// may never lose the result (invariant 19). Without this guard the most
+/// ordinary mirror failure of all — a consumer of fledge's stderr that stops
+/// reading (`2>&1 | head`, a pager the user quits, a log collector that
+/// closes) — kills fledge outright before `pump` can record a `mirror_error`,
+/// so a task that *succeeded* is reported as exit 141 with no envelope on
+/// stdout at all.
+///
+/// Changing the disposition process-wide is what it takes. Blocking `SIGPIPE`
+/// in the forwarding threads alone is not enough: on Linux the signal from a
+/// failed `write` is directed at the calling thread, but XNU raises it with
+/// `psignal(proc, SIGPIPE)`, so on macOS it is process-directed and lands on
+/// whichever thread has it unblocked — main, which does not.
+///
+/// `SIG_IGN` rather than a blocked mask is also what makes restoring safe: an
+/// ignored signal is discarded outright instead of left pending, so putting
+/// `SIG_DFL` back cannot deliver a deferred kill. The window is narrow by
+/// construction — it covers mirroring and the warning that follows it, never
+/// the envelope's own trip to stdout, so the die-quietly behaviour `main` sets
+/// up still applies everywhere it was meant to.
+#[cfg(unix)]
+struct SigpipeIgnored(libc::sighandler_t);
+
+#[cfg(unix)]
+impl SigpipeIgnored {
+    fn install() -> Self {
+        // SAFETY: two-argument `signal` with a plain disposition, no handler
+        // function and no shared state; `Drop` puts the previous one back.
+        Self(unsafe { libc::signal(libc::SIGPIPE, libc::SIG_IGN) })
+    }
+}
+
+#[cfg(unix)]
+impl Drop for SigpipeIgnored {
+    fn drop(&mut self) {
+        // SAFETY: as above — restoring exactly what `install` returned.
+        unsafe {
+            libc::signal(libc::SIGPIPE, self.0);
+        }
+    }
+}
+
+/// Windows has no `SIGPIPE`: a write to a closed pipe already surfaces as an
+/// ordinary `io::Error`, which is all `pump` ever needed.
+#[cfg(not(unix))]
+struct SigpipeIgnored;
+
+#[cfg(not(unix))]
+impl SigpipeIgnored {
+    fn install() -> Self {
+        Self
+    }
+}
+
+/// Write one line to fledge's own stderr, best-effort.
+///
+/// The only reason to call this is that a mirror write just failed, and the
+/// sink being written is that same stderr — so on Unix the attempt to warn
+/// would kill fledge exactly the way the mirror write would have, one step
+/// before the envelope is printed. Hence the guard: ignoring the `Err` is only
+/// half of "best-effort".
+fn warn_on_stderr(line: &str) {
+    let _sigpipe = SigpipeIgnored::install();
+    let _ = writeln!(io::stderr(), "{line}");
+}
+
 /// What one stream's `pump` produced: everything read from the child, plus the
 /// first failure (if any) encountered while *mirroring* it.
 #[derive(Debug)]
@@ -402,6 +474,12 @@ fn stream_child<W: Write + Send + 'static>(
         .take()
         .ok_or_else(|| io::Error::other("child stderr pipe missing"))?;
 
+    // Held across both pumps and dropped when this function returns: a mirror
+    // write to a closed pipe has to come back as `EPIPE` for anything below to
+    // run at all. See `SigpipeIgnored`. Installed *after* `spawn` so the child
+    // is never handed an ignored `SIGPIPE` of its own.
+    let _sigpipe = SigpipeIgnored::install();
+
     let mut out_sink = make_sink();
     let mut err_sink = make_sink();
     let out_handle = std::thread::spawn(move || pump(child_stdout, &mut out_sink));
@@ -513,13 +591,13 @@ fn execute_task(
                 run_streaming(&mut command).with_context(|| format!("running task '{name}'"))?;
             if let Some(e) = &streamed.mirror_error {
                 // Best-effort: the sink that just failed is the one we would
-                // warn on, so ignore a failure to warn. The envelope below is
-                // the authoritative record either way.
-                let _ = writeln!(
-                    io::stderr(),
+                // warn on, so the warning may not land — and on Unix trying
+                // must not be fatal either. The envelope below is the
+                // authoritative record either way.
+                warn_on_stderr(&format!(
                     "warning: live output for task '{name}' stopped ({e}); \
                      the task still ran — its full output is in the JSON envelope"
-                );
+                ));
             }
             (streamed.status, streamed.stdout, streamed.stderr)
         } else {

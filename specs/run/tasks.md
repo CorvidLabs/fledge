@@ -25,6 +25,7 @@ spec: run.spec.md
 - [x] Integration-test mirroring, buffered default, envelope purity, exit-code parity, deps, and `--stream` without `--json`
 - [x] Degrade gracefully when mirroring fails: keep capturing, stop echoing, warn once, still emit the envelope with the real exit code (#509 review)
 - [x] Join both forwarding threads before propagating either one's failure, so neither is left detached and writing (#509 review)
+- [x] Ignore `SIGPIPE` while mirroring so a stderr consumer that stops reading degrades to capture-only instead of killing fledge at exit 141 with no envelope (#509 review)
 - [x] Select shell syntax per platform in the streaming integration tests (`;` for `sh -c`, `&` for `cmd /C`) so Windows CI exercises them too (#509 review)
 
 ## Gaps
