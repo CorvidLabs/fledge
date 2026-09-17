@@ -629,6 +629,25 @@ deps = ["b", "c"]
     );
 }
 
+/// `fledge run` walks the same graph as `lanes`, so a deep chain reached the
+/// recursive walker here too. It must report the bound, not die on SIGABRT.
+#[test]
+fn cli_run_deep_chain_fails_cleanly() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("fledge.toml"), deep_chain_toml(1_200)).unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "t0"]);
+    assert!(!output.status.success());
+    assert!(
+        output.status.code().is_some(),
+        "must exit normally, not abort on a signal (stack overflow)"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("deeper than"),
+        "expected the depth bound to be reported, got: {stderr}"
+    );
+}
+
 #[test]
 fn cli_run_failing_task_exits_nonzero() {
     let tmp = TempDir::new().unwrap();

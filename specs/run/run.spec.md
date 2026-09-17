@@ -1,6 +1,6 @@
 ---
 module: run
-version: 9
+version: 10
 status: active
 files:
   - src/run.rs
@@ -28,6 +28,13 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 | `task_defaults` | Returns default task definitions for a given project type |
 | `detect_node_runner` | Detects node package manager from lock files (bun, yarn, pnpm, npm) |
 | `walk_task_graph` | Shared two-set DFS for task dep graphs (used by `run`, `lanes run`, and `lanes validate`) |
+| `MAX_TASK_DEPTH` | Maximum dependency nesting `walk_task_graph` descends before failing (1,000) |
+
+### Constants
+
+| Constant | Type | Description |
+|----------|------|-------------|
+| `MAX_TASK_DEPTH` | `usize` | Maximum levels of dependency *nesting* the walk descends (1,000). Beyond it `walk_task_graph` returns an error naming the bound rather than exhausting the thread stack and aborting the process. Not configurable — see invariant 20 |
 
 ### Structs & Enums
 
@@ -79,6 +86,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 18. `--stream` is an output mode, not a task input, so unlike pass-through args it propagates to dependency tasks
 19. Failing to *mirror* never destroys the *result*: if a write to fledge's stderr fails mid-run (closed pipe, full disk), live forwarding for that stream stops, a one-line warning is attempted, and the run still completes — the envelope is printed with the child's true `exit_code`/`success` and its complete `stdout`/`stderr`. A failure to *read* the child's pipe is different and remains a hard error, because the capture would be incomplete. On Unix this requires `SIGPIPE` to be ignored for as long as mirroring (and the warning that follows it) lasts: under the default disposition `main` installs, a write to a closed pipe kills fledge outright, so none of the degradation above could run. The window ends before the envelope is written, so fledge still dies quietly when its *own* stdout is closed early
 20. `--json` prints one `run_task` envelope per executed task, so a task with `deps` emits several concatenated JSON objects on stdout (one per dependency, then one for the task). This predates `--stream` and is unchanged by it: the output is a JSON *stream*, not a single document
+20. The walk is depth-bounded: `deps::walk_task_graph` descends at most `MAX_TASK_DEPTH` (1,000) levels of nesting, and beyond that fails with `Dependency chain deeper than 1000 tasks (reached '<task>')`. Without the bound a long chain exhausts the thread stack and aborts the process (SIGABRT, exit 134) — a crash no caller can catch, report, or test around. The bound is on *nesting*, not task count: a wide, shallow graph of any size still walks. `fledge run`, `fledge lanes run` and `fledge lanes validate` all reach the same walker and so share the bound
 
 ## Behavioral Examples
 
@@ -183,6 +191,7 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 10 | 2026-09-17 | Bound the task-graph walk depth (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting). #513 replaced three explicit heap-stack DFS loops with the shared recursive walker, so a long dependency chain overflowed the thread stack and aborted the process (exit 134) instead of erroring — a regression in kind that #513's test plan claimed to cover but never landed. Deep chains now fail with `Dependency chain deeper than 1000 tasks`; the bound is on nesting, not task count, so a wide shallow graph is unaffected. Regression tests at the bound, one past it, at 20,000 deep, and for a wide shallow graph, plus CLI coverage for `run`, `lanes run` and `lanes validate` |
 | 9 | 2026-08-17 | Fix diamond DAGs (`a → [b, c]`, `b → d`, `c → d`) being reported as circular deps. Cycle detection now uses a shared two-set DFS (`src/deps.rs`) so a completed shared dep is skipped, not treated as a back edge. Cycle errors report the ordered walk, not a `HashSet` iteration. Genuine cycles still fail |
 | 7 | 2026-08-12 | Add opt-in `--stream` to `fledge run` (#507). Human-readable runs already inherited the terminal, so the real gap was `--json`, which used `Command::output` — invisible until exit and with the child's stdin closed. `--stream --json` now tees both pipes: bytes are mirrored to fledge's **stderr** live (keeping stdout a single parseable envelope) while still being captured in full, and the child inherits stdin so it can prompt. Default buffered behaviour and every envelope field are unchanged; `--stream` without `--json` is an accepted no-op. Forwarding is unconditional (no TTY probe) and verbatim. Ordering is per-stream only; cross-stream interleaving is best-effort. New `pump`/`run_streaming` helpers with unit tests plus integration tests for mirroring, envelope purity, exit codes, deps, and the buffered default |
 | 6 | 2026-06-11 | Fix `run --init` generic template emitting an unclosed quote in the commented `# lint = "echo 'add your linter'"` example (uncommenting it made fledge.toml unparseable). Pass-through examples now use flags valid when appended to `cargo test` (`--release`) instead of `--nocapture`, which cargo only accepts after its own `--` separator |

@@ -1094,6 +1094,13 @@ fn a_hook_is_told_which_repository_it_fired_for() {
     // A hook runs with its cwd set to the plugin's own directory, so without
     // this variable it cannot tell which project invoked it, and a hook that
     // wants to look at the repository has nothing to look at.
+    // `hook_repo_root` resolves the repository from the *process* working
+    // directory, which is global to the test binary. Tests that relocate it
+    // (`test_support::with_cwd`, and `lanes::tests` directly) serialize on this
+    // lock; this test has to take it too, or it reads another test's cwd and
+    // then asserts on a tempdir that test has already dropped.
+    let _cwd = crate::test_support::cwd_lock();
+
     let tmp = tempfile::TempDir::new().unwrap();
     let out = tmp.path().join("seen");
     let script = tmp.path().join("where.sh");

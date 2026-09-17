@@ -16,6 +16,7 @@ Lanes extend the task runner into composable pipelines. While `fledge run` execu
 ## Design Decisions
 
 - Task-dep cycle detection is the shared two-set DFS in `src/deps.rs` (same helper as `fledge run`) so `lanes run`, `lanes validate`, and dry-run cannot disagree on diamonds vs cycles
+- That shared helper recurses, so `lanes run` and `lanes validate` also inherit its `MAX_TASK_DEPTH` bound (1,000 levels of nesting). Before the bound a deep chain overflowed the thread stack and aborted the process (exit 134) in both; it now fails with `Dependency chain deeper than 1000 tasks`
 - Lanes share the same `fledge.toml` as tasks — no separate config file needed
 - Parallel groups use threads rather than async — simpler for spawning external processes
 - Community lanes use GitHub topics (`fledge-lanes`) following the same convention as templates
