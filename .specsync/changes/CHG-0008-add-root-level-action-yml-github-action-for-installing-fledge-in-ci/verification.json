@@ -1,0 +1,71 @@
+{
+  "timestamp": 1786922137,
+  "commit": "a868dba40fe1d42dba62dd21bd8358aed1a57eb7",
+  "contract_digest": "81d6b1c401a7ef49d768e85aae57caf9905f1e5f8784d7b879866b99bc1c8444",
+  "workspace_digest": "49e8f338b9c2e32fc09c3918f0275fbe5a6b647feca65685cf9178526b28d83d",
+  "acceptance_input_digest": "3c9258d80c731e9b7381238fd82458164bba50b77180afe366a72e4f6c2ff2d2",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": ".github/workflows/test-action.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5950570b82122806690a816c768369c1ae29b8acc4642cdc80a97a2b29d369f4",
+        "entry_digest": "425111ea3e1cfeaafb924945c6dbfdc348c55518b41fbae872cc3f89669a6293",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": ".specsync/change-sequence.json",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "7011d0028ec3b0acea0cb9b2f7b91b7abe4382986b4b2bf22f4307b4accbdce6",
+        "entry_digest": "78e4bd79b42a8aa8798ce1047416397125190f82146ed75ce1d20a316b8512de",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "CONTRIBUTING.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "1c456009ea1d97960722bd763e9a2f7d43360ea561f0498d3cdcc627752a4b11",
+        "entry_digest": "18c9720aa0cd159e91318e72534c3d26999a24b47e942437f5f71ebf54b0bdb4",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "README.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5609822315d9f4b4e89f96928c6ee16b5d40e7b33573015b4c464f14f3661c1e",
+        "entry_digest": "cf4d107be5e03c03e0e332243ae42b854667cd0afc21bc154f1f035c46f53be1",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "action.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "1ee83d2a24c4bc3e88a645e95da58a8c1a7c77c19acf57fc407f76dfd2a36fc4",
+        "entry_digest": "fcdc56208fb18ba639964f77d88de32900d75a9b50b6928279ad0b8053fd994a",
+        "owners": [
+          "@exact:delivery"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}

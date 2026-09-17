@@ -1,6 +1,14 @@
 {
   "schema_version": 1,
   "sequence": 9,
-  "id": "CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
-  "acknowledged_collisions": []
+  "id": "CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers",
+  "acknowledged_collisions": [
+    {
+      "sequence": 9,
+      "ids": [
+        "CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429",
+        "CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers"
+      ]
+    }
+  ]
 }

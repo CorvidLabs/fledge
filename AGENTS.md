@@ -386,14 +386,18 @@ This repository uses one trust gate. Every session must use it and must not bypa
 
 ## Human intent
 
-This repository should use [hi (Human Intent)](https://corvidlabs.xyz/hi): plain
+This repository uses [hi (Human Intent)](https://corvidlabs.xyz/hi): plain
 sentences saying what people want, each with a permanent id, kept in `hi/`.
 Tickets and specs are generated from them.
 
-If there is no `hi/` here yet, start one from real work rather than from the code:
+`hi/` already holds 197 criteria across 10 families. They were recovered from
+the implementation as a one-off seed (#518), which is the opposite of how the
+rest should arrive. Treat them as a starting corpus, not as a precedent.
 
-1. When I ask for a feature, draft its criteria first — one plain sentence each,
-   about what somebody **wants**, not what the code does. Private test: you should
+When I ask for a feature:
+
+1. Draft its criteria first — one plain sentence each, about what somebody
+   **wants**, not what the code does. Private test: you should
    be able to put *As a ___,* in front of it. Leave those words out of the file.
 2. Show them to me and stop. Capture nothing I have not agreed to.
 3. Capture what I confirm, one per command: `hi SEND-1 "the sentence, in my words"`.
@@ -403,8 +407,10 @@ If there is no `hi/` here yet, start one from real work rather than from the cod
    unfinished intent.
 
 Do this before every feature, not only the first one. Do **not** bulk-generate
-criteria from the code or from existing tickets: a hundred plausible sentences
-nobody said is worse than five real ones, and an id spent on a wrong sentence is
-spent forever.
+further criteria from the code or from existing tickets: a hundred plausible
+sentences nobody said is worse than five real ones, and an id spent on a wrong
+sentence is spent forever. The seed corpus is the exception that shows why —
+criteria reverse-engineered from an implementation cannot say what is *missing*,
+which is the part worth having.
 
 Install: `brew install corvidlabs/tap/hi`, or `cargo install human-intent`.
