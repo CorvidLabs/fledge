@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::commands::{init, new_spec};
-use super::parse::{extract_purpose, extract_sections, parse_frontmatter};
+use super::parse::{extract_purpose, extract_section_bodies, extract_sections, parse_frontmatter};
 use super::validation::{validate_spec, SpecResult, ValidationIssue};
 use super::*;
 
@@ -115,6 +115,54 @@ fn test_extract_sections_empty() {
     let body = "No sections here, just text.";
     let sections = extract_sections(body);
     assert!(sections.is_empty());
+}
+
+#[test]
+fn test_extract_sections_ignores_headings_inside_a_fence() {
+    // A spec that documents spec structure quotes headings. Quoting one must
+    // not create it.
+    let body = "\n## Purpose\n\nExample:\n\n```markdown\n## Invariants\n\n1. Quoted.\n```\n\n## Error Cases\n\ntext\n";
+    assert_eq!(extract_sections(body), vec!["Purpose", "Error Cases"]);
+}
+
+#[test]
+fn test_extract_sections_tracks_tilde_and_longer_fences() {
+    let tilde = "## Purpose\n\n~~~\n## Invariants\n~~~\n\n## Error Cases\n";
+    assert_eq!(extract_sections(tilde), vec!["Purpose", "Error Cases"]);
+
+    // A four-backtick fence quoting a three-backtick one: the inner delimiters
+    // are content, so the outer block runs to the four-backtick close.
+    let nested = "## Purpose\n\n````markdown\n```\n## Invariants\n```\n````\n\n## Error Cases\n";
+    assert_eq!(extract_sections(nested), vec!["Purpose", "Error Cases"]);
+}
+
+#[test]
+fn test_extract_section_bodies_ignores_fenced_headings() {
+    // The exact shape that defeated the lint gate: `## Invariants` exists only
+    // inside a fence, so it is not a section, and the prose *after* the fence
+    // still belongs to the section that opened it.
+    let body =
+        "## Purpose\n\n```markdown\n## Invariants\n```\n\nTODO: write the purpose.\n\n## Error Cases\n\ntext\n";
+    let sections = extract_section_bodies(body);
+    let names: Vec<&str> = sections.iter().map(|(n, _)| n.as_str()).collect();
+    assert_eq!(names, vec!["Purpose", "Error Cases"]);
+    let purpose = &sections[0].1;
+    assert!(
+        purpose.contains("TODO: write the purpose."),
+        "content after the fence was truncated: {purpose:?}"
+    );
+    assert!(
+        purpose.contains("## Invariants"),
+        "the fenced heading is body text and must be kept: {purpose:?}"
+    );
+}
+
+#[test]
+fn test_extract_purpose_ignores_a_fenced_heading() {
+    let body =
+        "## Purpose\n\n```markdown\n## Public API\n```\n\nA short description.\n\n## Public API\n\ntext\n";
+    // The fence is opaque: it neither ends the purpose nor becomes it.
+    assert_eq!(extract_purpose(body), Some("A short description.".into()));
 }
 
 #[test]
@@ -1194,6 +1242,67 @@ fn test_lint_placeholder_check_covers_every_required_section() {
         .collect();
     assert_eq!(placeholders.len(), 1, "{findings:?}");
     assert_eq!(placeholders[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_lint_does_not_accept_a_section_that_exists_only_inside_a_fence() {
+    // Regression: `## ` was matched with no fence tracking, so a heading quoted
+    // in a ```markdown example fabricated a section. Because the required
+    // sections resolve by first match, the phantom shadowed the real one and
+    // `missing_section` stopped firing for a section that is genuinely absent.
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "## Invariants\n\n1. `run` never mutates the config it was given.\n",
+        "",
+    );
+    let quoted = spec.replace(
+        "Given a config with one task, when `run` is called, then the task executes once.",
+        "Given a config with one task, when `run` is called, then the task executes once.\n\nA spec section looks like this:\n\n```markdown\n## Invariants\n\n1. Quoted, not declared.\n```",
+    );
+    assert!(
+        quoted.contains("## Invariants"),
+        "fixture must still quote the heading"
+    );
+    let (_, findings) = lint_structural(&quoted, tmp.path(), &required());
+    let missing: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.check == "missing_section")
+        .collect();
+    assert_eq!(missing.len(), 1, "{findings:?}");
+    assert_eq!(missing[0].section.as_deref(), Some("Invariants"));
+}
+
+#[test]
+fn test_lint_finds_a_placeholder_after_a_fenced_pseudo_heading() {
+    // The mirror failure of the same bug: the phantom heading truncated the real
+    // section body, so a `TODO` after the fence landed in a section nothing
+    // required and was never scanned.
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "Demo turns a parsed config into a validated execution plan, so a malformed\nconfig fails before any task runs.",
+        "```markdown\n## Notes\n```\n\nTODO: actually write the purpose.",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    let placeholders: Vec<&Finding> = findings
+        .iter()
+        .filter(|f| f.check == "placeholder_text")
+        .collect();
+    assert_eq!(placeholders.len(), 1, "{findings:?}");
+    assert_eq!(placeholders[0].section.as_deref(), Some("Purpose"));
+}
+
+#[test]
+fn test_lint_keeps_a_fenced_example_from_emptying_the_section_holding_it() {
+    // And the over-reporting direction: a legitimate fenced example inside a
+    // real section used to split it in two, leaving the required section with
+    // whatever happened to sit above the fence.
+    let tmp = lint_root();
+    let spec = healthy_spec().replace(
+        "1. `run` never mutates the config it was given.",
+        "```markdown\n## Error Cases\n```\n\n1. `run` never mutates the config it was given.",
+    );
+    let (_, findings) = lint_structural(&spec, tmp.path(), &required());
+    assert!(findings.is_empty(), "{findings:?}");
 }
 
 #[test]

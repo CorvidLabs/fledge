@@ -701,6 +701,119 @@ Nothing here names an acceptance or rejection signal.
     }
 }
 
+/// A spec whose only `## Invariants` heading is quoted inside a fence, and whose
+/// `## Purpose` hides a real `TODO` behind a fenced pseudo-heading. Structurally
+/// it is missing a required section and carries a placeholder; the fence is the
+/// only thing that ever concealed either.
+const FENCED_PSEUDO_HEADING_SPEC: &str = r#"---
+module: demo
+version: 3
+status: active
+files:
+  - src/demo.rs
+---
+
+# Demo
+
+## Purpose
+
+```markdown
+## Notes
+```
+
+TODO: actually write the purpose.
+
+## Public API
+
+| Export | Description |
+|--------|-------------|
+| `run` | Executes the validated plan |
+
+## Behavioral Examples
+
+Given a config with one task, when `run` is called, then the task executes once.
+
+A spec section looks like this:
+
+```markdown
+## Invariants
+
+1. Quoted, not declared.
+```
+
+## Error Cases
+
+| Error | When | Behavior |
+|-------|------|----------|
+| UnknownTask | the named task is absent | exits 1 and names the task |
+
+## Dependencies
+
+- serde
+
+## Change Log
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 3 | 2026-01-01 | Initial spec |
+"#;
+
+#[test]
+fn cli_spec_lint_is_not_fooled_by_a_heading_inside_a_fenced_block() {
+    // Regression for the hole reported on #505: `## ` was matched with no fence
+    // tracking, so a heading quoted in a ```markdown example fabricated a
+    // section. Required sections resolve by first match, so the phantom shadowed
+    // the real one — `missing_section` stopped firing for a section that exists
+    // only as an example, and a `TODO` after the fence landed in the phantom's
+    // body where `placeholder_text` never looked. Both directions in one spec:
+    // before the fix this exits 0 with zero findings.
+    let tmp = custom_sections_project("[]", FENCED_PSEUDO_HEADING_SPEC);
+    let output = run_fledge_in(tmp.path(), &["spec", "lint", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert!(
+        !output.status.success(),
+        "a fenced example must not satisfy a required section: {parsed}"
+    );
+    assert_eq!(parsed["passed"].as_bool(), Some(false));
+
+    let findings = parsed["specs"][0]["findings"].as_array().unwrap();
+    let missing = findings
+        .iter()
+        .find(|f| f["check"] == "missing_section")
+        .unwrap_or_else(|| panic!("no missing_section finding in {parsed}"));
+    assert_eq!(missing["section"].as_str(), Some("Invariants"));
+
+    let placeholder = findings
+        .iter()
+        .find(|f| f["check"] == "placeholder_text")
+        .unwrap_or_else(|| panic!("no placeholder_text finding in {parsed}"));
+    assert_eq!(placeholder["section"].as_str(), Some("Purpose"));
+}
+
+#[test]
+fn cli_spec_lint_keeps_fenced_examples_legitimate() {
+    // The other half of the same rule: documenting the format must stay free.
+    // A complete spec that quotes two of its own headings inside fences is
+    // clean — no phantom sections, no emptied real ones.
+    let spec = FENCED_PSEUDO_HEADING_SPEC
+        .replace("TODO: actually write the purpose.", "Demo validates a plan.")
+        .replace(
+            "## Behavioral Examples\n",
+            "## Invariants\n\n1. `run` never mutates the config it was given.\n\n## Behavioral Examples\n",
+        );
+    let tmp = custom_sections_project("[]", &spec);
+    let output = run_fledge_in(tmp.path(), &["spec", "lint", "--json"]);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert!(
+        output.status.success(),
+        "a spec that quotes its own headings must still pass: {parsed}"
+    );
+    assert_eq!(parsed["totals"]["errors"].as_u64(), Some(0));
+    assert_eq!(parsed["totals"]["warnings"].as_u64(), Some(0));
+}
+
 #[test]
 fn cli_spec_lint_reports_an_overridden_ai_request_faithfully() {
     // `--no-ai` wins, but the JSON must still show that `--ai` was asked for:

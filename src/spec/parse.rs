@@ -97,9 +97,77 @@ pub(crate) fn parse_yaml_frontmatter(yaml: &str) -> Result<SpecFrontmatter> {
     })
 }
 
+/// Tracks fenced code blocks while a markdown body is read one line at a time.
+///
+/// Every heading scanner below needs this. A `## Heading` inside a fence is an
+/// *example* of markdown, not a section of the document, and a spec for a spec
+/// tool quotes spec structure constantly. Without fence tracking such a line
+/// fabricates a section: `lint` resolves each required section by first match,
+/// so the phantom shadows the real one — `missing_section` stops firing for a
+/// section that exists only inside a fence, and a real `TODO` after the fence
+/// lands in the phantom's body where the placeholder check never looks.
+#[derive(Debug, Default)]
+pub(crate) struct FenceTracker {
+    open: Option<(char, usize)>,
+}
+
+impl FenceTracker {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feed the next line. Returns `true` when it is fenced code — the opening
+    /// and closing delimiters included — and so must not be read as markdown.
+    ///
+    /// A fence opens on a run of three or more backticks or tildes and closes
+    /// only on a run of the same character that is at least as long and carries
+    /// no info string. That is what lets a ````` ```` ````` block quote a
+    /// ```` ``` ```` one without the inner delimiter ending the outer block.
+    pub(crate) fn is_fenced(&mut self, line: &str) -> bool {
+        let Some((marker, run, info)) = fence_delimiter(line) else {
+            return self.open.is_some();
+        };
+        match self.open {
+            None => {
+                self.open = Some((marker, run));
+                true
+            }
+            Some((open_marker, open_run)) => {
+                if marker == open_marker && run >= open_run && info.is_empty() {
+                    self.open = None;
+                }
+                true
+            }
+        }
+    }
+}
+
+/// Split a fence delimiter into its marker character, the length of its run, and
+/// the info string trailing it. `None` when the line is not a fence delimiter.
+fn fence_delimiter(line: &str) -> Option<(char, usize, &str)> {
+    let trimmed = line.trim_start();
+    let marker = trimmed.chars().next().filter(|c| *c == '`' || *c == '~')?;
+    let run = trimmed.chars().take_while(|c| *c == marker).count();
+    if run < 3 {
+        return None;
+    }
+    // Both markers are ASCII, so the run length is also its byte length.
+    let info = trimmed[run..].trim();
+    // A backtick info string may not contain a backtick (CommonMark), which is
+    // what keeps `` ```code``` `` on a line of its own an inline span.
+    if marker == '`' && info.contains('`') {
+        return None;
+    }
+    Some((marker, run, info))
+}
+
 pub(crate) fn extract_sections(body: &str) -> Vec<String> {
     let mut sections = Vec::new();
+    let mut fence = FenceTracker::new();
     for line in body.lines() {
+        if fence.is_fenced(line) {
+            continue;
+        }
         if let Some(section) = line.strip_prefix("## ") {
             sections.push(section.trim().to_string());
         }
@@ -113,16 +181,23 @@ pub(crate) fn extract_sections(body: &str) -> Vec<String> {
 ///
 /// `extract_sections` answers "which sections exist"; this answers "and what is
 /// in them", which is what the emptiness checks in `lint` need.
+///
+/// Fenced code is body text, never a heading: a fence stays in the section that
+/// contains it, headings inside it are ignored, and the section continues past
+/// the closing delimiter.
 pub(crate) fn extract_section_bodies(body: &str) -> Vec<(String, String)> {
     let mut sections: Vec<(String, String)> = Vec::new();
     let mut current: Option<(String, Vec<&str>)> = None;
+    let mut fence = FenceTracker::new();
     for line in body.lines() {
-        if let Some(heading) = line.strip_prefix("## ") {
-            if let Some((name, lines)) = current.take() {
-                sections.push((name, lines.join("\n")));
+        if !fence.is_fenced(line) {
+            if let Some(heading) = line.strip_prefix("## ") {
+                if let Some((name, lines)) = current.take() {
+                    sections.push((name, lines.join("\n")));
+                }
+                current = Some((heading.trim().to_string(), Vec::new()));
+                continue;
             }
-            current = Some((heading.trim().to_string(), Vec::new()));
-            continue;
         }
         if let Some((_, lines)) = current.as_mut() {
             lines.push(line);
@@ -137,9 +212,11 @@ pub(crate) fn extract_section_bodies(body: &str) -> Vec<(String, String)> {
 pub(crate) fn extract_purpose(body: &str) -> Option<String> {
     let mut in_purpose = false;
     let mut paragraph = String::new();
+    let mut fence = FenceTracker::new();
     for line in body.lines() {
+        let fenced = fence.is_fenced(line);
         let trimmed = line.trim_start();
-        if trimmed.starts_with("## ") {
+        if !fenced && trimmed.starts_with("## ") {
             if in_purpose {
                 break;
             }
@@ -148,7 +225,9 @@ pub(crate) fn extract_purpose(body: &str) -> Option<String> {
             }
             continue;
         }
-        if !in_purpose {
+        // Fenced code is opaque here too: neither a heading that ends the
+        // purpose nor prose that becomes it.
+        if fenced || !in_purpose {
             continue;
         }
         if line.trim().is_empty() {

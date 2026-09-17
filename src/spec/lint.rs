@@ -7,11 +7,16 @@
 //!
 //! - **Layer 1, structural** (always runs, deterministic, offline): required
 //!   sections present *and non-empty*, no `TODO`/`TBD`/`FIXME` placeholders in
-//!   Purpose or Public API (matched case-insensitively, on word boundaries, and
-//!   only in prose — a backticked citation is not a placeholder), a well-formed
-//!   `version`, every `files:` entry
+//!   any configured required section (matched case-insensitively, on word
+//!   boundaries, and only in prose — a backticked citation is not a
+//!   placeholder), a well-formed `version`, every `files:` entry
 //!   present on disk, and at least one acceptance signal plus one rejection
 //!   signal.
+//!
+//! Section boundaries are fence-aware throughout: a `## ` line inside a
+//! ```` ``` ```` or `~~~` block is an example of markdown, not a section, so a
+//! spec may document the spec format without fabricating sections it does not
+//! have. See [`parse::FenceTracker`].
 //! - **Layer 2, model-graded** (opt-in via `--ai`): a model judges the axes a
 //!   regex cannot — is the "why" falsifiable, are the invariants real
 //!   constraints or decoration, do the acceptance/rejection signals actually
@@ -68,8 +73,9 @@ pub(crate) const MODEL_CHECKS: &[&str] = &[
 /// that silently did not run is worse than one that fails.
 pub(crate) const MODEL_PASS_FAILED: &str = "model_pass_failed";
 
-/// Placeholder tokens that must not appear in Purpose or Public API. Matched
-/// case-insensitively and on word boundaries — see [`contains_placeholder_word`].
+/// Placeholder tokens that must not appear in any configured required section.
+/// Matched case-insensitively and on word boundaries — see
+/// [`contains_placeholder_word`].
 pub(crate) const PLACEHOLDER_TOKENS: &[&str] = &["TODO", "TBD", "FIXME"];
 
 /// Section names lint recognizes as carrying the **acceptance** signal ("what
@@ -252,16 +258,15 @@ pub(crate) fn strip_html_comments(input: &str) -> String {
 /// placeholder-detection feature (this one, for instance) must not fail its own
 /// check. HTML comments are deliberately left in: `<!-- TODO: fill in -->` is a
 /// placeholder, not a citation.
+///
+/// Fences are tracked by [`parse::FenceTracker`], the same rule the section
+/// scanner uses, so prose and section boundaries can never disagree about where
+/// a code block starts and ends.
 pub(crate) fn strip_code_spans(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
-    let mut in_fence = false;
+    let mut fence = parse::FenceTracker::new();
     for line in input.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
+        if fence.is_fenced(line) {
             continue;
         }
         out.push_str(&strip_inline_code(line));
