@@ -1,6 +1,6 @@
 ---
 id: bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack
-state: draft
+state: implementing
 type: bug_fix
 base_commit: f659d69908c607295f2103cdb23e48c09a610965
 ---

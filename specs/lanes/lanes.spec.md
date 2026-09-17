@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 27
+version: 28
 status: active
 files:
   - src/lanes/mod.rs
@@ -335,7 +335,6 @@ files continue to load against v1 semantics indefinitely.
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 27 | 2026-09-17 | `lanes run` and `lanes validate` inherit the new depth bound in the shared walker (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting): a deep dependency chain now fails with `Dependency chain deeper than 1000 tasks` rather than aborting the process on a stack overflow. Lane semantics are otherwise unchanged; the walker itself lives in the `run` spec |
 | 26 | 2026-08-17 | Fix diamond DAGs being reported as circular deps in `lanes run` and `lanes validate` (#508). Both now use the shared two-set DFS in `src/deps.rs`; cycle errors report the ordered walk. Genuine cycles still fail |
 | 25 | 2026-06-11 | `lanes init` follow-up hint now points at `fledge lanes list` — it previously printed `fledge lane`, which is the subcommand alias without an action and exits with a usage error |
 | 24 | 2026-05-04 | Follow-up polish: (a) New `retry_delay` step option (seconds, default 1) — overrides the inter-attempt sleep, supports immediate retry with `retry_delay = 0`. (b) Windows process tree reaping via Job Object + `TerminateJobObject` — mirrors the Unix `process_group` + `killpg` fix from v23 so timeout no longer leaks grandchildren on Windows either. (c) `evaluate_when` now exposes a closure-injected `evaluate_when_with` so tests can supply a `HashMap` instead of mutating process-global env vars (edition-2024 prep) |
@@ -362,3 +361,4 @@ files continue to load against v1 semantics indefinitely.
 | 3 | 2026-04-20 | Update behavioral examples to use emojis instead of ASCII/Unicode symbols |
 | 2 | 2026-04-20 | Add community lane registry (search + import) |
 | 1 | 2026-04-20 | Initial spec |
+| 28 | 2026-09-17 | bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack: `lanes run` and `lanes validate` inherit the new depth bound in the shared walker (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting): a deep dependency chain now fails with `Dependency chain deeper than 1000 tasks` rather than aborting the process on a stack overflow. Lane semantics are otherwise unchanged; the walker itself lives in the `run` spec |

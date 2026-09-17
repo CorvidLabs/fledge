@@ -14,5 +14,5 @@ artifact: tasks
 - [x] Add `deep_chain_toml` helper to `tests/common/mod.rs`
 - [x] Document the bound as an invariant in the `run` spec (owner of `src/deps.rs`) and
       in the `lanes` spec, with Change Log entries and version bumps
-- [ ] `fledge lanes run pre-commit`, `fledge spec check`, `fledge spec lint`
-- [ ] Definition approval — owner gate, not for an agent to record
+- [x] `fledge lanes run pre-commit` (green 3 consecutive runs), `fledge spec check` (33 specs, 0/0), `fledge spec lint run`/`lanes` (0/0)
+- [x] Definition approval recorded by the owner (user:0xLeif)

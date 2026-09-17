@@ -1,4 +1,27 @@
 {
-  "approvals": [],
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1789686095,
+      "digest": "3a1836a708613b3da2061ec4f18f053222fa298444a2eaf4fc404308d801cf80",
+      "note": null,
+      "approved_delta_digests": {
+        "lanes": "f5c127da76841bcfa6276512715664944a308434d1221086ed077b76258d2da0",
+        "run": "e21b0604788afbbc3b7d0fceb2d12eac9014b72d796c15ef9be66f91e3af7817"
+      }
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1789686308,
+      "digest": "22beba6b721063a54f1016c5415fcded080958ea1cc5648886d23b16a62379e4",
+      "note": null,
+      "approved_delta_digests": {
+        "lanes": "f5c127da76841bcfa6276512715664944a308434d1221086ed077b76258d2da0",
+        "run": "e21b0604788afbbc3b7d0fceb2d12eac9014b72d796c15ef9be66f91e3af7817"
+      }
+    }
+  ],
   "reopenings": []
 }
