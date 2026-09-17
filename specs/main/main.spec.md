@@ -1,6 +1,6 @@
 ---
 module: main
-version: 13
+version: 15
 status: active
 files:
   - src/main.rs
@@ -53,7 +53,7 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 | `Cli` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and an optional `Commands` subcommand enum; when no subcommand is given, fledge prints help and exits 0 |
 | `Commands` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
 | `TemplatesSubcommand` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
-| `SpecSubcommand` | Enum of `spec` subcommands: Check, Init, List, New, Show |
+| `SpecSubcommand` | Enum of `spec` subcommands: Check, Init, Lint, List, New, Show |
 | `WorkSubcommand` | Enum of `work` subcommands: Start, Pr, Status |
 | `AiSubcommand` | Enum of `ai` subcommands: Status, Models, Use |
 | `ConfigAction` | Enum of `config` subcommands: Get, Set, Unset, Add, Remove, Edit, List, Path, Init |
@@ -77,7 +77,7 @@ CLI entry point. Defines the top-level `Cli` struct and `Commands` enum using cl
 | `Cli` | `src/cli.rs` | Top-level clap `#[derive(Parser)]` struct. Holds the `--non-interactive` global flag and an optional `Commands` subcommand enum; when no subcommand is given, fledge prints help and exits 0 |
 | `Commands` | `src/cli.rs` | Enum of all top-level subcommands: Ai, Ask, Changelog, Completions, Config, Doctor, Introspect, Lanes, Plugins, Release, Review, Run, Spec, Templates, Watch, Work, and External (plugin pass-through) |
 | `TemplatesSubcommand` | `src/cli.rs` | Enum of `templates` subcommands: Init, Create, Validate, List, Search, Publish |
-| `SpecSubcommand` | `src/cli.rs` | Enum of `spec` subcommands: Check, Init, List, New, Show |
+| `SpecSubcommand` | `src/cli.rs` | Enum of `spec` subcommands: Check, Init, Lint, List, New, Show |
 | `WorkSubcommand` | `src/cli.rs` | Enum of `work` subcommands: Start, Pr, Status |
 | `AiSubcommand` | `src/cli.rs` | Enum of `ai` subcommands: Status, Models, Use |
 | `ConfigAction` | `src/cli.rs` | Enum of `config` subcommands: Get, Set, Unset, Add, Remove, Edit, List, Path, Init |
@@ -162,3 +162,5 @@ All modules are dependencies — main dispatches to every subcommand module. See
 | 2 | 2026-04-23 | Add `watch` to depends_on |
 | 1 | 2026-04-21 | Initial spec |
 | 13 | 2026-07-27 | CHG-0003-fix-bare-fledge-exit-code-and-restore-cursor-on-ctrl-c: Fix bare fledge exit code and restore cursor on Ctrl+C |
+| 14 | 2026-07-30 | Add `SpecSubcommand::Lint` and its `spec_action_from` arm for `fledge spec lint` (#429): positional `[target]`, plus `--ai`, `--no-ai`, `--provider`, `--model`, `--ignore`, `--strict`, `--json` |
+| 15 | 2026-08-11 | CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429: Fledge spec lint: two-layer quality gate for the spec itself (issue #429) |

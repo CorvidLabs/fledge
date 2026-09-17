@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1786417585,
+      "commit": "657899e01679dbe844c471486bb25b46cd263c51",
+      "contract_digest": "9bf331fd22955a57e2445660af2b33a5e60aa5e8f5052bdf63c6ee3fd744ce8c",
+      "workspace_digest": "b0df3a8d9f0674d9079eeb8be367b2286013131569abd7c34b222c88522436cf",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    },
+    {
+      "timestamp": 1786974689,
+      "commit": "f9954c26d8094875f180ffb6d3e6e53bfeae10c9",
+      "contract_digest": "9bf331fd22955a57e2445660af2b33a5e60aa5e8f5052bdf63c6ee3fd744ce8c",
+      "workspace_digest": "0ae27a60a48d8caa498a11ce719a311bd58860770e0c4a23b8dc9c717d4da9cc",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    },
+    {
+      "timestamp": 1789652275,
+      "commit": "27682cdee3d681a08517623b4be1b976cc330dbd",
+      "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "workspace_digest": "2f667dc6254388fd37afd672b4693f20d25ba7b849476f27748fb707324993bd",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec main --spec spec",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    },
+    {
+      "timestamp": 1789652491,
+      "commit": "f897db28860305380a84752cb65aeba11f9c7c2b",
+      "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "workspace_digest": "d0f54df6956e4c224e0253efba3e7858aef4e9c469aea6e7f46ef1e07b7f87e8",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec main --spec spec",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    },
+    {
+      "timestamp": 1789656061,
+      "commit": "0e1626c7224a611cd6d479ac72643afbfe07cf97",
+      "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "workspace_digest": "b8f5a2246fd1e6be6ee0e8282ad156d98a5a3f10715d41e5fb957583d1d37c80",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec main --spec spec --strict",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    },
+    {
+      "timestamp": 1789657704,
+      "commit": "dff0202ffcb524f5d6b1b58a7f2bb4ccdc01fbb2",
+      "contract_digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "workspace_digest": "3b0fab63df2bd1425be36626f8397be9f2d7f6209f7e44b744be716dea660470",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec main --spec spec --strict",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-main-010",
+        "REQ-spec-030",
+        "REQ-spec-031",
+        "REQ-spec-032"
+      ]
+    }
+  ]
+}
