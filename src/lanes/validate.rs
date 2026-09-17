@@ -118,22 +118,19 @@ pub(crate) fn validate_lanes(path: &Path, strict: bool, json: bool) -> Result<()
         }
     }
 
-    // Check for circular task deps
+    // Check for circular task deps with a real two-set DFS so a diamond
+    // (two tasks sharing one dep) is not reported as a cycle.
+    let mut completed = HashSet::new();
     for task_name in parsed.tasks.keys() {
-        let mut visited = HashSet::new();
-        let mut stack = vec![task_name.as_str()];
-        while let Some(current) = stack.pop() {
-            if !visited.insert(current.to_string()) {
-                report.errors.push(format!(
-                    "Circular dependency detected involving task '{task_name}'"
-                ));
-                break;
-            }
-            if let Some(dep_task) = parsed.tasks.get(current) {
-                for dep in dep_task.deps() {
-                    stack.push(dep);
-                }
-            }
+        let mut in_progress = Vec::new();
+        if let Err(e) = crate::deps::walk_task_graph(
+            task_name,
+            &|n| parsed.tasks.get(n).map(super::TaskDef::deps),
+            &mut in_progress,
+            &mut completed,
+            &mut |_| Ok(()),
+        ) {
+            report.errors.push(e.to_string());
         }
     }
 

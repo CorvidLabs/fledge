@@ -24,7 +24,7 @@ The implementation SHALL meet this contract: Task dependencies run in topologica
 
 ### REQ-run-003
 
-The implementation SHALL meet this contract: Circular dependencies produce an error listing the cycle
+The implementation SHALL meet this contract: Circular dependencies produce an error listing the ordered cycle walk (e.g. `a → b → a`). A diamond DAG (two tasks sharing one dep) is not a cycle
 
 ### REQ-run-004
 
@@ -65,6 +65,15 @@ The implementation SHALL meet this contract: `--stream` forwards output whether 
 ### REQ-run-013
 
 The implementation SHALL meet this contract: `--stream` without `--json` is accepted and leaves behaviour unchanged (that path already inherits the terminal)
+
+### REQ-run-014
+
+Task dependency walks SHALL use a shared two-set DFS (`in_progress` vs `completed`) so a completed node on another branch is skipped rather than treated as a back edge. Circular dependencies SHALL produce an error listing the ordered cycle walk. A diamond DAG (two tasks sharing one dep) is not a cycle.
+
+Acceptance Criteria
+- `fledge run a` on `a → [b, c]`, `b → d`, `c → d` succeeds and runs `d` once.
+- `fledge run a` on `a → b → a` fails with `Circular dependency detected: a → b → a`.
+- `src/deps.rs` `walk_task_graph` is the helper used by `fledge run` execution.
 
 ## Constraints
 

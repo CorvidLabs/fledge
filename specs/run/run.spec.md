@@ -1,9 +1,10 @@
 ---
 module: run
-version: 8
+version: 9
 status: active
 files:
   - src/run.rs
+  - src/deps.rs
 
 db_tables: []
 depends_on: []
@@ -26,6 +27,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 | `detect_project_type` | Detects project ecosystem from directory contents |
 | `task_defaults` | Returns default task definitions for a given project type |
 | `detect_node_runner` | Detects node package manager from lock files (bun, yarn, pnpm, npm) |
+| `walk_task_graph` | Shared two-set DFS for task dep graphs (used by `run`, `lanes run`, and `lanes validate`) |
 
 ### Structs & Enums
 
@@ -52,6 +54,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 | `detect_project_type` | `(&Path) -> &'static str` | Detect project ecosystem (rust, node, go, python, etc.) from marker files |
 | `detect_node_runner` | `(&Path) -> &'static str` | Detect Node.js package manager (npm, bun, pnpm, yarn) |
 | `task_defaults` | `(&str, &Path) -> String` | Return default task TOML entries for a given project type and directory |
+| `walk_task_graph` | `(&str, &impl Fn(&str) -> Option<&'graph [String]>, &mut Vec<String>, &mut HashSet<String>, &mut impl FnMut(&str) -> Result<()>) -> Result<()>` | Two-set DFS: `in_progress` is the recursion stack (a hit is a cycle, reported as an ordered walk); `completed` skips already-walked nodes so diamonds are not cycles |
 | `detect_node_runner` | `(&Path) -> &'static str` | Detect node package manager (bun, yarn, pnpm, npm) from lock files in directory |
 
 ## Invariants
@@ -59,7 +62,7 @@ Task runner that reads task definitions from `fledge.toml` and executes them. Su
 1. Tasks are read from `fledge.toml` in the current directory, or auto-detected from project type when no `fledge.toml` exists
 2. Short-form tasks (`name = "cmd"`) and full-form (`[tasks.name]` with `cmd`, `deps`, `description`, `env`, `dir`) are both supported
 3. Dependencies are executed before the task itself
-4. Circular dependencies are detected and produce an error
+4. Circular dependencies are detected with a two-set DFS (`in_progress` vs `completed`) shared via `deps::walk_task_graph` and produce an error listing the ordered cycle walk (e.g. `a → b → a`). A diamond DAG (two tasks sharing one dep) is not a cycle; the shared dep runs once
 5. `--init` creates a starter `fledge.toml` if none exists
 6. When auto-detecting, the task list header indicates tasks are auto-detected and suggests creating `fledge.toml` to customize
 7. `--json` outputs structured JSON for both task listing and task execution
@@ -165,7 +168,7 @@ Available tasks:
 | No fledge.toml (generic project) | File missing and project type is unrecognized | Suggest `fledge run --init` |
 | No tasks defined | Empty `[tasks]` section | Error with guidance |
 | Unknown task | Task name not found | List available tasks |
-| Circular dependency | Task A depends on B depends on A | Error with cycle info |
+| Circular dependency | Task A depends on B depends on A | Error listing the ordered cycle walk (`a → b → a`) |
 | Task failed | Non-zero exit code | Error with exit code (same message and code in buffered and `--stream` modes) |
 | Already exists | `--init` when fledge.toml exists | Error |
 | Spawn failed under `--stream` | Shell cannot be spawned, or a pipe is missing | Error contextualised as `running task '<name>'`, identical to the buffered path |
@@ -180,6 +183,7 @@ Available tasks:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 9 | 2026-08-17 | Fix diamond DAGs (`a → [b, c]`, `b → d`, `c → d`) being reported as circular deps. Cycle detection now uses a shared two-set DFS (`src/deps.rs`) so a completed shared dep is skipped, not treated as a back edge. Cycle errors report the ordered walk, not a `HashSet` iteration. Genuine cycles still fail |
 | 7 | 2026-08-12 | Add opt-in `--stream` to `fledge run` (#507). Human-readable runs already inherited the terminal, so the real gap was `--json`, which used `Command::output` — invisible until exit and with the child's stdin closed. `--stream --json` now tees both pipes: bytes are mirrored to fledge's **stderr** live (keeping stdout a single parseable envelope) while still being captured in full, and the child inherits stdin so it can prompt. Default buffered behaviour and every envelope field are unchanged; `--stream` without `--json` is an accepted no-op. Forwarding is unconditional (no TTY probe) and verbatim. Ordering is per-stream only; cross-stream interleaving is best-effort. New `pump`/`run_streaming` helpers with unit tests plus integration tests for mirroring, envelope purity, exit codes, deps, and the buffered default |
 | 6 | 2026-06-11 | Fix `run --init` generic template emitting an unclosed quote in the commented `# lint = "echo 'add your linter'"` example (uncommenting it made fledge.toml unparseable). Pass-through examples now use flags valid when appended to `cargo test` (`--release`) instead of `--nocapture`, which cargo only accepts after its own `--` separator |
 | 5 | 2026-06-07 | Add task argument pass-through: `fledge run <task> -- <args…>` forwards args to the target task's command (named task only, not deps). POSIX uses real positional params (`"$@"`, auto-appended unless the command references `$1`/`$@`/…), so values are never interpolated into the command string — no injection surface. `--json` gains an `args` array when args are supplied. Additive and backward-compatible: arg-less runs are byte-identical to before. New `references_positional`/`build_task_command` helpers with unit + injection-safety tests |

@@ -8,7 +8,8 @@ spec: run.spec.md
 
 - `detect_project_type` correctly identifies rust, node, go, python, ruby, java-gradle, java-maven, swift, and generic projects
 - `task_defaults` returns non-empty task maps for each supported project type
-- Circular dependency detection catches direct cycles (A→B→A) and indirect cycles (A→B→C→A)
+- Circular dependency detection catches direct cycles (A→B→A) and indirect cycles (A→B→C→A) and reports the ordered cycle walk
+- Diamond DAGs (two tasks sharing one dep, e.g. A→[B,C], B→D, C→D) are not reported as cycles; the shared dep is ready once
 - Short-form task (`"cargo build"`) and full-form task (with deps, env, dir) both parse correctly
 - `pump` mirrors and captures byte-identical content, forwards a partial line (a prompt with no newline), handles empty input, and handles payloads larger than its 8 KiB buffer
 - `pump` keeps capturing to EOF after its mirror sink starts refusing writes, reports that failure rather than swallowing it, and stops mirroring at the first failure instead of retrying per chunk — while a *read* failure on the child's pipe still propagates as an error

@@ -600,6 +600,36 @@ fn cli_run_stream_json_survives_a_stderr_reader_that_exits_early() {
 }
 
 #[test]
+fn cli_run_diamond_deps_succeeds() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(
+        tmp.path().join("fledge.toml"),
+        r#"[tasks]
+d = "echo d"
+
+[tasks.b]
+cmd = "echo b"
+deps = ["d"]
+
+[tasks.c]
+cmd = "echo c"
+deps = ["d"]
+
+[tasks.a]
+cmd = "echo a"
+deps = ["b", "c"]
+"#,
+    )
+    .unwrap();
+    let output = run_fledge_in(tmp.path(), &["run", "a"]);
+    assert!(
+        output.status.success(),
+        "diamond DAG must run: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn cli_run_failing_task_exits_nonzero() {
     let tmp = TempDir::new().unwrap();
     fs::write(
