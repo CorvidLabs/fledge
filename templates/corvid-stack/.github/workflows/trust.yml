@@ -18,7 +18,7 @@ jobs:
 
       - name: CorvidLabs Trust gate
         id: trust
-        uses: CorvidLabs/trust@9d32b5786d2e9e4d39fc581c0091c721ee3d4226 # v1.0.0
+        uses: CorvidLabs/trust@fcc889f54d8b4892a81af463c5a0250e2be66fc5 # v1.2.0
 
       - name: Enforce SpecSync SDD lifecycle
         run: |
