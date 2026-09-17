@@ -38,6 +38,25 @@
         "REQ-run-023",
         "REQ-run-024"
       ]
+    },
+    {
+      "timestamp": 1789687384,
+      "commit": "50b288b007cdaf2835c53131230fb51a09e4109e",
+      "contract_digest": "22beba6b721063a54f1016c5415fcded080958ea1cc5648886d23b16a62379e4",
+      "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec lanes --spec run",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-lanes-013",
+        "REQ-run-023",
+        "REQ-run-024"
+      ]
     }
   ]
 }
