@@ -137,6 +137,22 @@ jobs:
       - name: Enforce SpecSync change workspaces
         run: specsync change check --strict --require-coverage 100
 
+  intent-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # hi (human-intent) is the structural gate on INTENT.md and hi/*.md: it
+      # catches duplicate ids, a case with no parent, an id colliding with a
+      # retired one, a malformed id, an undeclared family and a stranded
+      # criterion. It never fails on unfinished intent prose.
+      - name: Install hi
+        run: cargo install human-intent --version 0.5.0 --locked
+      - name: Check intent
+        run: hi check
+
   corvid-pet:
     runs-on: ubuntu-latest
     timeout-minutes: 10
