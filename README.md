@@ -38,6 +38,36 @@ git clone https://github.com/CorvidLabs/fledge.git && cd fledge && cargo install
 
 </details>
 
+## GitHub Actions
+
+```yaml
+- uses: CorvidLabs/fledge@v1
+  with:
+    version: v1.7.2
+```
+
+Pin `version` to a release tag and the action downloads that binary directly —
+no GitHub API call, so nothing to rate-limit on shared runner IPs. Leave it at
+the default `latest` and the action resolves the tag via an authenticated API
+call (using `github.token` unless you pass your own `token`). `version` accepts
+a release tag or `latest` and nothing else, since the value reaches a download
+URL.
+
+Every download is verified against the release's `.sha256` sidecar, and a
+checksum that is missing, unfetchable, or mismatched fails the step — the
+install never degrades to an unverified binary. Releases before `v0.9.1`
+predate the sidecars and so cannot be installed this way.
+
+Linux and macOS runners (`x86_64`/`aarch64`) are supported. Windows is not
+supported by the action *yet*, though fledge does publish
+`fledge-windows-x86_64.exe` in every release for direct download.
+
+```yaml
+outputs:
+  version: # the release tag that was installed
+  path:    # full path to the installed binary
+```
+
 ## Quick start
 
 Already have a project? `cd` into it, fledge auto-detects the stack:

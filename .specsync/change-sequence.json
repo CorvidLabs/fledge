@@ -2,5 +2,13 @@
   "schema_version": 1,
   "sequence": 11,
   "id": "CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper",
-  "acknowledged_collisions": []
+  "acknowledged_collisions": [
+    {
+      "sequence": 8,
+      "ids": [
+        "CHG-0008-add-root-level-action-yml-github-action-for-installing-fledge-in-ci",
+        "CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p"
+      ]
+    }
+  ]
 }
