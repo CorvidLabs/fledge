@@ -21,6 +21,13 @@
         "lanes": "f5c127da76841bcfa6276512715664944a308434d1221086ed077b76258d2da0",
         "run": "e21b0604788afbbc3b7d0fceb2d12eac9014b72d796c15ef9be66f91e3af7817"
       }
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xLeif",
+      "timestamp": 1789687541,
+      "digest": "88bb4bf7f230b4557a65a8d5365bf53e8451528cb64ef48e0c19af009cfd47c5",
+      "note": null
     }
   ],
   "reopenings": []
