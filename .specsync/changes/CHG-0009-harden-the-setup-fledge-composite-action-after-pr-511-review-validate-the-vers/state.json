@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers",
+  "slug": "harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers",
+  "title": "Harden the setup-fledge composite action after PR #511 review: validate the version and install-dir inputs, make checksum verification mandatory, and correct the Windows and README claims",
+  "description": "Harden the setup-fledge composite action after PR #511 review: validate the version and install-dir inputs, make checksum verification mandatory, and correct the Windows and README claims",
+  "kind": "bug_fix",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "a868dba40fe1d42dba62dd21bd8358aed1a57eb7",
+  "created_at": 1786921298,
+  "updated_at": 1786921732,
+  "affected_specs": [],
+  "affected_paths": [
+    "action.yml",
+    ".github/workflows/test-action.yml",
+    "README.md",
+    ".specsync/change-sequence.json"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "No canonical spec module governs this: .specsync/config.toml scans only source_dirs [src, templates], and this change touches only the repo's own CI/distribution surface (action.yml, its exercising workflow, and the README section describing them). No src/ or templates/ files change.",
+  "acceptance_criteria": [
+    "A version input that is not 'latest' or a release tag is rejected before any network call, so a value containing '..' can no longer redirect the download to another repository; install-dir is rejected when it contains a '..' segment or a line break; the checksum sidecar is fetched with its HTTP status captured and any non-200 fails the step, so no input or network outcome installs an unverified binary; the unsupported-platform error states that the action does not support the platform yet and points at the Windows binary every release does publish; the latest lookup parses tag_name with jq and names the HTTP status on failure; the token is passed through a stdin curl config rather than argv; the temp directory is removed on every exit path; test-action.yml gains a refuses-unsafe-install job covering the traversal version and the sidecar-less v0.5.0 release, and its push trigger is narrowed to main so a branch push runs it once; README.md no longer claims a checksum guarantee the script does not deliver; fledge lanes run pre-commit is green."
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "design",
+    "docs",
+    "requirements",
+    "research",
+    "plan"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "yes",
+    "public_contract": "no"
+  }
+}

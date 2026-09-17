@@ -1,0 +1,61 @@
+{
+  "timestamp": 1786921694,
+  "commit": "a868dba40fe1d42dba62dd21bd8358aed1a57eb7",
+  "contract_digest": "3164717310eb979344b205f92b6244df36ce362d679f5f700bba1129971f43d5",
+  "workspace_digest": "49e8f338b9c2e32fc09c3918f0275fbe5a6b647feca65685cf9178526b28d83d",
+  "acceptance_input_digest": "efb988265b4d08e86e9fbd220c3cc68e2a16ad69cc05363f70b7181ac5490e57",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": ".github/workflows/test-action.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5950570b82122806690a816c768369c1ae29b8acc4642cdc80a97a2b29d369f4",
+        "entry_digest": "425111ea3e1cfeaafb924945c6dbfdc348c55518b41fbae872cc3f89669a6293",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": ".specsync/change-sequence.json",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "2d11b740e2b3e12382b68849a5551ae2221dc84d81058ed4a81057a8749ae422",
+        "entry_digest": "f8c917c45ccf74f83c1c7eeeaf8929991d514d18ae5a4394c007cd5107dcce4c",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "README.md",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "5609822315d9f4b4e89f96928c6ee16b5d40e7b33573015b4c464f14f3661c1e",
+        "entry_digest": "cf4d107be5e03c03e0e332243ae42b854667cd0afc21bc154f1f035c46f53be1",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "action.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "1ee83d2a24c4bc3e88a645e95da58a8c1a7c77c19acf57fc407f76dfd2a36fc4",
+        "entry_digest": "fcdc56208fb18ba639964f77d88de32900d75a9b50b6928279ad0b8053fd994a",
+        "owners": [
+          "@exact:delivery"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "fledge lanes run verify-native",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}

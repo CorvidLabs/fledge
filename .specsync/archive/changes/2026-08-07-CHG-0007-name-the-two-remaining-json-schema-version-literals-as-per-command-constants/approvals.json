@@ -1,0 +1,19 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786122267,
+      "digest": "17ce2f9d47ad0f00e5ff67e72987fdd25955c520316458dd597b41e99424a0c1",
+      "note": "Definition approved by the repository owner; emitted JSON is byte-identical."
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xGaspar",
+      "timestamp": 1786125818,
+      "digest": "67d5ecaa7a5b5a030b3b4d087cf3ba23f3f36ddc4dd29e41f1fc513503de5380",
+      "note": "Closing approval by the repository owner; verify-native lane green and emitted JSON byte-identical."
+    }
+  ],
+  "reopenings": []
+}

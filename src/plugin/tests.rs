@@ -1129,6 +1129,10 @@ fn a_command_plugin_that_declares_hooks_is_recorded_with_its_capabilities() {
     // command plugin's hooks were therefore dead on arrival: `exec` is prompted
     // for at install, the grant is dropped, and the hook is silently never run.
     // Found by installing one and watching nothing happen.
+    //
+    // This drives `build_plugin_entry` itself and asserts on the entry it
+    // returns. Restating the predicate here instead would pass against the
+    // unfixed code, which is the one thing a regression test must not do.
     let manifest_str = r#"
 [plugin]
 name = "hooked"
@@ -1147,20 +1151,61 @@ post_work_start = "bin/nudge start"
 exec = true
 "#;
     let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
-
     assert!(manifest.plugin.protocol.is_none(), "not a protocol plugin");
     assert!(manifest.hooks.has_any(), "but it does declare a hook");
-    assert!(
-        manifest.capabilities.exec,
-        "and asks for the capability hooks need"
+
+    let source = super::install::InstallSource::parse("owner/fledge-plugin-hooked", false).unwrap();
+    let entry = super::install::build_plugin_entry(
+        "fledge-plugin-hooked",
+        &source,
+        &manifest,
+        &["hooked".to_string()],
     );
 
-    // The install path records capabilities when either is true; before the
-    // fix only the first was considered and this plugin got `None`.
-    let recorded = manifest.plugin.protocol.is_some() || manifest.hooks.has_any();
+    let caps = entry.capabilities.expect(
+        "a plugin declaring hooks must keep its capabilities on the registry entry, \
+         or `run_lifecycle_hook` skips it and every hook is silently dead",
+    );
     assert!(
-        recorded,
-        "a plugin declaring hooks must keep its capabilities, or its hooks never run"
+        caps.exec,
+        "the granted `exec` must survive onto the entry — it is what gates the hook"
+    );
+}
+
+#[test]
+fn a_plain_command_plugin_with_no_hooks_still_records_no_capabilities() {
+    // The other side of the same branch: widening it to hooked plugins must not
+    // start handing capabilities to plugins that asked for neither a protocol
+    // nor a hook, or the fix would be a capability leak rather than a fix.
+    let manifest_str = r#"
+[plugin]
+name = "plain"
+version = "0.1.0"
+description = "No protocol, no hooks"
+
+[[commands]]
+name = "plain"
+description = "does a thing"
+binary = "bin/plain"
+
+[capabilities]
+exec = true
+"#;
+    let manifest: PluginManifest = toml::from_str(manifest_str).unwrap();
+    assert!(manifest.plugin.protocol.is_none());
+    assert!(!manifest.hooks.has_any());
+
+    let source = super::install::InstallSource::parse("owner/fledge-plugin-plain", false).unwrap();
+    let entry = super::install::build_plugin_entry(
+        "fledge-plugin-plain",
+        &source,
+        &manifest,
+        &["plain".to_string()],
+    );
+
+    assert!(
+        entry.capabilities.is_none(),
+        "a plugin with neither a protocol nor a hook records no capabilities"
     );
 }
 
