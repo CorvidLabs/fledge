@@ -15,6 +15,7 @@ Fix diamond task dependencies falsely rejected as circular
 
 - `run`
 - `lanes`
+- `main`
 
 ## Acceptance Criteria
 
