@@ -1,6 +1,6 @@
 ---
 module: doctor
-version: 9
+version: 10
 status: active
 files:
   - src/doctor.rs
@@ -150,3 +150,4 @@ $ fledge doctor --json
 | 3 | 2026-04-23 | AI section reports both Claude CLI and Ollama binary presence, the active provider (from config / env), and probes the Ollama host's `/api/tags` endpoint for reachability |
 | 2 | 2026-04-21 | Add swift to supported project types |
 | 1 | 2026-04-20 | Initial spec |
+| 10 | 2026-08-08 | CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p: Mocking harness, HOME isolation and real publish coverage for network-touching paths |

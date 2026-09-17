@@ -352,10 +352,16 @@ fn cli_changelog_in_non_git_dir() {
 // Doctor edge cases
 // ──────────────────────────────────────────────────────────
 
+// `doctor` resolves its config through `FLEDGE_CONFIG_DIR` / `dirs::config_dir()`
+// and probes whatever AI host that config names, so a bare `run_fledge_in` —
+// which sets the working directory and nothing else — reads the runner's real
+// `~/.config/fledge/config.toml` and can reach a real endpoint. `TempEnv` is
+// what REQ-doctor-020 requires here.
+
 #[test]
 fn cli_doctor_in_empty_dir() {
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["doctor"]);
+    let output = TempEnv::new().run_in(tmp.path(), &["doctor"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("fledge") || stdout.contains("Git"));
@@ -364,7 +370,7 @@ fn cli_doctor_in_empty_dir() {
 #[test]
 fn cli_doctor_json_in_empty_dir() {
     let tmp = TempDir::new().unwrap();
-    let output = run_fledge_in(tmp.path(), &["doctor", "--json"]);
+    let output = TempEnv::new().run_in(tmp.path(), &["doctor", "--json"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();

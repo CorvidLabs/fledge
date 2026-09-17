@@ -26,6 +26,17 @@ In `src/llm.rs`:
 
 All tests that mutate env vars serialize on a static Mutex to avoid parallel-test races.
 
+### Mocked HTTP Tests
+
+`OllamaProvider` takes its host as a field, so it is pointed at `test_support::MockHttpServer` (a loopback server) to cover the real HTTP path with no daemon and no network:
+
+- `ollama_invoke_sends_prompt_and_trims_response` — request body carries `model`/`prompt`/`stream: false` with the right headers; the decoded response is trimmed
+- `ollama_invoke_sends_bearer_token_when_keyed` — an API key becomes `Authorization: Bearer …`; without one, no auth header is sent
+- `ollama_invoke_reports_http_status_errors` — a non-2xx status produces the "Ollama endpoint returned HTTP …" guidance
+- `ollama_invoke_reports_undecodable_body` — a non-JSON body produces "decoding response from …"
+- `ollama_invoke_unreachable_host_hints_at_the_daemon` — connection refused names the URL and asks whether the server is running
+- `ollama_invoke_error_explains_ollama_host_env_override` — the `OLLAMA_HOST` hint (issue #378) appears in the failure message
+
 ### Integration Tests
 
 - `fledge ask --help` advertises `--provider` and `--model`
@@ -36,7 +47,7 @@ Not tested in CI (requires live endpoints):
 
 - End-to-end `fledge ask "..."` against a running Ollama daemon — manual, run locally
 - Ollama Cloud / Turbo auth — manual, run with a real key
-- Response decoding edge cases (truncated streams, timeouts) — manual
+- Timeout behavior against a slow endpoint — manual (status/decoding edge cases are covered by the mocked HTTP tests above)
 
 ### Manual Test Recipe (for the author's Ollama Pro test)
 
