@@ -29,6 +29,12 @@ Acceptance Criteria
 - Genuine cycle `a → b → a` still fails.
 - Cycle errors from the shared helper list the ordered walk.
 
+## Non-Functional Requirements
+
+1. Parallel groups must execute steps concurrently using threads
+2. Lane execution must respect task dependency ordering within each step
+3. `--json` flag must produce machine-parseable output for list operations
+
 ### REQ-lanes-013
 
 `fledge lanes run` and `fledge lanes validate` SHALL surface the shared walker's depth
@@ -39,8 +45,3 @@ Acceptance Criteria
 - The depth error appears in the command's output.
 - `fledge run` behaves identically; all three reach the same walker.
 
-## Non-Functional Requirements
-
-1. Parallel groups must execute steps concurrently using threads
-2. Lane execution must respect task dependency ordering within each step
-3. `--json` flag must produce machine-parseable output for list operations

@@ -160,3 +160,4 @@ The bound SHALL apply to dependency *nesting*, not to the number of tasks.
 
 Acceptance Criteria
 - A root with 1,999 leaf dependencies (2,000 tasks, 2 levels deep) walks successfully.
+
