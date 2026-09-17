@@ -190,6 +190,7 @@ When fledge invokes a plugin command (or runs any of its lifecycle/build hooks, 
 | Variable | Value | Why it exists |
 |----------|-------|---------------|
 | `FLEDGE_PLUGIN_DIR` | Absolute path to the plugin's source directory (the cloned repo, e.g. `<config_dir>/fledge/plugins/fledge-plugin-foo`) | The declared `[[commands]].binary` is symlinked into a shared `plugins/bin/` dir, so `dirname "$0"` in a shell plugin resolves to the shared dir, not the plugin's source. `FLEDGE_PLUGIN_DIR` lets a plugin reach sibling helpers, hooks, and fixtures regardless of how it was invoked. |
+| `FLEDGE_REPO_ROOT` | Absolute path to the repository the command is running in: `git rev-parse --show-toplevel`, falling back to the working directory outside a repository and to `.` when that cannot be read | A lifecycle hook runs with its working directory set to the plugin's own source dir, so it has no way to tell which project invoked it. A hook that wants to look at the repository — is there a config file, is there a `hi/`, is the tree dirty — had nothing to look at. Always set, so a hook never has to branch on its absence. |
 
 Plugin authors writing multi-file shell plugins should reference siblings via `"$FLEDGE_PLUGIN_DIR/bin/<helper>"`, not `"$(dirname "$0")/<helper>"`. The `fledge plugins create` scaffold ships a comment + dispatcher example that uses `$FLEDGE_PLUGIN_DIR`.
 
@@ -371,6 +372,8 @@ Installed plugins:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 31 | 2026-09-16 | Record granted capabilities for any plugin that declares a lifecycle hook, not only for protocol plugins. `run_lifecycle_hook` requires `exec` on the registry entry, so a hooked command plugin's hooks were dead on arrival: the user was prompted to grant `exec` at install, the grant was discarded, and every hook was skipped silently thereafter. Found by installing such a plugin and watching `post_work_start` do nothing |
+| 30 | 2026-09-16 | Set `FLEDGE_REPO_ROOT` alongside `FLEDGE_PLUGIN_DIR` for every lifecycle hook and hook file, on all platform branches. Hooks run with `current_dir(plugin_dir)` and previously received no indication of which repository fired them, so a `post_work_start` or `pre_push` hook could not inspect the project it was reacting to. Resolved once per hook from `git rev-parse --show-toplevel`, falling back to the working directory and then to `.`, so the variable is always set to something a hook can enter |
 | 29 | 2026-06-03 | Add local path and generic git URL plugin installs. Local path installs live-link by default, support `--copy` snapshots, classify as `[local]`, and are skipped by `plugins update`. Generic git URLs clone as-is while GitHub shorthand remains supported |
 | 28 | 2026-05-11 | `plugins update` skips workspace-managed plugins (no `.git` in install dir) with an informational `skipped` status instead of warning on a guaranteed-to-fail `git pull`. Detects both `.git` directories (standard clones) and `.git` files (worktrees / submodules). Lets host projects like Merlin register their internal plugins via `source = "owner/repo"` without triggering noisy errors on routine `fledge plugins update` runs (#382) |
 | 27 | 2026-05-07 | Frontmatter bump; no functional change |
