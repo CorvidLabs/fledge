@@ -22,3 +22,15 @@ This module is a library — its requirements describe the helpers it exposes. T
 1. Synchronous HTTP via `ureq` — no async runtime
 2. Token never reaches the process table or git config — passed via `http.extraheader` env injection only
 3. No prompts in this module — caller decides whether to confirm
+
+### REQ-publish-020
+
+The `publish` module SHALL resolve the git remote base through `remote_base()` /
+`remote_url(owner, repo)` rather than an inline literal, so the publish flow can be
+exercised end to end against a local bare repository.
+
+Acceptance Criteria
+- `remote_url` composes the production `https://github.com/{owner}/{repo}.git` form in non-test builds.
+- Under `cfg(test)`, a thread-local override redirects the remote base.
+- A push never writes an authentication token into `.git/config` or the `origin` remote URL.
+

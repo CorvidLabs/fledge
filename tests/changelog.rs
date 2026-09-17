@@ -102,7 +102,7 @@ fn cli_init_yes_with_each_builtin_template() {
 
 #[test]
 fn cli_list_shows_all_builtin_templates() {
-    let output = run_fledge(&["templates", "list"]);
+    let output = TempEnv::new().run(&["templates", "list"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let expected = ["rust-cli", "ts-bun"];

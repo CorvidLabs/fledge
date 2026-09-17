@@ -17,9 +17,9 @@
     {
       "gate": "acceptance",
       "actor": "user:0xGaspar",
-      "timestamp": 1786974675,
-      "digest": "63dbb8e8f522f3ee7db540f42966e70209e78af22e7cc70551c7d7be936d3e52",
-      "note": "Re-accepted after PR #505 review fixes; verify-native green."
+      "timestamp": 1786471321,
+      "digest": "42f8eaa1c662b876ce9594e68d720b24044802b6d79d8f1a6c9d2bf6ddaa3fc4",
+      "note": "Re-accepted after re-verification on the #504 branch following the sequence-ledger advance."
     }
   ],
   "reopenings": [
@@ -27,8 +27,8 @@
       "schema_version": 1,
       "change_id": "CHG-0007-name-the-two-remaining-json-schema-version-literals-as-per-command-constants",
       "actor": "user:0xGaspar",
-      "reason": "Review fixes for PR #505 changed delivery inputs on this branch; re-verifying.",
-      "timestamp": 1786974661,
+      "reason": "change-sequence.json advanced to CHG-0008 on this branch after CHG-0007 was accepted; re-verifying the merged change.",
+      "timestamp": 1786471243,
       "from_state": "accepted",
       "to_state": "verifying",
       "superseded_approval": {
