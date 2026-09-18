@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1786921694,
+      "commit": "a868dba40fe1d42dba62dd21bd8358aed1a57eb7",
+      "contract_digest": "3164717310eb979344b205f92b6244df36ce362d679f5f700bba1129971f43d5",
+      "workspace_digest": "49e8f338b9c2e32fc09c3918f0275fbe5a6b647feca65685cf9178526b28d83d",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1789695258,
+      "commit": "d3d710b10501c5576d946556fd10071edb3adafe",
+      "contract_digest": "19a357d17c64115017b8efd3a5004827c1c092cf275528e8f085080b55b249d3",
+      "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1789695258,
+      "commit": "d3d710b10501c5576d946556fd10071edb3adafe",
+      "contract_digest": "19a357d17c64115017b8efd3a5004827c1c092cf275528e8f085080b55b249d3",
+      "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+      "acceptance_input_digest": "c8eef20b359c572ad6c939289be9eed13e92633b2db69b0ea352e8b7924c25da",
+      "acceptance_manifest": {
+        "schema_version": 1,
+        "entries": [
+          {
+            "path": ".github/workflows/test-action.yml",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "528588b1a7ac51a4a1c78a701d9a97db5382d97226a8da5806adffdbb5aba382",
+            "entry_digest": "ce044e28f123c1d836dbc9d86f28f037acb4a675ff263fe4162d77ce7698b6b7",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": ".specsync/change-sequence.json",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "0d5bbffbcb04824e5ccfc61275bfbd9e4e126fdb395c0c0eb858cb1f54bd2c8f",
+            "entry_digest": "55d49237b26d9ddea184c5dd2d8ee67a55613f73e629292e9b24ac15607d1ce1",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": "README.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "5609822315d9f4b4e89f96928c6ee16b5d40e7b33573015b4c464f14f3661c1e",
+            "entry_digest": "cf4d107be5e03c03e0e332243ae42b854667cd0afc21bc154f1f035c46f53be1",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": "action.yml",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "9fd12dfaa41e695f8a4b28e58d5e1fc4fb5ba9877e89041ac6d8f6b0af32926d",
+            "entry_digest": "f2cbbcbf5f6ce9a230935fd0c7759ca3c1167d228f2b969b973d19240b5e9e65",
+            "owners": [
+              "@exact:delivery"
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    }
+  ]
+}

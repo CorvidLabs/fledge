@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "workflow_origin_version": 1,
+  "id": "bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack",
+  "slug": "bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack",
+  "title": "Bound task-graph walk depth so a deep dependency chain fails with a clear error instead of overflowing the stack",
+  "description": "Bound task-graph walk depth so a deep dependency chain fails with a clear error instead of overflowing the stack",
+  "kind": "bug_fix",
+  "state": "archived",
+  "canonical_applied": true,
+  "base_commit": "f659d69908c607295f2103cdb23e48c09a610965",
+  "created_at": 1789661521,
+  "updated_at": 1789770413,
+  "affected_specs": [
+    "run",
+    "lanes"
+  ],
+  "affected_paths": [
+    "src/deps.rs",
+    "src/run.rs",
+    "src/lanes/execute.rs",
+    "src/lanes/validate.rs",
+    "tests/run.rs",
+    "tests/lanes.rs",
+    "specs/run",
+    "specs/lanes"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "walk_task_graph bails with a clear, catchable error naming the depth bound once a dependency chain exceeds MAX_TASK_DEPTH, instead of aborting the process with a stack overflow; a chain of exactly MAX_TASK_DEPTH still walks successfully; fledge run <task>, fledge lanes run <lane> and fledge lanes validate all surface that error rather than exit 134; the diamond-DAG behaviour and ordered cycle-path reporting from #513 are unchanged; cargo test, clippy -D warnings and fmt --check are green"
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "design",
+    "requirements",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "yes"
+  }
+}

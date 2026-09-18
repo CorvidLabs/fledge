@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1786968328,
+      "commit": "f8fd97a9c97489f705cf3ffc036af63fe1646f89",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "ca11163572591d74ebabdedeccf7de5edd45402d799d148976122e3d8b938993",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    },
+    {
+      "timestamp": 1787687009,
+      "commit": "cfc8b675a9901e40c6c8c5ceffe31f22c70d9431",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "c68204788488e4a15f6083d443df912f3e126ec7e4643b8f05fb9da6b7c8018a",
+      "passed": true,
+      "commands": [
+        {
+          "command": "fledge lanes run verify-native",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    },
+    {
+      "timestamp": 1789696598,
+      "commit": "3e1731ff8b77532afbae20bef52700c15d8f6d58",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec remote",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    },
+    {
+      "timestamp": 1789696598,
+      "commit": "3e1731ff8b77532afbae20bef52700c15d8f6d58",
+      "contract_digest": "3660a4ba65c6c78c22bc4a99e76c306c6173eb0dd3583a393686343b22f37d1d",
+      "workspace_digest": "1d9e142810f30a04a8fbac71bf6e7825eea856aea2f979b30ac8199b93758fef",
+      "acceptance_input_digest": "3cf6c45ab195d15c6e53e47f8ff728eccce87a153a065a110466fb9f9f85ef7a",
+      "acceptance_manifest": {
+        "schema_version": 1,
+        "entries": [
+          {
+            "path": ".specsync/change-sequence.json",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "974e496088356f2aec30a1b624bd7bc9eb1923af5e40d2b74c5e1c7728f6152e",
+            "entry_digest": "7652429d25bda503af516a4c11e379eec689c0640f63f3393bff1a40b2675142",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": "specs/remote/context.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "f55e2abe95610ecfc61f177b54d253cfab5bc330c203f7a55ba359d30c392cc1",
+            "entry_digest": "79ba1cdeba973d23b147eb2a7c1d2feaf54b157464bae365957b859a2540432a",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "specs/remote/remote.spec.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "7b51c64a440e9f4265bf3ebafb3b894ba5dfd8ef6b13937cd793dda3ea1e2fa6",
+            "entry_digest": "5a51dd7630d08119c4b8a8fac2ab60bf0f394f767ac984397a4a03381804c87e",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "specs/remote/requirements.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "efd49696cc2dfb291ad66d11f3b2451b1364ce9378e7e8cd04a5933ba9a7fda6",
+            "entry_digest": "e2076394b14c89b4d23e45c1d5be72e85d2126fc662ec16a7a2de941f43a322e",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "specs/remote/tasks.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "ed6f4753e99001454e9b8d456d26502aa78f1e65ac942fcde33f394e0eb65ec4",
+            "entry_digest": "db9f395af02130b3e6e172ed94df956085dd0c6ae49b0838c5f3dfad8376cc6d",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "specs/remote/testing.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "eaa75916078044e3c367e54bc1ab254239c7d8751b38469eb67cef55818feedc",
+            "entry_digest": "a46dac7d7d9c041d5ec9cd94dc36e67292d490dee74ef983e3d4629873f782df",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "src/remote.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "fdb468379ffeac32f5ead2eee88730b9f500f025e804977ba619de4728f39b4b",
+            "entry_digest": "117f56341e362441118143f18053beb7ec004daed721ac96dd643eb45cd18c7b",
+            "owners": [
+              "remote"
+            ]
+          },
+          {
+            "path": "tests/isolation.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "7a5c48210436334e13f51037b1652b0c1dc6e9a2780e29780d7bb0fd02353ca7",
+            "entry_digest": "ec276687446d11e5f1b47afe852f941ee75e4f2b814c6fb3f5c92e4d24223249",
+            "owners": [
+              "@exact:test"
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec remote",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-remote-010"
+      ]
+    }
+  ]
+}
