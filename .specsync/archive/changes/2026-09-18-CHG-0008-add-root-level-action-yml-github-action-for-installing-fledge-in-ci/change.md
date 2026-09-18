@@ -1,6 +1,6 @@
 ---
 id: CHG-0008-add-root-level-action-yml-github-action-for-installing-fledge-in-ci
-state: accepted
+state: archived
 type: feature
 base_commit: 6eb7a3ea595c949f4bc0078c0738508d800356b3
 ---

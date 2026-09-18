@@ -1,6 +1,6 @@
 ---
 id: CHG-0009-harden-the-setup-fledge-composite-action-after-pr-511-review-validate-the-vers
-state: accepted
+state: archived
 type: bug_fix
 base_commit: a868dba40fe1d42dba62dd21bd8358aed1a57eb7
 ---

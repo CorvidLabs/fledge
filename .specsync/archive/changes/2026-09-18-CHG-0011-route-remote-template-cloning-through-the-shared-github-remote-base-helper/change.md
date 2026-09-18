@@ -1,6 +1,6 @@
 ---
 id: CHG-0011-route-remote-template-cloning-through-the-shared-github-remote-base-helper
-state: accepted
+state: archived
 type: refactor
 base_commit: f8fd97a9c97489f705cf3ffc036af63fe1646f89
 ---

@@ -34,6 +34,24 @@
       "timestamp": 1786974689,
       "digest": "3844a775f29a6077e197a721edef25f7ba1d6050987999b6c3980a305e544cf2",
       "note": "Re-accepted after PR #505 review fixes; verify-native green."
+    },
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1789771836,
+      "digest": "78c20efb01d7f2c10e0864a607bf0d27875de81c9699d658dc427e420ef6a14a",
+      "note": "Normalized compatible definition evidence during explicit acceptance",
+      "approved_delta_digests": {
+        "main": "58283d0d3cd70bcd26a4ffee58180469e1f44569f6a87c452aa33ac5a6357b8e",
+        "spec": "c426a2354d807684f06fc6e04c0f36c774200d5f3fb94c7afb76e50ca039d3e5"
+      }
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xLeif",
+      "timestamp": 1789771836,
+      "digest": "f11367d89319581429fb03f3f5845de1cbfc4b1cddc8165dbcee03d16e2aceff",
+      "note": null
     }
   ],
   "reopenings": [
