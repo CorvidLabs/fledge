@@ -8,8 +8,8 @@ import { HUB_DOCS } from '../../data/hub'
 export async function getStaticPaths() {
   const entries = await getCollection('docs')
   return entries
-    .filter(e => e.slug !== 'index')
-    .map(entry => ({ params: { slug: entry.slug } }))
+    .filter(e => e.id !== 'index')
+    .map(entry => ({ params: { slug: entry.id } }))
 }
 ---
 <Redirect to={HUB_DOCS} />
