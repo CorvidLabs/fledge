@@ -1,6 +1,6 @@
 ---
 id: fix-diamond-task-dependencies-falsely-rejected-as-circular
-state: draft
+state: approved
 type: bug_fix
 base_commit: 83d7561b8571d17270016e3f933e1733475d1d83
 ---

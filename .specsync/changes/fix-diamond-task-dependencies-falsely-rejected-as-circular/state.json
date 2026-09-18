@@ -6,10 +6,10 @@
   "title": "Fix diamond task dependencies falsely rejected as circular",
   "description": "Fix diamond task dependencies falsely rejected as circular",
   "kind": "bug_fix",
-  "state": "draft",
+  "state": "approved",
   "base_commit": "83d7561b8571d17270016e3f933e1733475d1d83",
   "created_at": 1789657490,
-  "updated_at": 1789659762,
+  "updated_at": 1789775222,
   "affected_specs": [
     "run",
     "lanes",
