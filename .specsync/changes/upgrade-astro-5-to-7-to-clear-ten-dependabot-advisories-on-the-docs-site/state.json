@@ -6,10 +6,11 @@
   "title": "Upgrade Astro 5 to 7 to clear ten Dependabot advisories on the docs site",
   "description": "Upgrade Astro 5 to 7 to clear ten Dependabot advisories on the docs site",
   "kind": "bug_fix",
-  "state": "approved",
+  "state": "accepted",
+  "canonical_applied": true,
   "base_commit": "d3d710b10501c5576d946556fd10071edb3adafe",
   "created_at": 1789772829,
-  "updated_at": 1789772931,
+  "updated_at": 1789773213,
   "affected_specs": [],
   "affected_paths": [
     "site/package.json",

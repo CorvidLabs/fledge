@@ -1,6 +1,6 @@
 ---
 id: upgrade-astro-5-to-7-to-clear-ten-dependabot-advisories-on-the-docs-site
-state: approved
+state: accepted
 type: bug_fix
 base_commit: d3d710b10501c5576d946556fd10071edb3adafe
 ---

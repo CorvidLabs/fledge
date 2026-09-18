@@ -17,4 +17,4 @@ artifact: tasks
 - [x] Fix the `.md`-only glob that silently dropped five `.mdx` pages
 - [x] Verify the emitted file set is identical to the baseline
 - [x] `bun test` 49/49, `astro check` 0 errors / 0 warnings
-- [ ] Definition approval — owner gate
+- [x] Definition approval recorded by the owner (user:0xLeif)
