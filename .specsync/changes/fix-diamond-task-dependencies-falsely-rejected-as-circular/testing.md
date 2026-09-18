@@ -23,6 +23,19 @@ artifact: testing
 - Automated: `tests/lanes.rs::cli_lane_validate_diamond_deps_succeeds`
 - Automated: `tests/lanes.rs::cli_lane_run_real_cycle_fails`
 
+## REQ-main-011: the crate root declares the shared walk module
+
+- Code (`src/main.rs:12`): `mod deps;` — the declaration that makes one
+  implementation of the walk resolvable crate-wide.
+- Code: all three consumers reach it through that declaration and none keeps a
+  second walk — `src/run.rs`, `src/lanes/execute.rs` and `src/lanes/validate.rs`
+  each call `crate::deps::walk_task_graph`, verified by
+  `grep -rn "crate::deps::walk_task_graph" src/` returning exactly those three.
+- Automated: the acceptance criterion "`cargo build` resolves `crate::deps` from
+  every one of those call sites" is enforced by compilation itself — the whole
+  suite builds and passes, which is impossible if the declaration or any call
+  path is missing. No separate assertion can be stronger than the compiler here.
+
 ## Rejection signal
 
 If a diamond DAG (`a → [b, c]`, `b → d`, `c → d`) is reported as circular, or a

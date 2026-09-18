@@ -1,4 +1,24 @@
 {
-  "approvals": [],
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1789775222,
+      "digest": "d3e1598dfd679a204a3ea22daf540d6b6315b15de3b706fa9decebbdfdc320ea",
+      "note": null,
+      "approved_delta_digests": {
+        "lanes": "01f54b4c9ad0af14a9ab8bd15b4fc360cafb446aeb46a7c3b7d55941f9220fea",
+        "main": "e51285c19509158de4be9af89c7cee6f170561f51033c90746a80ebf42e8348f",
+        "run": "cc4f09d19dfe0b49366f8b0a3f2c92e67b40da3628bef8e37d23ba95f990bf33"
+      }
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xLeif",
+      "timestamp": 1789775256,
+      "digest": "0b625862d9a98f570b580958f3883596ad40ad6af1f54869bf7468839c22b11f",
+      "note": null
+    }
+  ],
   "reopenings": []
 }

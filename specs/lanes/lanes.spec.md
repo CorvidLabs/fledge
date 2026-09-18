@@ -1,6 +1,6 @@
 ---
 module: lanes
-version: 28
+version: 29
 status: active
 files:
   - src/lanes/mod.rs
@@ -362,3 +362,4 @@ files continue to load against v1 semantics indefinitely.
 | 2 | 2026-04-20 | Add community lane registry (search + import) |
 | 1 | 2026-04-20 | Initial spec |
 | 28 | 2026-09-17 | bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack: `lanes run` and `lanes validate` inherit the new depth bound in the shared walker (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting): a deep dependency chain now fails with `Dependency chain deeper than 1000 tasks` rather than aborting the process on a stack overflow. Lane semantics are otherwise unchanged; the walker itself lives in the `run` spec |
+| 29 | 2026-09-18 | fix-diamond-task-dependencies-falsely-rejected-as-circular: Fix diamond task dependencies falsely rejected as circular |
