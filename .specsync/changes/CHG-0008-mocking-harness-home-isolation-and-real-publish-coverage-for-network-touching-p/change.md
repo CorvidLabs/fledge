@@ -1,6 +1,6 @@
 ---
 id: CHG-0008-mocking-harness-home-isolation-and-real-publish-coverage-for-network-touching-p
-state: accepted
+state: verifying
 type: refactor
 base_commit: 47cbefdc5e4cb1c6d7e3a3075deb5d88ae576c84
 ---

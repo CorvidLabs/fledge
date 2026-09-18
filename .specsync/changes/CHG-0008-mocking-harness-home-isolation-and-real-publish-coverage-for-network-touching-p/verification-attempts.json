@@ -60,6 +60,26 @@
         "REQ-llm-020",
         "REQ-publish-020"
       ]
+    },
+    {
+      "timestamp": 1789769490,
+      "commit": "14ef56d5e892047b300dcbcdc6449fbf6090fc2a",
+      "contract_digest": "98b0e1977364be51802ed5943a283f20e7fa560c050fd17d2b942985b1f672b5",
+      "workspace_digest": "398cfb7753949cec4e3df7e0e4cd307bd0592e262ae16b3aae9cd0ff7ec41977",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec doctor --spec github --spec llm --spec publish",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": [
+        "REQ-doctor-020",
+        "REQ-github-020",
+        "REQ-llm-020",
+        "REQ-publish-020"
+      ]
     }
   ]
 }
