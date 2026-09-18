@@ -5,11 +5,11 @@
   "title": "Mocking harness, HOME isolation and real publish coverage for network-touching paths",
   "description": "Mocking harness, HOME isolation and real publish coverage for network-touching paths",
   "kind": "refactor",
-  "state": "verifying",
+  "state": "accepted",
   "canonical_applied": true,
   "base_commit": "47cbefdc5e4cb1c6d7e3a3075deb5d88ae576c84",
   "created_at": 1786129700,
-  "updated_at": 1789769491,
+  "updated_at": 1786927899,
   "affected_specs": [
     "publish",
     "github",
