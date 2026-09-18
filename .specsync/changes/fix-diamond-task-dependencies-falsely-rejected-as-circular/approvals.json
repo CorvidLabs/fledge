@@ -11,6 +11,13 @@
         "main": "e51285c19509158de4be9af89c7cee6f170561f51033c90746a80ebf42e8348f",
         "run": "cc4f09d19dfe0b49366f8b0a3f2c92e67b40da3628bef8e37d23ba95f990bf33"
       }
+    },
+    {
+      "gate": "acceptance",
+      "actor": "user:0xLeif",
+      "timestamp": 1789775256,
+      "digest": "0b625862d9a98f570b580958f3883596ad40ad6af1f54869bf7468839c22b11f",
+      "note": null
     }
   ],
   "reopenings": []

@@ -1,6 +1,6 @@
 ---
 module: run
-version: 11
+version: 12
 status: active
 files:
   - src/run.rs
@@ -201,3 +201,4 @@ Available tasks:
 | 1 | 2026-04-19 | Initial spec |
 | 8 | 2026-08-12 | CHG-0010-opt-in-stream-mode-forwarding-live-child-output-for-fledge-run-tasks: Opt-in --stream mode forwarding live child output for fledge run tasks |
 | 11 | 2026-09-17 | bound-task-graph-walk-depth-so-a-deep-dependency-chain-fails-with-a-clear-error-instead-of-overflowing-the-stack: Bound the task-graph walk depth (`deps::MAX_TASK_DEPTH`, 1,000 levels of nesting). #513 replaced three explicit heap-stack DFS loops with the shared recursive walker, so a long dependency chain overflowed the thread stack and aborted the process (exit 134) instead of erroring — a regression in kind that #513's test plan claimed to cover but never landed. Deep chains now fail with `Dependency chain deeper than 1000 tasks`; the bound is on nesting, not task count, so a wide shallow graph is unaffected. Regression tests at the bound, one past it, at 20,000 deep, and for a wide shallow graph, plus CLI coverage for `run`, `lanes run` and `lanes validate` |
+| 12 | 2026-09-18 | fix-diamond-task-dependencies-falsely-rejected-as-circular: Fix diamond task dependencies falsely rejected as circular |
