@@ -5,7 +5,7 @@ import { HUB_MARKETING } from '../../data/hub'
 
 export async function getStaticPaths() {
   const entries = await getCollection('examples', e => !e.data.draft)
-  return entries.map(entry => ({ params: { slug: entry.slug } }))
+  return entries.map(entry => ({ params: { slug: entry.id } }))
 }
 ---
 <Redirect to={HUB_MARKETING} />

@@ -21,7 +21,7 @@ const linkFor = (slug: string) => {
       <h2 class="section-title">{group.name}</h2>
       <ul>
         {group.items.map(item => {
-          const href = linkFor(item.slug)
+          const href = linkFor(item.id)
           const active = href.replace(/\/$/, '') === current
           return <li><a href={href} class={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>{item.data.title}</a></li>
         })}
