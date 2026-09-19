@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "schema_version": 2,
+      "change_id": "publish-to-crates-io-from-the-release-workflow-and-verify-the-registry",
+      "reviewer": "user:0xLeif",
+      "provenance": {
+        "schema_version": 1,
+        "provider": "github_actions_check",
+        "required_check": "SpecSync scoped review"
+      },
+      "verdict": "pass",
+      "implementation_commit": "b43acddd5be25235550aae10c46a24ceb5d6e71e",
+      "contract_digest": "027e4f3c88ddcd03f9f107dd9a570e91ea7b5647d0d165a366659f208a3729e5",
+      "execution_digest": "ff5c2a9543a08ce537f0bd52fc6fd44bb264233502c561befcff875ed84c4aeb",
+      "workspace_digest": "8a2478d8b7da9dbe7eea5a01f27de930641df0dd7de61d7030fc40d44c1f0c55",
+      "timestamp": 1789781569
+    }
+  ]
+}
