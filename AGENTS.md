@@ -359,6 +359,12 @@ Or via fledge's own lanes: `fledge lanes run pre-commit` (fmt + lint + test + sp
 - Run `fledge spec check` before committing. It delegates to the `specsync` binary when installed (matching CI's export-coverage validation) and falls back to a structural check otherwise
 - No direct commits to main — use feature branches
 - Releases bump `Cargo.toml` and `flake.nix` together (see `[release].files` in `fledge.toml`); the Homebrew formula in `CorvidLabs/homebrew-tap` is updated by `post-release-formula.yml`
+- Publishing to crates.io is done by the `publish` job in `release.yml`, which fires on the `v*` tag push like the rest of the release. It needs the `CARGO_REGISTRY_TOKEN` repository secret; without it the job fails loudly rather than skipping, because a release that did not publish is not a finished release. **This was added after v1.7.1 and v1.7.2 were both tagged, both ran the release workflow green, and neither reached crates.io — the workflow simply had no publish step and nothing said so.**
+- Never treat `cargo publish` exiting 0 as proof the crate is live. The job reads `https://crates.io/api/v1/crates/fledge` back and compares `max_version` to the tag, retrying while the index catches up. If you ever publish by hand, do the same check:
+  ```sh
+  curl -s -A "release-check" https://crates.io/api/v1/crates/fledge \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])"
+  ```
 
 ## Extending fledge for better agent support
 
