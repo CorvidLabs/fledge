@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.8.0] - 2026-09-18
+
+### CI
+
+- pin SpecSync Action to @v6 with version 6.0.0 (#516) (78b017b)
+- pin Trust to v1.2.0-rc.4 and SpecSync to 6.0.0-rc.12 (#514) (ecaf8a3)
+
+### Changes
+
+- the diamond-deps change declares `main`, the spec that owns src/main.rs (#524) (41430ed)
+- pin Trust 1.2.0 and SpecSync 6.0.0 (#515) (3c68992)
+
+### Chores
+
+- archive fix-diamond — the SDD ledger is now empty (#530) (31d5f45)
+- close the last two SDD records (#529) (49f2269)
+- close out the SDD ledger — audit passes, 0 stale (#527) (fc9f5a8)
+- land the depth-bound change's SpecSync evidence (#526) (d3d710b)
+
+### Features
+
+- opt-in --stream for live task output (#507) (#509) (28a5bba)
+- fledge spec lint — quality gate for the spec itself (#429) (#505) (bfe917c)
+- add root-level action.yml GitHub Action for installing fledge in CI (#511) (da1c68a)
+- the hi habit, so intent gets written before the work (#519) (4196958)
+
+### Fixes
+
+- upgrade Astro 5 to 7, clearing ten Dependabot advisories (#528) (9c02041)
+- bound task-graph walk depth so a deep chain errors instead of aborting (#525) (38ba621)
+- a diamond dependency is a DAG, not a cycle (#508) (#513) (f659d69)
+- make the hooked-plugin regression test actually guard the bug (#521) (fbf51a9)
+- AGENTS.md told agents not to do what this repo just did (#523) (57155c0)
+- lifecycle hooks could not work, two ways (#520) (c4abcb2)
+- archive the five stranded accepted SDD records (#506) (c4b06f1)
+
+### Other
+
+- Adopt hi: record what fledge should be, as 197 criteria (#518) (089c68d)
+
+### Refactoring
+
+- name the two remaining --json schema literals (#444) (#503) (6eb7a3e)
+
+### Tests
+
+- mocking harness + $HOME isolation + publish coverage (#447) (#504) (43a2138)
+
 ## Unreleased
 
 ### Features
