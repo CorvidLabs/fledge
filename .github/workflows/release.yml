@@ -105,3 +105,46 @@ jobs:
         with:
           generate_release_notes: true
           files: artifacts/*
+
+  # Publishing is part of releasing, not a separate manual step. v1.7.1 and
+  # v1.7.2 were both tagged, both ran this workflow green, and neither reached
+  # crates.io — because no job here published them and nothing said so. A job
+  # that fails loudly is the point: a release that did not publish is not a
+  # finished release, and should be red rather than quietly incomplete.
+  publish:
+    name: Publish to crates.io
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "::error::CARGO_REGISTRY_TOKEN is not set, so this tag was built and released but NOT published to crates.io. Add the secret in Settings > Secrets and variables > Actions, then re-run this job." >&2
+            exit 1
+          fi
+          cargo publish
+      # Read the registry back. cargo publish exiting 0 is not proof the crate
+      # is live: the index takes a moment, and a no-op publish also exits 0.
+      # CorvidLabs/hi hit this exact failure at 0.2.4/0.2.5.
+      - name: Verify the registry
+        run: |
+          set -euo pipefail
+          expected="${GITHUB_REF_NAME#v}"
+          for attempt in 1 2 3 4 5 6; do
+            actual=$(curl -sS -A "fledge-release-check" \
+              "https://crates.io/api/v1/crates/fledge" \
+              | python3 -c "import json,sys; print(json.load(sys.stdin)['crate']['max_version'])")
+            echo "attempt $attempt: crates.io reports $actual, tag is $expected"
+            if [ "$actual" = "$expected" ]; then
+              echo "crates.io confirms $actual"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::crates.io still reports $actual after publishing $expected. The publish did not take effect." >&2
+          exit 1

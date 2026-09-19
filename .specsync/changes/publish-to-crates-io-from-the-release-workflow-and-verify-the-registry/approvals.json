@@ -1,0 +1,36 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "user:0xLeif",
+      "timestamp": 1789781187,
+      "digest": "027e4f3c88ddcd03f9f107dd9a570e91ea7b5647d0d165a366659f208a3729e5",
+      "note": null,
+      "approved_scope": {
+        "schema_version": 1,
+        "change_id": "publish-to-crates-io-from-the-release-workflow-and-verify-the-registry",
+        "title": "Publish to crates.io from the release workflow and verify the registry",
+        "description": "Publish to crates.io from the release workflow and verify the registry",
+        "kind": "bug_fix",
+        "affected_specs": [],
+        "affected_paths": [
+          ".github/workflows/release.yml",
+          "AGENTS.md"
+        ],
+        "no_spec_change": true,
+        "no_spec_change_rationale": "release.yml and AGENTS.md are outside source_dirs (src, templates); no canonical spec covers CI workflows or agent docs",
+        "acceptance_criteria": [
+          "release.yml carries a publish job that runs cargo publish on a v* tag after the release job, fails loudly with an actionable message when CARGO_REGISTRY_TOKEN is absent rather than skipping, and then reads https://crates.io/api/v1/crates/fledge back and compares max_version to the tag, retrying while the index catches up; AGENTS.md documents both the job and the read-the-registry-back rule; the workflow remains valid YAML with jobs test, build, release, publish"
+        ],
+        "dependencies": [],
+        "supersedes": [],
+        "answers": {
+          "architecture_risk": "no",
+          "public_contract": "no"
+        }
+      },
+      "approved_delta_digests": {}
+    }
+  ],
+  "reopenings": []
+}
