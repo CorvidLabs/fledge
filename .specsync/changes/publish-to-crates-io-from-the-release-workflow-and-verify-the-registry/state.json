@@ -7,10 +7,11 @@
   "title": "Publish to crates.io from the release workflow and verify the registry",
   "description": "Publish to crates.io from the release workflow and verify the registry",
   "kind": "bug_fix",
-  "state": "approved",
+  "state": "verifying",
+  "canonical_applied": true,
   "base_commit": "31d5f45f7bca1b71e374e41792fabeb6359a9de4",
   "created_at": 1789780671,
-  "updated_at": 1789781187,
+  "updated_at": 1789781199,
   "affected_specs": [],
   "affected_paths": [
     ".github/workflows/release.yml",

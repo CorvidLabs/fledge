@@ -1,6 +1,6 @@
 ---
 id: publish-to-crates-io-from-the-release-workflow-and-verify-the-registry
-state: approved
+state: implementing
 type: bug_fix
 base_commit: 31d5f45f7bca1b71e374e41792fabeb6359a9de4
 ---
