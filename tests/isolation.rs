@@ -96,9 +96,18 @@ fn default_temp_env_points_github_at_a_dead_port() {
         "default GitHub base must be loopback, got: {}",
         env.github_api_base()
     );
+    //
+    // The refusal is worded by the OS, not by ureq: since ureq 3.4 the socket
+    // error passes through (3.3 replaced it with a bare "Connection refused").
+    // Linux and macOS say "Connection refused (os error 111/61)"; Windows says
+    // WSAECONNREFUSED's "No connection could be made because the target
+    // machine actively refused it. (os error 10061)". Same event, both accepted.
     let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    let refused = stderr.contains("connection refused")
+        || stderr.contains("actively refused")
+        || stderr.contains("os error 10061");
     assert!(
-        stderr.contains("connection refused") || stderr.contains("127.0.0.1"),
+        refused || stderr.contains("127.0.0.1"),
         "expected a refused local connection, got: {stderr}"
     );
 }
