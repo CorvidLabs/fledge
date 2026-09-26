@@ -7,10 +7,10 @@
   "title": "Accept Windows' refused-connection wording in the isolation test",
   "description": "Accept Windows' refused-connection wording in the isolation test",
   "kind": "bug_fix",
-  "state": "draft",
+  "state": "approved",
   "base_commit": "c65af7f55d832475c877fb9032bc89da4bb685f3",
   "created_at": 1790441579,
-  "updated_at": 1790441589,
+  "updated_at": 1790447727,
   "affected_specs": [],
   "affected_paths": [
     "tests/isolation.rs"
