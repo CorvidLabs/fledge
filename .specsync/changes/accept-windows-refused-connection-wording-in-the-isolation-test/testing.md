@@ -20,8 +20,9 @@ scope. It runs in CI's `cargo test --verbose --locked` on `ubuntu-latest`,
 | Spawned binary stderr, ureq 3.3.0, macOS | `io: Connection refused` (synthesized by ureq) |
 | Spawned binary stderr, ureq 3.4.2, macOS | `io: Connection refused (os error 61)` (the OS's text) |
 | Windows stderr, ureq 3.4.2 (#532 CI log) | contains `actively refused` and `os error 10061`, now accepted |
-| `test` on all three OSes, this PR (ureq 3.3.0) | green, CI run 36257383427 |
+| `test` on all three OSes, #535 (ureq 3.3.0) | green, CI run 36257383427 |
 | `test` on all three OSes, ureq 3.4.2 | green, CI run 36257571327 (`workflow_dispatch` probe: `main` + this fix + #532's release commit). The Windows log shows `Compiling ureq v3.4.2` and `default_temp_env_points_github_at_a_dead_port ... ok` |
+| `test` on all three OSes, the v1.8.1 release PR #536 (ureq 3.4.2) | green, CI run 36260828952 |
 
 ## Acceptance signals
 
