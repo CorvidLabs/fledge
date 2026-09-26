@@ -32,6 +32,38 @@
         }
       ],
       "requirement_ids": []
+    },
+    {
+      "timestamp": 1790447746,
+      "commit": "b17675bb3457b75714b39d3e2cf76207f1a796e9",
+      "contract_digest": "4d3c64c5dd4d951b2b09fbd0e6463bc55c0d33f14a4eb7aca98775cfcf6d3694",
+      "execution_digest": "8b8bac8ff77bc766d787bdf5cee8255bd499a4d1f59a24e82a618232c5d4c588",
+      "workspace_digest": "aef38b6e4b761db015e6da5bbf7076e60db99d898b196639b976dbcba896e5a7",
+      "acceptance_input_digest": "7ec19b5b4b21ece765d089a32be26cb8f7f527b53e8435fcdfc36b8904e12568",
+      "acceptance_manifest": {
+        "schema_version": 1,
+        "entries": [
+          {
+            "path": "tests/isolation.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "df7a1ed803764c0869a3ff45305058a370499a585f227ca8da20261a32df63cd",
+            "entry_digest": "e9ec7c57075f465c0e41585798e9a6ccf7ed4cb527e3306cf1bb32ab432959d9",
+            "owners": [
+              "@exact:test"
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
     }
   ]
 }

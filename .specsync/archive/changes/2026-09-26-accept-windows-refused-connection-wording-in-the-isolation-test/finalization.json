@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "accept-windows-refused-connection-wording-in-the-isolation-test",
+  "implementation_commit": "b17675bb3457b75714b39d3e2cf76207f1a796e9",
+  "implementation_tree": "14f5f76c2eef89697e0316e57c9b9493b74cdbed",
+  "contract_digest": "4d3c64c5dd4d951b2b09fbd0e6463bc55c0d33f14a4eb7aca98775cfcf6d3694",
+  "workspace_digest": "aef38b6e4b761db015e6da5bbf7076e60db99d898b196639b976dbcba896e5a7",
+  "closing_digest": "bb3ac0fdd2087ebfddedd9515130f152ef1a3195880f0956afaa42e51db241f4",
+  "review_digest": "0745b7f9e0211f44d715b1fc117ca94e0da3ac3d0aaed38395cfe245a348a91a",
+  "finalization_digest": "1511e59e4eabfd4975a912abd52e28aabb2fe4d53c7edd9c064c66e5600d00aa",
+  "timestamp": 1790448323
+}
