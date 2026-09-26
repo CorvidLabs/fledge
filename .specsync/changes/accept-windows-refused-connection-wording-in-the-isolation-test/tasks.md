@@ -13,5 +13,8 @@ artifact: tasks
 - [x] Accept `actively refused` / `os error 10061` alongside `connection refused`, keeping
       the loopback-base assertion and excluding a bare `failed`
 - [x] Run the isolation tests on both lockfiles locally (macOS)
-- [ ] `test (windows-latest)` green on this PR (ureq 3.3.0)
-- [ ] `test (windows-latest)` green on the rebased #532 (ureq 3.4.2)
+- [x] `test (windows-latest)` green on this PR (ureq 3.3.0), in CI run 36257383427
+- [x] `test (windows-latest)` green with ureq 3.4.2, in CI run 36257571327: a
+      `workflow_dispatch` probe of `main` + this fix + #532's release commit rebased
+      onto it
+- [ ] `test (windows-latest)` green on #532 itself, once it is rebased onto this change
