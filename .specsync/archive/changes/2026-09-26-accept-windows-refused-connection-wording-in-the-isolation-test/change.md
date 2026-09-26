@@ -1,6 +1,6 @@
 ---
 id: accept-windows-refused-connection-wording-in-the-isolation-test
-state: draft
+state: archived
 type: bug_fix
 base_commit: c65af7f55d832475c877fb9032bc89da4bb685f3
 ---
