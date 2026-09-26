@@ -110,6 +110,28 @@ fledge ai status                               # show active provider/model and 
 
 That is the whole core. Anything else is a plugin.
 
+## Architecture
+
+One Rust binary. clap sends each core command to its own module, and any verb it does not
+know is looked up as a plugin (`fledge-NAME`, native or sandboxed WASM). Tasks and lanes come
+from the project's `fledge.toml`, and every `--json` output uses the same envelope.
+
+```mermaid
+flowchart LR
+    user["Developer or agent"] --> cli["fledge"]
+    cli --> core["Core commands<br/>run, lanes, work, release, spec, ai, ..."]
+    cli -->|"unknown verb"| plugins["Plugins<br/>fledge-NAME, native or WASM"]
+    core --> toml[("fledge.toml<br/>tasks, lanes, work, release")]
+    core --> tools["Project toolchain and git"]
+    core --> net["GitHub API, LLM providers"]
+    plugins --> reg[("plugins.toml<br/>registry and grants")]
+```
+
+The high-level design in [docs/HLD.md](docs/HLD.md) covers command dispatch, `fledge.toml`,
+task and lane execution, the plugin system and protocol, `work` and `release`, hooks, and the
+trust model, with sequence diagrams for `fledge run`, `fledge lanes run`, and plugin install
+and invocation.
+
 ## Plugins
 
 Plugins extend fledge with community-built commands. Native plugins run as regular executables. **WASM plugins** run in a sandboxed Wasmtime runtime with no host access by default.
