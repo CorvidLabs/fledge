@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Chores
 
+- pin Trust 1.2.1 (#533) (6221e1d)
 - archive fix-diamond — the SDD ledger is now empty (#530) (31d5f45)
 - close the last two SDD records (#529) (49f2269)
 - close out the SDD ledger — audit passes, 0 stale (#527) (fc9f5a8)
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
+- high-level design doc with Mermaid diagrams (#534) (c65af7f)
 - opt-in --stream for live task output (#507) (#509) (28a5bba)
 - fledge spec lint — quality gate for the spec itself (#429) (#505) (bfe917c)
 - add root-level action.yml GitHub Action for installing fledge in CI (#511) (da1c68a)
@@ -33,12 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 
+- accept Windows' refused-connection wording in the isolation test (#535) (260063a)
+- publish to crates.io from the release workflow, and verify the registry (#531) (7214df6)
 - upgrade Astro 5 to 7, clearing ten Dependabot advisories (#528) (9c02041)
 - bound task-graph walk depth so a deep chain errors instead of aborting (#525) (38ba621)
 - a diamond dependency is a DAG, not a cycle (#508) (#513) (f659d69)
 - make the hooked-plugin regression test actually guard the bug (#521) (fbf51a9)
 - AGENTS.md told agents not to do what this repo just did (#523) (57155c0)
 - lifecycle hooks could not work, two ways (#520) (c4abcb2)
+  - A plugin that declares a lifecycle hook now keeps the capabilities it was granted. Capabilities were recorded only for protocol plugins, so a plain command plugin's hooks were dead on arrival: `exec` was prompted for at install, the grant discarded, and every hook skipped silently thereafter.
+  - Lifecycle hooks are told which repository they fired for, via `FLEDGE_REPO_ROOT`. A hook runs with its working directory set to the plugin's own source directory, so until now a `post_work_start` or `pre_push` hook had no way to inspect the project it was reacting to. The variable is always set: the repository root, the working directory outside a repository, or `.` if even that cannot be read.
 - archive the five stranded accepted SDD records (#506) (c4b06f1)
 
 ### Other
@@ -52,13 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - mocking harness + $HOME isolation + publish coverage (#447) (#504) (43a2138)
-
-## Unreleased
-
-### Features
-
-- A plugin that declares a lifecycle hook now keeps the capabilities it was granted. Capabilities were recorded only for protocol plugins, so a plain command plugin's hooks were dead on arrival: `exec` was prompted for at install, the grant discarded, and every hook skipped silently thereafter.
-- Lifecycle hooks are told which repository they fired for, via `FLEDGE_REPO_ROOT`. A hook runs with its working directory set to the plugin's own source directory, so until now a `post_work_start` or `pre_push` hook had no way to inspect the project it was reacting to. The variable is always set: the repository root, the working directory outside a repository, or `.` if even that cannot be read.
 
 ## [v1.7.2] - 2026-07-27
 
