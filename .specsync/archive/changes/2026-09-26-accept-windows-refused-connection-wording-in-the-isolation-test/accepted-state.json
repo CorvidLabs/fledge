@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "accept-windows-refused-connection-wording-in-the-isolation-test",
+  "slug": "accept-windows-refused-connection-wording-in-the-isolation-test",
+  "title": "Accept Windows' refused-connection wording in the isolation test",
+  "description": "Accept Windows' refused-connection wording in the isolation test",
+  "kind": "bug_fix",
+  "state": "accepted",
+  "canonical_applied": true,
+  "base_commit": "c65af7f55d832475c877fb9032bc89da4bb685f3",
+  "created_at": 1790441579,
+  "updated_at": 1790448323,
+  "affected_specs": [],
+  "affected_paths": [
+    "tests/isolation.rs"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Only tests/isolation.rs changes, and tests/ is outside source_dirs (src, templates). The behavior under test is unchanged: the default TempEnv GitHub base is loopback and the spawned search fails with a refused connection. The test now also recognizes the Windows wording of that refusal, which ureq 3.4 passes through from the OS. specs/github/testing.md already describes the test in wording-neutral terms.",
+  "acceptance_criteria": [
+    "default_temp_env_points_github_at_a_dead_port in tests/isolation.rs passes on Linux, macOS and Windows: it still asserts the default TempEnv GitHub base starts with http://127.0.0.1: and that the spawned templates search fails, and it recognizes the refusal as 'connection refused' (Linux, macOS) or Windows' WSAECONNREFUSED wording ('actively refused' / 'os error 10061'), so a genuine api.github.com failure still does not satisfy it; cargo test --locked is green on ubuntu-latest, macos-latest and windows-latest with both the ureq 3.3.0 lockfile on main and the ureq 3.4.2 lockfile the v1.8.0 release carries"
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

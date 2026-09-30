@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "publish-to-crates-io-from-the-release-workflow-and-verify-the-registry",
+  "implementation_commit": "bf374c9c51030ef51e8314a8d7cb2e02e34bff75",
+  "implementation_tree": "82b00270d1ecb9e5baaa42f15eca0bf588304e39",
+  "contract_digest": "027e4f3c88ddcd03f9f107dd9a570e91ea7b5647d0d165a366659f208a3729e5",
+  "workspace_digest": "aef38b6e4b761db015e6da5bbf7076e60db99d898b196639b976dbcba896e5a7",
+  "closing_digest": "25ad785c5717e7a79fe35f374958c563783e3c3cc01783c2d21ee0a08d034fd4",
+  "review_digest": "9ae792c24e407681d53c1e678bdc949f107e16deb078525375b805919b55ca8e",
+  "finalization_digest": "4ba2d4012f94f396a60034ff83d90c86a03dbc935ad870a8443cc5eb108756c9",
+  "timestamp": 1790449857
+}
