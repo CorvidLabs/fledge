@@ -24,6 +24,8 @@ artifact: tasks
       compile `CreateJobObjectW` on #538's first run (run 36804407887)
 - [x] Turn off the proposals wasmtime 47 and 49 enabled by default (GC, exceptions,
       typed function references, wide arithmetic) and pin the feature set with a test
-- [ ] CI green on #538: test and integration on ubuntu-latest, macos-latest,
-      windows-latest; lint; audit; spec-check; intent-check
-- [ ] Definition approval (pending with orc/Leif)
+- [x] CI green on #538: test and integration on ubuntu-latest, macos-latest,
+      windows-latest; lint; audit; spec-check; intent-check (run 36809320239 on 8964ca0)
+
+Lifecycle (not implementation tasks): definition approval by Leif, `change check`,
+review and ship before merge; tag and publish 1.8.1 after merge.
