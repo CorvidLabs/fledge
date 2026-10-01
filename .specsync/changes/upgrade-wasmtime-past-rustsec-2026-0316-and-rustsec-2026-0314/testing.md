@@ -5,6 +5,46 @@ artifact: testing
 
 # Testing
 
+## Requirement evidence
+
+Each acceptance criterion of the requirements in `deltas/plugin-wasm.md`, and what proves it.
+Test names are in `src/plugin/wasm.rs::tests`.
+
+| Requirement | Acceptance criterion | Evidence |
+|---|---|---|
+| REQ-plugin-wasm-001 | reading under `/project` returns 0 | `project_scope_can_read_project_files` |
+| REQ-plugin-wasm-001 | `O_CREAT` under `/project` is `EPERM`; no file on the host | `project_scope_cannot_create_files_in_project` |
+| REQ-plugin-wasm-001 | write-open, with and without `O_TRUNC`, is `EPERM`; contents unchanged | `project_scope_cannot_write_or_truncate_project_files` |
+| REQ-plugin-wasm-001 | `path_create_directory` under `/project` is `EPERM`; no directory | `project_scope_cannot_create_directories_in_project` |
+| REQ-plugin-wasm-001 | `/project` stays read-only under the `plugin` scope | `plugin_scope_keeps_project_read_only` |
+| REQ-plugin-wasm-002 | `filesystem = "plugin"` creates `<plugin_dir>/data/` | `filesystem_plugin_creates_data_dir` |
+| REQ-plugin-wasm-002 | create and mkdir under `/plugin` return 0 and land in `<plugin_dir>/data/` | `plugin_scope_can_write_plugin_data_dir` |
+| REQ-plugin-wasm-002 | `../escape.txt` from `/plugin` fails; nothing written beside `data/` | `plugin_scope_cannot_escape_data_dir` |
+| REQ-plugin-wasm-003 | default capabilities: the module instantiates and descriptor 3 is `EBADF` | `no_filesystem_grant_has_no_preopens` (`run_fs_probe` unwraps `instantiate`, so instantiating is part of the assertion) |
+| REQ-plugin-wasm-004 | TCP and UDP are switched on only inside `if capabilities.network` | Code, not a test: `build_wasi_p1` in `src/plugin/wasm.rs` (the `if capabilities.network` block). A preview 1 guest cannot observe it (in wasmtime-wasi 49.0.1, `sock_accept`, `sock_recv`, `sock_send` and `sock_shutdown` only look up an existing descriptor and return `ENOTSOCK`), and `WasiP1Ctx` does not expose the socket settings. See the open items in `context.md` |
+| REQ-plugin-wasm-004 | no other socket setting, so the builder defaults hold | Code, not a test: `grep -n "allow_ip_name_lookup\|socket_addr_check" src/plugin/wasm.rs` finds nothing. In wasmtime-wasi 49.0.1, `src/ctx.rs` documents TCP, UDP and IP name lookup as "By default this is disabled", and `SocketAddrCheck::default()` in `src/sockets/mod.rs` refuses every address |
+| REQ-plugin-wasm-005 | growing to exactly 256 MiB succeeds | `memory_is_capped_at_max_memory_bytes` (`run_grow(pages_at_cap - 1, false)`) |
+| REQ-plugin-wasm-005 | one page past the cap returns -1 and the run does not trap | `memory_is_capped_at_max_memory_bytes` (`run_grow(pages_at_cap, true)`: the guest exits 0 only when `memory.grow` returned -1, so `Ok` also rules out a trap) |
+| REQ-plugin-wasm-006 | the baseline module compiles | `engine_keeps_wasmtime_46_feature_set` |
+| REQ-plugin-wasm-006 | GC, exception-handling, typed function references and wide-arithmetic modules are each refused | `engine_keeps_wasmtime_46_feature_set` |
+
+The mutation runs under "What was verified" show the filesystem, memory and feature-set
+tests fail when the sandbox they pin is weakened.
+
+## Spec corrections
+
+The five `## MODIFIED` sections in `deltas/plugin-wasm.md` are verbatim copies of the
+living `plugin-wasm.spec.md` sections with one sentence replaced in each. What makes each
+replacement true:
+
+| Section | Replaced statement | Evidence |
+|---|---|---|
+| WASM Host Interface (`### Network`) | grant gives outbound TCP/UDP, no listening sockets, DNS from the host | REQ-plugin-wasm-004's evidence; `setup_linker` links all of preview 1 (`wasmtime_wasi::p1::add_to_linker_sync`), which has no call that creates a socket; wasmtime-wasi 49.0.1 documents `inherit_network()` as letting the guest bind or connect to any address |
+| Security Model (guarantee 2) | no socket imports without the grant | the same `add_to_linker_sync` call links the preview 1 socket imports for every plugin; REQ-plugin-wasm-004's evidence |
+| Invariants (7) | no socket imports without the grant | as above |
+| Behavioral Examples (zero-capability scenario) | instantiation fails because the filesystem imports are not linked | REQ-plugin-wasm-003's evidence: the module instantiates and descriptor 3 is `EBADF` |
+| Error Cases (memory limit) | the plugin traps with "plugin exceeded memory limit" | REQ-plugin-wasm-005's evidence; any other trap reaches the `_ => bail!("Plugin '{}' trapped: {}", …)` arm of `run_wasm_plugin`, and no "exceeded memory limit" string exists in `src/` |
+
 ## Automated
 
 New tests in `src/plugin/wasm.rs` (run by CI's `cargo test --verbose --locked` on all
@@ -56,6 +96,14 @@ uses).
 | Same test on 49.0.1 without the four `wasm_*(false)` calls | fails (GC accepted) |
 | `cargo test --locked` after the feature-set commit (macOS, 1.98.0) | all pass: 1097 unit tests and every integration test binary |
 | fmt and clippy (CI form, `--all-targets`, `--no-default-features`) after the feature-set commit | clean |
+| `specsync change show` after naming `plugin-wasm` (SpecSync 6.0.0) | draft, `affected_specs: [plugin-wasm]`, `no_spec_change: false`, no open questions, artifacts complete; next step is definition approval |
+| SpecSync 6.0.0's approve, check and ship gates on a scratch copy of the branch, called read-only from a scratch build of the v6.0.0 tag (no approval recorded, nothing saved) | `validate_definition`, `validate_delta_files`, `validate_declared_path_ownership` and the effective-contract replay pass; `src/plugin/wasm.rs` resolves to `plugin-wasm`, and `Cargo.toml`, `Cargo.lock` and `CHANGELOG.md` to `@exact:delivery`; every REQ-plugin-wasm ID has evidence; the scoped `specsync check --spec plugin-wasm --strict` passes |
+| The canonical files that materialization would write, on the scratch copy | spec diff is the five sentences, `version` 2 to 3 and one Change Log row; `specsync check --force --strict --require-coverage 100` 33 passed, 0 warnings; `fledge spec lint` 0 errors, 0 warnings |
+| `specsync check --force --strict --require-coverage 100` on the branch | 33 passed, 0 warnings, file and LOC coverage 100% |
+| `specsync change check --strict --require-coverage 100` (CI's form) | "Nothing to check": the change is still a draft |
+| `specsync change audit` | fails only on "meaningful changed paths are not covered by an active change", because a draft covers no paths until it is approved; the no-spec draft got the same result |
+| `cargo +stable test --locked --bin fledge plugin::wasm` (rustc 1.98.0) | 48 passed |
+| `fledge run spec-check` | 33 specs, 0 errors, 0 warnings |
 
 ## Acceptance signals
 

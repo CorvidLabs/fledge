@@ -26,6 +26,9 @@ artifact: tasks
       typed function references, wide arithmetic) and pin the feature set with a test
 - [x] CI green on #538: test and integration on ubuntu-latest, macos-latest,
       windows-latest; lint; audit; spec-check; intent-check (run 36809320239 on 8964ca0)
+- [x] Declare `plugin-wasm`, the owner of `src/plugin/wasm.rs`, after `change ship`
+      refused the no-spec draft; write its delta (REQ-plugin-wasm-001 to 006 and the
+      five spec sentences they contradict) and map each requirement to its evidence
 
 Lifecycle (not implementation tasks): definition approval by Leif, `change check`,
 review and ship before merge; tag and publish 1.8.1 after merge.

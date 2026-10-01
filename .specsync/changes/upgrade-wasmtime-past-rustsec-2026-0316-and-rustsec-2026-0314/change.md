@@ -13,7 +13,7 @@ Upgrade wasmtime past RUSTSEC-2026-0316 and RUSTSEC-2026-0314
 
 ## Affected Canonical Specs
 
-- None
+- `plugin-wasm`
 
 ## Acceptance Criteria
 
@@ -21,4 +21,4 @@ Upgrade wasmtime past RUSTSEC-2026-0316 and RUSTSEC-2026-0314
 
 ## No-spec Rationale
 
-The plugin-wasm contract is unchanged. /project stays read-only, /plugin read-write, a network grant still means outbound TCP and UDP with no IP name lookup, and the 256 MB memory, 10 billion fuel and 60 second wall-clock limits are the same. src/plugin/wasm.rs changes only to follow the wasmtime-wasi 49 API (FsPerms replaces DirPerms and FilePerms; TCP and UDP now default off, so a network grant switches them back on explicitly) and to turn off the WebAssembly proposals wasmtime 47 and 49 enabled by default (GC, exception handling, typed function references, wide arithmetic), so plugins keep 46.0.3's feature set. It also gains regression tests for the existing grants, the feature set and the memory cap. No public function, invariant or error case in specs/plugin/plugin-wasm.spec.md changes.
+Not applicable

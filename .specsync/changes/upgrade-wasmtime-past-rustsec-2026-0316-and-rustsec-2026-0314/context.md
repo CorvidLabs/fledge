@@ -83,6 +83,69 @@ main has none at all, so a Windows build without the `wasm` feature was already 
 there. fledge now declares `Win32_Security` itself. That is a feature flag only: no new
 crate, no `Cargo.lock` change.
 
+## Why this change names plugin-wasm
+
+The change was first drafted as `no_spec_change`, on the reasoning that the sandbox
+behaves as it did on 46.0.3. `specsync change ship` refused it: "acceptance input
+`src/plugin/wasm.rs` is production source without deterministic canonical ownership".
+A no-spec change declares no module, and SpecSync 6.0.0 assigns production source
+under `source_dirs` only to a declared module whose spec lists it in `files:`.
+`specs/plugin/plugin-wasm.spec.md` lists `src/plugin/wasm.rs`, so the change now
+declares `plugin-wasm` and carries a delta for it. The two workflow-2 no-spec changes
+fledge archived before this one touched only `tests/isolation.rs`, a workflow and
+`AGENTS.md`, all outside `source_dirs`. CHG-0007 changed `src/` as a no-spec change, but
+under workflow 1, before this ownership check.
+
+The delta writes down the sandbox contract the PR enforces and its new tests pin, as
+REQ-plugin-wasm-001 to 006: read-only `/project`, read-write `/plugin` confined to
+`<plugin_dir>/data/`, no preopens without a filesystem grant, TCP and UDP only under a
+network grant with IP name lookup always off, the 256 MiB memory cap, and the
+WebAssembly feature set held to wasmtime 46.0.3's baseline. None of it changes
+behaviour. It also corrects the five spec statements those requirements contradict:
+
+| Section | Was | Now |
+|---|---|---|
+| WASM Host Interface, `### Network` | outbound TCP/UDP, no listening sockets, DNS from the host | TCP and UDP for every address under the grant, off without it, IP name lookup off either way; nothing usable under preview 1 |
+| Security Model, guarantee 2 | no socket imports without the grant | TCP and UDP disabled and every address refused; the preview 1 socket imports still link |
+| Invariants, 7 | no socket imports without the grant | the same, plus what the grant enables |
+| Behavioral Examples, zero-capability scenario | instantiation fails because the filesystem imports are not linked | the plugin instantiates; with no preopen it has no descriptor to open a path under (`EBADF`) |
+| Error Cases, memory limit | trap with "plugin exceeded memory limit" | `memory.grow` returns -1 and the plugin keeps running |
+
+The spec never enforced "no listening sockets": wasmtime-wasi's `inherit_network()`
+lets a guest bind as well as connect, so under preview 2 a granted plugin could listen.
+The corrected text drops the claim instead of keeping a promise nothing backs.
+
+SpecSync resolves a module's requirements file to `requirements.md` beside its spec.
+`plugin-wasm` shares `specs/plugin/` with `plugin`, so the six requirements will land in
+`specs/plugin/requirements.md`, after the plugin module's own entries, not in
+`requirements-wasm.md`.
+
+## Open items in plugin-wasm (noticed, not fixed here)
+
+Spec statements outside what the delta states. Each is a separate fix.
+
+- The spec frames every capability as link-time: the Capability Mapping intro under
+  Manifest Changes, invariant 2 and Security Model guarantee 6 say an ungranted
+  capability's import is not linked. That holds for `exec`, `store` and `metadata`.
+  `filesystem` and `network` are enforced by the WASI context instead; the preview 1
+  imports are always linked.
+- The Capability Mapping row for `network` ("WASI socket API for outbound
+  connections") and the manifest field's "Outbound network access" overstate what a
+  preview 1 plugin gets.
+- Error Cases: fuel exhaustion is reported as "Plugin '<name>' exceeded its compute
+  budget", not "plugin exceeded compute limit".
+- Resource Limits: "Stack size 1 MB". fledge never calls `max_wasm_stack`, so
+  wasmtime's default applies (512 KiB in 49.0.1). "Memory 256 MB" means 256 MiB.
+- Caching: the stamp's second line is the `wasmtime` requirement from `Cargo.toml`
+  (`49.0.1`), not "the Wasmtime major version".
+- The `plugin-wasm` companions are not reachable through a delta and still say the
+  old thing: `requirements-wasm.md` item 7 ("Enable WASI socket imports only when
+  `network = true`") and `testing-wasm.md` ("Memory limit exceeded produces a trap with
+  descriptive error").
+- REQ-plugin-wasm-004 has code evidence only. A test would need either a preview 2
+  guest or a way to read the socket settings back from `WasiP1Ctx`, which wasmtime-wasi
+  49 does not offer.
+
 ## Constraints
 
 - The crate version stays 1.8.1. No tag, no publish, no crates.io.
@@ -96,13 +159,10 @@ crate, no `Cargo.lock` change.
   wasmtime 46 needed. Raising it is a separate decision: clippy reads `rust-version`
   for its MSRV-aware lints, so changing it could surface new `-D warnings` failures
   unrelated to this fix.
-- `plugin-wasm.spec.md` says a network grant gives outbound TCP/UDP with DNS from the
-  host. In preview 1 a guest has no call that creates a socket, and IP name lookup is
-  off, so a network grant reaches nothing usable today. That was true on 46.0.3 too;
-  this change keeps the grant's configuration identical rather than fixing the gap.
-- The spec's Error Cases say a plugin over the memory cap traps with "plugin exceeded
-  memory limit". In fact `memory.grow` returns -1 and the plugin carries on, on both
-  46.0.3 and 49.0.1. The new test pins the real behaviour; the spec text is untouched.
+- In preview 1 a guest has no call that creates a socket, and IP name lookup is off, so
+  a network grant reaches nothing usable today. That was true on 46.0.3 too. This
+  change keeps the grant's configuration identical rather than giving it a use; the
+  spec now says what the grant does (see "Why this change names plugin-wasm").
 - `exit_code_42_returns_error_with_code` passes because the plugin is named
   `test-exit42`. `run_wasm_plugin` formats the wasmtime error with `{}`, which drops
   the cause chain, so the exit code never reaches the message.

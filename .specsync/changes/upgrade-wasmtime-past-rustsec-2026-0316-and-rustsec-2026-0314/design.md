@@ -95,3 +95,21 @@ from the `wasmtime` requirement in `Cargo.toml`. It changes from `46.0.1` to
 `49.0.1`, so every installed plugin's cached module fails the stamp check and is
 recompiled once, silently, on its next run. A 46.x `.cwasm` could not be deserialized
 by 49.x anyway. No migration code is needed.
+
+## State the sandbox contract as plugin-wasm requirements
+
+The change declares `plugin-wasm`, the spec that owns `src/plugin/wasm.rs`, because
+SpecSync 6.0.0 will not ship production source without a declared owner (see context).
+The contract goes into the delta as requirements, not spec prose, because each one maps
+to tests: REQ-plugin-wasm-001 (read-only `/project`), 002 (read-write `/plugin`, `..`
+confined), 003 (no preopens without a filesystem grant), 004 (TCP and UDP only under a
+network grant, IP name lookup off), 005 (the 256 MiB memory cap, grow past it returns
+-1) and 006 (the wasmtime 46.0.3 feature set). `testing.md` maps every acceptance
+criterion to its test. 004 is the exception, backed by code only.
+
+The spec itself changes only where it contradicts those requirements: one sentence in
+each of five sections. A delta replaces a whole `##` section, so each `## MODIFIED`
+body is the living section copied verbatim with that one sentence swapped. Reviewing
+the delta means checking those five sentences. Materialized, the spec's diff is those
+five lines, the `version` bump from 2 to 3 and the Change Log row. Other inaccuracies
+in the spec are listed in context as open items and left for their own change.
