@@ -20,6 +20,6 @@ artifact: tasks
 - [x] fmt, clippy (CI form, `--all-targets`, `--no-default-features`),
       `cargo test --locked` and `cargo audit` locally (macOS, rustc 1.98.0)
 - [x] CHANGELOG entry under 1.8.1
-- [ ] CI green on the PR: test and integration on ubuntu-latest, macos-latest,
+- [ ] CI green on #538: test and integration on ubuntu-latest, macos-latest,
       windows-latest; lint; audit; spec-check; intent-check
 - [ ] Definition approval (pending with orc/Leif)
