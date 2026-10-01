@@ -21,6 +21,7 @@ three OSes):
 | `plugin_scope_cannot_escape_data_dir` | `../escape.txt` from `/plugin` fails; nothing written beside `data/` |
 | `no_filesystem_grant_has_no_preopens` | without a filesystem grant fd 3 is EBADF |
 | `memory_is_capped_at_max_memory_bytes` | `memory.grow` to exactly 256 MiB succeeds; one page more returns -1 |
+| `engine_keeps_wasmtime_46_feature_set` | a baseline module (bulk memory, sign extension, saturating truncation, multi-value, reference types, tail calls) compiles; a GC, an exception-handling, a typed function references and a wide-arithmetic module are each refused |
 
 Existing tests still cover fuel exhaustion, capability denial at instantiation, the
 `.cwasm` cache and its version stamp (`wasmtime_version_derived_from_cargo_toml`,
@@ -50,6 +51,11 @@ uses).
 | `test (windows-latest)` on #538's first run (36804407887) | failed to compile: `CreateJobObjectW` missing without `Win32_Security` |
 | `cargo tree --target x86_64-pc-windows-msvc -e features -i windows-sys@0.59.0` | main: `Win32_Security` only via `cap-primitives` 3.4.6, none with `--no-default-features`; branch: enabled by fledge, with and without default features |
 | Windows compile, locally | not run; no Windows target installed here, so CI's `windows-latest` cells are the check |
+| Review: probe modules for each proposal on main's 46.0.3 and on 49.0.1 before the feature-set commit | 46.0.3 refuses GC, exceptions, typed function references and wide arithmetic; 49.0.1 accepted all four |
+| `engine_keeps_wasmtime_46_feature_set`, unchanged, on main's 46.0.3 code | passes |
+| Same test on 49.0.1 without the four `wasm_*(false)` calls | fails (GC accepted) |
+| `cargo test --locked` after the feature-set commit (macOS, 1.98.0) | all pass: 1097 unit tests and every integration test binary |
+| fmt and clippy (CI form, `--all-targets`, `--no-default-features`) after the feature-set commit | clean |
 
 ## Acceptance signals
 
@@ -63,5 +69,7 @@ uses).
   mutation run shows they fail.
 - `memory_is_capped_at_max_memory_bytes` passing without the limiter. The mutation run
   shows it fails.
+- `engine_keeps_wasmtime_46_feature_set` passing with wasmtime's defaults left on. The
+  mutation run shows it fails.
 - `cargo audit` on a fresh resolution still finding either advisory, which would mean
   the requirement did not move.

@@ -72,6 +72,22 @@ Windows build independent of what wasmtime happens to pull in, and fixes
 `cap-primitives` 3 back into the graph, would be a dependency kept only for a feature
 side effect.
 
+## Keep the WebAssembly feature set at 46.0.3's
+
+`create_engine` used to take wasmtime's default feature set. wasmtime 47 added GC,
+exception handling and typed function references to it, and 49 added wide arithmetic,
+so the upgrade alone would let a plugin use four proposals that 46.0.3 refused.
+`create_engine` now turns all four off with `wasm_gc(false)`, `wasm_exceptions(false)`,
+`wasm_function_references(false)` and `wasm_wide_arithmetic(false)`.
+
+No plugin that ran on 1.8.0 can depend on them, since 46.0.3 rejected such modules at
+compile time, and `wasm32-wasip1` toolchains do not emit them by default. They are
+extra guest-reachable runtime, not just syntax: RUSTSEC-2026-0315, fixed in the same
+49.0.1 release, let `call_ref` and exception `catch` drop fuel accounting. Turning
+them on is a separate decision with its own review, not a side effect of a security
+patch. `engine_keeps_wasmtime_46_feature_set` pins the set: a baseline module compiles,
+and one module per proposal is refused.
+
 ## Let the cache invalidate itself
 
 The `.cwasm` stamp's second line is `WASMTIME_DEP_VERSION`, which `build.rs` reads

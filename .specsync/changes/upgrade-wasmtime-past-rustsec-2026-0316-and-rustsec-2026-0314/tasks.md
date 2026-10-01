@@ -22,6 +22,8 @@ artifact: tasks
 - [x] CHANGELOG entry under 1.8.1
 - [x] Declare `windows-sys` `Win32_Security` after `test (windows-latest)` failed to
       compile `CreateJobObjectW` on #538's first run (run 36804407887)
+- [x] Turn off the proposals wasmtime 47 and 49 enabled by default (GC, exceptions,
+      typed function references, wide arithmetic) and pin the feature set with a test
 - [ ] CI green on #538: test and integration on ubuntu-latest, macos-latest,
       windows-latest; lint; audit; spec-check; intent-check
 - [ ] Definition approval (pending with orc/Leif)

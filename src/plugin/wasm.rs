@@ -39,6 +39,15 @@ fn create_engine() -> Result<Engine> {
     let mut config = Config::new();
     config.consume_fuel(true);
     config.epoch_interruption(true);
+    // Keep the guest-visible feature set at what wasmtime 46 accepted. wasmtime
+    // 47 turned GC, exception handling and typed function references on by
+    // default, and 49 added wide arithmetic. No plugin that ran on wasmtime 46
+    // can use them, and RUSTSEC-2026-0315 (fuel dropped across `call_ref` and
+    // exception `catch`) shows the extra surface is not free.
+    config.wasm_gc(false);
+    config.wasm_exceptions(false);
+    config.wasm_function_references(false);
+    config.wasm_wide_arithmetic(false);
     Ok(Engine::new(&config)?)
 }
 
@@ -630,6 +639,58 @@ mod tests {
     #[test]
     fn engine_creates_successfully() {
         create_engine().unwrap();
+    }
+
+    #[test]
+    fn engine_keeps_wasmtime_46_feature_set() {
+        let engine = create_engine().unwrap();
+
+        // What wasm32-wasip1 toolchains emit by default (bulk memory, sign
+        // extension, saturating truncation, multi-value, reference types),
+        // plus tail calls, all of which wasmtime 46 accepted.
+        let accepted = r#"(module
+            (memory 1)
+            (func $pair (result i32 i32) (i32.const 1) (i32.const 2))
+            (func $tail (result i32 i32) (return_call $pair))
+            (func (export "_start")
+                (memory.copy (i32.const 0) (i32.const 8) (i32.const 4))
+                (drop (i32.extend8_s (i32.const 255)))
+                (drop (i32.trunc_sat_f32_s (f32.const 1.5)))
+                (drop (ref.is_null (ref.null extern)))
+                (call $tail) drop drop))"#;
+        Module::new(&engine, accepted).expect("baseline module must compile");
+
+        let refused = [
+            (
+                "gc",
+                r#"(module (type $a (array (mut i8)))
+                    (func (export "f") (result i32)
+                        (array.len (array.new_default $a (i32.const 1)))))"#,
+            ),
+            (
+                "exceptions",
+                r#"(module (tag $e)
+                    (func (export "f")
+                        (block $h (try_table (catch_all $h) (throw $e)))))"#,
+            ),
+            (
+                "function references",
+                r#"(module (type $t (func (result i32)))
+                    (func $g (type $t) (i32.const 1)) (elem declare func $g)
+                    (func (export "f") (result i32) (call_ref $t (ref.func $g))))"#,
+            ),
+            (
+                "wide arithmetic",
+                r#"(module (func (export "f") (result i64 i64)
+                    (i64.add128 (i64.const 1) (i64.const 0) (i64.const 2) (i64.const 0))))"#,
+            ),
+        ];
+        for (proposal, wat) in refused {
+            assert!(
+                Module::new(&engine, wat).is_err(),
+                "the {proposal} proposal must stay disabled, as it was on wasmtime 46"
+            );
+        }
     }
 
     #[test]

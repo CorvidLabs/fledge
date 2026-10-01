@@ -56,6 +56,7 @@ core modules and preview 1.
 | Socket defaults | TCP on, UDP on, IP name lookup off | all three off | a `network` grant now calls `allow_tcp(true)` and `allow_udp(true)` after `inherit_network()` |
 | Filesystem backend | `cap-std` | cap-primitives' sandboxed resolver vendored as `filesystem::primitives` | none; `..` confinement is now covered by a test |
 | Fuel instrumentation | | `call_ref` reloads fuel (the RUSTSEC-2026-0315 fix; 46 was unaffected), bulk memory ops are charged by size | none; same `FUEL_LIMIT` |
+| WebAssembly proposals on by default | WASM 2.0 plus multi-memory, relaxed SIMD, tail calls, extended const, memory64 and threads | adds GC, exception handling and typed function references (since 47) and wide arithmetic (since 49) | `create_engine` turns those four off, back to 46.0.3's set |
 | `StoreLimits`, `Trap::OutOfFuel`, `Trap::Interrupt`, epochs | | unchanged (`limits.rs` is byte-identical) | none |
 | CLI context defaults (env, args, stdin, stderr), clocks, random | | unchanged | none |
 | `windows-sys` 0.59 features | `cap-primitives` 3.4.6 (under `cap-std`) enabled `Win32_Security` | `cap-primitives` 4.0.3 no longer enables it on 0.59 | fledge declares `Win32_Security` itself |
@@ -105,6 +106,11 @@ crate, no `Cargo.lock` change.
 - `exit_code_42_returns_error_with_code` passes because the plugin is named
   `test-exit42`. `run_wasm_plugin` formats the wasmtime error with `{}`, which drops
   the cause chain, so the exit code never reaches the message.
+- `StoreLimits` caps each memory at 256 MiB but sets no `table_elements` limit, so a
+  guest can `table.grow` a `funcref` table far past that: 50 million elements (about
+  400 MB of host memory) succeeded on 46.0.3 and 49.0.1 alike. Multi-memory and shared
+  memories are accepted on both too. Fuel and the wall clock still bound the run. That
+  predates this change and is left for a separate fix.
 - The committed `Cargo.lock` carries `yoke-derive 0.8.3`, which is yanked
   (`cargo audit` warns). It predates this change, and CI's fresh resolution does not
   pick it.
