@@ -56,7 +56,11 @@ tempfile = "3"
 libc = "0.2.185"
 
 [target."cfg(windows)".dependencies]
+# Win32_Security gates CreateJobObjectW (its first parameter is a
+# SECURITY_ATTRIBUTES pointer). It used to arrive only through wasmtime-wasi
+# 46's cap-std, so declare it here rather than rely on feature unification.
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
+    "Win32_Security",
     "Win32_System_JobObjects",
 ] }

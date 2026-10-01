@@ -58,6 +58,29 @@ core modules and preview 1.
 | Fuel instrumentation | | `call_ref` reloads fuel (the RUSTSEC-2026-0315 fix; 46 was unaffected), bulk memory ops are charged by size | none; same `FUEL_LIMIT` |
 | `StoreLimits`, `Trap::OutOfFuel`, `Trap::Interrupt`, epochs | | unchanged (`limits.rs` is byte-identical) | none |
 | CLI context defaults (env, args, stdin, stderr), clocks, random | | unchanged | none |
+| `windows-sys` 0.59 features | `cap-primitives` 3.4.6 (under `cap-std`) enabled `Win32_Security` | `cap-primitives` 4.0.3 no longer enables it on 0.59 | fledge declares `Win32_Security` itself |
+
+## The Windows build break the upgrade exposed
+
+The first CI run on #538 failed `test (windows-latest)` at compile time, in fledge's
+own code, not wasmtime's:
+
+```text
+error[E0432]: unresolved import `windows_sys::Win32::System::JobObjects::CreateJobObjectW`
+   --> src\lanes\execute.rs:659:76
+```
+
+In windows-sys 0.59, `CreateJobObjectW` is behind `#[cfg(feature = "Win32_Security")]`,
+because its first parameter is a `SECURITY_ATTRIBUTES` pointer. fledge declares only
+`Win32_Foundation` and `Win32_System_JobObjects`. On main the missing feature arrived
+through feature unification: `cap-primitives` 3.4.6, pulled in by wasmtime-wasi 46's
+`cap-std`, enables `Win32_Security` on windows-sys 0.59. wasmtime-wasi 49 dropped
+`cap-std`, so nothing else turns the feature on. `cargo tree --target
+x86_64-pc-windows-msvc -e features -i windows-sys@0.59.0` shows the change: on main the
+only `Win32_Security` edge comes from `cap-primitives`; with `--no-default-features`,
+main has none at all, so a Windows build without the `wasm` feature was already broken
+there. fledge now declares `Win32_Security` itself. That is a feature flag only: no new
+crate, no `Cargo.lock` change.
 
 ## Constraints
 

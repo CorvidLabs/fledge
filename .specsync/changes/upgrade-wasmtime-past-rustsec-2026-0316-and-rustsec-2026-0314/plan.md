@@ -22,6 +22,8 @@ artifact: plan
    `--no-default-features`, the full `cargo test --locked`, and `cargo audit` against
    the committed lock, a fresh `generate-lockfile` resolution, and main's lock as a
    negative control.
-7. Record the security fix under 1.8.1 in `CHANGELOG.md`, and correct the 1.8.1 note
+7. Declare `windows-sys`'s `Win32_Security` feature, which the first Windows CI run
+   showed fledge had been getting from wasmtime-wasi 46's `cap-std`.
+8. Record the security fix under 1.8.1 in `CHANGELOG.md`, and correct the 1.8.1 note
    that said dependencies were unchanged from 1.8.0.
-8. Open the PR and watch every CI job.
+9. Open the PR and watch every CI job.

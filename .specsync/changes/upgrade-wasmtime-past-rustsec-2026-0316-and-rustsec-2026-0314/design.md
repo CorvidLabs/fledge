@@ -62,6 +62,16 @@ expected `memory.grow` outcome and hits `unreachable` on the other. The plain er
 text cannot carry the guest's exit code, because the top-level message drops the cause
 chain.
 
+## Declare the Windows feature fledge actually uses
+
+`src/lanes/execute.rs` calls `CreateJobObjectW`, which windows-sys 0.59 compiles only
+with `Win32_Security`. fledge had been getting that feature from wasmtime's dependency
+tree. Declaring it in fledge's own `[target."cfg(windows)".dependencies]` makes the
+Windows build independent of what wasmtime happens to pull in, and fixes
+`--no-default-features` on Windows as a side effect. The alternative, pinning
+`cap-primitives` 3 back into the graph, would be a dependency kept only for a feature
+side effect.
+
 ## Let the cache invalidate itself
 
 The `.cwasm` stamp's second line is `WASMTIME_DEP_VERSION`, which `build.rs` reads

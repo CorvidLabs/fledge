@@ -34,7 +34,9 @@ packages, all inside the wasmtime tree:
 - removed: cap-std, cap-fs-ext, cap-net-ext, cap-time-ext, unicode-xid
 - added: io-lifetimes 3.0.1, wasm-metadata 0.258.0, wit-component 0.258.0
 
-Nothing outside the wasmtime family moved.
+Nothing outside the wasmtime family moved in the lockfile. Feature unification did
+change: `cap-primitives` 3.4.6 had been enabling `Win32_Security` on `windows-sys`
+0.59, which fledge's Windows job-object code needs without declaring it (see context).
 
 ## Source read to confirm equivalence
 

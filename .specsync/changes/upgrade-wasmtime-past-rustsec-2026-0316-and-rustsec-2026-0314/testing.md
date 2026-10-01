@@ -47,6 +47,9 @@ uses).
 | `cargo audit` on a fresh `cargo generate-lockfile` resolution, same DB | exit 0, 0 vulnerabilities; wasmtime, wasmtime-wasi and wiggle at 49.0.1 |
 | `cargo audit` on main's `Cargo.lock`, same DB (negative control) | exit 1: RUSTSEC-2026-0316 (wasmtime 46.0.3), RUSTSEC-2026-0314 (wasmtime-wasi 46.0.3) |
 | `cargo deny` | not run; the repository has no `deny.toml` |
+| `test (windows-latest)` on #538's first run (36804407887) | failed to compile: `CreateJobObjectW` missing without `Win32_Security` |
+| `cargo tree --target x86_64-pc-windows-msvc -e features -i windows-sys@0.59.0` | main: `Win32_Security` only via `cap-primitives` 3.4.6, none with `--no-default-features`; branch: enabled by fledge, with and without default features |
+| Windows compile, locally | not run; no Windows target installed here, so CI's `windows-latest` cells are the check |
 
 ## Acceptance signals
 

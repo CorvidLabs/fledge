@@ -20,6 +20,8 @@ artifact: tasks
 - [x] fmt, clippy (CI form, `--all-targets`, `--no-default-features`),
       `cargo test --locked` and `cargo audit` locally (macOS, rustc 1.98.0)
 - [x] CHANGELOG entry under 1.8.1
+- [x] Declare `windows-sys` `Win32_Security` after `test (windows-latest)` failed to
+      compile `CreateJobObjectW` on #538's first run (run 36804407887)
 - [ ] CI green on #538: test and integration on ubuntu-latest, macos-latest,
       windows-latest; lint; audit; spec-check; intent-check
 - [ ] Definition approval (pending with orc/Leif)
