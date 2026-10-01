@@ -36,8 +36,8 @@ sha2 = "0.11.0"
 base64 = "0.22"
 notify = "7"
 shell-words = "1.1.1"
-wasmtime = { version = "46.0.1", optional = true }
-wasmtime-wasi = { version = "46.0.1", optional = true }
+wasmtime = { version = "49.0.1", optional = true }
+wasmtime-wasi = { version = "49.0.1", optional = true }
 
 [features]
 default = ["wasm"]
