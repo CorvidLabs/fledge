@@ -3,7 +3,7 @@
 This document explains how fledge works end to end: how a command is dispatched, how
 `fledge.toml` drives tasks and lanes, how plugins are installed and run, how the ship
 commands (`work`, `release`, and the GitHub plugin) fit together, and where hooks fire.
-It describes the code on `main` at version 1.7.2 (`Cargo.toml`). The code and the specs
+It describes the code on `main` at version 1.8.1 (`Cargo.toml`). The code and the specs
 in [`specs/`](../specs) are the source of truth. When they disagree with this page, they win,
 and this page should be fixed.
 
