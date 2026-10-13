@@ -4,7 +4,25 @@
 #![allow(dead_code)]
 
 use std::path::Path;
+#[cfg(not(windows))]
+use std::path::PathBuf;
 use std::process::Command;
+
+/// Parse the child-reported config path before sentinel callers may use it.
+/// The error deliberately does not echo a potentially private outside path.
+#[cfg(not(windows))]
+pub fn checked_home_config_path(printed: &str, home: &Path) -> PathBuf {
+    let path = PathBuf::from(printed);
+    assert!(
+        path.is_absolute()
+            && path.starts_with(home)
+            && !path
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir)),
+        "refusing to use a config path outside the disposable HOME"
+    );
+    path
+}
 
 /// A `fledge.toml` whose tasks form a single chain `t0 → t1 → … → t{len-1}`,
 /// plus a `build` lane running the head.
@@ -167,11 +185,13 @@ impl TempEnv {
         &self.github_api_base
     }
 
-    /// A `fledge` command pre-loaded with the isolated environment. Use when a
-    /// test needs to add its own args, env, or working directory.
-    pub fn command(&self) -> Command {
+    /// Apply this environment to `cmd`.
+    ///
+    /// Every variable is set on the child command. Nothing here calls
+    /// `std::env::set_var`, so parallel tests cannot observe each other's
+    /// homes or config directories.
+    fn apply_env(&self, cmd: &mut Command) {
         let absent_gitconfig = self.home.path().join("nonexistent-gitconfig");
-        let mut cmd = Command::new(cargo_bin());
         cmd.env("HOME", self.home.path())
             .env("XDG_CONFIG_HOME", self.home.path().join(".config"))
             // Where the remote-template clone cache lands. `dirs::cache_dir()`
@@ -199,7 +219,85 @@ impl TempEnv {
         for key in LEAKY_ENV_VARS {
             cmd.env_remove(key);
         }
+    }
+
+    /// A `fledge` command pre-loaded with the isolated environment. Use when a
+    /// test needs to add its own args, env, or working directory.
+    pub fn command(&self) -> Command {
+        let mut cmd = Command::new(cargo_bin());
+        self.apply_env(&mut cmd);
         cmd
+    }
+
+    /// Same isolation as [`TempEnv::command`], wrapped so a new outbound
+    /// connection is denied when this OS provides a tool for that.
+    ///
+    /// macOS uses `/usr/bin/sandbox-exec`. Other platforms get the plain
+    /// isolated command; callers that need the denial itself assert
+    /// [`network_confinement_available`] on the OS where it has to hold.
+    pub fn command_network_confined(&self) -> Command {
+        if network_confinement_available() {
+            let mut cmd = Command::new("/usr/bin/sandbox-exec");
+            cmd.arg("-p")
+                .arg("(version 1)(allow default)(deny network*)")
+                .arg(cargo_bin());
+            self.apply_env(&mut cmd);
+            cmd
+        } else {
+            self.command()
+        }
+    }
+
+    /// Config file `config path` prints when `FLEDGE_CONFIG_DIR` is unset.
+    ///
+    /// The binary resolves it, so the test follows `dirs` instead of
+    /// re-implementing it. Unix `dirs::config_dir()` honors `HOME` (and, on
+    /// Linux, `XDG_CONFIG_HOME`). Windows uses a known-folder API that ignores
+    /// both, so this is not compiled there: a caller must not read or write
+    /// that path.
+    ///
+    /// Panics, without echoing the path, if the printed location is outside
+    /// this environment's HOME. That refusal is the difference between a
+    /// disposable sentinel and the operator's config.
+    #[cfg(not(windows))]
+    pub fn home_config_path(&self) -> PathBuf {
+        let output = self
+            .command()
+            .env_remove("FLEDGE_CONFIG_DIR")
+            .args(["config", "path"])
+            .output()
+            .expect("spawn config path");
+        assert!(
+            output.status.success(),
+            "config path failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let printed = String::from_utf8(output.stdout).expect("config path utf-8");
+        checked_home_config_path(printed.trim(), self.home())
+    }
+
+    /// Write `contents` at every home-derived config location this child could
+    /// mistake for the operator file: the path [`TempEnv::home_config_path`]
+    /// reports, and `$HOME/.config/fledge/config.toml` when that is a
+    /// different file (macOS keeps config under Application Support).
+    #[cfg(not(windows))]
+    pub fn plant_home_sentinels(&self, contents: &str) -> Vec<PathBuf> {
+        let mut paths = vec![self.home_config_path()];
+        let xdg = self
+            .home()
+            .join(".config")
+            .join("fledge")
+            .join("config.toml");
+        if paths.iter().all(|existing| existing != &xdg) {
+            paths.push(xdg);
+        }
+        for path in &paths {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).expect("create sentinel parent");
+            }
+            std::fs::write(path, contents).expect("write sentinel");
+        }
+        paths
     }
 
     pub fn run(&self, args: &[&str]) -> std::process::Output {
@@ -225,6 +323,14 @@ pub fn github_redirection_supported() -> bool {
     // The test binary and the `fledge` binary it spawns are built by the same
     // cargo invocation, so they share a profile.
     cfg!(debug_assertions)
+}
+
+/// Whether [`TempEnv::command_network_confined`] can actually deny new
+/// connections. Today that is macOS `sandbox-exec`. Linux and Windows CI do
+/// not have that binary; those runs still point GitHub and Ollama at a
+/// loopback stand-in and assert it received nothing.
+pub fn network_confinement_available() -> bool {
+    Path::new("/usr/bin/sandbox-exec").is_file()
 }
 
 /// A minimal loopback HTTP server for integration tests.

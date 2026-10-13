@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "keep-config-init-and-config-command-tests-off-the-operator-config",
+  "slug": "keep-config-init-and-config-command-tests-off-the-operator-config",
+  "title": "Keep config-init and config command tests off the operator config",
+  "description": "Keep config-init and config command tests off the operator config",
+  "kind": "bug_fix",
+  "state": "draft",
+  "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
+  "created_at": 1791818050,
+  "updated_at": 1791910097,
+  "affected_specs": [
+    "config"
+  ],
+  "affected_paths": [
+    "tests/config.rs",
+    "tests/common/mod.rs",
+    "tests/main.rs",
+    "specs/config/testing.md",
+    "specs/config/context.md",
+    "specs/config/tasks.md",
+    ".github/workflows/trust.yml"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "The config path contract is unchanged. FLEDGE_CONFIG_DIR already selects the config file. This change only proves that contract from child processes with a disposable HOME and records the test boundary in companions.",
+  "acceptance_criteria": [
+    "Child config commands use disposable HOME and FLEDGE_CONFIG_DIR and write expected default/preset TOML only in the override directory. On Unix, home sentinels remain unchanged, lost-override init proves the real disposable home write target, and the actual sentinel path guard rejects prefix-matching ParentDir traversal plus sibling/relative paths before any write. Windows does not read known-folder paths and checks the explicit override. Non-directory and existing-file destinations fail without modification. macOS init succeeds under actual network denial; supported loopback stand-ins receive no requests. Config remove must exclude the removed value from both CLI output and persisted override TOML. Config production behavior and spec version13 are unchanged. Root-owned Trust workflow selects latest SpecSync6.1.0; no Wasmtime/dependency/security qualification or human approval is implied."
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "design"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "constraints": "specs/config/context.md and config.spec.md: FLEDGE_CONFIG_DIR precedence and canonical config version13 are unchanged. Child environment only; never std::env::set_var or read/write operator config. Unix-only sentinel controls reject ParentDir traversal before writing. Windows known-folder paths remain unread. .github/workflows/trust.yml is exact delivery metadata owned by coordinator and selects SpecSync6.1.0; it has no canonical module owner and does not change production config or the separate Wasmtime security work.",
+    "public_contract": "no"
+  }
+}
