@@ -10,7 +10,7 @@
   "state": "draft",
   "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
   "created_at": 1791818050,
-  "updated_at": 1791910097,
+  "updated_at": 1791926109,
   "affected_specs": [
     "config"
   ],
@@ -21,6 +21,7 @@
     "specs/config/testing.md",
     "specs/config/context.md",
     "specs/config/tasks.md",
+    ".github/workflows/ci.yml",
     ".github/workflows/trust.yml"
   ],
   "no_spec_change": true,
@@ -37,7 +38,7 @@
   "dependencies": [],
   "answers": {
     "architecture_risk": "no",
-    "constraints": "specs/config/context.md and config.spec.md: FLEDGE_CONFIG_DIR precedence and canonical config version13 are unchanged. Child environment only; never std::env::set_var or read/write operator config. Unix-only sentinel controls reject ParentDir traversal before writing. Windows known-folder paths remain unread. .github/workflows/trust.yml is exact delivery metadata owned by coordinator and selects SpecSync6.1.0; it has no canonical module owner and does not change production config or the separate Wasmtime security work.",
+    "constraints": "specs/config/context.md and config.spec.md: FLEDGE_CONFIG_DIR precedence and canonical config version 13 are unchanged. Child environment only; never std::env::set_var or read/write operator config. Unix-only sentinel controls reject ParentDir traversal before writing. Windows known-folder paths remain unread. .github/workflows/ci.yml and .github/workflows/trust.yml are exact delivery metadata owned by the coordinator and select SpecSync 6.1.0; they have no canonical module owner and do not change production config, dependency policy, the exact existing Trust 1.2.1 pin or the separate Wasmtime security work. Draft definition approval and implementation acceptance remain absent.",
     "public_contract": "no"
   }
 }

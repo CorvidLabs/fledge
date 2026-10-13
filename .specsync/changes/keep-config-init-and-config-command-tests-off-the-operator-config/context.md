@@ -18,3 +18,21 @@ Constraints for anyone picking this up:
 - Wasmtime lifecycle files and the release-channel docs are outside this change.
 
 Independent Grok review prompted stricter test-helper path validation and persisted remove assertions. Production config behavior and canonical config spec version13 remain unchanged. Root also selects installed/released SpecSync6.1.0 in the existing Trust workflow; this is coordinator-owned delivery metadata, not a new config API or dependency/security qualification. Draft approvals remain empty.
+
+
+## Exact delivery paths and definition boundary
+
+This draft declares the three changed integration-test files (`tests/config.rs`,
+`tests/common/mod.rs`, `tests/main.rs`), the three direct config companions
+(`specs/config/testing.md`, `specs/config/context.md`, `specs/config/tasks.md`),
+and both changed delivery workflows (`.github/workflows/ci.yml` and
+`.github/workflows/trust.yml`). The CI SpecSync binary selector and the Trust
+SpecSync selector request 6.1.0. Published workflow bytes, including the
+current CI action reference/comment, are preserved by this packet. The exact existing Trust 1.2.1 pin,
+verification policy, dependencies and separate Wasmtime work are preserved.
+
+The canonical config spec remains version 13 with no spec-text delta. These are
+integration-test guarantees and delivery selectors for its existing
+`FLEDGE_CONFIG_DIR` contract. This is a complete definition packet for review;
+its draft state, empty approvals/reopenings and absent implementation acceptance
+do not provide accepted meaningful-path coverage or lifecycle closure.
