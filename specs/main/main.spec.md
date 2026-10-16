@@ -1,6 +1,6 @@
 ---
 module: main
-version: 16
+version: 17
 status: active
 files:
   - src/main.rs
@@ -120,6 +120,13 @@ $ fledge completions bash --install
 $ fledge unknown-command arg1
 ▶️ Running plugin: unknown-command
 [delegates to plugin if installed, else error]
+
+$ fledge config set github.token <secret>
+✅ Set github.token = ***
+# the value is saved; stdout and stderr do not contain it
+
+$ fledge config set defaults.author Ada
+✅ Set defaults.author = Ada
 ```
 
 ## Error Cases
@@ -128,6 +135,7 @@ $ fledge unknown-command arg1
 |-------|------|----------|
 | Unknown command | No matching subcommand or plugin | clap error with suggestions |
 | Plugin not found | External command with no matching plugin | Error with `fledge plugins search` hint |
+| Unknown config key | `config set` of a key outside `Config::is_valid_key` | Non-zero exit. The supplied value is not printed. The config file is not written |
 
 ## Dependencies
 
@@ -145,6 +153,7 @@ All modules are dependencies — main dispatches to every subcommand module. See
 8. **Empty-list semantics for `templates list`:** when no templates are configured, both modes succeed (exit 0). JSON mode emits `{schema_version: 1, templates: [], hint: "..."}` with the configuration hint as a string field; non-JSON mode prints a friendly "No templates configured" message followed by the same hint. Previously both modes errored with non-zero exit, which forced agents to special-case a list query into an error path
 9. **Bare invocation is help, not an error:** when no subcommand is provided, fledge prints the top-level help and exits 0. This matches common CLI conventions and avoids making agents treat a plain `fledge` call as a usage failure
 10. **Interactive cursor restoration:** when stdin is a TTY, fledge installs a one-shot Ctrl+C handler that shows the terminal cursor before exiting with code 130, so dialoguer-based prompts (`fledge plugins search --interactive`, template selection, etc.) do not leave the cursor hidden after interruption
+11. **Secret `config set` confirmation:** when the key is one `Config::is_secret_key` recognizes (`github.token`, `ai.anthropic.api_key`, `ai.openai.api_key`, `ai.claude.api_key`, `ai.ollama.api_key`), `handle_config` still saves the supplied value and prints a success line containing the key and `***`. The supplied value is absent from that command's stdout and stderr. A key that is not secret still prints its value in the confirmation. `config get` and `config list` continue to mask stored secrets they display
 
 ## Change Log
 
@@ -165,3 +174,4 @@ All modules are dependencies — main dispatches to every subcommand module. See
 | 14 | 2026-07-30 | Add `SpecSubcommand::Lint` and its `spec_action_from` arm for `fledge spec lint` (#429): positional `[target]`, plus `--ai`, `--no-ai`, `--provider`, `--model`, `--ignore`, `--strict`, `--json` |
 | 15 | 2026-08-11 | CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429: Fledge spec lint: two-layer quality gate for the spec itself (issue #429) |
 | 16 | 2026-09-18 | fix-diamond-task-dependencies-falsely-rejected-as-circular: Fix diamond task dependencies falsely rejected as circular |
+| 17 | 2026-10-16 | `config set` confirms a `Config::is_secret_key` value with `***` and does not print it. Non-secret keys still print the saved value. Unknown keys still fail without printing the supplied value or writing the file |

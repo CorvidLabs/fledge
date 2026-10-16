@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "mask-recognized-secrets-in-config-set-confirmation",
+  "slug": "mask-recognized-secrets-in-config-set-confirmation",
+  "title": "Mask recognized secrets in config set confirmation",
+  "description": "Mask recognized secrets in config set confirmation",
+  "kind": "bug_fix",
+  "state": "draft",
+  "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
+  "created_at": 1792135691,
+  "updated_at": 1792135996,
+  "affected_specs": [
+    "main"
+  ],
+  "affected_paths": [
+    "src/config_cmds.rs",
+    "tests/config_secret_output.rs",
+    "specs/main/main.spec.md",
+    "specs/main/testing.md"
+  ],
+  "no_spec_change": false,
+  "no_spec_change_rationale": null,
+  "acceptance_criteria": [
+    "For every existing Config::is_secret_key key successful config set persists the exact supplied value and confirms with the key plus *** while omitting the supplied secret from stdout and stderr.",
+    "Non-secret defaults.author still confirms and persists its plaintext value.",
+    "Unknown config keys fail without echoing the supplied value or creating the owned config file.",
+    "Existing config get and currently rendered config list secret values stay masked; the absent deprecated Claude list row is not claimed.",
+    "The same actual CLI regression changes from five secret-output failures and two passing controls on base to seven passing cases on the candidate."
+  ],
+  "selected_artifacts": [
+    "context",
+    "testing",
+    "tasks",
+    "requirements",
+    "docs",
+    "research",
+    "design",
+    "plan"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "yes",
+    "constraints": "Existing specs/config/requirements.md requires tokens absent from CLI output and errors and REQ-config-003 preserves scalar persistence. Existing hi/setup.md SETUP-2.g requires masked printed API keys. Keep Config::is_secret_key as the single existing classifier and preserve the deprecated Claude alias. This is an agent-proposed bug-fix definition based on accepted repository intent; no new hi criteria or human acceptance is recorded. Preserve PR538 dependency scope and PR539/540 ownership; do not change manifests or policies. Baseline cached audit remains failed with 11 vulnerabilities and two unmaintained warnings. Actual Trust/risk/provenance and human lifecycle approval remain pending with the coordinator.",
+    "public_contract": "yes"
+  }
+}
