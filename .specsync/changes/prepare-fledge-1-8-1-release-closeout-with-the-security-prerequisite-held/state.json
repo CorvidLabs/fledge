@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held",
+  "slug": "prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held",
+  "title": "Prepare Fledge 1.8.1 release closeout with the security prerequisite held",
+  "description": "Prepare Fledge 1.8.1 release closeout with the security prerequisite held",
+  "kind": "documentation",
+  "state": "draft",
+  "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
+  "created_at": 1792867339,
+  "updated_at": 1792867409,
+  "affected_specs": [],
+  "affected_paths": [
+    "CHANGELOG.md",
+    "docs/RELEASE-1.8.1.md"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Release handoff and changelog qualification only; package and Nix already declare 1.8.1. No runtime or dependency edits and no claim that pending PR 538 is merged.",
+  "acceptance_criteria": [
+    "The 1.8.1 closeout states the current channel mismatch and holds publication on PR 538 without altering runtime dependencies or claiming the security upgrade is merged."
+  ],
+  "selected_artifacts": [
+    "context",
+    "docs"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}
