@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.8.1] - Unreleased
 
-> **About 1.8.0.** fledge 1.8.0 was published to crates.io on 2026-09-19 from `435b7c5`, a release-branch commit that never reached `main`. 1.8.1 is that release cut from `main`. Everything below shipped in 1.8.0 except #531, #533, #534 and #535. The one difference in the binary is the `corvid-stack` template's Trust pin: 1.2.0 in 1.8.0, 1.2.1 here (#533). The current preparation branch still has the old dependency baseline. Release is held on the separately reviewed Wasmtime security upgrade in #538; it is not included here.
+> **Release status.** crates.io currently serves 1.8.0 while this tree prepares 1.8.1 from main. The current preparation branch still has the old dependency baseline. Release is held on the separately reviewed Wasmtime security upgrade in #538; it is not included here.
 
 ### Release qualification
 

@@ -8,7 +8,7 @@ Release is held on [PR #538](https://github.com/CorvidLabs/fledge/pull/538). Mai
 
 ## Candidate and version surfaces
 
-Cargo.toml and flake.nix already agree at 1.8.1. Preserve that version while qualifying one eventual main-derived source. Published GitHub binaries and Homebrew are 1.7.2; crates.io 1.8.0 came from off-main `435b7c5`. A previous green GitHub release is not evidence those channels converged. The existing changelog describes the merged hook/task-graph fixes and publishing support; it now marks 1.8.1 as unreleased instead of implying a completed dated release.
+Cargo.toml and flake.nix already agree at 1.8.1. Preserve that version while qualifying one eventual main-derived source. Published GitHub binaries and Homebrew are 1.7.2; crates.io currently serves 1.8.0. A previous green GitHub release is not evidence those channels converged. The existing changelog describes the merged hook/task-graph fixes and publishing support; it now marks 1.8.1 as unreleased instead of implying a completed dated release.
 
 Open PRs #539 (channel documentation), #540 (isolated config tests), and #541 (secret masking) are not included in this branch. The owner must select them explicitly after #538 qualification; their own reviews/lifecycles remain separate. Rerun candidate qualification after any selected implementation changes.
 
