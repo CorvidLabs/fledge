@@ -1,6 +1,6 @@
 ---
 id: drop-the-unused-wasmtime-compilation-cache-so-zstd-leaves-the-dependency-graph
-state: implementing
+state: archived
 type: bug_fix
 base_commit: ac33248cae6e4b4ef16b82d455d814d755b2bd3a
 ---

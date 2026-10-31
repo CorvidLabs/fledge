@@ -7,11 +7,11 @@
   "title": "Drop the unused wasmtime compilation cache so zstd leaves the dependency graph",
   "description": "Drop the unused wasmtime compilation cache so zstd leaves the dependency graph",
   "kind": "bug_fix",
-  "state": "verifying",
+  "state": "archived",
   "canonical_applied": true,
   "base_commit": "ac33248cae6e4b4ef16b82d455d814d755b2bd3a",
   "created_at": 1793456018,
-  "updated_at": 1793456039,
+  "updated_at": 1793456054,
   "affected_specs": [],
   "affected_paths": [
     "Cargo.toml",
