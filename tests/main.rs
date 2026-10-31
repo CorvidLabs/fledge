@@ -564,26 +564,43 @@ fn cli_lane_no_lanes_section_fails() {
 
 #[test]
 fn cli_config_set_and_get_roundtrip() {
-    let tmp = TempDir::new().unwrap();
-    let config_dir = tmp.path().join("fledge-config");
-    std::fs::create_dir_all(&config_dir).unwrap();
+    // Child HOME and FLEDGE_CONFIG_DIR, not the test process and not only the
+    // override. A regression that ignores the override then writes the
+    // disposable home sentinel instead of the operator config.
+    let env = TempEnv::new();
+    #[cfg(not(windows))]
+    let sentinels = env.plant_home_sentinels("sentinel = \"G4-DO-NOT-TOUCH\"\n");
+    #[cfg(not(windows))]
+    let before: Vec<Vec<u8>> = sentinels
+        .iter()
+        .map(|path| std::fs::read(path).unwrap())
+        .collect();
 
-    let bin = cargo_bin();
-    let output = Command::new(&bin)
-        .args(["config", "set", "defaults.author", "test-author-e2e"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
-    assert!(output.status.success());
+    let output = env.run(&["config", "set", "defaults.author", "test-author-e2e"]);
+    assert!(
+        output.status.success(),
+        "config set failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let output = Command::new(&bin)
-        .args(["config", "get", "defaults.author"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
+    let output = env.run(&["config", "get", "defaults.author"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("test-author-e2e"));
+
+    let written = std::fs::read_to_string(env.config_dir().join("config.toml"))
+        .expect("config set should write the override file");
+    assert!(written.contains("test-author-e2e"));
+    assert!(!written.contains("G4-DO-NOT-TOUCH"));
+
+    #[cfg(not(windows))]
+    for (path, expected) in sentinels.iter().zip(before) {
+        assert_eq!(
+            std::fs::read(path).unwrap(),
+            expected,
+            "home sentinel changed"
+        );
+    }
 }
 
 #[test]
@@ -594,23 +611,23 @@ fn cli_config_unset_unknown_key_fails() {
 
 #[test]
 fn cli_config_add_remove_list_key() {
-    let tmp = TempDir::new().unwrap();
-    let config_dir = tmp.path().join("fledge-config");
-    std::fs::create_dir_all(&config_dir).unwrap();
+    let env = TempEnv::new();
+    #[cfg(not(windows))]
+    let sentinels = env.plant_home_sentinels("sentinel = \"G4-DO-NOT-TOUCH\"\n");
+    #[cfg(not(windows))]
+    let before: Vec<Vec<u8>> = sentinels
+        .iter()
+        .map(|path| std::fs::read(path).unwrap())
+        .collect();
 
-    let bin = cargo_bin();
-    let output = Command::new(&bin)
-        .args(["config", "add", "templates.paths", "/tmp/e2e-test-path"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
-    assert!(output.status.success());
+    let output = env.run(&["config", "add", "templates.paths", "/tmp/e2e-test-path"]);
+    assert!(
+        output.status.success(),
+        "config add failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
-    let output = Command::new(&bin)
-        .args(["config", "get", "templates.paths"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
+    let output = env.run(&["config", "get", "templates.paths"]);
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
@@ -618,46 +635,40 @@ fn cli_config_add_remove_list_key() {
         "expected /tmp/e2e-test-path in output, got: {stdout}"
     );
 
-    let output = Command::new(&bin)
-        .args(["config", "remove", "templates.paths", "/tmp/e2e-test-path"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
+    let written = std::fs::read_to_string(env.config_dir().join("config.toml"))
+        .expect("config add should write the override file");
+    assert!(written.contains("/tmp/e2e-test-path"));
+
+    let output = env.run(&["config", "remove", "templates.paths", "/tmp/e2e-test-path"]);
     assert!(output.status.success());
-}
 
-#[test]
-fn cli_config_init_default() {
-    // Isolate to a fresh tempdir via FLEDGE_CONFIG_DIR so the test never
-    // touches the developer's real ~/.config/fledge/config.toml. Setting the
-    // env var on the child process (not the test process) keeps this safe
-    // under parallel test execution.
-    let tmp = TempDir::new().unwrap();
-    let config_dir = tmp.path().join("fledge-config");
-    std::fs::create_dir_all(&config_dir).unwrap();
-
-    let output = Command::new(cargo_bin())
-        .args(["config", "init"])
-        .env("FLEDGE_CONFIG_DIR", &config_dir)
-        .output()
-        .unwrap();
-
-    // A fresh dir has no config yet, so init creates the default and succeeds.
-    assert!(
-        output.status.success(),
-        "config init failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let output = env.run(&["config", "get", "templates.paths"]);
+    assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("Created"),
-        "expected creation message, got: {stdout}"
+        !stdout.contains("/tmp/e2e-test-path"),
+        "removed template path is still present: {stdout}"
     );
+    let written = std::fs::read_to_string(env.config_dir().join("config.toml"))
+        .expect("config remove should update the override file");
     assert!(
-        config_dir.join("config.toml").exists(),
-        "config init did not write config.toml into the isolated dir"
+        !written.contains("/tmp/e2e-test-path"),
+        "config remove reported success without updating the override file"
     );
+
+    #[cfg(not(windows))]
+    for (path, expected) in sentinels.iter().zip(before) {
+        assert_eq!(
+            std::fs::read(path).unwrap(),
+            expected,
+            "home sentinel changed"
+        );
+    }
 }
+
+// `config init` coverage lives in `tests/config.rs`. The old
+// `cli_config_init_default` set only `FLEDGE_CONFIG_DIR` on the child, checked
+// that a file existed, and never planted a sentinel in a disposable HOME.
 
 // ──────────────────────────────────────────────────────────
 // Plugin edge cases
