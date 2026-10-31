@@ -1,0 +1,42 @@
+{
+  "timestamp": 1793456039,
+  "commit": "0f06f522a18f45cba1d679134d8ed0ccd0cdeebb",
+  "contract_digest": "fa430f8c54a25cc5158e62daf7689173eef30ed16f3d2ca699a5d46ce9dfe0e8",
+  "execution_digest": "5adaf98527d8026a9c7397ec64bed344d7ec498d59d4c0cef14a871e1e517f3c",
+  "workspace_digest": "e76b07e61be8cd899ffecb6c04c390f54085645cb24739b4c10ef40cebc2d372",
+  "acceptance_input_digest": "31bd44636c4c4f95fd51852698ba26344d68102c90f2eed1311f50afa41a4050",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": "Cargo.lock",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "8cd297fd4b6fc79571f5150f7a7d12a94811050021d3e574d6da5b857c84490f",
+        "entry_digest": "c202897eb72652fb362f58dcf5463b5a164130df3bfa44111bdddccdc7aba91a",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": "Cargo.toml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "a27683b95b8b40d3d042032964301b04f7fe6f1dd13ec004170a79ffd642c305",
+        "entry_digest": "a644a5c9b04008653b9a4f22c53ad6e8be585de33824423c18b74140cf890e13",
+        "owners": [
+          "@exact:delivery"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "specsync check (no spec in scope)",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}

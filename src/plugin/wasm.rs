@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use wasmtime::*;
 use wasmtime_wasi::p1::WasiP1Ctx;
-use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
+use wasmtime_wasi::{FsPerms, WasiCtxBuilder};
 
 use crate::plugin::PluginCapabilities;
 
@@ -39,6 +39,15 @@ fn create_engine() -> Result<Engine> {
     let mut config = Config::new();
     config.consume_fuel(true);
     config.epoch_interruption(true);
+    // Keep the guest-visible feature set at what wasmtime 46 accepted. wasmtime
+    // 47 turned GC, exception handling and typed function references on by
+    // default, and 49 added wide arithmetic. No plugin that ran on wasmtime 46
+    // can use them, and RUSTSEC-2026-0315 (fuel dropped across `call_ref` and
+    // exception `catch`) shows the extra surface is not free.
+    config.wasm_gc(false);
+    config.wasm_exceptions(false);
+    config.wasm_function_references(false);
+    config.wasm_wide_arithmetic(false);
     Ok(Engine::new(&config)?)
 }
 
@@ -153,21 +162,25 @@ fn build_wasi_p1(
         .canonicalize()
         .unwrap_or_else(|_| plugin_dir.to_path_buf());
 
+    // `/project` is read-only (no create, remove, rename or write-open);
+    // `/plugin` is read-write. wasmtime-wasi 49 replaced the separate
+    // DirPerms/FilePerms bitflags with `FsPerms`: `ReadOnly` is the old
+    // `DirPerms::READ` + `FilePerms::READ`, `ReadWrite` the old `all()` + `all()`.
     match capabilities.filesystem.as_deref() {
         Some("project") => {
             if let Some(root) = project_root {
                 let resolved = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-                builder.preopened_dir(&resolved, "/project", DirPerms::READ, FilePerms::READ)?;
+                builder.preopened_dir(&resolved, "/project", FsPerms::ReadOnly)?;
             }
         }
         Some("plugin") => {
             if let Some(root) = project_root {
                 let resolved = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-                builder.preopened_dir(&resolved, "/project", DirPerms::READ, FilePerms::READ)?;
+                builder.preopened_dir(&resolved, "/project", FsPerms::ReadOnly)?;
             }
             let data_dir = resolved_plugin_dir.join("data");
             std::fs::create_dir_all(&data_dir)?;
-            builder.preopened_dir(&data_dir, "/plugin", DirPerms::all(), FilePerms::all())?;
+            builder.preopened_dir(&data_dir, "/plugin", FsPerms::ReadWrite)?;
         }
         _ => {}
     }
@@ -175,7 +188,12 @@ fn build_wasi_p1(
     builder.inherit_stdout();
 
     if capabilities.network {
-        builder.inherit_network();
+        // wasmtime-wasi 49 turned TCP and UDP off by default (46 had them on),
+        // so `inherit_network()`, which only opens the socket address check,
+        // no longer grants sockets by itself. Re-enable both so a plugin
+        // granted `network` keeps exactly what it had. IP name lookup stays
+        // off, as before. Without the grant, sockets stay disabled.
+        builder.inherit_network().allow_tcp(true).allow_udp(true);
     }
 
     Ok(builder.build_p1())
@@ -624,6 +642,58 @@ mod tests {
     }
 
     #[test]
+    fn engine_keeps_wasmtime_46_feature_set() {
+        let engine = create_engine().unwrap();
+
+        // What wasm32-wasip1 toolchains emit by default (bulk memory, sign
+        // extension, saturating truncation, multi-value, reference types),
+        // plus tail calls, all of which wasmtime 46 accepted.
+        let accepted = r#"(module
+            (memory 1)
+            (func $pair (result i32 i32) (i32.const 1) (i32.const 2))
+            (func $tail (result i32 i32) (return_call $pair))
+            (func (export "_start")
+                (memory.copy (i32.const 0) (i32.const 8) (i32.const 4))
+                (drop (i32.extend8_s (i32.const 255)))
+                (drop (i32.trunc_sat_f32_s (f32.const 1.5)))
+                (drop (ref.is_null (ref.null extern)))
+                (call $tail) drop drop))"#;
+        Module::new(&engine, accepted).expect("baseline module must compile");
+
+        let refused = [
+            (
+                "gc",
+                r#"(module (type $a (array (mut i8)))
+                    (func (export "f") (result i32)
+                        (array.len (array.new_default $a (i32.const 1)))))"#,
+            ),
+            (
+                "exceptions",
+                r#"(module (tag $e)
+                    (func (export "f")
+                        (block $h (try_table (catch_all $h) (throw $e)))))"#,
+            ),
+            (
+                "function references",
+                r#"(module (type $t (func (result i32)))
+                    (func $g (type $t) (i32.const 1)) (elem declare func $g)
+                    (func (export "f") (result i32) (call_ref $t (ref.func $g))))"#,
+            ),
+            (
+                "wide arithmetic",
+                r#"(module (func (export "f") (result i64 i64)
+                    (i64.add128 (i64.const 1) (i64.const 0) (i64.const 2) (i64.const 0))))"#,
+            ),
+        ];
+        for (proposal, wat) in refused {
+            assert!(
+                Module::new(&engine, wat).is_err(),
+                "the {proposal} proposal must stay disabled, as it was on wasmtime 46"
+            );
+        }
+    }
+
+    #[test]
     fn compute_hash_deterministic() {
         let h1 = compute_hash(b"hello world");
         let h2 = compute_hash(b"hello world");
@@ -784,6 +854,47 @@ mod tests {
         assert!(
             err.contains("compute budget") || err.contains("time limit") || err.contains("trapped"),
             "expected resource-limit error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn memory_is_capped_at_max_memory_bytes() {
+        // The guest starts with one page and grows by `grow_pages`. It exits 0
+        // only on the outcome the test expects and hits `unreachable` on the
+        // other, so `Ok` means memory.grow returned what the cap requires.
+        let run_grow = |grow_pages: usize, expect_refused: bool| {
+            let (on_refused, on_granted) = if expect_refused {
+                ("(call $exit (i32.const 0))", "(unreachable)")
+            } else {
+                ("(unreachable)", "(call $exit (i32.const 0))")
+            };
+            let wat = format!(
+                r#"(module
+                    (import "fledge" "exit" (func $exit (param i32)))
+                    (memory (export "memory") 1)
+                    (func (export "_start")
+                        (if (i32.eq (memory.grow (i32.const {grow_pages})) (i32.const -1))
+                            (then {on_refused})
+                            (else {on_granted}))))"#
+            );
+            let dir = tempfile::tempdir().unwrap();
+            let wasm_path = dir.path().join("grow.wasm");
+            std::fs::write(&wasm_path, wat).unwrap();
+            let caps = PluginCapabilities::default();
+            run_wasm_plugin(&wasm_path, &[], "test-grow", "0.0.1", dir.path(), &caps)
+        };
+        let pages_at_cap = MAX_MEMORY_BYTES / (64 * 1024);
+
+        let at_cap = run_grow(pages_at_cap - 1, false);
+        assert!(
+            at_cap.is_ok(),
+            "growing to exactly the cap must succeed: {at_cap:?}"
+        );
+
+        let past_cap = run_grow(pages_at_cap, true);
+        assert!(
+            past_cap.is_ok(),
+            "growing past the cap must be refused: {past_cap:?}"
         );
     }
 
@@ -1296,6 +1407,209 @@ mod tests {
         assert!(
             dir.path().join("data").exists(),
             "plugin filesystem mode should create data/ directory"
+        );
+    }
+
+    // --- Filesystem grants: /project is read-only, /plugin is read-write ---
+    //
+    // These drive real WASI preview1 calls against the preopens build_wasi_p1
+    // hands the guest, so a change in how the grants map onto wasmtime-wasi's
+    // permissions (DirPerms/FilePerms before 49, FsPerms since) shows up as a
+    // different errno or a file appearing on the host.
+
+    const ERRNO_SUCCESS: i32 = 0;
+    const ERRNO_BADF: i32 = 8;
+    const ERRNO_PERM: i32 = 63;
+    const OFLAGS_CREAT: i32 = 1;
+    const OFLAGS_TRUNC: i32 = 8;
+    const RIGHTS_FD_READ: i64 = 1 << 1;
+    const RIGHTS_FD_WRITE: i64 = 1 << 6;
+    // Preopens follow stdin, stdout and stderr, in the order build_wasi_p1
+    // adds them: /project first, then /plugin.
+    const FD_PROJECT: i32 = 3;
+    const FD_PLUGIN: i32 = 4;
+
+    fn path_open_probe(fd: i32, path: &str, oflags: i32, rights: i64) -> String {
+        format!(
+            r#"(module
+                (import "wasi_snapshot_preview1" "path_open"
+                    (func $path_open (param i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 16) "{path}")
+                (func (export "probe") (result i32)
+                    (call $path_open
+                        (i32.const {fd}) (i32.const 0)
+                        (i32.const 16) (i32.const {len})
+                        (i32.const {oflags}) (i64.const {rights}) (i64.const 0)
+                        (i32.const 0) (i32.const 0))))"#,
+            len = path.len()
+        )
+    }
+
+    fn create_dir_probe(fd: i32, path: &str) -> String {
+        format!(
+            r#"(module
+                (import "wasi_snapshot_preview1" "path_create_directory"
+                    (func $mkdir (param i32 i32 i32) (result i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 16) "{path}")
+                (func (export "probe") (result i32)
+                    (call $mkdir (i32.const {fd}) (i32.const 16) (i32.const {len}))))"#,
+            len = path.len()
+        )
+    }
+
+    /// Runs the module's `probe` export in the sandbox `run_wasm_plugin` builds
+    /// for `caps`, with `project` as the project root, and returns the errno.
+    fn run_fs_probe(
+        wat: &str,
+        caps: &PluginCapabilities,
+        plugin_dir: &Path,
+        project: &Path,
+    ) -> i32 {
+        let engine = create_engine().unwrap();
+        let module = Module::new(&engine, wat).unwrap();
+        let wasi = build_wasi_p1(caps, plugin_dir, Some(project)).unwrap();
+        let host_state = HostState {
+            wasi,
+            plugin_name: "test-fs-probe".to_string(),
+            plugin_dir: plugin_dir.to_path_buf(),
+            capabilities: caps.clone(),
+            pending_response: None,
+            limits: StoreLimitsBuilder::new()
+                .memory_size(MAX_MEMORY_BYTES)
+                .build(),
+        };
+        let mut store = Store::new(&engine, host_state);
+        store.limiter(|s| &mut s.limits);
+        store.set_fuel(FUEL_LIMIT).unwrap();
+        store.set_epoch_deadline(1);
+        let linker = setup_linker(&engine, caps).unwrap();
+        let instance = linker.instantiate(&mut store, &module).unwrap();
+        let probe = instance
+            .get_typed_func::<(), i32>(&mut store, "probe")
+            .unwrap();
+        probe.call(&mut store, ()).unwrap()
+    }
+
+    fn fs_caps(scope: &str) -> PluginCapabilities {
+        PluginCapabilities {
+            filesystem: Some(scope.to_string()),
+            ..PluginCapabilities::default()
+        }
+    }
+
+    #[test]
+    fn project_scope_can_read_project_files() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("readme.txt"), "hello").unwrap();
+
+        let wat = path_open_probe(FD_PROJECT, "readme.txt", 0, RIGHTS_FD_READ);
+        let errno = run_fs_probe(&wat, &fs_caps("project"), plugin.path(), project.path());
+        assert_eq!(
+            errno, ERRNO_SUCCESS,
+            "reading under /project must be allowed"
+        );
+    }
+
+    #[test]
+    fn project_scope_cannot_create_files_in_project() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+
+        let wat = path_open_probe(FD_PROJECT, "new.txt", OFLAGS_CREAT, RIGHTS_FD_WRITE);
+        let errno = run_fs_probe(&wat, &fs_caps("project"), plugin.path(), project.path());
+        assert_eq!(errno, ERRNO_PERM, "creating under /project must be refused");
+        assert!(!project.path().join("new.txt").exists());
+    }
+
+    #[test]
+    fn project_scope_cannot_write_or_truncate_project_files() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let readme = project.path().join("readme.txt");
+        std::fs::write(&readme, "hello").unwrap();
+
+        for oflags in [0, OFLAGS_TRUNC] {
+            let wat = path_open_probe(FD_PROJECT, "readme.txt", oflags, RIGHTS_FD_WRITE);
+            let errno = run_fs_probe(&wat, &fs_caps("project"), plugin.path(), project.path());
+            assert_eq!(
+                errno, ERRNO_PERM,
+                "write-open (oflags {oflags}) must be refused"
+            );
+        }
+        assert_eq!(std::fs::read_to_string(&readme).unwrap(), "hello");
+    }
+
+    #[test]
+    fn project_scope_cannot_create_directories_in_project() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+
+        let wat = create_dir_probe(FD_PROJECT, "sub");
+        let errno = run_fs_probe(&wat, &fs_caps("project"), plugin.path(), project.path());
+        assert_eq!(errno, ERRNO_PERM, "mkdir under /project must be refused");
+        assert!(!project.path().join("sub").exists());
+    }
+
+    #[test]
+    fn plugin_scope_can_write_plugin_data_dir() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let caps = fs_caps("plugin");
+
+        let wat = path_open_probe(FD_PLUGIN, "new.txt", OFLAGS_CREAT, RIGHTS_FD_WRITE);
+        let errno = run_fs_probe(&wat, &caps, plugin.path(), project.path());
+        assert_eq!(
+            errno, ERRNO_SUCCESS,
+            "creating under /plugin must be allowed"
+        );
+        assert!(plugin.path().join("data").join("new.txt").is_file());
+
+        let wat = create_dir_probe(FD_PLUGIN, "sub");
+        let errno = run_fs_probe(&wat, &caps, plugin.path(), project.path());
+        assert_eq!(errno, ERRNO_SUCCESS, "mkdir under /plugin must be allowed");
+        assert!(plugin.path().join("data").join("sub").is_dir());
+    }
+
+    #[test]
+    fn plugin_scope_keeps_project_read_only() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+
+        let wat = path_open_probe(FD_PROJECT, "new.txt", OFLAGS_CREAT, RIGHTS_FD_WRITE);
+        let errno = run_fs_probe(&wat, &fs_caps("plugin"), plugin.path(), project.path());
+        assert_eq!(
+            errno, ERRNO_PERM,
+            "/project stays read-only under the plugin scope"
+        );
+        assert!(!project.path().join("new.txt").exists());
+    }
+
+    #[test]
+    fn plugin_scope_cannot_escape_data_dir() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+
+        let wat = path_open_probe(FD_PLUGIN, "../escape.txt", OFLAGS_CREAT, RIGHTS_FD_WRITE);
+        let errno = run_fs_probe(&wat, &fs_caps("plugin"), plugin.path(), project.path());
+        assert_ne!(errno, ERRNO_SUCCESS, "`..` must not leave /plugin");
+        assert!(!plugin.path().join("escape.txt").exists());
+    }
+
+    #[test]
+    fn no_filesystem_grant_has_no_preopens() {
+        let plugin = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("readme.txt"), "hello").unwrap();
+
+        let wat = path_open_probe(FD_PROJECT, "readme.txt", 0, RIGHTS_FD_READ);
+        let caps = PluginCapabilities::default();
+        let errno = run_fs_probe(&wat, &caps, plugin.path(), project.path());
+        assert_eq!(
+            errno, ERRNO_BADF,
+            "without a filesystem grant there is no fd 3"
         );
     }
 }
