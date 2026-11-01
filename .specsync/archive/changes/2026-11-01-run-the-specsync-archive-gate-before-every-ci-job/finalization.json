@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "run-the-specsync-archive-gate-before-every-ci-job",
+  "implementation_commit": "16ccb58608642b7c91b933483e64ba7d3b13be01",
+  "implementation_tree": "0cc218265f3cd527ea0d77f9003774f1ac6265aa",
+  "contract_digest": "a5f4e813ab5f1477f4cf716b6699353cd0a4ab91d47a3cb2569f13245df639b3",
+  "workspace_digest": "2367a3b8074fdb4347b9cd74ec78eebc74a831cbb5841389dbb2938a67d085a7",
+  "closing_digest": "d9744cd6b90d9f67c472946b0718549da704c5590e3dfed5ef2bca40f2b8bf62",
+  "review_digest": "9a0b507058a085ea8a64738423f902764867c027bf9556083130a4a8d74a2dc6",
+  "finalization_digest": "fbb76df2147fe966d7530b531d124acad355d5b47dd4aafcbf8f9ff2ae494ca7",
+  "timestamp": 1793541984
+}

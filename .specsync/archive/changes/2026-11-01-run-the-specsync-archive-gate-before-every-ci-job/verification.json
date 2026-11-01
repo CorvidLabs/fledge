@@ -1,0 +1,62 @@
+{
+  "timestamp": 1793541979,
+  "commit": "16ccb58608642b7c91b933483e64ba7d3b13be01",
+  "contract_digest": "a5f4e813ab5f1477f4cf716b6699353cd0a4ab91d47a3cb2569f13245df639b3",
+  "execution_digest": "dbe9feed806b08d51f22a0234b0fc7a2349770ef4f6b02ca445fa37c6ecc7a6c",
+  "workspace_digest": "2367a3b8074fdb4347b9cd74ec78eebc74a831cbb5841389dbb2938a67d085a7",
+  "acceptance_input_digest": "758960ce020fb32b0cfcf81168a6af457cd266553d277166dd2a43a14289a828",
+  "acceptance_manifest": {
+    "schema_version": 1,
+    "entries": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "9f46c360ed16b4686f93662b9f2fc76486a6fb47d774139317f764c23907a980",
+        "entry_digest": "979f3fdea76041397acbe607bbaf2e834fdf494e88f45a77bf241b2e75afc159",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": ".github/workflows/pages.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "43b0ff509b1d7a816d5b49058e26e9cee6ca90642f170a28c316d1a9bdcaab26",
+        "entry_digest": "a0fb0508ff29305f3b82013ebb4d87bff7f9846cd3d7fcd07e1317af706ad28e",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": ".github/workflows/test-action.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "89d70481b75a7ee03e3514ab392f5b8af27017e13dc3265f2315454283fee141",
+        "entry_digest": "3f74b5501cbadda1e8ae00ae675e3a8a4882f5f41f13161d8f4bea3b8e2439a3",
+        "owners": [
+          "@exact:delivery"
+        ]
+      },
+      {
+        "path": ".github/workflows/trust.yml",
+        "kind": "file",
+        "mode": 33188,
+        "payload_digest": "bd6d7ae035193368257f093ffa61ea3cefab3b56a388bcc2fb954c6975aaa7a3",
+        "entry_digest": "fec0109c79cf1636e1cc0b20cafe21b7d0ff8e0172337aff2da37920db296607",
+        "owners": [
+          "@exact:delivery"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "commands": [
+    {
+      "command": "specsync check (no spec in scope)",
+      "success": true,
+      "exit_code": 0
+    }
+  ],
+  "requirement_ids": []
+}
