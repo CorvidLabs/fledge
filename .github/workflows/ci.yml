@@ -29,7 +29,24 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Runs first. Every other job needs it, so a pull request with any open SpecSync
+  # change under .specsync/changes/ runs nothing else until the change is archived.
+  archive-gate:
+    name: Archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      # The archive gate inputs are newer than v6.1.1, which ignores them.
+      - uses: CorvidLabs/spec-sync@106aaa43d0bcf049f19b173ddb63815a25c3f931 # main, archive gate (#832)
+        with:
+          archive-gate-only: 'true'
+
   test:
+    needs: archive-gate
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -42,6 +59,7 @@ jobs:
       - run: cargo test --verbose --locked
 
   lint:
+    needs: archive-gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,6 +72,7 @@ jobs:
       - run: cargo clippy -- -D warnings
 
   audit:
+    needs: archive-gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -105,6 +124,7 @@ jobs:
         continue-on-error: true
 
   spec-check:
+    needs: archive-gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -138,6 +158,7 @@ jobs:
         run: specsync change check --strict --require-coverage 100
 
   intent-check:
+    needs: archive-gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
