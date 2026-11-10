@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.8.1] - Unreleased
+## [v1.8.1] - 2026-11-10
 
 > **About 1.8.0.** fledge 1.8.0 was published to crates.io on 2026-09-19 from `435b7c5`, a release-branch commit that never reached `main`. 1.8.1 is that release cut from `main`. Everything below shipped in 1.8.0 except #531, #533, #534, #535 and #538. The binary differs in two ways: the `corvid-stack` template's Trust pin is 1.2.1 here, not 1.2.0 (#533), and the plugin sandbox runs on wasmtime 49.0.1, not 46.0.3 (#538). Apart from the wasmtime family, dependencies are unchanged from 1.8.0.
 
