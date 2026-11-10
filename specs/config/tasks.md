@@ -15,6 +15,7 @@ spec: config.spec.md
 - [x] Wire up CLI subcommands (list, get, set, unset, add, remove)
 - [x] Add error guidance when using wrong verb for key type
 - [x] Unit tests for all public methods
+- [x] `config init` / `config set` / `config add` integration tests use a child `HOME` and `FLEDGE_CONFIG_DIR`, assert the created file, and preserve Unix home-derived sentinel bytes; Windows checks use the explicit override without reading known-folder paths
 
 ## Gaps
 

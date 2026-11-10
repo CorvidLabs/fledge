@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1794323603,
+      "commit": "5f9ba3d0c026e7af85d23a80c83b4c4d4ca4bb21",
+      "contract_digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+      "execution_digest": "315dbb4dac0789eb29e0d586c8be724ed8b14bdd1fcd466571eb266b0d4b1fb3",
+      "workspace_digest": "077692fa85584296effd37baa6adc84c1de0e37a9fc2b128b319d2b754477e72",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec config",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1794323614,
+      "commit": "acd29bca1595e80c1d3b399681bd34e0895f7afb",
+      "contract_digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+      "execution_digest": "315dbb4dac0789eb29e0d586c8be724ed8b14bdd1fcd466571eb266b0d4b1fb3",
+      "workspace_digest": "077692fa85584296effd37baa6adc84c1de0e37a9fc2b128b319d2b754477e72",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec config",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1794323614,
+      "commit": "89dedac7ce1271a3364d401c97d54ab494ca6f70",
+      "contract_digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+      "execution_digest": "315dbb4dac0789eb29e0d586c8be724ed8b14bdd1fcd466571eb266b0d4b1fb3",
+      "workspace_digest": "077692fa85584296effd37baa6adc84c1de0e37a9fc2b128b319d2b754477e72",
+      "acceptance_input_digest": "a5cbf3d4e0cf7215c379c987d4036df4ddd520dbe8d10ac4cb01add6ebeb2f0c",
+      "acceptance_manifest": {
+        "schema_version": 1,
+        "entries": [
+          {
+            "path": ".github/workflows/ci.yml",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "6e5ee3359c49128a013b9d38c8bbfe3fb6d4d0344b06cee5ec4415c78ad53b8e",
+            "entry_digest": "91ffe2a7dd6745791e52c826c3726113ef974e003deacfcbc88d870f6b72f6ff",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": ".github/workflows/trust.yml",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "233fd8c43bd5cc5633d68822cf292d9a9df9412291aec07c895dcf0a840393f1",
+            "entry_digest": "3ef05da1a3ca51eb566b5fabf124d32b1e5b4e02fba9822b597b35e17c0eb44b",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": "specs/config/config.spec.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "21aa241d3a88f593128c3455bae8e6395a8abd612f265bc6ef83725516840534",
+            "entry_digest": "a1e23dd5ef364225bad77f4ef42f84eb5336848f468e312b70eb8ee051f337df",
+            "owners": [
+              "config"
+            ]
+          },
+          {
+            "path": "specs/config/context.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "00633d55ef87c25c4fcaf7314aeb29381636bf00cec15aff6973693c2304f73e",
+            "entry_digest": "a26131a0c1cd78be94f288ed1d078afa2922f12d79cd18f35e175d6a701336e6",
+            "owners": [
+              "config"
+            ]
+          },
+          {
+            "path": "specs/config/requirements.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "63d4fe4f53aecd1f91aea63e7a84bb529bfe358ba34f6d6e3bb0bf0197ca6d92",
+            "entry_digest": "55f75ed72d226ad337fe6d2429874c415686e827e074eb53656e2d0511e63054",
+            "owners": [
+              "config"
+            ]
+          },
+          {
+            "path": "specs/config/tasks.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "5c71d8dc3faae7114d225785b4452ba7db03f12598bdb0c52a629111cb74bd2e",
+            "entry_digest": "2bb7f77d15318180d46e0113650c7642adb80292a6b1fd3b323fb3e7896e5793",
+            "owners": [
+              "config"
+            ]
+          },
+          {
+            "path": "specs/config/testing.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "30cfdeb4fd110808aff1e89b83eacf9adeed14f16d093278c4474c6cc349a378",
+            "entry_digest": "8564a1de5ee2eaa9e6cdebada848a12495c9fd71d26f6168295cd17c49350e60",
+            "owners": [
+              "config"
+            ]
+          },
+          {
+            "path": "tests/common/mod.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "4377af2a2a876fb221c7c6646a0dc8582f564f8e49b13c35daa5f234d6c9dddf",
+            "entry_digest": "cdabe49f393dc0cc4b612d406755a1f9452c54483104b664219c3a3ddb00fdd2",
+            "owners": [
+              "@exact:test"
+            ]
+          },
+          {
+            "path": "tests/config.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "1249b531f6a0c20dfbb5e13f28251aad1318efd93bbef20aed7e203faf11207c",
+            "entry_digest": "19a31572bd9a432e4d0f391b3f619e521be8acbe208a7f7755c6529bb7fa51a6",
+            "owners": [
+              "@exact:test"
+            ]
+          },
+          {
+            "path": "tests/main.rs",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "ed1db12759927d85475e169e2fb126b85e2c99826ca52ce82d1fa8f7b75a07dd",
+            "entry_digest": "6f3cf6d1ef4693fd6491c14c861e46f3455de7040af5f28f5afb63f33b81b5ff",
+            "owners": [
+              "@exact:test"
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check --spec config",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    }
+  ]
+}

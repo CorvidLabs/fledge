@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "keep-config-init-and-config-command-tests-off-the-operator-config",
+  "implementation_commit": "89dedac7ce1271a3364d401c97d54ab494ca6f70",
+  "implementation_tree": "7db13d04381a7aad12e4a236d1423c3c8613e3ae",
+  "contract_digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+  "workspace_digest": "077692fa85584296effd37baa6adc84c1de0e37a9fc2b128b319d2b754477e72",
+  "closing_digest": "b518def5e30f9c6be439bbf6fae17983f0cb4bb73e1a097c53cda9eb018799fb",
+  "review_digest": "40ff6713822d68a97016b8455acd402c80d302bc41792922b57e36ff0d6deb9c",
+  "finalization_digest": "4c625d9622622fbec0163845617d5cfdfc5eb96c90df5a267c89fe41d6f4bc4e",
+  "timestamp": 1794323763
+}
