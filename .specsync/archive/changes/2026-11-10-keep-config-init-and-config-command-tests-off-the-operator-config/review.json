@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "change_id": "keep-config-init-and-config-command-tests-off-the-operator-config",
+  "reviewer": "0xLeif",
+  "provenance": {
+    "schema_version": 1,
+    "provider": "github_actions_check",
+    "required_check": "SpecSync scoped review"
+  },
+  "verdict": "pass",
+  "implementation_commit": "89dedac7ce1271a3364d401c97d54ab494ca6f70",
+  "contract_digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+  "execution_digest": "315dbb4dac0789eb29e0d586c8be724ed8b14bdd1fcd466571eb266b0d4b1fb3",
+  "workspace_digest": "077692fa85584296effd37baa6adc84c1de0e37a9fc2b128b319d2b754477e72",
+  "timestamp": 1794323739
+}
