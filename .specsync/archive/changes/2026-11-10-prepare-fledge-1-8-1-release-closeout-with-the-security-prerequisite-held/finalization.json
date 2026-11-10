@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held",
+  "implementation_commit": "387daa1915028409eae408445fa37c134f4ec47c",
+  "implementation_tree": "d5fe0d71a7a5d9e33709270fc482c7cc1a81ddf9",
+  "contract_digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+  "workspace_digest": "89b414cc6e7350e905384ed5cf0ec2827843d1cf1a15c4ef8fcd6bbdb70c5184",
+  "closing_digest": "4b2e2b2af941bf2285ba5486490dfaf42aa4080d95d76c678aa7f9b31e3ee7df",
+  "review_digest": "17be670cf904430d5ddc1ca9382f71954ab9ff79fe6795b6ee0b3b3bcd57bc3b",
+  "finalization_digest": "732188b436baaebbb32de78c30814e9e26becc07300f660c1729592f33743407",
+  "timestamp": 1794329689
+}

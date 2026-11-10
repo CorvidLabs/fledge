@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "schema_version": 2,
+      "change_id": "prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held",
+      "reviewer": "0xLeif",
+      "provenance": {
+        "schema_version": 1,
+        "provider": "github_actions_check",
+        "required_check": "SpecSync scoped review"
+      },
+      "verdict": "pass",
+      "implementation_commit": "387daa1915028409eae408445fa37c134f4ec47c",
+      "contract_digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+      "execution_digest": "6f4bd61f0571defa46cd83c6360a326c566257f0e58ef653101e2ce2e690ce0f",
+      "workspace_digest": "89b414cc6e7350e905384ed5cf0ec2827843d1cf1a15c4ef8fcd6bbdb70c5184",
+      "timestamp": 1794329665
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "attempts": [
+    {
+      "timestamp": 1794329630,
+      "commit": "c557d5fba4e5e32d6f30c5d235d7a4de51373a05",
+      "contract_digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+      "execution_digest": "6f4bd61f0571defa46cd83c6360a326c566257f0e58ef653101e2ce2e690ce0f",
+      "workspace_digest": "89b414cc6e7350e905384ed5cf0ec2827843d1cf1a15c4ef8fcd6bbdb70c5184",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1794329644,
+      "commit": "e34f08bd25b574d70f493e08f9786586635ace2b",
+      "contract_digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+      "execution_digest": "6f4bd61f0571defa46cd83c6360a326c566257f0e58ef653101e2ce2e690ce0f",
+      "workspace_digest": "89b414cc6e7350e905384ed5cf0ec2827843d1cf1a15c4ef8fcd6bbdb70c5184",
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    },
+    {
+      "timestamp": 1794329644,
+      "commit": "387daa1915028409eae408445fa37c134f4ec47c",
+      "contract_digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+      "execution_digest": "6f4bd61f0571defa46cd83c6360a326c566257f0e58ef653101e2ce2e690ce0f",
+      "workspace_digest": "89b414cc6e7350e905384ed5cf0ec2827843d1cf1a15c4ef8fcd6bbdb70c5184",
+      "acceptance_input_digest": "2b1621c7274a6e61deb88b3901f0bcc4d3a489a4338ce6b969a19fc0a4dbab84",
+      "acceptance_manifest": {
+        "schema_version": 1,
+        "entries": [
+          {
+            "path": "CHANGELOG.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "3a0d10f5f7566d5a9191b2f4074708853c2b67f34cb69ce68b5bebd1bafbd02a",
+            "entry_digest": "99c994219948cf33cbc47fa2b7c72288cf76f4c5804c374ede82d57eff958fc8",
+            "owners": [
+              "@exact:delivery"
+            ]
+          },
+          {
+            "path": "docs/RELEASE-1.8.1.md",
+            "kind": "file",
+            "mode": 33188,
+            "payload_digest": "c2f044d964921ef2b37f99be7b6ecbd5ebe76e953a26a477c244c7998b64468e",
+            "entry_digest": "6ddbdee2aea67dae79bdbc72265c96d430bdb6d74b1c6763143d81e53d4760f4",
+            "owners": [
+              "@exact:delivery"
+            ]
+          }
+        ]
+      },
+      "passed": true,
+      "commands": [
+        {
+          "command": "specsync check (no spec in scope)",
+          "success": true,
+          "exit_code": 0
+        }
+      ],
+      "requirement_ids": []
+    }
+  ]
+}
