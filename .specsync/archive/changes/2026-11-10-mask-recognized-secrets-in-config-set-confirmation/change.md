@@ -1,6 +1,6 @@
 ---
 id: mask-recognized-secrets-in-config-set-confirmation
-state: implementing
+state: archived
 type: bug_fix
 base_commit: 85d7c4efbca79947afa359504b095c95c486b391
 ---

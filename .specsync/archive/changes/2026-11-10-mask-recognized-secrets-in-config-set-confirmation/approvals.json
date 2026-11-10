@@ -45,6 +45,13 @@
         "main: SPEC SECTION Error Cases": "057aa1f0ac1a6e7d976704089f4a457649ee30374512fd3d68f6ee0dcfc33585",
         "main: SPEC SECTION Invariants": "e379a9a63daf0c62415f9542f3a0b6be5d9d986d5509e972539ede7ec682c7b4"
       }
+    },
+    {
+      "gate": "finalization",
+      "actor": "specsync:finalization",
+      "timestamp": 1794323077,
+      "digest": "24a83542a83950f333ac980b52b4fd84d98bcd6654226b02ed3202cb7ea5cf00",
+      "note": "Same-PR finalization closing digest"
     }
   ],
   "reopenings": []

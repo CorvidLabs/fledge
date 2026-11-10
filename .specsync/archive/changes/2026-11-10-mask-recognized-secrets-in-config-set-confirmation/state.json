@@ -7,11 +7,11 @@
   "title": "Mask recognized secrets in config set confirmation",
   "description": "Mask recognized secrets in config set confirmation",
   "kind": "bug_fix",
-  "state": "verifying",
+  "state": "archived",
   "canonical_applied": true,
   "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
   "created_at": 1792135691,
-  "updated_at": 1794322935,
+  "updated_at": 1794323086,
   "affected_specs": [
     "main"
   ],
