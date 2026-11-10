@@ -1,4 +1,37 @@
 {
-  "approvals": [],
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1794329618,
+      "digest": "841f5c21e19c0f6fed389f80f0cbde1ef886c8b881beea84f376188a9774f2a9",
+      "note": "Approved by Leif 2026-11-10, relayed via coordinator t370: 'Leif APPROVED the 1.8.1 release now that the checks are set.'",
+      "approved_scope": {
+        "schema_version": 1,
+        "change_id": "prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held",
+        "title": "Prepare Fledge 1.8.1 release closeout with the security prerequisite held",
+        "description": "Prepare Fledge 1.8.1 release closeout with the security prerequisite held",
+        "kind": "documentation",
+        "affected_specs": [],
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/RELEASE-1.8.1.md"
+        ],
+        "no_spec_change": true,
+        "no_spec_change_rationale": "Release handoff and changelog qualification only; package and Nix already declare 1.8.1. No runtime or dependency edits and no claim that pending PR 538 is merged.",
+        "acceptance_criteria": [
+          "The 1.8.1 closeout states the current channel mismatch and holds publication on PR 538 without altering runtime dependencies or claiming the security upgrade is merged."
+        ],
+        "dependencies": [],
+        "supersedes": [],
+        "answers": {
+          "architecture_risk": "no",
+          "public_contract": "no"
+        }
+      },
+      "approved_delta_digests": {},
+      "approved_delta_bases": {}
+    }
+  ],
   "reopenings": []
 }
