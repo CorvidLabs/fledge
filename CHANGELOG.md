@@ -61,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- mask recognized secrets in the `config set` confirmation: the success line prints `***` for the five keys `Config::is_secret_key` recognizes instead of echoing the supplied value, which is still saved byte-identically (#541) (fa2faaa)
+- drop wasmtime's unused compilation-cache feature so zstd, zstd-safe and zstd-sys leave the dependency graph, clearing RUSTSEC-2026-0391, RUSTSEC-2026-0398 and RUSTSEC-2026-0403 (#543) (b648ea2)
 - upgrade wasmtime and wasmtime-wasi 46.0.3 to 49.0.1, clearing RUSTSEC-2026-0316 and RUSTSEC-2026-0314 (#538)
   - RUSTSEC-2026-0316 ([GHSA-jqpg-j7w6-42pr](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-jqpg-j7w6-42pr)): dynamic record lifting can allocate beyond the hostcall fuel limit. RUSTSEC-2026-0314 ([GHSA-j2g9-4prp-pf6h](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j2g9-4prp-pf6h)): a guest can panic the host through a filesystem datetime overflow. Both are in the wasmtime that sandboxes WASM plugins. Neither looks reachable from fledge's host, which runs core modules over WASI preview 1 only: the first is in the component-model `Val` API, which fledge never uses, and preview 1 splits every timestamp into whole seconds plus under a second of nanoseconds, so the overflow cannot form (a preview 1 guest passing extreme timestamps to 46.0.3 returned normally rather than panicking). The upgrade ships anyway: the plugin runtime is a security boundary, and `cargo audit` gates CI.
   - The sandbox grants are unchanged: `/project` read-only, `/plugin` read-write, 256 MB memory, 10 billion fuel, 60 seconds of wall clock. wasmtime-wasi 49 replaced `DirPerms`/`FilePerms` with `FsPerms` and turned TCP and UDP off by default, so a plugin granted `network` now has both switched back on explicitly. New tests pin the read-only and read-write grants, `..` confinement and the memory cap.
@@ -71,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- isolate config init and config command tests from the operator's HOME and config: each child gets disposable HOME/FLEDGE_CONFIG_DIR, Unix sentinel guards reject traversal before any write, and config remove is verified in both output and persisted TOML (#540) (90997ef)
 - mocking harness + $HOME isolation + publish coverage (#447) (#504) (43a2138)
 
 ## [v1.7.2] - 2026-07-27
