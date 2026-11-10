@@ -438,23 +438,7 @@ pub(crate) fn install_plugin(
         print_install_banner(&display_source, tier);
     }
 
-    if !force {
-        if !crate::utils::is_interactive() {
-            bail!(
-                "Plugin installation requires confirmation in non-interactive mode.\n  \
-                 Use --yes or --force to skip prompts."
-            );
-        }
-        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .with_prompt(format!(
-                "Install plugin '{repo_name}' from {display_source}?"
-            ))
-            .default(true)
-            .interact()?;
-        if !confirm {
-            bail!("Plugin installation cancelled.");
-        }
-    }
+    confirm_install(force, &repo_name, &display_source)?;
 
     let plugins = plugins_dir();
     let bin_dir = plugin_bin_dir();
@@ -466,142 +450,19 @@ pub(crate) fn install_plugin(
     let mut registry = load_registry()?;
     let existing = registry.plugins.iter().position(|p| p.name == repo_name);
 
-    if plugin_dir.exists() {
-        if !force {
-            bail!(
-                "Plugin '{}' is already installed.\n  Use {} to reinstall.",
-                repo_name,
-                style("--force").cyan()
-            );
-        }
-        remove_plugin_path(&plugin_dir).context("removing existing plugin")?;
-    }
+    clear_existing_install(force, &repo_name, &plugin_dir)?;
 
-    if let Err(e) = materialize_source(&install_source, &plugin_dir, json) {
-        remove_plugin_path(&plugin_dir).ok();
-        return Err(e);
-    }
+    let manifest = materialize_and_read_manifest(&install_source, &plugin_dir, json)?;
 
-    let manifest = match read_manifest(&plugin_dir) {
-        Ok(manifest) => manifest,
-        Err(e) => {
-            remove_plugin_path(&plugin_dir).ok();
-            return Err(e);
-        }
-    };
+    enforce_capability_gate(tier, &repo_name, &plugin_dir, &manifest, force, json)?;
 
-    let flags = CapabilityFlags::from_manifest(&manifest);
-    let needs_cap_prompt = flags.needs_cap_prompt;
-    let has_hooks = flags.has_hooks;
-
-    if let Err(blocked) = check_tier_capabilities(tier, &manifest.capabilities) {
-        if let Err(e) = remove_plugin_path(&plugin_dir) {
-            eprintln!(
-                "Warning: failed to clean up partial install at {}: {e}",
-                plugin_dir.display()
-            );
-        }
-        bail!(
-            "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
-             Only official and team-tier plugins may use exec or network.\n  \
-             To trust this source, run: fledge config add trust.orgs <owner>\n  \
-             Or fork it under an account you control.",
-            repo_name,
-            blocked.join(", ")
-        );
-    }
-
-    if needs_cap_prompt || has_hooks {
-        if !json {
-            print_requested_capabilities(&manifest, needs_cap_prompt, has_hooks);
-        }
-        if force {
-            eprintln!(
-                "  {} Permissions auto-granted via --force",
-                style("WARN").yellow()
-            );
-        } else if !crate::utils::is_interactive() {
-            remove_plugin_path(&plugin_dir).ok();
-            bail!(
-                "Plugin permissions require confirmation in non-interactive mode.\n  \
-                 Use --yes or --force to auto-grant."
-            );
-        } else {
-            let prompt_msg = if needs_cap_prompt && has_hooks {
-                "Grant capabilities and approve hooks?"
-            } else if needs_cap_prompt {
-                "Grant these capabilities?"
-            } else {
-                "Approve these hooks?"
-            };
-            let confirm =
-                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-                    .with_prompt(prompt_msg)
-                    .default(true)
-                    .interact()?;
-            if !confirm {
-                remove_plugin_path(&plugin_dir).ok();
-                bail!("Plugin installation cancelled.");
-            }
-        }
-    }
-
-    if let Err(e) = run_build(&plugin_dir, &manifest) {
-        remove_plugin_path(&plugin_dir).ok();
-        return Err(e.context("build failed; installation rolled back"));
-    }
-
-    if manifest.plugin.is_wasm() {
-        #[cfg(feature = "wasm")]
-        {
-            for cmd in &manifest.commands {
-                let wasm_path = plugin_dir.join(&cmd.binary);
-                if wasm_path.exists() {
-                    println!(
-                        "  {} Pre-compiling WASM module...",
-                        style("▶").cyan().bold()
-                    );
-                    super::wasm::compile_and_cache(&wasm_path)?;
-                } else {
-                    remove_plugin_path(&plugin_dir).ok();
-                    bail!(
-                        "WASM binary '{}' not found after build.\n  \
-                         Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
-                         Expected: {}",
-                        cmd.binary,
-                        wasm_path.display()
-                    );
-                }
-            }
-        }
-        #[cfg(not(feature = "wasm"))]
-        {
-            remove_plugin_path(&plugin_dir).ok();
-            bail!(
-                "Plugin '{}' requires the WASM runtime, which was not compiled in \
-                 (rebuild with --features wasm).",
-                manifest.plugin.name
-            );
-        }
-    }
+    build_and_precompile(&plugin_dir, &manifest)?;
 
     let command_names = link_commands(&plugin_dir, &bin_dir, &manifest).inspect_err(|_| {
         remove_plugin_path(&plugin_dir).ok();
     })?;
 
-    // Run post_install hook BEFORE persisting to registry so a hook failure
-    // doesn't leave the plugin marked as installed but non-functional.
-    if let Some(hook) = &manifest.hooks.post_install {
-        if let Err(e) = run_hook(&plugin_dir, hook, "post_install") {
-            // Roll back: remove symlinks and plugin directory
-            for cmd_name in &command_names {
-                let link_path = bin_dir.join(format!("fledge-{cmd_name}"));
-                fs::remove_file(&link_path).ok();
-            }
-            remove_plugin_path(&plugin_dir).ok();
-            return Err(e.context("post_install hook failed; installation rolled back"));
-        }
-    }
+    run_post_install_hook(&plugin_dir, &bin_dir, &manifest, &command_names)?;
 
     let entry = build_plugin_entry(&repo_name, &install_source, &manifest, &command_names);
 
@@ -630,6 +491,208 @@ pub(crate) fn install_plugin(
         "pinned_ref": entry.pinned_ref,
         "capabilities": entry.capabilities,
     }))
+}
+
+/// The interactive confirmation gate. `--force`/`--yes`/non-interactive mode
+/// skips it; otherwise the user must confirm the source before anything is
+/// fetched or written.
+fn confirm_install(force: bool, repo_name: &str, display_source: &str) -> Result<()> {
+    if force {
+        return Ok(());
+    }
+    if !crate::utils::is_interactive() {
+        bail!(
+            "Plugin installation requires confirmation in non-interactive mode.\n  \
+             Use --yes or --force to skip prompts."
+        );
+    }
+    let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+        .with_prompt(format!(
+            "Install plugin '{repo_name}' from {display_source}?"
+        ))
+        .default(true)
+        .interact()?;
+    if !confirm {
+        bail!("Plugin installation cancelled.");
+    }
+    Ok(())
+}
+
+/// Remove a previous install of the same plugin, or refuse when `--force` is
+/// not in effect.
+fn clear_existing_install(force: bool, repo_name: &str, plugin_dir: &Path) -> Result<()> {
+    if plugin_dir.exists() {
+        if !force {
+            bail!(
+                "Plugin '{}' is already installed.\n  Use {} to reinstall.",
+                repo_name,
+                style("--force").cyan()
+            );
+        }
+        remove_plugin_path(plugin_dir).context("removing existing plugin")?;
+    }
+    Ok(())
+}
+
+/// Fetch/copy/link the source into place and read its manifest, rolling back
+/// the plugin directory on any failure.
+fn materialize_and_read_manifest(
+    source: &InstallSource,
+    plugin_dir: &Path,
+    json: bool,
+) -> Result<PluginManifest> {
+    if let Err(e) = materialize_source(source, plugin_dir, json) {
+        remove_plugin_path(plugin_dir).ok();
+        return Err(e);
+    }
+    match read_manifest(plugin_dir) {
+        Ok(manifest) => Ok(manifest),
+        Err(e) => {
+            remove_plugin_path(plugin_dir).ok();
+            Err(e)
+        }
+    }
+}
+
+/// Reject dangerous capabilities from unverified sources, then gate any
+/// capability/hook grants on confirmation (or `--force`).
+fn enforce_capability_gate(
+    tier: TrustTier,
+    repo_name: &str,
+    plugin_dir: &Path,
+    manifest: &PluginManifest,
+    force: bool,
+    json: bool,
+) -> Result<()> {
+    let flags = CapabilityFlags::from_manifest(manifest);
+
+    if let Err(blocked) = check_tier_capabilities(tier, &manifest.capabilities) {
+        if let Err(e) = remove_plugin_path(plugin_dir) {
+            eprintln!(
+                "Warning: failed to clean up partial install at {}: {e}",
+                plugin_dir.display()
+            );
+        }
+        bail!(
+            "Unverified plugin '{}' requests dangerous capabilities: {}\n  \
+             Only official and team-tier plugins may use exec or network.\n  \
+             To trust this source, run: fledge config add trust.orgs <owner>\n  \
+             Or fork it under an account you control.",
+            repo_name,
+            blocked.join(", ")
+        );
+    }
+
+    if !(flags.needs_cap_prompt || flags.has_hooks) {
+        return Ok(());
+    }
+
+    if !json {
+        print_requested_capabilities(manifest, flags.needs_cap_prompt, flags.has_hooks);
+    }
+    if force {
+        eprintln!(
+            "  {} Permissions auto-granted via --force",
+            style("WARN").yellow()
+        );
+        return Ok(());
+    }
+    if !crate::utils::is_interactive() {
+        remove_plugin_path(plugin_dir).ok();
+        bail!(
+            "Plugin permissions require confirmation in non-interactive mode.\n  \
+             Use --yes or --force to auto-grant."
+        );
+    }
+    let prompt_msg = if flags.needs_cap_prompt && flags.has_hooks {
+        "Grant capabilities and approve hooks?"
+    } else if flags.needs_cap_prompt {
+        "Grant these capabilities?"
+    } else {
+        "Approve these hooks?"
+    };
+    let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+        .with_prompt(prompt_msg)
+        .default(true)
+        .interact()?;
+    if !confirm {
+        remove_plugin_path(plugin_dir).ok();
+        bail!("Plugin installation cancelled.");
+    }
+    Ok(())
+}
+
+/// Run the manifest's build hook, then pre-compile declared WASM modules.
+/// Failures roll back the plugin directory.
+fn build_and_precompile(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    if let Err(e) = run_build(plugin_dir, manifest) {
+        remove_plugin_path(plugin_dir).ok();
+        return Err(e.context("build failed; installation rolled back"));
+    }
+    precompile_wasm_modules(plugin_dir, manifest)
+}
+
+fn precompile_wasm_modules(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    if !manifest.plugin.is_wasm() {
+        return Ok(());
+    }
+    precompile_wasm_inner(plugin_dir, manifest)
+}
+
+#[cfg(feature = "wasm")]
+fn precompile_wasm_inner(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    for cmd in &manifest.commands {
+        let wasm_path = plugin_dir.join(&cmd.binary);
+        if wasm_path.exists() {
+            println!(
+                "  {} Pre-compiling WASM module...",
+                style("▶").cyan().bold()
+            );
+            super::wasm::compile_and_cache(&wasm_path)?;
+        } else {
+            remove_plugin_path(plugin_dir).ok();
+            bail!(
+                "WASM binary '{}' not found after build.\n  \
+                 Check that the build hook produces a .wasm file at the path declared in plugin.toml.\n  \
+                 Expected: {}",
+                cmd.binary,
+                wasm_path.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(feature = "wasm"))]
+fn precompile_wasm_inner(plugin_dir: &Path, manifest: &PluginManifest) -> Result<()> {
+    remove_plugin_path(plugin_dir).ok();
+    bail!(
+        "Plugin '{}' requires the WASM runtime, which was not compiled in \
+         (rebuild with --features wasm).",
+        manifest.plugin.name
+    );
+}
+
+/// Run the post_install hook BEFORE persisting to the registry so a hook
+/// failure doesn't leave the plugin marked as installed but non-functional.
+/// A failure rolls back symlinks and the plugin directory.
+fn run_post_install_hook(
+    plugin_dir: &Path,
+    bin_dir: &Path,
+    manifest: &PluginManifest,
+    command_names: &[String],
+) -> Result<()> {
+    if let Some(hook) = &manifest.hooks.post_install {
+        if let Err(e) = run_hook(plugin_dir, hook, "post_install") {
+            for cmd_name in command_names {
+                let link_path = bin_dir.join(format!("fledge-{cmd_name}"));
+                fs::remove_file(&link_path).ok();
+            }
+            remove_plugin_path(plugin_dir).ok();
+            return Err(e.context("post_install hook failed; installation rolled back"));
+        }
+    }
+    Ok(())
 }
 
 /// Capability/hook flags derived from a plugin manifest. Pure (no I/O), so the

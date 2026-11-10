@@ -598,7 +598,46 @@ pub(crate) fn new_spec(root: &Path, name: &str) -> Result<()> {
 
     fs::create_dir_all(&spec_dir)?;
 
-    let spec_content = format!(
+    let spec_content = new_spec_template(name, leaf);
+    let requirements_content = new_requirements_template(leaf);
+    let tasks_content = new_tasks_template(leaf);
+    let context_content = new_context_template(leaf);
+    let testing_content = new_testing_template(leaf);
+
+    let specs_dir_rel = config.specs_dir.as_deref().unwrap_or("specs");
+    let spec_file_name = format!("{leaf}.spec.md");
+    let spec_file_rel = format!("{specs_dir_rel}/{name}/{spec_file_name}");
+
+    let scaffold = [
+        (spec_file_name.as_str(), &spec_content),
+        ("requirements.md", &requirements_content),
+        ("tasks.md", &tasks_content),
+        ("context.md", &context_content),
+        ("testing.md", &testing_content),
+    ];
+    for (file_name, content) in scaffold {
+        fs::write(spec_dir.join(file_name), content)?;
+        println!(
+            "{} Created {specs_dir_rel}/{name}/{file_name}",
+            style("✅").green().bold()
+        );
+    }
+
+    register_new_spec(root, name, &spec_file_rel)?;
+
+    println!();
+    println!(
+        "  Spec module '{}' created. Edit {} to get started.",
+        style(name).green(),
+        style(&spec_file_rel).cyan()
+    );
+
+    Ok(())
+}
+
+/// The `<leaf>.spec.md` skeleton written by `spec new`, dated today.
+fn new_spec_template(name: &str, leaf: &str) -> String {
+    format!(
         r#"---
 module: {name}
 version: 1
@@ -674,9 +713,12 @@ Then ...
         leaf = leaf,
         title = to_title_case(leaf),
         date = chrono::Local::now().format("%Y-%m-%d"),
-    );
+    )
+}
 
-    let requirements_content = format!(
+/// The `requirements.md` companion skeleton.
+fn new_requirements_template(leaf: &str) -> String {
+    format!(
         r#"---
 spec: {leaf}.spec.md
 ---
@@ -697,9 +739,12 @@ spec: {leaf}.spec.md
 
 - <!-- List anything explicitly excluded. -->
 "#
-    );
+    )
+}
 
-    let tasks_content = format!(
+/// The `tasks.md` companion skeleton.
+fn new_tasks_template(leaf: &str) -> String {
+    format!(
         r#"---
 spec: {leaf}.spec.md
 ---
@@ -710,9 +755,12 @@ spec: {leaf}.spec.md
 - [ ] Implement module
 - [ ] Write tests
 "#
-    );
+    )
+}
 
-    let context_content = format!(
+/// The `context.md` companion skeleton.
+fn new_context_template(leaf: &str) -> String {
+    format!(
         r#"---
 spec: {leaf}.spec.md
 ---
@@ -729,9 +777,12 @@ spec: {leaf}.spec.md
 
 - <!-- Document key design decisions and their rationale. -->
 "#
-    );
+    )
+}
 
-    let testing_content = format!(
+/// The `testing.md` companion skeleton.
+fn new_testing_template(leaf: &str) -> String {
+    format!(
         r#"---
 spec: {leaf}.spec.md
 ---
@@ -746,40 +797,13 @@ spec: {leaf}.spec.md
 
 - <!-- List integration test scenarios. -->
 "#
-    );
+    )
+}
 
-    let specs_dir_rel = config.specs_dir.as_deref().unwrap_or("specs");
-    let spec_file_rel = format!("{specs_dir_rel}/{name}/{leaf}.spec.md");
-
-    fs::write(spec_dir.join(format!("{leaf}.spec.md")), &spec_content)?;
-    println!("{} Created {spec_file_rel}", style("✅").green().bold());
-
-    fs::write(spec_dir.join("requirements.md"), &requirements_content)?;
-    println!(
-        "{} Created {specs_dir_rel}/{name}/requirements.md",
-        style("✅").green().bold()
-    );
-
-    fs::write(spec_dir.join("tasks.md"), &tasks_content)?;
-    println!(
-        "{} Created {specs_dir_rel}/{name}/tasks.md",
-        style("✅").green().bold()
-    );
-
-    fs::write(spec_dir.join("context.md"), &context_content)?;
-    println!(
-        "{} Created {specs_dir_rel}/{name}/context.md",
-        style("✅").green().bold()
-    );
-
-    fs::write(spec_dir.join("testing.md"), &testing_content)?;
-    println!(
-        "{} Created {specs_dir_rel}/{name}/testing.md",
-        style("✅").green().bold()
-    );
-
-    // Update registry. Quote the key when it contains a `/` so the resulting
-    // TOML stays valid for nested names like `game/board`.
+/// Add the new module to `.specsync/registry.toml` when the project has one and
+/// the module is not listed yet. Quote the key when it contains a `/` so the
+/// resulting TOML stays valid for nested names like `game/board`.
+fn register_new_spec(root: &Path, name: &str, spec_file_rel: &str) -> Result<()> {
     let registry_path = root.join(".specsync/registry.toml");
     if registry_path.exists() {
         let mut registry = fs::read_to_string(&registry_path)?;
@@ -794,13 +818,5 @@ spec: {leaf}.spec.md
             fs::write(&registry_path, &registry)?;
         }
     }
-
-    println!();
-    println!(
-        "  Spec module '{}' created. Edit {} to get started.",
-        style(name).green(),
-        style(&spec_file_rel).cyan()
-    );
-
     Ok(())
 }

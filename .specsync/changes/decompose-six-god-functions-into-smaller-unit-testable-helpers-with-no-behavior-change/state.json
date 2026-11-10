@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "decompose-six-god-functions-into-smaller-unit-testable-helpers-with-no-behavior-change",
+  "slug": "decompose-six-god-functions-into-smaller-unit-testable-helpers-with-no-behavior-change",
+  "title": "Decompose six god functions into smaller unit-testable helpers with no behavior change",
+  "description": "Decompose six god functions into smaller unit-testable helpers with no behavior change",
+  "kind": "refactor",
+  "state": "draft",
+  "base_commit": "e0fe31bfd6ac39be1a68979d09c09dac25bae5f6",
+  "created_at": 1794332840,
+  "updated_at": 1794344358,
+  "affected_specs": [],
+  "affected_paths": [
+    "src/spec/commands.rs",
+    "src/lanes/community.rs",
+    "src/main.rs",
+    "src/plugin/install.rs",
+    "src/plugin/update.rs"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "Internal restructuring only: the six functions keep their signatures and behavior, new helpers are private, spec frontmatter file lists and documented exports are unchanged, and the full existing test suite passes unmodified.",
+  "acceptance_criteria": [
+    "Each of the six functions (spec/commands.rs::new_spec; lanes/community.rs::import_lanes; main.rs::run; plugin/install.rs::install_plugin; plugin/update.rs::update_one_plugin; plugin/update.rs::rebuild_after_fetch) reads as a short orchestration of named private helpers under roughly 80 lines; main.rs::run becomes setup plus a flat dispatch match whose arms only move parsed fields into name-checked option structs and call the handler; all existing tests pass unmodified; clippy with -D warnings and cargo fmt --check stay green; no public signature or CLI behavior or output text changes"
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing",
+    "design",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "no",
+    "public_contract": "no"
+  }
+}

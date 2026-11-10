@@ -77,7 +77,15 @@ fn run() -> Result<()> {
         utils::install_terminal_restore_handler();
     }
 
-    match cli.command {
+    dispatch(cli.command)
+}
+
+/// Route a parsed subcommand to its handler. A flat one-arm-per-command match:
+/// each arm moves the parsed fields into the handler's options struct (by
+/// field name, so two same-typed flags cannot be swapped silently) and calls
+/// it. Arms with logic of their own live in the helpers below.
+fn dispatch(command: Option<Commands>) -> Result<()> {
+    match command {
         None => {
             Cli::command().print_help()?;
             println!();
@@ -227,55 +235,56 @@ fn run() -> Result<()> {
                 model,
             })?;
         }
-        Some(Commands::Completions { shell, install }) => {
-            if install {
-                template_cmds::install_completions(shell)?;
-            } else {
-                let shell = shell.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Shell argument is required when not using --install. Usage: fledge completions <bash|zsh|fish>"
-                    )
-                })?;
-                clap_complete::generate(
-                    shell,
-                    &mut Cli::command(),
-                    "fledge",
-                    &mut std::io::stdout(),
-                );
-            }
-        }
-        Some(Commands::External(args)) => {
-            let cmd_name = args.first().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "no subcommand provided\n\n  tip: use {} for help",
-                    style("fledge help").cyan()
-                )
-            })?;
-            let cmd_args: Vec<String> = args[1..].to_vec();
-            if plugin::resolve_plugin_command(cmd_name).is_some() {
-                plugin::run(plugin::PluginOptions {
-                    action: plugin::PluginAction::Run {
-                        name: cmd_name.clone(),
-                        args: cmd_args,
-                    },
-                    json: false,
-                })?;
-            } else {
-                anyhow::bail!(
-                    "unrecognized subcommand '{}'\n\n  tip: use {} for help",
-                    cmd_name,
-                    style("fledge help").cyan()
-                );
-            }
-        }
+        Some(Commands::Completions { shell, install }) => completions(shell, install)?,
+        Some(Commands::External(args)) => run_external(args)?,
     }
 
     Ok(())
 }
 
+/// `fledge completions`: install them, or print the script for one shell.
+fn completions(shell: Option<clap_complete::Shell>, install: bool) -> Result<()> {
+    if install {
+        return template_cmds::install_completions(shell);
+    }
+    let shell = shell.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Shell argument is required when not using --install. Usage: fledge completions <bash|zsh|fish>"
+        )
+    })?;
+    clap_complete::generate(shell, &mut Cli::command(), "fledge", &mut std::io::stdout());
+    Ok(())
+}
+
+/// An unknown subcommand: run it as a plugin command when one is installed
+/// under that name, otherwise refuse it.
+fn run_external(args: Vec<String>) -> Result<()> {
+    let cmd_name = args.first().ok_or_else(|| {
+        anyhow::anyhow!(
+            "no subcommand provided\n\n  tip: use {} for help",
+            style("fledge help").cyan()
+        )
+    })?;
+    let cmd_args: Vec<String> = args[1..].to_vec();
+    if plugin::resolve_plugin_command(cmd_name).is_none() {
+        anyhow::bail!(
+            "unrecognized subcommand '{}'\n\n  tip: use {} for help",
+            cmd_name,
+            style("fledge help").cyan()
+        );
+    }
+    plugin::run(plugin::PluginOptions {
+        action: plugin::PluginAction::Run {
+            name: cmd_name.clone(),
+            args: cmd_args,
+        },
+        json: false,
+    })
+}
+
 // ── CLI-subcommand → handler-action translation ─────────────────────────────
 // These map the clap-derived `*Subcommand` enums onto each handler's own action
-// enum. Kept out of `run` so the top-level dispatch stays a flat one-line-per-
+// enum. Kept out of `dispatch` so it stays a flat one-line-per-
 // command match, and so the non-trivial bits (plugin install's force||yes, the
 // external-lane flag parsing) are isolated and unit-testable.
 
