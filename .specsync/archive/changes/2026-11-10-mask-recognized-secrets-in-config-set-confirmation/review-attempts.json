@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "reviews": [
+    {
+      "schema_version": 2,
+      "change_id": "mask-recognized-secrets-in-config-set-confirmation",
+      "reviewer": "0xLeif",
+      "provenance": {
+        "schema_version": 1,
+        "provider": "github_actions_check",
+        "required_check": "SpecSync scoped review"
+      },
+      "verdict": "pass",
+      "implementation_commit": "0c0c1787dc0cfc4e1fa743c48f26c489593f2f36",
+      "contract_digest": "ff631d0f33f515f5ee31e9ecf9b70995c01bbd3d74f4bc04c172e1c322c53fb3",
+      "execution_digest": "fc0fddd0e2c10ea6ce53d54ee0bc300bf60e8585c506d03d4567b0facf5622a6",
+      "workspace_digest": "93f7c745b8b0012bfa09a880a2562ae957928f52b15fa497e4b8fea7b1cc8556",
+      "timestamp": 1794323050
+    }
+  ]
+}

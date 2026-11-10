@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "mask-recognized-secrets-in-config-set-confirmation",
+  "implementation_commit": "0c0c1787dc0cfc4e1fa743c48f26c489593f2f36",
+  "implementation_tree": "b4249cb1b0a44db33052a0d65b46003118634ab3",
+  "contract_digest": "ff631d0f33f515f5ee31e9ecf9b70995c01bbd3d74f4bc04c172e1c322c53fb3",
+  "workspace_digest": "93f7c745b8b0012bfa09a880a2562ae957928f52b15fa497e4b8fea7b1cc8556",
+  "closing_digest": "24a83542a83950f333ac980b52b4fd84d98bcd6654226b02ed3202cb7ea5cf00",
+  "review_digest": "3b95322f47fbd27d60de65d2a34b910b1e6e2dfba6c0d8853736b07d85fa8b40",
+  "finalization_digest": "872fac74e9818354365cb07406f76ce793bb0ed1704a185d6c4415a67e0b4aae",
+  "timestamp": 1794323078
+}

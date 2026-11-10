@@ -1,0 +1,58 @@
+{
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1794322813,
+      "digest": "ff631d0f33f515f5ee31e9ecf9b70995c01bbd3d74f4bc04c172e1c322c53fb3",
+      "note": null,
+      "approved_scope": {
+        "schema_version": 1,
+        "change_id": "mask-recognized-secrets-in-config-set-confirmation",
+        "title": "Mask recognized secrets in config set confirmation",
+        "description": "Mask recognized secrets in config set confirmation",
+        "kind": "bug_fix",
+        "affected_specs": [
+          "main"
+        ],
+        "affected_paths": [
+          "specs/main/main.spec.md",
+          "specs/main/testing.md",
+          "src/config_cmds.rs",
+          "tests/config_secret_output.rs"
+        ],
+        "no_spec_change": false,
+        "no_spec_change_rationale": null,
+        "acceptance_criteria": [
+          "Existing config get and currently rendered config list secret values stay masked; the absent deprecated Claude list row is not claimed.",
+          "For every existing Config::is_secret_key key successful config set persists the exact supplied value and confirms with the key plus *** while omitting the supplied secret from stdout and stderr.",
+          "Non-secret defaults.author still confirms and persists its plaintext value.",
+          "The same actual CLI regression changes from five secret-output failures and two passing controls on base to seven passing cases on the candidate.",
+          "Unknown config keys fail without echoing the supplied value or creating the owned config file."
+        ],
+        "dependencies": [],
+        "supersedes": [],
+        "answers": {
+          "architecture_risk": "yes",
+          "constraints": "Existing specs/config/requirements.md requires tokens absent from CLI output and errors and REQ-config-003 preserves scalar persistence. Existing hi/setup.md SETUP-2.g requires masked printed API keys. Keep Config::is_secret_key as the single existing classifier and preserve the deprecated Claude alias. This is an agent-proposed bug-fix definition based on accepted repository intent; no new hi criteria or human acceptance is recorded. Preserve PR538 dependency scope and PR539/540 ownership; do not change manifests or policies. Baseline cached audit remains failed with 11 vulnerabilities and two unmaintained warnings. Actual Trust/risk/provenance and human lifecycle approval remain pending with the coordinator.",
+          "public_contract": "yes"
+        }
+      },
+      "approved_delta_digests": {
+        "main": "b478bd75fb9e9dc885daff17dc29e352c629f3e4b3af49ccc7a54536b6fd91f7"
+      },
+      "approved_delta_bases": {
+        "main: SPEC SECTION Error Cases": "057aa1f0ac1a6e7d976704089f4a457649ee30374512fd3d68f6ee0dcfc33585",
+        "main: SPEC SECTION Invariants": "e379a9a63daf0c62415f9542f3a0b6be5d9d986d5509e972539ede7ec682c7b4"
+      }
+    },
+    {
+      "gate": "finalization",
+      "actor": "specsync:finalization",
+      "timestamp": 1794323077,
+      "digest": "24a83542a83950f333ac980b52b4fd84d98bcd6654226b02ed3202cb7ea5cf00",
+      "note": "Same-PR finalization closing digest"
+    }
+  ],
+  "reopenings": []
+}
