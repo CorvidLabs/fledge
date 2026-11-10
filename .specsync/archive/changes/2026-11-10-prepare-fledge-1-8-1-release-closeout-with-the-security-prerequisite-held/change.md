@@ -1,6 +1,6 @@
 ---
 id: prepare-fledge-1-8-1-release-closeout-with-the-security-prerequisite-held
-state: implementing
+state: archived
 type: documentation
 base_commit: 85d7c4efbca79947afa359504b095c95c486b391
 ---
