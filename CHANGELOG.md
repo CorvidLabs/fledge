@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **About 1.8.0.** fledge 1.8.0 was published to crates.io on 2026-09-19 from `435b7c5`, a release-branch commit that never reached `main`. 1.8.1 is that release cut from `main`. Everything below shipped in 1.8.0 except #531, #533, #534, #535 and #538. The binary differs in two ways: the `corvid-stack` template's Trust pin is 1.2.1 here, not 1.2.0 (#533), and the plugin sandbox runs on wasmtime 49.0.1, not 46.0.3 (#538). Apart from the wasmtime family, dependencies are unchanged from 1.8.0.
 
-> **Release status.** crates.io serves 1.8.0; GitHub releases and Homebrew serve 1.7.2. This tree prepares 1.8.1 from main. The Wasmtime security upgrade is merged (#538, plus the zstd-advisory cleanup in #543) and the hosted dependency audit is green. The config secret-masking fix (#541) and the config test-isolation fix (#540) are included. No publication step is performed by this preparation; see [the closeout handoff](docs/RELEASE-1.8.1.md).
+> **Release status.** GitHub releases, crates.io and Homebrew all serve 1.8.0 (GitHub release v1.8.0 published 2026-11-01). This tree prepares 1.8.1 from main. The Wasmtime security upgrade is merged (#538, plus the zstd-advisory cleanup in #543) and the hosted dependency audit is green. The config secret-masking fix (#541) and the config test-isolation fix (#540) are included. No publication step is performed by this preparation; see [the closeout handoff](docs/RELEASE-1.8.1.md).
 
 ### CI
 

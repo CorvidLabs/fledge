@@ -17,7 +17,7 @@ Everything in the changelog's v1.8.1 section, which is main plus this documentat
 
 ## Candidate and version surfaces
 
-Cargo.toml, Cargo.lock and flake.nix agree at 1.8.1. crates.io serves 1.8.0; GitHub releases and Homebrew serve 1.7.2. A previous green GitHub release is not evidence those channels converged.
+Cargo.toml, Cargo.lock and flake.nix agree at 1.8.1. GitHub releases, crates.io and Homebrew all serve 1.8.0 (GitHub release v1.8.0 was published 2026-11-01 and the formula followed), so the channels currently converge on the off-main 1.8.0 build; 1.8.1 is the first release cut from main since.
 
 ## Ordered closeout
 
