@@ -32,11 +32,18 @@ pub fn handle_config(action: ConfigAction) -> Result<()> {
             let mut config = config::Config::load()?;
             config.set(&key, &value)?;
             config.save()?;
+            // Same classifier as `config get`. The saved value stays intact;
+            // only this confirmation hides recognized secrets.
+            let displayed = if config::Config::is_secret_key(&key) {
+                "***"
+            } else {
+                value.as_str()
+            };
             println!(
                 "{} Set {} = {}",
                 style("✅").green().bold(),
                 style(&key).cyan(),
-                style(&value).green()
+                style(displayed).green()
             );
         }
         ConfigAction::Unset { key } => {
