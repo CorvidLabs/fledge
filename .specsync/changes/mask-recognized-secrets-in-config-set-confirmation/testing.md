@@ -28,3 +28,16 @@ Recorded wrapper uses task-local operator/plugin directories, offline cached too
 ## Pending
 
 Actual cached Trust/risk/provenance, exact nonempty candidate range, live ownership, lifecycle approval/acceptance and hosted checks remain pending. Evidence does not prove argv/history protection, comprehensive credential security, dependency acceptance or release readiness.
+
+## Requirement evidence
+
+Each acceptance criterion of REQ-main-012 in `deltas/main.md`, and what proves it.
+Test names are in `tests/config_secret_output.rs`; all seven pass on the materialized tree (`cargo test --test config_secret_output`).
+
+| Requirement | Acceptance criterion | Evidence |
+|---|---|---|
+| REQ-main-012 | five recognized keys persist byte-identically, confirm with `***`, markers absent from stdout/stderr | `config_set_masks_github_token`, `config_set_masks_anthropic_api_key`, `config_set_masks_openai_api_key`, `config_set_masks_claude_api_key`, `config_set_masks_ollama_api_key` (all via `assert_secret_round_trip`) |
+| REQ-main-012 | `defaults.author` still prints its plaintext value | `config_set_prints_nonsecret_defaults_author` |
+| REQ-main-012 | unknown key exits non-zero, no echo, config file unwritten | `config_set_unknown_key_does_not_echo_or_write` |
+| REQ-main-012 | `config get` and rendered `config list` keep masking stored secrets | `assert_secret_round_trip` get/list assertions inside the five mask tests |
+| REQ-main-012 | the regression suite passes all seven cases | `cargo test --test config_secret_output`: 7 passed, 0 failed (also observed on this worktree after rebase onto main b648ea2) |

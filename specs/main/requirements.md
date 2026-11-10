@@ -47,3 +47,14 @@ Acceptance Criteria
 - `src/run.rs`, `src/lanes/execute.rs`, and `src/lanes/validate.rs` all reach `walk_task_graph` through that declaration; no module keeps a second dependency walk.
 - `cargo build` resolves `crate::deps` from every one of those call sites.
 
+### REQ-main-012
+
+`fledge config set` SHALL persist the exact supplied value for every key `Config::is_secret_key` recognizes (`github.token`, `ai.anthropic.api_key`, `ai.openai.api_key`, `ai.claude.api_key`, `ai.ollama.api_key`) while printing a success confirmation that contains the key and `***` instead of the value, so the supplied secret appears in neither stdout nor stderr. Non-secret keys SHALL still confirm with their plaintext value, and an unknown key SHALL fail without echoing the supplied value or writing the config file.
+
+Acceptance Criteria
+- Each of the five recognized secret keys persists byte-identically and confirms with `***`; the marker value appears in neither stdout nor stderr.
+- `defaults.author` still prints its plaintext value in the confirmation.
+- An unknown key exits non-zero, does not echo the supplied value, and leaves the config file unwritten.
+- `config get` and the rendered `config list` keep masking stored secrets.
+- The CLI regression suite `tests/config_secret_output.rs` passes all seven cases.
+

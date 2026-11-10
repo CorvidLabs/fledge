@@ -120,13 +120,6 @@ $ fledge completions bash --install
 $ fledge unknown-command arg1
 ▶️ Running plugin: unknown-command
 [delegates to plugin if installed, else error]
-
-$ fledge config set github.token <secret>
-✅ Set github.token = ***
-# the value is saved; stdout and stderr do not contain it
-
-$ fledge config set defaults.author Ada
-✅ Set defaults.author = Ada
 ```
 
 ## Error Cases
@@ -174,4 +167,4 @@ All modules are dependencies — main dispatches to every subcommand module. See
 | 14 | 2026-07-30 | Add `SpecSubcommand::Lint` and its `spec_action_from` arm for `fledge spec lint` (#429): positional `[target]`, plus `--ai`, `--no-ai`, `--provider`, `--model`, `--ignore`, `--strict`, `--json` |
 | 15 | 2026-08-11 | CHG-0009-fledge-spec-lint-two-layer-quality-gate-for-the-spec-itself-issue-429: Fledge spec lint: two-layer quality gate for the spec itself (issue #429) |
 | 16 | 2026-09-18 | fix-diamond-task-dependencies-falsely-rejected-as-circular: Fix diamond task dependencies falsely rejected as circular |
-| 17 | 2026-10-16 | `config set` confirms a `Config::is_secret_key` value with `***` and does not print it. Non-secret keys still print the saved value. Unknown keys still fail without printing the supplied value or writing the file |
+| 17 | 2026-11-10 | mask-recognized-secrets-in-config-set-confirmation: Mask recognized secrets in config set confirmation |
