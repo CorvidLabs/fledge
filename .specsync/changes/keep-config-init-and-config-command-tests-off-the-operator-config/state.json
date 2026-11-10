@@ -7,10 +7,11 @@
   "title": "Keep config-init and config command tests off the operator config",
   "description": "Keep config-init and config command tests off the operator config",
   "kind": "bug_fix",
-  "state": "draft",
+  "state": "verifying",
+  "canonical_applied": true,
   "base_commit": "85d7c4efbca79947afa359504b095c95c486b391",
   "created_at": 1791818050,
-  "updated_at": 1791926109,
+  "updated_at": 1794323605,
   "affected_specs": [
     "config"
   ],

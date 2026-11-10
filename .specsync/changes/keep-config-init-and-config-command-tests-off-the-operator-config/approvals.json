@@ -1,4 +1,46 @@
 {
-  "approvals": [],
+  "approvals": [
+    {
+      "gate": "definition",
+      "actor": "0xLeif",
+      "timestamp": 1794323002,
+      "digest": "a439619690b7c44fa1e6acc52be4bc842e8e5787a45ba2e271128bc5e64539cb",
+      "note": null,
+      "approved_scope": {
+        "schema_version": 1,
+        "change_id": "keep-config-init-and-config-command-tests-off-the-operator-config",
+        "title": "Keep config-init and config command tests off the operator config",
+        "description": "Keep config-init and config command tests off the operator config",
+        "kind": "bug_fix",
+        "affected_specs": [
+          "config"
+        ],
+        "affected_paths": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/trust.yml",
+          "specs/config/context.md",
+          "specs/config/tasks.md",
+          "specs/config/testing.md",
+          "tests/common/mod.rs",
+          "tests/config.rs",
+          "tests/main.rs"
+        ],
+        "no_spec_change": true,
+        "no_spec_change_rationale": "The config path contract is unchanged. FLEDGE_CONFIG_DIR already selects the config file. This change only proves that contract from child processes with a disposable HOME and records the test boundary in companions.",
+        "acceptance_criteria": [
+          "Child config commands use disposable HOME and FLEDGE_CONFIG_DIR and write expected default/preset TOML only in the override directory. On Unix, home sentinels remain unchanged, lost-override init proves the real disposable home write target, and the actual sentinel path guard rejects prefix-matching ParentDir traversal plus sibling/relative paths before any write. Windows does not read known-folder paths and checks the explicit override. Non-directory and existing-file destinations fail without modification. macOS init succeeds under actual network denial; supported loopback stand-ins receive no requests. Config remove must exclude the removed value from both CLI output and persisted override TOML. Config production behavior and spec version13 are unchanged. Root-owned Trust workflow selects latest SpecSync6.1.0; no Wasmtime/dependency/security qualification or human approval is implied."
+        ],
+        "dependencies": [],
+        "supersedes": [],
+        "answers": {
+          "architecture_risk": "no",
+          "constraints": "specs/config/context.md and config.spec.md: FLEDGE_CONFIG_DIR precedence and canonical config version 13 are unchanged. Child environment only; never std::env::set_var or read/write operator config. Unix-only sentinel controls reject ParentDir traversal before writing. Windows known-folder paths remain unread. .github/workflows/ci.yml and .github/workflows/trust.yml are exact delivery metadata owned by the coordinator and select SpecSync 6.1.0; they have no canonical module owner and do not change production config, dependency policy, the exact existing Trust 1.2.1 pin or the separate Wasmtime security work. Draft definition approval and implementation acceptance remain absent.",
+          "public_contract": "no"
+        }
+      },
+      "approved_delta_digests": {},
+      "approved_delta_bases": {}
+    }
+  ],
   "reopenings": []
 }

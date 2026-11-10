@@ -1,6 +1,6 @@
 ---
 id: keep-config-init-and-config-command-tests-off-the-operator-config
-state: draft
+state: implementing
 type: bug_fix
 base_commit: 85d7c4efbca79947afa359504b095c95c486b391
 ---
