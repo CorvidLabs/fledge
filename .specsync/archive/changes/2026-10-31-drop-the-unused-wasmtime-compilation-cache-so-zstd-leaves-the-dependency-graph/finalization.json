@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "change_id": "drop-the-unused-wasmtime-compilation-cache-so-zstd-leaves-the-dependency-graph",
+  "implementation_commit": "0f06f522a18f45cba1d679134d8ed0ccd0cdeebb",
+  "implementation_tree": "b38ae50b4194b6153b2ba37881c791e5e2173749",
+  "contract_digest": "fa430f8c54a25cc5158e62daf7689173eef30ed16f3d2ca699a5d46ce9dfe0e8",
+  "workspace_digest": "e76b07e61be8cd899ffecb6c04c390f54085645cb24739b4c10ef40cebc2d372",
+  "closing_digest": "c08c347aac7acb2e82b3162d8efb2196bf762e1b58f8da7caac5d7249e40e2e9",
+  "review_digest": "baf5c516946ddad21c022410f84abe7700bab76bcc2e36b20962c005d753ed29",
+  "finalization_digest": "8f900f544efa7b026439d1d756e52c767941e44860bd3ffcda3fc58dcd7f6835",
+  "timestamp": 1793456046
+}

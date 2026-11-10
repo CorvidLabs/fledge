@@ -1,26 +1,33 @@
 # Fledge 1.8.1 release closeout
 
-Status: draft preparation against main `85d7c4efbca79947afa359504b095c95c486b391`. This branch changes only documentation and its new draft lifecycle record.
+Status: draft preparation, rebased onto main after the security upgrade. This branch changes only documentation and its lifecycle record. No release, tag, merge, registry publication or deployment is authorized by this handoff; cutting 1.8.1 is Leif's call.
 
-## Mandatory security dependency
+## Security dependency: resolved
 
-Release is held on [PR #538](https://github.com/CorvidLabs/fledge/pull/538). Main still declares the old Wasmtime 46 dependency and Rust 1.89 floor. This PR neither duplicates the upgrade nor claims its Wasmtime 49/Rust-floor work is merged. #538 needs its real owner definition/implementation reviews, native lifecycle completion and security/native checks before integration. Rebase this preparation after that integration and reread the final Rust floor and target compatibility.
+The release hold is cleared. #538 upgraded wasmtime/wasmtime-wasi 46.0.3 to 49.0.1 (locked at 49.0.3), clearing RUSTSEC-2026-0316 and RUSTSEC-2026-0314, and #543 dropped wasmtime's unused compilation-cache feature so zstd left the dependency graph, clearing RUSTSEC-2026-0391, RUSTSEC-2026-0398 and RUSTSEC-2026-0403. The hosted `audit` job is green on main. Building from source now needs Rust 1.96+ (wasmtime 49's floor).
+
+One residual process note: #538's native change (`upgrade-wasmtime-past-rustsec-2026-0316-and-rustsec-2026-0314`) still sits as an active draft in `.specsync/changes/` on main; its archive evidence was never finalized. Closing that record is a bookkeeping task, not a code gate.
+
+## Contents of 1.8.1
+
+Everything in the changelog's v1.8.1 section, which is main plus this documentation. Since the 1.8.0 crates.io cut, that adds #531, #533, #534, #535, #538, #543, and:
+
+- #541 — `config set` masks recognized secrets in its confirmation (`***` instead of the value; the value is still saved). Security fix.
+- #540 — config init/command tests are isolated from the operator's HOME and config. Test fix; no production behavior change.
 
 ## Candidate and version surfaces
 
-Cargo.toml and flake.nix already agree at 1.8.1. Preserve that version while qualifying one eventual main-derived source. Published GitHub binaries and Homebrew are 1.7.2; crates.io currently serves 1.8.0. A previous green GitHub release is not evidence those channels converged. The existing changelog describes the merged hook/task-graph fixes and publishing support; it now marks 1.8.1 as unreleased instead of implying a completed dated release.
-
-Open PRs #539 (channel documentation), #540 (isolated config tests), and #541 (secret masking) are not included in this branch. The owner must select them explicitly after #538 qualification; their own reviews/lifecycles remain separate. Rerun candidate qualification after any selected implementation changes.
+Cargo.toml, Cargo.lock and flake.nix agree at 1.8.1. crates.io serves 1.8.0; GitHub releases and Homebrew serve 1.7.2. A previous green GitHub release is not evidence those channels converged.
 
 ## Ordered closeout
 
-- [ ] Finish and integrate #538 without bypassing reviews, audit or native lifecycle.
-- [ ] Select the remaining release contents explicitly and rebase this handoff onto the reviewed source.
-- [ ] Confirm Cargo.lock package version, Cargo.toml, flake.nix, changelog and candidate binary identity all agree at 1.8.1.
-- [ ] Run native pre-commit, verify-native, required template validation, security audit, Trust and release/platform qualification on the exact final source. Current documentation checks do not qualify the pending security implementation.
-- [ ] Complete real owner review and native finalization before merge.
+- [x] Integrate the Wasmtime security upgrade (#538) and the zstd cleanup (#543) with a green hosted audit.
+- [x] Select the remaining release contents explicitly (#540, #541 merged after their own lifecycle and hosted checks).
+- [ ] Confirm Cargo.lock package version, Cargo.toml, flake.nix, changelog and candidate binary identity all agree at 1.8.1 on the exact final source.
+- [ ] Run native pre-commit, verify-native, required template validation, security audit, Trust and release/platform qualification on the exact final source.
+- [ ] Complete real owner review of this handoff.
 - [ ] Separately authorize the v1.8.1 tag. A v* push triggers Release: tests, five platform builds, GitHub assets/checksums and crates.io publication. It is not a documentation-only operation.
 - [ ] Read crates.io back at 1.8.1; a successful cargo publish exit alone is insufficient.
 - [ ] Observe Post-Release Formula Update using real uploaded checksums; verify Homebrew and GitHub/crates versions converge. No formula checksum can be filled before assets exist.
 
-No dependencies, runtime source, release workflows, tags, package registries or Homebrew files are modified by this preparation. No release, merge, publication or deployment is authorized by this handoff.
+No dependencies, runtime source, release workflows, tags, package registries or Homebrew files are modified by this preparation.

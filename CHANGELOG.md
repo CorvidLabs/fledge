@@ -7,12 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.8.1] - Unreleased
 
-> **Release status.** crates.io currently serves 1.8.0 while this tree prepares 1.8.1 from main. The current preparation branch still has the old dependency baseline. Release is held on the separately reviewed Wasmtime security upgrade in #538; it is not included here.
+> **About 1.8.0.** fledge 1.8.0 was published to crates.io on 2026-09-19 from `435b7c5`, a release-branch commit that never reached `main`. 1.8.1 is that release cut from `main`. Everything below shipped in 1.8.0 except #531, #533, #534, #535 and #538. The binary differs in two ways: the `corvid-stack` template's Trust pin is 1.2.1 here, not 1.2.0 (#533), and the plugin sandbox runs on wasmtime 49.0.1, not 46.0.3 (#538). Apart from the wasmtime family, dependencies are unchanged from 1.8.0.
 
-### Release qualification
-
-- Prepare one reviewed 1.8.1 source for GitHub binaries, crates.io and Homebrew. GitHub/Homebrew currently serve 1.7.2 while crates.io serves the off-main 1.8.0; none of those publication steps is performed by this preparation. See [the closeout handoff](docs/RELEASE-1.8.1.md).
-- Require #538 to merge and pass its security and native gates before cutting 1.8.1. Open #539–541 are not silently included.
+> **Release status.** crates.io serves 1.8.0; GitHub releases and Homebrew serve 1.7.2. This tree prepares 1.8.1 from main. The Wasmtime security upgrade is merged (#538, plus the zstd-advisory cleanup in #543) and the hosted dependency audit is green. The config secret-masking fix (#541) and the config test-isolation fix (#540) are included. No publication step is performed by this preparation; see [the closeout handoff](docs/RELEASE-1.8.1.md).
 
 ### CI
 
@@ -61,6 +58,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Refactoring
 
 - name the two remaining --json schema literals (#444) (#503) (6eb7a3e)
+
+### Security
+
+- upgrade wasmtime and wasmtime-wasi 46.0.3 to 49.0.1, clearing RUSTSEC-2026-0316 and RUSTSEC-2026-0314 (#538)
+  - RUSTSEC-2026-0316 ([GHSA-jqpg-j7w6-42pr](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-jqpg-j7w6-42pr)): dynamic record lifting can allocate beyond the hostcall fuel limit. RUSTSEC-2026-0314 ([GHSA-j2g9-4prp-pf6h](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-j2g9-4prp-pf6h)): a guest can panic the host through a filesystem datetime overflow. Both are in the wasmtime that sandboxes WASM plugins. Neither looks reachable from fledge's host, which runs core modules over WASI preview 1 only: the first is in the component-model `Val` API, which fledge never uses, and preview 1 splits every timestamp into whole seconds plus under a second of nanoseconds, so the overflow cannot form (a preview 1 guest passing extreme timestamps to 46.0.3 returned normally rather than panicking). The upgrade ships anyway: the plugin runtime is a security boundary, and `cargo audit` gates CI.
+  - The sandbox grants are unchanged: `/project` read-only, `/plugin` read-write, 256 MB memory, 10 billion fuel, 60 seconds of wall clock. wasmtime-wasi 49 replaced `DirPerms`/`FilePerms` with `FsPerms` and turned TCP and UDP off by default, so a plugin granted `network` now has both switched back on explicitly. New tests pin the read-only and read-write grants, `..` confinement and the memory cap.
+  - The WebAssembly feature set plugins see is unchanged too. wasmtime 47 turned the GC, exception-handling and typed function references proposals on by default, and wasmtime 49 added wide arithmetic. fledge now turns all four off, as wasmtime 46.0.3 had them; no plugin that ran on 1.8.0 can use them. RUSTSEC-2026-0315 (fuel dropped across `call_ref` and exception `catch`, fixed in 49.0.1) shows the surface they add. A test pins the feature set.
+  - An installed WASM plugin's cached `.cwasm` is recompiled once, on its first run after the upgrade.
+  - fledge now declares the `windows-sys` `Win32_Security` feature that its Windows job-object code (`CreateJobObjectW`) needs. Until now that feature arrived only through wasmtime-wasi 46's `cap-std`. The upgrade removed `cap-std`, which would have broken the Windows build, and `--no-default-features` builds on Windows already lacked the feature.
+  - Building fledge from source now needs Rust 1.96 or newer, wasmtime 49's minimum (wasmtime 46 needed 1.94).
 
 ### Tests
 
