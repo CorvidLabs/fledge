@@ -128,6 +128,26 @@ fn update_one_plugin(
     json: bool,
 ) -> Result<serde_json::Value> {
     let plugin_dir = plugins_dir().join(&entry.name);
+    if let Some(early) = early_skip_result(entry, &plugin_dir, json) {
+        return Ok(early);
+    }
+
+    if let Some(ref pinned) = entry.pinned_ref {
+        update_pinned_plugin(entry, &plugin_dir, pinned, defaults, json)
+    } else {
+        pull_and_rebuild(entry, &plugin_dir, json)
+    }
+}
+
+/// The three cases where an update cannot run: the install directory is gone,
+/// the plugin is local (live-linked), or it is workspace-managed with no git
+/// metadata. Returns the result record for those cases, or `None` when the
+/// update should proceed.
+fn early_skip_result(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    json: bool,
+) -> Option<serde_json::Value> {
     if !plugin_dir.exists() {
         if !json {
             println!(
@@ -137,7 +157,7 @@ fn update_one_plugin(
                 style(format!("fledge plugin install {} --force", entry.source)).cyan()
             );
         }
-        return Ok(serde_json::json!({
+        return Some(serde_json::json!({
             "name": entry.name,
             "status": "failed",
             "detail": "directory missing — reinstall required",
@@ -152,7 +172,7 @@ fn update_one_plugin(
                 style(&entry.name).cyan()
             );
         }
-        return Ok(serde_json::json!({
+        return Some(serde_json::json!({
             "name": entry.name,
             "status": "skipped",
             "detail": "local plugin — reinstall to refresh copied installs; live-linked installs use the source directory directly",
@@ -164,7 +184,7 @@ fn update_one_plugin(
     // init step. Skipping them silently keeps `plugins update` quiet
     // instead of warning about a git pull that was never going to work.
     // (Issue #382)
-    if !is_git_repo(&plugin_dir) {
+    if !is_git_repo(plugin_dir) {
         if !json {
             println!(
                 "  {} {} — workspace-managed (no .git), skipped",
@@ -172,153 +192,186 @@ fn update_one_plugin(
                 style(&entry.name).cyan()
             );
         }
-        return Ok(serde_json::json!({
+        return Some(serde_json::json!({
             "name": entry.name,
             "status": "skipped",
             "detail": "workspace-managed plugin (no .git in install dir) — managed by host project's init step",
         }));
     }
 
-    if let Some(ref pinned) = entry.pinned_ref {
-        let latest = find_latest_tag(&plugin_dir, &entry.source);
-        match latest {
-            Some(ref tag) if tag != pinned => {
-                if defaults {
-                    let sp = if json {
-                        None
-                    } else {
-                        Some(crate::spinner::Spinner::start(&format!(
-                            "Upgrading {} {} → {}:",
-                            entry.name, pinned, tag
-                        )))
-                    };
+    None
+}
 
-                    if tag.starts_with('-') {
-                        bail!(
-                            "Invalid git tag '{}': references cannot start with a hyphen.",
-                            tag
-                        );
-                    }
-                    let checkout = Command::new("git")
-                        .args(["checkout", tag])
-                        .current_dir(&plugin_dir)
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::piped())
-                        .status()
-                        .with_context(|| format!("checking out {} for {}", tag, entry.name))?;
-
-                    if let Some(s) = sp {
-                        s.finish();
-                    }
-
-                    if !checkout.success() {
-                        if !json {
-                            println!(
-                                "  {} {} — failed to checkout {}, try:\n    {}",
-                                style("⚠️").yellow(),
-                                style(&entry.name).yellow(),
-                                style(tag).dim(),
-                                style(format!(
-                                    "fledge plugin install {}@{} --force",
-                                    entry.source, tag
-                                ))
-                                .cyan()
-                            );
-                        }
-                        return Ok(serde_json::json!({
-                            "name": entry.name,
-                            "status": "failed",
-                            "detail": format!("git checkout {tag} failed — reinstall required"),
-                        }));
-                    }
-
-                    rebuild_after_fetch(entry, &plugin_dir, Some(tag), json)
-                } else {
-                    if !json {
-                        println!(
-                            "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
-                            style("*").cyan().bold(),
-                            style(&entry.name).cyan(),
-                            style(pinned).dim(),
-                            style(tag).green(),
-                            style(format!(
-                                "fledge plugin install {}@{} --force",
-                                entry.source, tag
-                            ))
-                            .cyan()
-                        );
-                    }
-                    Ok(serde_json::json!({
-                        "name": entry.name,
-                        "status": "skipped",
-                        "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
-                        "pinned_ref": pinned,
-                        "latest_tag": tag,
-                    }))
+/// The pinned-ref path: `--defaults` upgrades a pinned plugin to its latest
+/// tag; a bare `plugins update <name>` only reports the available tag.
+fn update_pinned_plugin(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    pinned: &str,
+    defaults: bool,
+    json: bool,
+) -> Result<serde_json::Value> {
+    let latest = find_latest_tag(plugin_dir, &entry.source);
+    match latest {
+        Some(ref tag) if tag != pinned => {
+            if defaults {
+                if let Some(failed) = checkout_latest_tag(entry, plugin_dir, pinned, tag, json)? {
+                    return Ok(failed);
                 }
-            }
-            _ => {
+                rebuild_after_fetch(entry, plugin_dir, Some(tag), json)
+            } else {
                 if !json {
                     println!(
-                        "  {} {} — pinned to {}, already up to date.",
-                        style("✅").green().bold(),
-                        style(&entry.name).green(),
-                        style(pinned).dim()
+                        "  {} {} — pinned to {}, latest tag is {}. To upgrade:\n    {}",
+                        style("*").cyan().bold(),
+                        style(&entry.name).cyan(),
+                        style(pinned).dim(),
+                        style(tag).green(),
+                        style(format!(
+                            "fledge plugin install {}@{} --force",
+                            entry.source, tag
+                        ))
+                        .cyan()
                     );
                 }
                 Ok(serde_json::json!({
                     "name": entry.name,
                     "status": "skipped",
-                    "detail": format!("pinned to {pinned}, already up to date"),
+                    "detail": format!("pinned to {pinned}, latest tag is {tag} — reinstall to upgrade"),
                     "pinned_ref": pinned,
+                    "latest_tag": tag,
                 }))
             }
         }
-    } else {
-        let sp = if json {
-            None
-        } else {
-            Some(crate::spinner::Spinner::start(&format!(
-                "Updating {}:",
-                entry.name
-            )))
-        };
-
-        let mut cmd = Command::new("git");
-        cmd.args(["pull", "--ff-only"])
-            .current_dir(&plugin_dir)
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::piped());
-        if is_github_source(&entry.source) {
-            apply_git_auth(&mut cmd);
-        }
-
-        let status = cmd
-            .status()
-            .with_context(|| format!("updating {}", entry.name))?;
-
-        if let Some(s) = sp {
-            s.finish();
-        }
-
-        if !status.success() {
+        _ => {
             if !json {
                 println!(
-                    "  {} {} — git pull failed, try reinstalling with {}",
-                    style("⚠️").yellow(),
-                    style(&entry.name).yellow(),
-                    style(format!("fledge plugin install {} --force", entry.source)).cyan()
+                    "  {} {} — pinned to {}, already up to date.",
+                    style("✅").green().bold(),
+                    style(&entry.name).green(),
+                    style(pinned).dim()
                 );
             }
-            return Ok(serde_json::json!({
+            Ok(serde_json::json!({
                 "name": entry.name,
-                "status": "failed",
-                "detail": "git pull failed — reinstall required",
-            }));
+                "status": "skipped",
+                "detail": format!("pinned to {pinned}, already up to date"),
+                "pinned_ref": pinned,
+            }))
         }
-
-        rebuild_after_fetch(entry, &plugin_dir, None, json)
     }
+}
+
+/// Check out the latest tag for a pinned-default upgrade. Returns `Some` with
+/// the failure result record when the checkout fails (the update run
+/// continues), `None` on success so the caller can proceed to the rebuild.
+fn checkout_latest_tag(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    pinned: &str,
+    tag: &str,
+    json: bool,
+) -> Result<Option<serde_json::Value>> {
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Upgrading {} {} → {}:",
+            entry.name, pinned, tag
+        )))
+    };
+
+    if tag.starts_with('-') {
+        bail!(
+            "Invalid git tag '{}': references cannot start with a hyphen.",
+            tag
+        );
+    }
+    let checkout = Command::new("git")
+        .args(["checkout", tag])
+        .current_dir(plugin_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .status()
+        .with_context(|| format!("checking out {} for {}", tag, entry.name))?;
+
+    if let Some(s) = sp {
+        s.finish();
+    }
+
+    if !checkout.success() {
+        if !json {
+            println!(
+                "  {} {} — failed to checkout {}, try:\n    {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(tag).dim(),
+                style(format!(
+                    "fledge plugin install {}@{} --force",
+                    entry.source, tag
+                ))
+                .cyan()
+            );
+        }
+        return Ok(Some(serde_json::json!({
+            "name": entry.name,
+            "status": "failed",
+            "detail": format!("git checkout {tag} failed — reinstall required"),
+        })));
+    }
+    Ok(None)
+}
+
+/// The unpinned path: a plain `git pull --ff-only`, then the rebuild. A failed
+/// pull returns the failure result record so the update run continues.
+fn pull_and_rebuild(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    json: bool,
+) -> Result<serde_json::Value> {
+    let sp = if json {
+        None
+    } else {
+        Some(crate::spinner::Spinner::start(&format!(
+            "Updating {}:",
+            entry.name
+        )))
+    };
+
+    let mut cmd = Command::new("git");
+    cmd.args(["pull", "--ff-only"])
+        .current_dir(plugin_dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped());
+    if is_github_source(&entry.source) {
+        apply_git_auth(&mut cmd);
+    }
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("updating {}", entry.name))?;
+
+    if let Some(s) = sp {
+        s.finish();
+    }
+
+    if !status.success() {
+        if !json {
+            println!(
+                "  {} {} — git pull failed, try reinstalling with {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(format!("fledge plugin install {} --force", entry.source)).cyan()
+            );
+        }
+        return Ok(serde_json::json!({
+            "name": entry.name,
+            "status": "failed",
+            "detail": "git pull failed — reinstall required",
+        }));
+    }
+
+    rebuild_after_fetch(entry, plugin_dir, None, json)
 }
 
 /// Build the `plugins update` result envelope: attaches per-status summary
@@ -431,116 +484,161 @@ fn rebuild_after_fetch(
 
     let delta = CapabilityDelta::compute(entry.capabilities.as_ref(), &manifest.capabilities);
 
-    if delta.has_new_caps() {
-        // An update must not silently escalate a plugin past its source's trust
-        // tier. Re-run the same gate `install` applies (exec/network are
-        // forbidden for unverified sources), scoped to the *newly added*
-        // dangerous caps so a plugin whose caps are unchanged still updates.
-        let tier = determine_trust_tier(&entry.source);
-        if let Err(blocked) = check_tier_capabilities(tier, &delta.escalated_dangerous()) {
-            if !json {
-                println!(
-                    "  {} {} — update requests {} but the source is unverified; refusing to grant.\n    {}",
-                    style("⚠️").yellow(),
-                    style(&entry.name).yellow(),
-                    style(blocked.join(", ")).yellow(),
-                    style("Only official and team-tier plugins may use exec or network.").dim()
-                );
-            }
-            return Ok(serde_json::json!({
-                "name": entry.name,
-                "status": "failed",
-                "detail": format!(
-                    "update adds {} capability which unverified plugins may not use — reinstall from a trusted source or fork it under an account you control",
-                    blocked.join(", ")
-                ),
-            }));
-        }
-
-        // Show the requested capabilities before prompting. In --json mode this
-        // goes to stderr so stdout stays a clean JSON document, but an
-        // interactive operator still sees exactly what they are being asked to
-        // grant (the dialoguer confirm below also renders on stderr). Without
-        // this, `--json` on a TTY would prompt to grant caps it never showed.
-        // (Gemini review #437)
-        let mut cap_lines = vec![format!(
-            "\n  {} {} v{} requests new capabilities:",
-            style("!").yellow().bold(),
-            style(&entry.name).cyan(),
-            manifest.plugin.version
-        )];
-        if delta.added_exec {
-            cap_lines.push(format!(
-                "    {} exec — run shell commands",
-                style("+").yellow()
-            ));
-        }
-        if delta.added_store {
-            cap_lines.push(format!(
-                "    {} store — persist data between runs",
-                style("+").yellow()
-            ));
-        }
-        if delta.added_metadata {
-            cap_lines.push(format!(
-                "    {} metadata — read project metadata and environment",
-                style("+").yellow()
-            ));
-        }
-        if delta.added_filesystem {
-            match delta.new_filesystem.as_deref() {
-                Some("project") => cap_lines.push(format!(
-                    "    {} filesystem (project) — read-only access to project directory",
-                    style("+").yellow()
-                )),
-                Some("plugin") => cap_lines.push(format!(
-                    "    {} filesystem (plugin) — read-only project access + read-write plugin data",
-                    style("+").yellow()
-                )),
-                Some(other) => cap_lines.push(format!(
-                    "    {} filesystem ({}) — access host files",
-                    style("+").yellow(),
-                    other
-                )),
-                None => {}
-            }
-        }
-        if delta.added_network {
-            cap_lines.push(format!(
-                "    {} network — make outbound network requests (unrestricted)",
-                style("+").yellow()
-            ));
-        }
-        let cap_summary = cap_lines.join("\n");
-        if json {
-            eprintln!("{cap_summary}\n");
-        } else {
-            println!("{cap_summary}\n");
-        }
-
-        if !crate::utils::is_interactive() {
-            return Ok(serde_json::json!({
-                "name": entry.name,
-                "status": "failed",
-                "detail": "update adds new capabilities — rerun interactively or reinstall with --force",
-            }));
-        }
-
-        let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .with_prompt("Grant new capabilities?")
-            .default(false)
-            .interact()?;
-        if !confirm {
-            return Ok(serde_json::json!({
-                "name": entry.name,
-                "status": "skipped",
-                "detail": "new capabilities declined by user",
-            }));
-        }
+    if let Some(stop) = gate_capability_escalation(entry, &manifest, &delta, json)? {
+        return Ok(stop);
     }
 
     run_build(plugin_dir, &manifest)?;
 
+    relink_commands(entry, plugin_dir, &manifest)?;
+
+    let new_cmds = record_update(entry, &manifest, new_pinned_ref)?;
+
+    if !json {
+        print_update_success(entry, &manifest, new_pinned_ref);
+    }
+
+    Ok(update_result(entry, &manifest, new_pinned_ref, new_cmds))
+}
+
+/// The capability-escalation gate for a freshly fetched manifest. Returns
+/// `Some` with a result record when the update must stop (tier-gated
+/// escalation refused, non-interactive prompt impossible, or user declined);
+/// `None` when the rebuild may proceed.
+fn gate_capability_escalation(
+    entry: &super::PluginEntry,
+    manifest: &PluginManifest,
+    delta: &CapabilityDelta,
+    json: bool,
+) -> Result<Option<serde_json::Value>> {
+    if !delta.has_new_caps() {
+        return Ok(None);
+    }
+
+    // An update must not silently escalate a plugin past its source's trust
+    // tier. Re-run the same gate `install` applies (exec/network are
+    // forbidden for unverified sources), scoped to the *newly added*
+    // dangerous caps so a plugin whose caps are unchanged still updates.
+    let tier = determine_trust_tier(&entry.source);
+    if let Err(blocked) = check_tier_capabilities(tier, &delta.escalated_dangerous()) {
+        if !json {
+            println!(
+                "  {} {} — update requests {} but the source is unverified; refusing to grant.\n    {}",
+                style("⚠️").yellow(),
+                style(&entry.name).yellow(),
+                style(blocked.join(", ")).yellow(),
+                style("Only official and team-tier plugins may use exec or network.").dim()
+            );
+        }
+        return Ok(Some(serde_json::json!({
+            "name": entry.name,
+            "status": "failed",
+            "detail": format!(
+                "update adds {} capability which unverified plugins may not use — reinstall from a trusted source or fork it under an account you control",
+                blocked.join(", ")
+            ),
+        })));
+    }
+
+    // Show the requested capabilities before prompting. In --json mode this
+    // goes to stderr so stdout stays a clean JSON document, but an
+    // interactive operator still sees exactly what they are being asked to
+    // grant (the dialoguer confirm below also renders on stderr). Without
+    // this, `--json` on a TTY would prompt to grant caps it never showed.
+    // (Gemini review #437)
+    let cap_summary = format_new_caps_summary(entry, manifest, delta);
+    if json {
+        eprintln!("{cap_summary}\n");
+    } else {
+        println!("{cap_summary}\n");
+    }
+
+    if !crate::utils::is_interactive() {
+        return Ok(Some(serde_json::json!({
+            "name": entry.name,
+            "status": "failed",
+            "detail": "update adds new capabilities — rerun interactively or reinstall with --force",
+        })));
+    }
+
+    let confirm = dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+        .with_prompt("Grant new capabilities?")
+        .default(false)
+        .interact()?;
+    if !confirm {
+        return Ok(Some(serde_json::json!({
+            "name": entry.name,
+            "status": "skipped",
+            "detail": "new capabilities declined by user",
+        })));
+    }
+    Ok(None)
+}
+
+/// Render the "requests new capabilities" summary shown before the grant
+/// prompt.
+fn format_new_caps_summary(
+    entry: &super::PluginEntry,
+    manifest: &PluginManifest,
+    delta: &CapabilityDelta,
+) -> String {
+    let mut cap_lines = vec![format!(
+        "\n  {} {} v{} requests new capabilities:",
+        style("!").yellow().bold(),
+        style(&entry.name).cyan(),
+        manifest.plugin.version
+    )];
+    if delta.added_exec {
+        cap_lines.push(format!(
+            "    {} exec — run shell commands",
+            style("+").yellow()
+        ));
+    }
+    if delta.added_store {
+        cap_lines.push(format!(
+            "    {} store — persist data between runs",
+            style("+").yellow()
+        ));
+    }
+    if delta.added_metadata {
+        cap_lines.push(format!(
+            "    {} metadata — read project metadata and environment",
+            style("+").yellow()
+        ));
+    }
+    if delta.added_filesystem {
+        match delta.new_filesystem.as_deref() {
+            Some("project") => cap_lines.push(format!(
+                "    {} filesystem (project) — read-only access to project directory",
+                style("+").yellow()
+            )),
+            Some("plugin") => cap_lines.push(format!(
+                "    {} filesystem (plugin) — read-only project access + read-write plugin data",
+                style("+").yellow()
+            )),
+            Some(other) => cap_lines.push(format!(
+                "    {} filesystem ({}) — access host files",
+                style("+").yellow(),
+                other
+            )),
+            None => {}
+        }
+    }
+    if delta.added_network {
+        cap_lines.push(format!(
+            "    {} network — make outbound network requests (unrestricted)",
+            style("+").yellow()
+        ));
+    }
+    cap_lines.join("\n")
+}
+
+/// Remove the old command symlinks and link the freshly built commands.
+fn relink_commands(
+    entry: &super::PluginEntry,
+    plugin_dir: &Path,
+    manifest: &PluginManifest,
+) -> Result<()> {
     let bin_dir = plugin_bin_dir();
     for old_cmd in &entry.commands {
         let old_link = bin_dir.join(format!("fledge-{old_cmd}"));
@@ -548,8 +646,18 @@ fn rebuild_after_fetch(
             fs::remove_file(&old_link).ok();
         }
     }
-    link_commands(plugin_dir, &bin_dir, &manifest)?;
+    link_commands(plugin_dir, &bin_dir, manifest)?;
+    Ok(())
+}
 
+/// Persist the updated version, commands, capabilities and (for pinned
+/// upgrades) the new pinned ref into the registry. Returns the new command
+/// names for the result record.
+fn record_update(
+    entry: &super::PluginEntry,
+    manifest: &PluginManifest,
+    new_pinned_ref: Option<&str>,
+) -> Result<Vec<String>> {
     let granted_caps = if manifest.plugin.protocol.is_some() {
         Some(manifest.capabilities.clone())
     } else {
@@ -567,28 +675,43 @@ fn rebuild_after_fetch(
         }
     }
     save_registry(&reg)?;
+    Ok(new_cmds)
+}
 
-    if !json {
-        if let Some(ref_tag) = new_pinned_ref {
-            let old_ref = entry.pinned_ref.as_deref().unwrap_or("?");
-            println!(
-                "  {} {} {} → {} (v{})",
-                style("✅").green().bold(),
-                style(&entry.name).green(),
-                style(old_ref).dim(),
-                style(ref_tag).green(),
-                manifest.plugin.version
-            );
-        } else {
-            println!(
-                "  {} {} → v{}",
-                style("✅").green().bold(),
-                style(&entry.name).green(),
-                manifest.plugin.version
-            );
-        }
+/// Print the post-update success line. Caller gates on `!json`.
+fn print_update_success(
+    entry: &super::PluginEntry,
+    manifest: &PluginManifest,
+    new_pinned_ref: Option<&str>,
+) {
+    if let Some(ref_tag) = new_pinned_ref {
+        let old_ref = entry.pinned_ref.as_deref().unwrap_or("?");
+        println!(
+            "  {} {} {} → {} (v{})",
+            style("✅").green().bold(),
+            style(&entry.name).green(),
+            style(old_ref).dim(),
+            style(ref_tag).green(),
+            manifest.plugin.version
+        );
+    } else {
+        println!(
+            "  {} {} → v{}",
+            style("✅").green().bold(),
+            style(&entry.name).green(),
+            manifest.plugin.version
+        );
     }
+}
 
+/// The result record for a successful update, with the ref transition attached
+/// for pinned upgrades.
+fn update_result(
+    entry: &super::PluginEntry,
+    manifest: &PluginManifest,
+    new_pinned_ref: Option<&str>,
+    new_cmds: Vec<String>,
+) -> serde_json::Value {
     let mut result = serde_json::json!({
         "name": entry.name,
         "status": "updated",
@@ -599,8 +722,7 @@ fn rebuild_after_fetch(
         result["previous_ref"] = serde_json::json!(entry.pinned_ref);
         result["new_ref"] = serde_json::json!(ref_tag);
     }
-
-    Ok(result)
+    result
 }
 
 /// True when `plugin_dir` is the root of a git working tree. We accept both
