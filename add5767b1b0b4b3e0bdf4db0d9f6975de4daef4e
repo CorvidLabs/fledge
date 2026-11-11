@@ -1,0 +1,1 @@
+{"commit":"add5767b1b0b4b3e0bdf4db0d9f6975de4daef4e","confidence":0.9,"humanApproved":false,"note":"CI: tests + integration + lint + audit + spec-check green","reviewer":"agent:ci","testsPassed":true,"timestamp":1794411338,"verdict":"proceed"}
