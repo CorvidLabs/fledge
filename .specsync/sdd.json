@@ -44,6 +44,11 @@
     "AGENTS.md"
   ],
   "ignored_paths": [],
+  "verification_ignored_paths": [
+    ".chough/sessions/",
+    ".chough/archive/",
+    ".chough/bugs/"
+  ],
   "verification_commands": [
     "fledge lanes run verify-native"
   ],
