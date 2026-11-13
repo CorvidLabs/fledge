@@ -1,0 +1,24 @@
+---
+id: bump-wasmtime-to-49-0-5-to-close-dependabot-alerts-11-and-12-and-four-more-wasmtime-advisories
+state: draft
+type: bug_fix
+base_commit: add5767b1b0b4b3e0bdf4db0d9f6975de4daef4e
+---
+
+# Bump wasmtime to 49.0.5 to close Dependabot alerts 11 and 12 and four more wasmtime advisories
+
+## Intent
+
+Bump wasmtime to 49.0.5 to close Dependabot alerts 11 and 12 and four more wasmtime advisories
+
+## Affected Canonical Specs
+
+- None
+
+## Acceptance Criteria
+
+- Cargo.lock resolves wasmtime, wasmtime-wasi and every wasmtime-environ, wasmtime-wasi-io, wasmtime-internal-*, pulley-* and wiggle* crate to 49.0.5 and every cranelift-* crate to 0.136.5; Cargo.toml requires wasmtime and wasmtime-wasi at 49.0.5 or later so the lock cannot fall back to an affected version; the Cargo.lock diff is only the version and checksum lines of those 32 packages (no package added or removed, no other dependency edge changed); cargo audit on the new Cargo.lock no longer reports RUSTSEC-2026-0378 (Dependabot alert 11), RUSTSEC-2026-0379 (Dependabot alert 12), RUSTSEC-2026-0420, RUSTSEC-2026-0422, RUSTSEC-2026-0423 or RUSTSEC-2026-0424; the wasm plugin tests and the full cargo test --locked suite pass, and cargo clippy --locked --all-targets -- -D warnings and cargo fmt --check are clean.
+
+## No-spec Rationale
+
+Patch-level dependency bump within wasmtime 49. The plugin API, CLI surface, sandbox capabilities and file formats are unchanged. The existing .cwasm cache stamp (derived from the Cargo.toml wasmtime requirement) changes from 49.0.2 to 49.0.5, so cached plugins recompile once under the existing cache-invalidation rule; that rule itself does not change.
