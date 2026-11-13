@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "workflow_version": 2,
+  "workflow_origin_version": 2,
+  "id": "run-cargo-audit-directly-in-the-ci-audit-job",
+  "slug": "run-cargo-audit-directly-in-the-ci-audit-job",
+  "title": "Run cargo-audit directly in the CI audit job",
+  "description": "Run cargo-audit directly in the CI audit job",
+  "kind": "operations",
+  "state": "draft",
+  "base_commit": "add5767b1b0b4b3e0bdf4db0d9f6975de4daef4e",
+  "created_at": 1794583464,
+  "updated_at": 1794583473,
+  "affected_specs": [],
+  "affected_paths": [
+    ".github/workflows/ci.yml"
+  ],
+  "no_spec_change": true,
+  "no_spec_change_rationale": "rustsec/audit-check v2.0.0 turns any unmaintained or unsound warning into a Checks API report whose update returns 404 (Not Found), so the required audit check fails with 0 vulnerabilities (seen on CorvidLabs/fledge#547). Running cargo audit directly keeps the same gate: it fails on vulnerabilities and only prints warnings.",
+  "acceptance_criteria": [
+    "The CI audit job installs cargo-audit and runs cargo audit after cargo generate-lockfile, with no rustsec/audit-check step; the job still fails on any vulnerability advisory; unmaintained, unsound or yanked warnings are printed without failing the job; the job id and name stay audit so the required check and the corvid-pet and attest needs are unchanged"
+  ],
+  "selected_artifacts": [
+    "context",
+    "plan",
+    "testing",
+    "research",
+    "design",
+    "tasks"
+  ],
+  "dependencies": [],
+  "answers": {
+    "architecture_risk": "yes",
+    "public_contract": "no"
+  }
+}
