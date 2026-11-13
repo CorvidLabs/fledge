@@ -13,4 +13,4 @@ artifact: tasks
 - [x] Record `cargo tree -i wasmtime`, the family versions in Cargo.lock and `cargo audit` before and after.
 - [x] Run the wasm plugin tests and `cargo fmt --check`.
 - [x] Run `cargo clippy --locked --all-targets -- -D warnings`.
-- [ ] Run the full `cargo test --locked` suite.
+- [x] Run the full `cargo test --locked` suite.

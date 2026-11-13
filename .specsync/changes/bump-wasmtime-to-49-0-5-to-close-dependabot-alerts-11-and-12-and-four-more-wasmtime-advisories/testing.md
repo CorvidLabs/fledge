@@ -24,3 +24,5 @@ change.
   plugin::tests, plugin::install and plugin::update).
 - `fledge run fmt` (cargo fmt --check): clean.
 - `cargo clippy --locked --all-targets -- -D warnings`: clean.
+- `fledge run test -- --locked` (full suite, run under the shared heavy-tests lock): 13 test binaries, 1319 passed,
+  0 failed, 0 ignored.
