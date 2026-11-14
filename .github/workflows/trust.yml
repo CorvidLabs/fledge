@@ -28,9 +28,11 @@ jobs:
             exit 0
           fi
           set -euo pipefail
-          # Check if libxml2 is already available
-          if ldconfig -p | grep -q libxml2; then
-            echo "libxml2 is already installed"
+          # Check if the exact library the loader needs (libxml2.so.2) is available
+          # `ldconfig -p | grep libxml2` matches any libxml2 entry, but the loader
+          # specifically asks for libxml2.so.2. Use a more precise check.
+          if ldconfig -p 2>/dev/null | grep -qE 'libxml2\.so\.2'; then
+            echo "libxml2.so.2 is already available"
             exit 0
           fi
           echo "Installing libxml2..."
