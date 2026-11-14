@@ -28,28 +28,41 @@ jobs:
             exit 0
           fi
           set -euo pipefail
-          # Check if libxml2.so.2 is available
+          # augur is dynamically linked against libxml2.so.2.
+          # Ubuntu 25.10+ (which ubuntu-latest is migrating to) only provides libxml2.so.16.
+          # The augur binary needs to be rebuilt against libxml2-16 to run on these runners.
+          # Reference: https://github.com/CorvidLabs/augur/issues/57
+          echo "::warning::augur is dynamically linked against libxml2.so.2"
+          echo "::warning::Ubuntu 25.10+ only provides libxml2.so.16"
+          echo "::warning::The augur binary needs to be rebuilt against libxml2-16"
+          echo "::warning::Track progress at https://github.com/CorvidLabs/augur/issues/57"
+          exit 1
+      - name: Install libxml2-16 for compatibility (temporary workaround)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          # This is a temporary workaround. The proper fix is to rebuild augur against libxml2-16.
+          # A symlink from libxml2.so.16 to libxml2.so.2 does not work because the SONAME is
+          # embedded in the binary at compile time.
+          echo "::warning::Temporary workaround: installing libxml2-16"
+          echo "::warning::Note: A symlink won't work because the SONAME is embedded in the binary"
+          echo "::warning::The proper fix is to rebuild augur against libxml2-16"
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::warning::apt-get not found; skipping libxml2 install"
+            exit 0
+          fi
+          set -euo pipefail
+          # Check if libxml2.so.2 is available (old Ubuntu with libxml2.so.2)
           if ldconfig -p 2>/dev/null | grep -qE "libxml2\.so\.2"; then
             echo "libxml2.so.2 is already available"
             exit 0
           fi
-          # Ubuntu 25.10+ and 26.04+ ship libxml2.so.16 instead of libxml2.so.2
-          # The augur binary was compiled against libxml2.so.2 and cannot find it.
-          # Install libxml2-16 to get libxml2.so.16 and create a symlink for compatibility.
-          # Note: A symlink may not work because the SONAME (libxml2.so.2) is embedded in the binary.
-          # If the symlink fails, the augur binary will still fail with the same error.
-          echo "Installing libxml2-16 and attempting symlink for libxml2.so.2 compatibility..."
+          echo "Installing libxml2-16..."
           sudo apt-get update -qq
           sudo apt-get install -y -qq libxml2-16
-          # Try to create symlink - if it fails, the augur binary will still fail
-          # This is a best-effort approach; the proper fix would be to rebuild augur against libxml2-16
-          if sudo ln -sf /usr/lib/x86_64-linux-gnu/libxml2.so.16 /usr/lib/x86_64-linux-gnu/libxml2.so.2 2>/dev/null; then
-            echo "Symlink created successfully. augur may work if it uses dlopen."
-          else
-            echo "Warning: Could not create symlink. augur will likely fail with libxml2.so.2 error."
-            echo "The proper fix is to rebuild augur against libxml2-16 on Ubuntu 25.10+."
-          fi
-          echo "libxml2-16 installed."
+          echo "libxml2-16 installed. augur will likely fail with libxml2.so.2 error."
+          echo "The proper fix is to rebuild augur against libxml2-16 on Ubuntu 25.10+."
+          exit 1
 
       - name: CorvidLabs Trust gate
         id: trust
