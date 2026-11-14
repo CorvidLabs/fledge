@@ -28,17 +28,18 @@ jobs:
             exit 0
           fi
           set -euo pipefail
-          # Check if the exact library the loader needs (libxml2.so.2) is available
-          # `ldconfig -p | grep libxml2` matches any libxml2 entry, but the loader
-          # specifically asks for libxml2.so.2. Use a more precise check.
+          # On Ubuntu 25.10+ and 26.04+, libxml2.so.2 was replaced with libxml2.so.16
+          # Install libxml2-16 and create a symlink so augur can find libxml2.so.2
           if ldconfig -p 2>/dev/null | grep -qE 'libxml2\.so\.2'; then
             echo "libxml2.so.2 is already available"
             exit 0
           fi
-          echo "Installing libxml2..."
+          echo "Installing libxml2-16 and creating symlink for libxml2.so.2 compatibility..."
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libxml2-dev
-          echo "libxml2 installed successfully."
+          sudo apt-get install -y -qq libxml2-16
+          # Create symlink for libxml2.so.2 -> libxml2.so.16
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libxml2.so.16 /usr/lib/x86_64-linux-gnu/libxml2.so.2 2>/dev/null || true
+          echo "libxml2 compatibility set up successfully."
 
       - name: CorvidLabs Trust gate
         id: trust
